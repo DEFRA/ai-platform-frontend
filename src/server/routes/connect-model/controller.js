@@ -23,7 +23,10 @@ const providerSchema = Joi.object({
   provider: Joi.string()
     .valid(...PROVIDERS.map((p) => p.value))
     .required()
-    .messages({ 'any.only': 'Select a provider', 'any.required': 'Select a provider' })
+    .messages({
+      'any.only': 'Select a provider',
+      'any.required': 'Select a provider'
+    })
 })
 
 const selectModelSchema = Joi.object({
@@ -95,7 +98,9 @@ export const connectModelController = {
       handler(request, h) {
         setPendingAccess(request, { provider: request.payload.provider })
 
-        return h.redirect('/connect-model/select-model').code(statusCodes.seeOther)
+        return h
+          .redirect('/connect-model/select-model')
+          .code(statusCodes.seeOther)
       }
     }
   },
@@ -230,7 +235,9 @@ export const connectModelController = {
 
           setIssuedCredential(request, { credential, secret, model })
 
-          return h.redirect('/connect-model/credential').code(statusCodes.seeOther)
+          return h
+            .redirect('/connect-model/credential')
+            .code(statusCodes.seeOther)
         } catch (error) {
           if (error instanceof ApiError) {
             const model = await apiClient(request).get(

@@ -93,9 +93,7 @@ describe('#connectModelController', () => {
     })
 
     expect(statusCode).toBe(302)
-    expect(headers.location).toBe(
-      '/sign-in?returnTo=%2Fconnect-model'
-    )
+    expect(headers.location).toBe('/sign-in?returnTo=%2Fconnect-model')
   })
 
   test('POST /connect-model with no provider selected re-renders the form with errors', async () => {

@@ -30,7 +30,10 @@ describe('#apiClient', () => {
 
   test('post() throws an ApiError with the backend code on a non-2xx response', async () => {
     fetchMock.mockResponseOnce(
-      JSON.stringify({ message: 'Model is not eligible', code: 'model-not-eligible' }),
+      JSON.stringify({
+        message: 'Model is not eligible',
+        code: 'model-not-eligible'
+      }),
       { status: 400 }
     )
 

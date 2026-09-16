@@ -1,7 +1,8 @@
 ---
-description: "Use when writing or updating Vitest test files (*.test.js) in this repo — controllers, plugins, helpers, or Nunjucks component templates. Covers colocation, naming, and Hapi server test setup conventions."
-applyTo: "**/*.test.js"
+description: 'Use when writing or updating Vitest test files (*.test.js) in this repo — controllers, plugins, helpers, or Nunjucks component templates. Covers colocation, naming, and Hapi server test setup conventions.'
+applyTo: '**/*.test.js'
 ---
+
 # Testing Conventions
 
 - Colocate test files next to the file under test (e.g. `controller.js` + `controller.test.js`), not in a separate `__tests__` folder.

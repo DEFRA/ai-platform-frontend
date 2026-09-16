@@ -1,7 +1,8 @@
 ---
 description: "Use when adding a new SCSS partial or GOV.UK Frontend based stylesheet. Covers where to add partials and how they're wired into application.scss."
-applyTo: "src/client/stylesheets/**/*.scss"
+applyTo: 'src/client/stylesheets/**/*.scss'
 ---
+
 # Stylesheet Conventions
 
 - New partials go under the matching folder: layout/structure in `core/`, reusable mixins/functions in `helpers/`, shared markup-adjacent styles in `partials/`, one-off page/component overrides in `components/`, and design tokens in `variables/`.

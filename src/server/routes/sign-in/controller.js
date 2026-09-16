@@ -74,14 +74,18 @@ export const signInController = {
           teamName: team.name
         })
 
-        return h.redirect(returnTo || '/connect-model').code(statusCodes.seeOther)
+        return h
+          .redirect(returnTo || '/connect-model')
+          .code(statusCodes.seeOther)
       } catch (error) {
         if (error instanceof ApiError && error.code === 'domain-not-allowed') {
           return h
             .view(
               'sign-in/index',
               viewModel(request, {
-                errors: { details: [{ message: error.message, path: ['email'] }] },
+                errors: {
+                  details: [{ message: error.message, path: ['email'] }]
+                },
                 values: request.payload
               })
             )
