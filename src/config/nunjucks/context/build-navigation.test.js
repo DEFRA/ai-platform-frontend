@@ -16,6 +16,11 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
+        text: 'Connect to model',
+        href: '/connect-model'
+      },
+      {
+        current: false,
         text: 'About',
         href: '/about'
       }
@@ -28,6 +33,33 @@ describe('#buildNavigation', () => {
         current: true,
         text: 'Home',
         href: '/'
+      },
+      {
+        current: false,
+        text: 'Connect to model',
+        href: '/connect-model'
+      },
+      {
+        current: false,
+        text: 'About',
+        href: '/about'
+      }
+    ])
+  })
+
+  test('Should highlight Connect to model for its sub-routes', () => {
+    expect(
+      buildNavigation(mockRequest({ path: '/connect-model/select-model' }))
+    ).toEqual([
+      {
+        current: false,
+        text: 'Home',
+        href: '/'
+      },
+      {
+        current: true,
+        text: 'Connect to model',
+        href: '/connect-model'
       },
       {
         current: false,

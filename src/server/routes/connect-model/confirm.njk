@@ -1,0 +1,75 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/checkboxes/macro.njk" import govukCheckboxes %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+
+      {% if errorMessage %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: [{ text: errorMessage }]
+        }) }}
+      {% endif %}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Provider" },
+            value: { text: model.provider }
+          },
+          {
+            key: { text: "Model" },
+            value: { text: model.displayName }
+          },
+          {
+            key: { text: "Tier" },
+            value: { text: "Research (free trial)" }
+          },
+          {
+            key: { text: "Rate limit" },
+            value: { text: model.limits.requestsPerMinute ~ " requests per minute" }
+          }
+        ]
+      }) }}
+
+      {{ govukWarningText({
+        text: "Research tier credentials are for development use only and expire after a short, fixed period.",
+        iconFallbackText: "Warning"
+      }) }}
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukCheckboxes({
+          idPrefix: "agreeToTerms",
+          name: "agreeToTerms",
+          errorMessage: fieldErrors.agreeToTerms,
+          items: [
+            {
+              value: "true",
+              text: "I agree to the acceptable use terms"
+            }
+          ]
+        }) }}
+
+        {{ govukButton({ text: "Confirm and get connection details" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

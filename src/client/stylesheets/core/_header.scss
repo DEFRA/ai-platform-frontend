@@ -5,3 +5,16 @@
 .app-header {
   border-bottom-color: $app-light-grey;
 }
+
+.app-sign-in-out {
+  margin-left: auto;
+}
+
+.app-sign-in-out__button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+

@@ -214,6 +214,18 @@ export const config = convict({
       default: 'x-cdp-request-id',
       env: 'TRACING_HEADER'
     }
+  },
+  apiBaseUrl: {
+    doc: 'Base URL of the ai-platform-backend-api service',
+    format: String,
+    default: 'http://localhost:3001',
+    env: 'API_BASE_URL'
+  },
+  allowedEmailDomains: {
+    doc: 'Comma-separated list of email domains allowed to sign in',
+    format: String,
+    default: 'defra.gov.uk',
+    env: 'ALLOWED_EMAIL_DOMAINS'
   }
 })
 

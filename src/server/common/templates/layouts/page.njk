@@ -9,6 +9,21 @@
 
 {% set mainClasses = "app-main-wrapper" %}
 
+{% set navigationEndHtml %}
+  <li class="govuk-service-navigation__item app-sign-in-out">
+    {% if signedInUser %}
+      <form method="post" action="/sign-out">
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        <button type="submit" class="govuk-service-navigation__link app-sign-in-out__button">
+          Sign out ({{ signedInUser.displayName }})
+        </button>
+      </form>
+    {% else %}
+      <a class="govuk-service-navigation__link" href="/sign-in">Sign in</a>
+    {% endif %}
+  </li>
+{% endset %}
+
 {% block headIcons %}
   <link rel="icon" sizes="48x48" href="{{ getAssetPath("node_modules/govuk-frontend/dist/govuk/assets/images/favicon.ico") }}">
   <link rel="icon" sizes="any" href="{{ getAssetPath("node_modules/govuk-frontend/dist/govuk/assets/images/favicon.svg") }}" type="image/svg+xml" >
@@ -33,7 +48,10 @@
   }) }}
 
   {{ govukServiceNavigation({
-    navigation: navigation
+    navigation: navigation,
+    slots: {
+      navigationEnd: navigationEndHtml
+    }
   }) }}
 {% endblock %}
 
