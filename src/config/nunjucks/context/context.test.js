@@ -67,6 +67,11 @@ describe('context and cache', () => {
             },
             {
               current: false,
+              text: 'Connect to model',
+              href: '/connect-model'
+            },
+            {
+              current: false,
               text: 'About',
               href: '/about'
             }
@@ -153,6 +158,11 @@ describe('context and cache', () => {
               current: true,
               text: 'Home',
               href: '/'
+            },
+            {
+              current: false,
+              text: 'Connect to model',
+              href: '/connect-model'
             },
             {
               current: false,

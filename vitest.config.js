@@ -5,6 +5,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     clearMocks: true,
+    // First-time module graph / dynamic imports (e.g. vite, server.js) can be slow in CI/sandboxes
+    hookTimeout: 30000,
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage',
