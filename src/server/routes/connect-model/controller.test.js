@@ -46,7 +46,6 @@ async function signIn(server) {
   return signInViaOidc(server, fetchMock)
 }
 
-
 describe('#connectModelController', () => {
   let server
 

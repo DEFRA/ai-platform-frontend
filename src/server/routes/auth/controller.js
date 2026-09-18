@@ -62,7 +62,8 @@ export const authController = {
       }
 
       const codeVerifier = client.randomPKCECodeVerifier()
-      const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier)
+      const codeChallenge =
+        await client.calculatePKCECodeChallenge(codeVerifier)
       const state = client.randomState()
       const nonce = client.randomNonce()
 

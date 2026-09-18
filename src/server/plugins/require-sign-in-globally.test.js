@@ -65,7 +65,10 @@ describe('#requireSignInGlobally', () => {
   })
 
   test('allows /health without a session', async () => {
-    const { statusCode } = await server.inject({ method: 'GET', url: '/health' })
+    const { statusCode } = await server.inject({
+      method: 'GET',
+      url: '/health'
+    })
 
     expect(statusCode).toBe(statusCodes.ok)
   })

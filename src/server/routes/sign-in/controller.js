@@ -101,7 +101,10 @@ export const signInController = {
             .redirect(returnTo || '/connect-model')
             .code(statusCodes.seeOther)
         } catch (error) {
-          if (error instanceof ApiError && error.code === 'domain-not-allowed') {
+          if (
+            error instanceof ApiError &&
+            error.code === 'domain-not-allowed'
+          ) {
             return h
               .view(
                 'sign-in/team',

@@ -27,8 +27,7 @@ vi.mock('openid-client', () => ({
     claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
   })),
   buildEndSessionUrl: vi.fn(
-    () =>
-      new URL('https://login.microsoftonline.com/tenant/oauth2/v2.0/logout')
+    () => new URL('https://login.microsoftonline.com/tenant/oauth2/v2.0/logout')
   )
 }))
 
@@ -99,4 +98,3 @@ describe('#signOutController', () => {
     )
   })
 })
-

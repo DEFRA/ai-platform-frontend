@@ -124,10 +124,7 @@ describe('#buildNavigation', () => {
   test('Should highlight Connect to model for its sub-routes', () => {
     expect(
       buildNavigation(
-        mockRequest(
-          { path: '/connect-model/select-model' },
-          { signedIn: true }
-        )
+        mockRequest({ path: '/connect-model/select-model' }, { signedIn: true })
       )
     ).toEqual([
       {
@@ -156,7 +153,10 @@ describe('#buildNavigation', () => {
   test('Should highlight Account for its sub-routes', () => {
     expect(
       buildNavigation(
-        mockRequest({ path: '/account/credentials/1/revoke' }, { signedIn: true })
+        mockRequest(
+          { path: '/account/credentials/1/revoke' },
+          { signedIn: true }
+        )
       )
     ).toEqual([
       {

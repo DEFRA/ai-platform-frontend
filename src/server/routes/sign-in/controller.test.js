@@ -144,5 +144,3 @@ describe('#signInController', () => {
     expect(result).not.toEqual(expect.stringContaining('>Sign in<'))
   })
 })
-
-

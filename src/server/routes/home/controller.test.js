@@ -23,5 +23,3 @@ describe('#homeController', () => {
     expect(statusCode).toBe(statusCodes.ok)
   })
 })
-
-
