@@ -1,0 +1,65 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if notificationBanner %}
+        {{ govukNotificationBanner(notificationBanner) }}
+      {% endif %}
+
+      {% if credentials.length == 0 %}
+        <p class="govuk-body">You do not have any credentials yet.</p>
+        <p class="govuk-body">
+          <a class="govuk-link" href="/connect-model">Connect to a model</a>
+        </p>
+      {% else %}
+        {% for credential in credentials %}
+          <div class="govuk-!-margin-bottom-6">
+            <h2 class="govuk-heading-m">{{ credential.modelDisplayName }}</h2>
+
+            {{ govukTag({
+              text: credential.status,
+              classes: credential.tagClass
+            }) }}
+
+            <dl class="govuk-summary-list govuk-!-margin-top-4">
+              <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Key</dt>
+                <dd class="govuk-summary-list__value">…{{ credential.keyHint }}</dd>
+              </div>
+              <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Expires</dt>
+                <dd class="govuk-summary-list__value">{{ credential.expiresAt }}</dd>
+              </div>
+              <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Renewals remaining</dt>
+                <dd class="govuk-summary-list__value">{{ credential.renewalsRemaining }}</dd>
+              </div>
+            </dl>
+
+            {% if credential.status != "revoked" %}
+              {% if credential.renewalsRemaining > 0 %}
+                <form method="post" action="/account/credentials/{{ credential._id }}/renew" novalidate>
+                  <input type="hidden" name="crumb" value="{{ crumb }}">
+                  {{ govukButton({ text: "Renew", classes: "govuk-button--secondary" }) }}
+                </form>
+              {% endif %}
+
+              <p class="govuk-body">
+                <a class="govuk-link" href="/account/credentials/{{ credential._id }}/revoke">Revoke this credential</a>
+              </p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

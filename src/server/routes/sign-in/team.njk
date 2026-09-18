@@ -18,27 +18,11 @@
         }) }}
       {% endif %}
 
+      <p class="govuk-body">Signed in as {{ displayName }} ({{ email }})</p>
+
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         <input type="hidden" name="returnTo" value="{{ returnTo }}">
-
-        {{ govukInput({
-          label: { text: "Email address" },
-          id: "email",
-          name: "email",
-          type: "email",
-          autocomplete: "email",
-          value: values.email,
-          errorMessage: fieldErrors.email
-        }) }}
-
-        {{ govukInput({
-          label: { text: "Full name" },
-          id: "displayName",
-          name: "displayName",
-          value: values.displayName,
-          errorMessage: fieldErrors.displayName
-        }) }}
 
         {{ govukInput({
           label: { text: "Team name" },
@@ -48,7 +32,7 @@
           errorMessage: fieldErrors.teamName
         }) }}
 
-        {{ govukButton({ text: "Sign in" }) }}
+        {{ govukButton({ text: "Continue" }) }}
       </form>
     </div>
   </div>

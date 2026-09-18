@@ -12,6 +12,7 @@ export const home = {
         {
           method: 'GET',
           path: '/',
+          options: { app: { public: true } },
           ...homeController
         }
       ])
