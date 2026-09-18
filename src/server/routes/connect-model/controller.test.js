@@ -2,6 +2,31 @@ import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
+import {
+  signInViaOidc,
+  mergeCookies,
+  cookieHeader
+} from '#/test-helpers/oidc-session-helpers.js'
+
+vi.mock('#/server/common/helpers/oidc-client.js', () => ({
+  getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
+}))
+
+vi.mock('openid-client', () => ({
+  randomPKCECodeVerifier: vi.fn(() => 'verifier'),
+  calculatePKCECodeChallenge: vi.fn(async () => 'challenge'),
+  randomState: vi.fn(() => 'state-123'),
+  randomNonce: vi.fn(() => 'nonce-123'),
+  buildAuthorizationUrl: vi.fn(
+    () =>
+      new URL(
+        'https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize?state=state-123'
+      )
+  ),
+  authorizationCodeGrant: vi.fn(async () => ({
+    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+  }))
+}))
 
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
@@ -17,58 +42,10 @@ const sampleModel = {
   limits: { requestsPerMinute: 60 }
 }
 
-function extractSetCookies(response) {
-  const setCookie = response.headers['set-cookie']
-  return Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : []
-}
-
-function mergeCookies(jar, response) {
-  for (const cookie of extractSetCookies(response)) {
-    const [pair] = cookie.split(';')
-    const [name, ...rest] = pair.split('=')
-    jar[name] = rest.join('=')
-  }
-  return jar
-}
-
-function cookieHeader(jar) {
-  return Object.entries(jar)
-    .map(([name, value]) => `${name}=${value}`)
-    .join('; ')
-}
-
 async function signIn(server) {
-  let cookies = {}
-
-  const getSignIn = await server.inject({ method: 'GET', url: '/sign-in' })
-  cookies = mergeCookies(cookies, getSignIn)
-
-  fetchMock.mockResponseOnce(
-    JSON.stringify({
-      user: {
-        _id: 'user-1',
-        email: 'test.user@defra.gov.uk',
-        displayName: 'Test User'
-      },
-      team: { _id: 'team-1', name: 'Platform Team' }
-    })
-  )
-
-  const postSignIn = await server.inject({
-    method: 'POST',
-    url: '/sign-in',
-    headers: { cookie: cookieHeader(cookies) },
-    payload: {
-      crumb: cookies.crumb,
-      email: 'test.user@defra.gov.uk',
-      displayName: 'Test User',
-      teamName: 'Platform Team'
-    }
-  })
-  cookies = mergeCookies(cookies, postSignIn)
-
-  return cookies
+  return signInViaOidc(server, fetchMock)
 }
+
 
 describe('#connectModelController', () => {
   let server

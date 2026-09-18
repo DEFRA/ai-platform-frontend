@@ -226,6 +226,36 @@ export const config = convict({
     format: String,
     default: 'defra.gov.uk',
     env: 'ALLOWED_EMAIL_DOMAINS'
+  },
+  appBaseUrl: {
+    doc: 'Public base URL of this frontend, used to build the Entra ID redirect and post-logout URIs',
+    format: String,
+    default: 'http://localhost:3000',
+    env: 'APP_BASE_URL'
+  },
+  azureAd: {
+    tenantId: {
+      doc: 'Entra ID (Azure AD) tenant id for SSO sign-in',
+      format: String,
+      nullable: true,
+      default: null,
+      env: 'AZURE_TENANT_ID'
+    },
+    clientId: {
+      doc: 'Entra ID app registration client id',
+      format: String,
+      nullable: true,
+      default: null,
+      env: 'AZURE_CLIENT_ID'
+    },
+    clientSecret: {
+      doc: 'Entra ID app registration client secret',
+      format: String,
+      nullable: true,
+      default: null,
+      sensitive: true,
+      env: 'AZURE_CLIENT_SECRET'
+    }
   }
 })
 

@@ -7,6 +7,7 @@ export const health = {
       server.route({
         method: 'GET',
         path: '/health',
+        options: { app: { public: true } },
         ...healthController
       })
     }
