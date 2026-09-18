@@ -4,6 +4,7 @@ import { createServer } from '#/server/server.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
 import {
   signInViaOidc,
+  completeOidcLogin,
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 
@@ -80,6 +81,22 @@ describe('#signOutController', () => {
 
     expect(statusCode).toBe(303)
     expect(headers.location).toBe('/')
+  })
+
+  test('POST /sign-out works before the team step is finished (only a pending Entra ID identity, no session user yet)', async () => {
+    const cookies = await completeOidcLogin(server)
+
+    const { statusCode, headers } = await server.inject({
+      method: 'POST',
+      url: '/sign-out',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(statusCode).toBe(303)
+    expect(headers.location).toBe(
+      'https://login.microsoftonline.com/tenant/oauth2/v2.0/logout'
+    )
   })
 })
 

@@ -4,6 +4,7 @@ import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   completeOidcLogin,
+  signInViaOidc,
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 
@@ -89,6 +90,19 @@ describe('#signInController', () => {
     expect(result).toEqual(expect.stringContaining('test.user@defra.gov.uk'))
   })
 
+  test('GET /sign-in/team shows "Sign out" in the nav once Entra ID login has succeeded', async () => {
+    const cookies = await completeOidcLogin(server)
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/sign-in/team',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(expect.stringContaining('Sign out ('))
+    expect(result).not.toEqual(expect.stringContaining('>Sign in<'))
+  })
+
   test('POST /sign-in/team with a team name signs the user in and redirects', async () => {
     const cookies = await completeOidcLogin(server)
 
@@ -112,6 +126,22 @@ describe('#signInController', () => {
 
     expect(statusCode).toBe(303)
     expect(headers.location).toBe('/connect-model')
+  })
+
+  test('nav shows "Sign out" instead of "Sign in" on the very next page after finishing sign-in', async () => {
+    const cookies = await signInViaOidc(server, fetchMock, {
+      teamName: 'Platform Team'
+    })
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect-model',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('Sign out ('))
+    expect(result).not.toEqual(expect.stringContaining('>Sign in<'))
   })
 })
 

@@ -255,6 +255,13 @@ export const config = convict({
       default: null,
       sensitive: true,
       env: 'AZURE_CLIENT_SECRET'
+    },
+    mockIssuerUrl: {
+      doc: 'Dev-only local OIDC provider URL, used instead of Entra ID when set and not in production',
+      format: String,
+      nullable: true,
+      default: null,
+      env: 'OIDC_MOCK_ISSUER_URL'
     }
   }
 })

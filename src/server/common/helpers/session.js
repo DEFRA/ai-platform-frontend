@@ -3,6 +3,7 @@ const PENDING_ACCESS_KEY = 'pendingAccess'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const PENDING_OIDC_IDENTITY_KEY = 'pendingOidcIdentity'
+const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
 
 export function getSessionUser(request) {
   // yar's session store is only initialised for matched routes (onPreAuth
@@ -57,9 +58,25 @@ export function setPendingOidcIdentity(request, value) {
 }
 
 export function getPendingOidcIdentity(request) {
-  return request.yar.get(PENDING_OIDC_IDENTITY_KEY)
+  // Same as getSessionUser: must not throw when yar isn't initialised (e.g. error pages).
+  try {
+    return request.yar?.get(PENDING_OIDC_IDENTITY_KEY)
+  } catch {
+    return undefined
+  }
 }
 
 export function clearPendingOidcIdentity(request) {
   request.yar.clear(PENDING_OIDC_IDENTITY_KEY)
+}
+
+export function setAccountNotification(request, value) {
+  request.yar.set(ACCOUNT_NOTIFICATION_KEY, value)
+}
+
+// One-render only: reading it also clears it from the session.
+export function takeAccountNotification(request) {
+  const notification = request.yar.get(ACCOUNT_NOTIFICATION_KEY)
+  request.yar.clear(ACCOUNT_NOTIFICATION_KEY)
+  return notification
 }

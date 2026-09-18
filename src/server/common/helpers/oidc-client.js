@@ -17,6 +17,21 @@ function discover() {
     )
   }
 
+  // Dev-only: point at a local mock OIDC provider instead of Entra ID so the
+  // sign-in journey can be tested without a real Azure AD tenant. Never
+  // honoured in production, regardless of what's set in the environment.
+  // allowInsecureRequests is required since the mock provider runs over http.
+  const mockIssuerUrl = config.get('azureAd.mockIssuerUrl')
+  if (mockIssuerUrl && !config.get('isProduction')) {
+    return client.discovery(
+      new URL(mockIssuerUrl),
+      clientId,
+      clientSecret,
+      undefined,
+      { execute: [client.allowInsecureRequests] }
+    )
+  }
+
   const issuer = new URL(`https://login.microsoftonline.com/${tenantId}/v2.0`)
 
   return client.discovery(issuer, clientId, clientSecret)

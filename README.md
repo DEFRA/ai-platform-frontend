@@ -97,6 +97,32 @@ To run the application in `development` mode run:
 npm run dev
 ```
 
+#### Local sign-in without a real Entra ID tenant
+
+Entra ID (Azure AD) OIDC sign-in normally needs a real `AZURE_TENANT_ID` and
+`AZURE_CLIENT_ID`. For local development without one, run the bundled mock
+OIDC provider alongside the app:
+
+```bash
+npm run dev:mock-oidc
+```
+
+Then in your local `.env` set:
+
+```env
+OIDC_MOCK_ISSUER_URL=http://localhost:3100
+AZURE_TENANT_ID=mock-tenant
+AZURE_CLIENT_ID=mock-client
+AZURE_CLIENT_SECRET=mock-secret
+```
+
+`dev:mock-oidc` loads the same `.env` as `npm run dev`, so if you already have
+real `AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET` values set, both processes will
+use them consistently — you only need to add `OIDC_MOCK_ISSUER_URL`. Signing
+in always logs in as one fixed mock user (`dev.user@defra.gov.uk`). This path
+is never used in production: it's gated behind `OIDC_MOCK_ISSUER_URL` being
+set **and** the app not running in production.
+
 ### Production
 
 To mimic the application running in `production` mode locally run:
