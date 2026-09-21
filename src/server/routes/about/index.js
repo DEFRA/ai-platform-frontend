@@ -12,6 +12,7 @@ export const about = {
         {
           method: 'GET',
           path: '/about',
+          options: { app: { public: true } },
           ...aboutController
         }
       ])

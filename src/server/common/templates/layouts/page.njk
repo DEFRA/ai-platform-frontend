@@ -11,11 +11,11 @@
 
 {% set navigationEndHtml %}
   <li class="govuk-service-navigation__item app-sign-in-out">
-    {% if signedInUser %}
+    {% if navUser %}
       <form method="post" action="/sign-out">
         <input type="hidden" name="crumb" value="{{ crumb }}">
         <button type="submit" class="govuk-service-navigation__link app-sign-in-out__button">
-          Sign out ({{ signedInUser.displayName }})
+          Sign out ({{ navUser.displayName }})
         </button>
       </form>
     {% else %}

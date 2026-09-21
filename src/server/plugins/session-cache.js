@@ -21,6 +21,10 @@ export const sessionCache = {
       password: sessionConfig.cookie.password,
       ttl: sessionConfig.cookie.ttl,
       isSecure: config.get('session.cookie.secure'),
+      // Must be 'Lax' (not the stricter 'Strict'): the OIDC provider redirects the
+      // browser straight back to /auth/callback, a cross-site top-level navigation
+      // that 'Strict' cookies aren't sent on, which would drop the session mid-flow.
+      isSameSite: 'Lax',
       clearInvalid: true
     }
   }

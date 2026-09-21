@@ -11,6 +11,11 @@ export const signOut = {
         {
           method: 'POST',
           path: '/sign-out',
+          // Public: nav shows "Sign out" as soon as Entra login succeeds (see
+          // build-navigation.js), before requireSignInGlobally's session-user
+          // check would otherwise pass - without this, it silently bounces
+          // through /sign-in instead of running the sign-out handler.
+          options: { app: { public: true } },
           ...signOutController
         }
       ])
