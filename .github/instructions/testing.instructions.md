@@ -11,3 +11,4 @@ applyTo: '**/*.test.js'
 - Use `statusCodes` from `#/server/common/constants/status-codes.js` instead of magic numbers for HTTP status assertions.
 - For Nunjucks component templates, render via the shared helper in [test-helpers/component-helpers.js](../../test-helpers/component-helpers.js) rather than calling `nunjucks` directly.
 - Run the full suite with `npm test` (sets `AWS_EMF_ENVIRONMENT=Local TZ=UTC`); use `npm run test:watch` while iterating.
+- This colocation convention is a deliberate, documented divergence from the Defra AICE team's [testing standards](https://github.com/DEFRA/aice-team/blob/main/style-guides/javascript-testing.md) (which specify a separate `tests/` tree) — see the "Design and content standards" section in `copilot-instructions.md`. Follow AICE for anything this file doesn't already cover.

@@ -26,6 +26,12 @@ CDP (Core Delivery Platform) Node.js frontend template — Hapi server + Nunjuck
 - Use ES modules (`type: module`) and the `#/*` import alias instead of relative paths that cross top-level `src/` folders.
 - Formatting/linting are enforced by Prettier, ESLint (neostandard) and Stylelint — don't hand-fix style issues that `npm run format` / `lint:js:fix` already covers.
 
+## Design and content standards
+
+- **Look and feel**: build on GOV.UK Frontend, then layer Defra branding on top per the [Defra design guidance](https://digital.defra.gov.uk/design/branding) — Defra Green (`#00a33b`) used sparingly (e.g. header/nav borders), meeting WCAG 2.2 AA contrast; the Defra header/logo/footer in place of the GOV.UK crown/header/footer; Helvetica/Arial font stacks rather than GOV.UK's "New Transport" font, since this service is not hosted on a `gov.uk` domain.
+- **Words**: follow the [Defra content style guide](https://digital.defra.gov.uk/content/defra-style-guide) for Defra-specific terms (it explicitly defers to the [GOV.UK style guide A to Z](https://www.gov.uk/guidance/style-guide/a-to-z) for everything else) — plain English, "people" rather than "users", sentence case for "Defra" (never "DEFRA").
+- **AICE engineering standards**: this codebase must also follow the Defra AICE team's [JavaScript style guide](https://github.com/DEFRA/aice-team/blob/main/style-guides/javascript.md), [testing standards](https://github.com/DEFRA/aice-team/blob/main/style-guides/javascript-testing.md) and [code review standards](https://github.com/DEFRA/aice-team/blob/main/style-guides/javascript-review.md) — ES modules with named exports only (no default exports), function declarations over arrow functions except for callbacks, exact-pinned dependency versions, and `vi.mock()`/`nock` only for modules or network calls this repo owns. **Known divergence**: the AICE testing standard specifies a dedicated `tests/` tree mirroring `src/`, while this repo colocates tests beside the file under test (see above) — treat the AICE guide as the default for anything not already an established convention here, and raise a decision with the team before moving existing tests wholesale.
+
 ## Code Quality and Design Principles
 
 - Apply SOLID principles pragmatically to JS modules (not just classes):

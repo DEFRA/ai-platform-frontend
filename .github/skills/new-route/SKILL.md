@@ -14,7 +14,7 @@ Creates a new server route following this repo's established structure: plugin r
 
 ## Procedure
 
-1. Ask for (or infer) the route name, URL path, and page title/heading if not given.
+1. Ask for (or infer) the route name, URL path, and page title/heading if not given. Write the page title/heading/body copy per the [Defra content style guide](https://digital.defra.gov.uk/content/defra-style-guide) and the [GOV.UK style guide A to Z](https://www.gov.uk/guidance/style-guide/a-to-z) — plain English, "people" not "users".
 2. Create `src/server/routes/<name>/controller.js` exporting a `<name>Controller` object with a `handler(request, h)` that returns `h.view('<name>/index', { pageTitle, heading, ... })`. See [example controller](../../../src/server/routes/home/controller.js).
 3. Create `src/server/routes/<name>/index.js` exporting a Hapi plugin object (`plugin: { name, register(server) { server.route([...]) } }`) that registers the route(s) and spreads the controller. See [example plugin](../../../src/server/routes/home/index.js).
 4. Create `src/server/routes/<name>/index.njk` extending the shared layout (see [page layout](../../../src/server/common/templates/layouts/page.njk)) with the page content.
