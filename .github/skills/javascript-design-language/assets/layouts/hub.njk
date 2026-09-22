@@ -1,0 +1,100 @@
+{#
+  AICE Design Language — Hub / Landing Page Layout
+
+  Use for: top-level landing pages and major section gateways.
+  Extends the base page layout and renders:
+    - breadcrumbs (optional)
+    - caption + h1 + lead paragraph header block
+    - stat cards (optional)
+    - grouped hub card sections (optional)
+    - markdown content (optional)
+    - support box (optional)
+
+  Expected template variables:
+    title           — page heading (h1) and browser tab prefix
+    caption         — small caption text above h1 (optional)
+    description     — lead paragraph below h1 (optional)
+    breadcrumbItems — array of { text, href } for govukBreadcrumbs;
+                      defaults to "Digital Defra / Digital service manual / title"
+    statCards       — array of { number, label, description, href } (optional)
+    hubSections     — array of:
+                        { title, description?, items: [{ text, href, description?, tag?, tagColour? }] }
+                      (optional)
+    content         — Markdown string rendered after hub sections (optional)
+    supportBox      — { title?, description?, items? } — enables the support box (optional)
+#}
+{% extends "layouts/page.njk" %}
+
+{% block beforeContent %}
+{{ govukBreadcrumbs({
+  items: breadcrumbItems or [
+    { text: "Digital Defra", href: "/" },
+    { text: "Digital service manual", href: "/service-manual" },
+    { text: title }
+  ]
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="app-hub">
+
+  <div class="app-hub__header">
+    {% if caption %}<span class="govuk-caption-xl">{{ caption }}</span>{% endif %}
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+    {% if description %}<p class="govuk-body-l">{{ description }}</p>{% endif %}
+  </div>
+
+  {# ── Stat cards (optional) ──────────────────────────────────────────────
+    Clickable highlight cards. 4-column grid → 2 → 1 (responsive).
+    Top border: 4px solid Defra green. Number in Defra green, 36px bold.
+  ─────────────────────────────────────────────────────────────────────── #}
+  {% if statCards | length %}
+  <div class="app-hub__stats">
+    {% for stat in statCards %}
+    <a href="{{ stat.href }}" class="app-stat-card">
+      <span class="app-stat-card__number">{{ stat.number }}</span>
+      <span class="app-stat-card__label">{{ stat.label }}</span>
+      {% if stat.description %}
+      <span class="app-stat-card__description">{{ stat.description }}</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Hub sections (optional) ────────────────────────────────────────────
+    Each section is a heading + 2-column card list (→ 1 column at ≤776px).
+    Cards can optionally carry a govuk-tag badge (e.g. "New", "Beta").
+  ─────────────────────────────────────────────────────────────────────── #}
+  {% if hubSections | length %}
+  {% for section in hubSections %}
+  <div class="app-hub__section">
+    <h2 class="govuk-heading-l">{{ section.title }}</h2>
+    {% if section.description %}
+    <p class="govuk-body">{{ section.description }}</p>
+    {% endif %}
+    <ul class="app-hub__card-list">
+      {% for item in section.items %}
+      <li class="app-hub__card">
+        <h3 class="govuk-heading-s app-hub__card-title">
+          <a href="{{ item.href }}" class="govuk-link">{{ item.text }}</a>
+        </h3>
+        {% if item.description %}
+        <p class="govuk-body-s app-hub__card-description">{{ item.description }}</p>
+        {% endif %}
+        {% if item.tag %}
+        <strong class="govuk-tag govuk-tag--{{ item.tagColour | default('green') }}">{{ item.tag }}</strong>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {{ content | markdown | safe }}
+
+  {% include "partials/support-box.njk" %}
+
+</div>
+{% endblock %}

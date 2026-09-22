@@ -1,0 +1,26 @@
+{#
+  AICE Design Language — Main Navigation Partial
+
+  Global top-level navigation bar using .defra-service-navigation.
+  Renders a horizontal list of main sections with aria-current on the active item.
+  Collapses to a hamburger toggle on mobile (JS-enhanced via data-module).
+
+  Expected template variables:
+    currentUrl — current page path; used to apply aria-current="page" to the
+                 matching nav item via startsWith() matching
+#}
+<nav class="defra-service-navigation" aria-label="Main navigation" data-module="defra-service-navigation">
+  <div class="defra-service-navigation__inner">
+    <button type="button" class="defra-service-navigation__toggle js-service-navigation-toggle" aria-controls="main-navigation-list" aria-expanded="false" hidden>
+      Menu
+    </button>
+    <ul class="defra-service-navigation__list" id="main-navigation-list">
+      <li class="defra-service-navigation__item">
+        <a class="defra-service-navigation__link"{% if currentUrl and currentUrl.startsWith('/service-manual') %} aria-current="page"{% endif %} href="/service-manual">
+          Digital service manual
+        </a>
+      </li>
+      {# Add further top-level sections here following the same pattern #}
+    </ul>
+  </div>
+</nav>

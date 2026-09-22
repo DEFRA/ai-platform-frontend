@@ -1,0 +1,26 @@
+{#
+  AICE Design Language — Section Navigation Partial
+
+  Used by section.njk. Renders a grouped sidebar nav listing all pages
+  within the current section. Active item is highlighted with a green
+  left border and aria-current="page".
+
+  Expected template variables:
+    sectionNav — array of section groups:
+                   [{ title: string, items: [{ text: string, href: string }] }]
+    currentUrl — current page path; matched exactly against each item's href
+#}
+<nav class="app-sub-navigation" aria-label="Pages in this section">
+  {% for section in sectionNav %}
+  <p class="app-subnav__header">{{ section.title }}</p>
+  <ul class="app-subnav__list">
+    {% for item in section.items %}
+    <li class="app-subnav__item">
+      <a class="app-subnav__link{% if currentUrl == item.href %} app-subnav__link--current{% endif %}" href="{{ item.href }}"{% if currentUrl == item.href %} aria-current="page"{% endif %}>
+        {{ item.text }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</nav>

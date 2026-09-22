@@ -1,0 +1,39 @@
+{#
+  AICE Design Language — Footer Partial
+
+  Custom Defra footer with a Defra green top border.
+  Includes: meta links (Privacy, Cookies, Accessibility), team contact, licence.
+
+  No template variables required — links are service-wide constants.
+  Override this partial in your project to customise team contact details.
+#}
+<footer class="defra-footer" role="contentinfo">
+  <div class="govuk-width-container">
+    <div class="defra-footer__meta">
+      <div class="defra-footer__meta-item">
+        <ul class="defra-footer__inline-list">
+          <li class="defra-footer__inline-list-item">
+            <a class="defra-footer__link" href="/privacy">Privacy</a>
+          </li>
+          <li class="defra-footer__inline-list-item">
+            <a class="defra-footer__link" href="/cookies">Cookies</a>
+          </li>
+          <li class="defra-footer__inline-list-item">
+            <a class="defra-footer__link" href="/accessibility-statement">Accessibility statement</a>
+          </li>
+        </ul>
+      </div>
+      <div class="defra-footer__meta-item">
+        <span class="defra-footer__licence-description">
+          Maintained by the AI Capability and Enablement team at Defra. If you've got a question or want to feed back, <a class="defra-footer__link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">get in touch</a>.
+        </span>
+      </div>
+      <div class="defra-footer__meta-item">
+        <span class="defra-footer__licence-description">
+          All content is available under the
+          <a class="defra-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">Open Government Licence v3.0</a>, except where otherwise stated
+        </span>
+      </div>
+    </div>
+  </div>
+</footer>

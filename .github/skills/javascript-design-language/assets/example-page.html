@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<!--
+  AICE Design Language — Entry/Hub Page Example
+
+  This annotated example shows the HTML structure for an entry/hub page:
+  the most visually distinctive AICE layout, characterised by the full-width
+  Defra green hero section at the top.
+
+  This is a reference template. In production, use your team's
+  templating language (Nunjucks, Jinja2, etc.) and govern actual
+  asset paths through your build pipeline.
+
+  Colour reference:
+    Defra green:      #008531  (hero bg, nav bar, breadcrumb bar, footer border)
+    Defra green AA:   #00a33b  (service name link)
+    GOV.UK blue:      #1d70b8  (all body links)
+    GOV.UK yellow:    #ffdd00  (focus indicators)
+    GOV.UK light grey: #f3f2f1 (card/footer backgrounds)
+-->
+<html lang="en" class="govuk-template">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Service name — Defra</title>
+  <!--
+    Import govuk-frontend CSS first, then your AICE overrides.
+    The _variables.scss asset file contains all Defra tokens.
+  -->
+  <link rel="stylesheet" href="/assets/govuk-frontend.css">
+  <link rel="stylesheet" href="/assets/aice-design.css">
+</head>
+<body class="govuk-template__body">
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+    HEADER
+    White background. Three-column grid: logo | service name | search.
+    Service name uses $defra-green-aa (#00a33b) to meet contrast on white.
+  ──────────────────────────────────────────────────────────────────────── -->
+  <header class="defra-header" role="banner">
+    <div class="defra-header__inner">
+
+      <!-- Logo -->
+      <a href="/" class="defra-header__logo-link">
+        <img class="defra-header__logo" src="/assets/defra-logo.svg" alt="Defra">
+      </a>
+
+      <!-- Service name — $defra-green-aa (#00a33b) -->
+      <a href="/" class="defra-header__service-name">
+        Defra Service Manual
+      </a>
+
+      <!-- Search (hidden on mobile, max-width: 768px) -->
+      <form class="defra-header-search" role="search" action="/search" method="get">
+        <div class="defra-header-search--nhs">
+          <div class="defra-header-search__wrapper">
+            <label class="defra-header-search__label" for="search-input">Search</label>
+            <input
+              class="defra-header-search__input"
+              id="search-input"
+              name="q"
+              type="search"
+              autocomplete="off"
+            >
+          </div>
+          <button class="defra-header-search__button" type="submit" aria-label="Search">
+            <!-- Search icon SVG — stroke: white, fill: none, 16×16 -->
+            <svg class="defra-header-search__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </header>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+    PRIMARY NAVIGATION
+    Full-width Defra green bar (#008531) directly below the header.
+    White text links. Add .defra-primary-nav__link--current for active section.
+  ──────────────────────────────────────────────────────────────────────── -->
+  <nav class="defra-primary-nav" aria-label="Primary navigation">
+    <div class="defra-primary-nav__inner">
+      <ul class="defra-primary-nav__list">
+        <li>
+          <a class="defra-primary-nav__link defra-primary-nav__link--current" href="/service-manual">
+            Digital service manual
+          </a>
+        </li>
+        <li>
+          <a class="defra-primary-nav__link" href="/delivery-groups">
+            Delivery groups
+          </a>
+        </li>
+        <li>
+          <a class="defra-primary-nav__link" href="/ai-toolkit">
+            AI digital toolkit
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+    MAIN CONTENT
+    padding-top: 0 is required so the hero sits flush below the nav bar.
+    overflow-x: visible is required for the hero's full-width bleed to work.
+  ──────────────────────────────────────────────────────────────────────── -->
+  <main class="govuk-main-wrapper" id="main-content" style="padding-top: 0; overflow-x: visible;">
+
+    <!-- ───────────────────────────────────────────────────────────────────
+      HERO SECTION — Entry/hub pages only
+
+      Full-viewport-width Defra green banner. The hero bleeds past the
+      container using: width: 100vw; left: 50%; transform: translateX(-50%).
+
+      Do NOT use this on content/article pages. Those use .defra-breadcrumb-bar instead.
+    ──────────────────────────────────────────────────────────────────────── -->
+    <div class="defra-hero">
+      <div class="defra-width-container">
+        <!--
+          .govuk-heading-xl and .govuk-body-l inside .defra-hero are
+          automatically rendered in white (#ffffff).
+        -->
+        <h1 class="govuk-heading-xl">Digital service manual</h1>
+        <p class="govuk-body-l">
+          Guidance and standards for Defra digital teams — design, content, delivery, and technology.
+        </p>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────────────
+      CONTENT BELOW HERO
+      Uses .defra-width-container to constrain to 960px max-width.
+    ──────────────────────────────────────────────────────────────────────── -->
+    <div class="defra-width-container">
+
+      <!-- Optional: version/status banner -->
+      <div class="defra-version-banner">
+        <span class="defra-version-banner__label">Updated</span>
+        <p class="defra-version-banner__text">
+          Last reviewed January 2025. <a href="/changelog">See what's changed</a>.
+        </p>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────────────────
+        TILE GRID
+        3-column responsive card grid (→ 1 column at ≤776px).
+        Tiles link to major sections. Only the heading is the semantic link;
+        CSS ::after on .defra-tile__link stretches the click target to fill the card.
+      ──────────────────────────────────────────────────────────────────────── -->
+      <section class="defra-section">
+        <h2 class="govuk-heading-l">Guidance</h2>
+        <ul class="defra-tile-grid">
+
+          <li>
+            <div class="defra-tile">
+              <h3 class="govuk-heading-s defra-tile__title">
+                <a class="defra-tile__link" href="/service-manual/design">Design</a>
+              </h3>
+              <p class="govuk-body-s defra-tile__body">
+                Patterns, components, and standards for designing Defra services.
+              </p>
+            </div>
+          </li>
+
+          <li>
+            <div class="defra-tile">
+              <h3 class="govuk-heading-s defra-tile__title">
+                <a class="defra-tile__link" href="/service-manual/content">Content</a>
+              </h3>
+              <p class="govuk-body-s defra-tile__body">
+                Writing style, terminology, and content patterns.
+              </p>
+            </div>
+          </li>
+
+          <li>
+            <div class="defra-tile">
+              <h3 class="govuk-heading-s defra-tile__title">
+                <a class="defra-tile__link" href="/service-manual/technology">Technology</a>
+              </h3>
+              <p class="govuk-body-s defra-tile__body">
+                Approved tech stack, coding standards, and infrastructure guidance.
+              </p>
+            </div>
+          </li>
+
+        </ul>
+      </section>
+
+      <!-- Optional: stat cards (4-column grid, used on hub pages) -->
+      <section class="defra-section" aria-label="Key statistics">
+        <div class="app-hub__stats">
+
+          <a class="app-stat-card" href="/stats/services">
+            <!--
+              Number in $defra-green (#008531), bold, 36px.
+              Top border: 4px solid #008531.
+              Background: #f3f2f1.
+            -->
+            <span class="app-stat-card__number">24</span>
+            <span class="app-stat-card__label">Live services</span>
+            <span class="app-stat-card__description">Across Defra group</span>
+          </a>
+
+          <a class="app-stat-card" href="/stats/teams">
+            <span class="app-stat-card__number">60+</span>
+            <span class="app-stat-card__label">Teams</span>
+            <span class="app-stat-card__description">Using this guidance</span>
+          </a>
+
+          <a class="app-stat-card" href="/stats/tools">
+            <span class="app-stat-card__number">42</span>
+            <span class="app-stat-card__label">AI tools reviewed</span>
+            <span class="app-stat-card__description">Across all categories</span>
+          </a>
+
+          <a class="app-stat-card" href="/stats/patterns">
+            <span class="app-stat-card__number">18</span>
+            <span class="app-stat-card__label">Patterns</span>
+            <span class="app-stat-card__description">Documented and maintained</span>
+          </a>
+
+        </div>
+      </section>
+
+    </div>
+    <!-- end .defra-width-container -->
+
+  </main>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+    FOOTER
+    10px Defra green top border. Light grey background (#f3f2f1).
+    Links: black (#0b0c0c) default, yellow focus indicator.
+  ──────────────────────────────────────────────────────────────────────── -->
+  <footer class="defra-footer" role="contentinfo">
+    <div class="defra-width-container">
+      <div class="defra-footer__meta">
+
+        <div class="defra-footer__meta-item">
+          <ul class="defra-footer__inline-list">
+            <li class="defra-footer__inline-list-item">
+              <a class="defra-footer__link" href="/privacy">Privacy</a>
+            </li>
+            <li class="defra-footer__inline-list-item">
+              <a class="defra-footer__link" href="/cookies">Cookies</a>
+            </li>
+            <li class="defra-footer__inline-list-item">
+              <a class="defra-footer__link" href="/accessibility">Accessibility statement</a>
+            </li>
+            <li class="defra-footer__inline-list-item">
+              <a class="defra-footer__link" href="/support">Support</a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="defra-footer__meta-item">
+          <p class="defra-footer__licence-description">
+            All content is available under the
+            <a class="defra-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">Open Government Licence v3.0</a>,
+            except where otherwise stated.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

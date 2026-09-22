@@ -1,0 +1,205 @@
+{#
+  AICE Design Language — Base Page Layout
+
+  This is the base layout template for all AICE-styled pages.
+  All page templates extend this and override the `content` block.
+
+  Usage:
+    {% extends "layouts/page.njk" %}
+    {% block content %}...{% endblock %}
+
+  Expected template variables:
+    serviceName     — e.g. "Digital service manual"
+    serviceUrl      — href for the service name link, defaults to "/"
+    pageTitle       — browser <title> prefix
+    currentUrl      — used to set aria-current on nav items
+    navItems        — array of { text, href } for service navigation (optional)
+    showSearch      — boolean, show header search (optional)
+    breadcrumbs     — array of { text, href } items (optional, content pages)
+#}
+{% extends "govuk/template.njk" %}
+
+{% from "govuk/components/breadcrumbs/macro.njk" import govukBreadcrumbs %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  <title> element
+────────────────────────────────────────────────────────────────────────── #}
+{% block pageTitle %}
+  {{ pageTitle }} | {{ serviceName }}
+{% endblock %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  <head> — stylesheets
+  Import govuk-frontend first, then your AICE override stylesheet.
+────────────────────────────────────────────────────────────────────────── #}
+{% block head %}
+  <link rel="stylesheet" href="/assets/govuk-frontend.css">
+  <link rel="stylesheet" href="/assets/application.css">
+{% endblock %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  HEADER
+  White background. Three-column grid: logo | service name | search.
+  Service name colour: $defra-green-aa (#00a33b) — AA contrast on white.
+  Search is hidden on mobile (max-width: 768px) via CSS.
+────────────────────────────────────────────────────────────────────────── #}
+{% block header %}
+<header class="defra-header" role="banner">
+  <div class="defra-header__inner">
+
+    {# Logo — decorative, so alt="" and role="presentation" #}
+    <a href="{{ serviceUrl | default('/') }}">
+      <img
+        src="/assets/images/defra-logo.svg"
+        alt=""
+        role="presentation"
+        class="defra-header__logo"
+      >
+    </a>
+
+    {# Service name — $defra-green-aa (#00a33b), Arial 22px bold #}
+    <a href="{{ serviceUrl | default('/') }}" class="defra-header__service-name">
+      <span class="govuk-visually-hidden">Department for Environment, Food and Rural Affairs: </span>
+      {{ serviceName }}
+    </a>
+
+    {# Search — omit this block if your service does not need site search #}
+    {% if showSearch %}
+    <form class="defra-header-search defra-header-search--nhs" role="search" action="/search" method="get">
+      <div class="defra-header-search__wrapper">
+        <label class="defra-header-search__label" for="defra-search">Search</label>
+        <input
+          class="govuk-input defra-header-search__input"
+          id="defra-search"
+          name="q"
+          type="search"
+          autocomplete="off"
+        >
+      </div>
+      <button class="defra-header-search__button" type="submit" aria-label="Search">
+        <svg class="defra-header-search__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <circle cx="7" cy="7" r="5" stroke-width="2"></circle>
+          <line x1="10.5" y1="10.5" x2="14" y2="14" stroke-width="2"></line>
+        </svg>
+      </button>
+    </form>
+    {% endif %}
+
+  </div>
+</header>
+
+{# ── Service navigation ──────────────────────────────────────────────────
+  Full-width Defra green bar (#008531) directly below the header.
+  White links. aria-current="page" marks the active section.
+  A hamburger toggle is revealed on mobile via JS (data-module attribute).
+────────────────────────────────────────────────────────────────────────── #}
+{% if navItems and navItems.length %}
+<nav class="defra-service-navigation" aria-label="Main navigation" data-module="defra-service-navigation">
+  <div class="defra-service-navigation__inner">
+    <button
+      type="button"
+      class="defra-service-navigation__toggle js-service-navigation-toggle"
+      aria-controls="main-navigation-list"
+      aria-expanded="false"
+      hidden
+    >Menu</button>
+    <ul class="defra-service-navigation__list" id="main-navigation-list">
+      {% for item in navItems %}
+      <li class="defra-service-navigation__item">
+        <a
+          class="defra-service-navigation__link"
+          href="{{ item.href }}"
+          {% if currentUrl and currentUrl.startsWith(item.href) and item.href != '/' %}aria-current="page"{% endif %}
+        >{{ item.text }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</nav>
+{% endif %}
+{% endblock %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  BEFORE CONTENT — breadcrumbs
+  Content pages use a green breadcrumb bar (.defra-breadcrumb-bar).
+  Entry/hub pages with a hero do NOT show breadcrumbs here — the hero
+  sits flush at the top instead.
+────────────────────────────────────────────────────────────────────────── #}
+{% block beforeContent %}
+  {% if breadcrumbs and breadcrumbs.length %}
+  <div class="defra-breadcrumb-bar">
+    <div class="defra-width-container">
+      <nav aria-label="Breadcrumb">
+        {% for crumb in breadcrumbs %}
+          {% if not loop.last %}
+            <a class="defra-breadcrumb-bar__link" href="{{ crumb.href }}">{{ crumb.text }}</a>
+            <span class="defra-breadcrumb-bar__separator" aria-hidden="true">/</span>
+          {% else %}
+            <span class="defra-breadcrumb-bar__current" aria-current="page">{{ crumb.text }}</span>
+          {% endif %}
+        {% endfor %}
+      </nav>
+    </div>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  MAIN CONTENT
+  padding-top: 0 is set in _defra-layout.scss (.govuk-main-wrapper override)
+  so the hero on entry pages sits flush below the navigation.
+────────────────────────────────────────────────────────────────────────── #}
+{% block content %}{% endblock %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  FOOTER
+  10px Defra green top border (#008531). Light grey background (#f3f2f1).
+  Links: black (#0b0c0c) default; yellow (#ffdd00) focus indicator.
+────────────────────────────────────────────────────────────────────────── #}
+{% block footer %}
+<footer class="defra-footer" role="contentinfo">
+  <div class="defra-width-container">
+    <div class="defra-footer__meta">
+
+      <div class="defra-footer__meta-item">
+        <ul class="defra-footer__inline-list">
+          <li class="defra-footer__inline-list-item">
+            <a class="defra-footer__link" href="/privacy">Privacy</a>
+          </li>
+          <li class="defra-footer__inline-list-item">
+            <a class="defra-footer__link" href="/cookies">Cookies</a>
+          </li>
+          <li class="defra-footer__inline-list-item">
+            <a class="defra-footer__link" href="/accessibility-statement">Accessibility statement</a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="defra-footer__meta-item">
+        <p class="defra-footer__licence-description">
+          Maintained by the AI Capability and Enablement team at Defra.
+          <a class="defra-footer__link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">Get in touch</a>.
+        </p>
+      </div>
+
+      <div class="defra-footer__meta-item">
+        <p class="defra-footer__licence-description">
+          All content is available under the
+          <a class="defra-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">Open Government Licence v3.0</a>,
+          except where otherwise stated.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</footer>
+{% endblock %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  SCRIPTS
+  govuk-frontend init must run for JS-enhanced components (mobile nav toggle,
+  accessible autocomplete, etc.).
+────────────────────────────────────────────────────────────────────────── #}
+{% block bodyEnd %}
+  <script type="module" src="/assets/application.js"></script>
+{% endblock %}

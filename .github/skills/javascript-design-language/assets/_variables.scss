@@ -1,0 +1,35 @@
+// AICE Design Language — Defra brand tokens
+// Copy this file into your project SCSS and import it alongside govuk-frontend.
+// All values are self-contained — no imports from the service-manual-ui required.
+
+// ── Brand greens ──────────────────────────────────────────────────────────────
+// Use $defra-green for backgrounds (nav, hero, breadcrumb bar, footer border).
+// Use $defra-green-aa when placing white text on a green background (large text).
+// Use $defra-light-green for subtle tint backgrounds.
+$defra-green:        #008531;
+$defra-green-aa:     #00a33b;
+$defra-light-green:  #eefdf4;
+
+// Semantic alias
+$defra-brand-colour: $defra-green;
+
+// ── GOV.UK palette ────────────────────────────────────────────────────────────
+// Included here for convenience. These match govuk-frontend exactly.
+$govuk-white:        #ffffff;
+$govuk-black:        #0b0c0c;
+$govuk-blue:         #1d70b8;  // Use for ALL body links — never replace with green
+$govuk-light-grey:   #f3f2f1;
+$govuk-mid-grey:     #b1b4b6;
+$govuk-yellow:       #ffdd00;  // Focus indicators only
+$govuk-focus-colour: #ffdd00;
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+$defra-max-width:    960px;
+$defra-gutter:       15px;
+
+// ── Status colours (AI toolkit radar) ────────────────────────────────────────
+// Matches GOV.UK Tag colour family. Use for tool/feature status indicators only.
+$status-endorse:     #00703c;  // Green — endorsed for use
+$status-pilot:       #1d70b8;  // Blue — in pilot
+$status-assess:      #b58840;  // Amber — under assessment
+$status-avoid:       #d4351c;  // Red — avoid

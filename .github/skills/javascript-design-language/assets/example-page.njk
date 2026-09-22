@@ -1,0 +1,119 @@
+{#
+  AICE Design Language — Entry/Hub Page Example (Nunjucks)
+
+  This is a reference template for an entry/hub page: the most visually
+  distinctive AICE layout, characterised by the full-width Defra green
+  hero section at the top.
+
+  It extends the base page layout and overrides the content block.
+  Adapt this to your own project's base layout and template paths.
+#}
+{% extends "layouts/page.njk" %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  PAGE TITLE
+  Browser tab / <title> element. Format: "Page name | Service name"
+────────────────────────────────────────────────────────────────────────── #}
+{% block pageTitle %}
+  {{ pageTitle }} | {{ serviceName }}
+{% endblock %}
+
+{# ──────────────────────────────────────────────────────────────────────────
+  CONTENT
+  Entry/hub pages open with a .defra-hero, then tile/card content below.
+
+  Note: .govuk-main-wrapper must have padding-top: 0 (set in _defra-layout.scss)
+  so the hero sits flush below the navigation bar.
+────────────────────────────────────────────────────────────────────────── #}
+{% block content %}
+
+  {# ── Hero ──────────────────────────────────────────────────────────────
+    Full-viewport-width Defra green banner (#008531) with white text.
+    The hero bleeds past the container using:
+      width: 100vw; left: 50%; transform: translateX(-50%)
+    .govuk-heading-xl and .govuk-body-l inside are forced white automatically.
+
+    Do NOT use on content/article pages — use .defra-breadcrumb-bar there instead.
+  ─────────────────────────────────────────────────────────────────────── #}
+  <div class="defra-hero">
+    <div class="defra-width-container">
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-two-thirds">
+          <h1 class="govuk-heading-xl">{{ heading }}</h1>
+          <p class="govuk-body-l">{{ description }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Content below the hero ─────────────────────────────────────────── #}
+  <div class="defra-width-container govuk-!-margin-top-5">
+
+    {# ── Tile grid ──────────────────────────────────────────────────────
+      3-column responsive card grid (→ 1 column at ≤776px).
+      Use defra-tile-grid--half for a 2-column variant.
+
+      Accessible card pattern: only the heading is the semantic link.
+      CSS ::after on .defra-tile__link stretches click target to fill the card.
+    ─────────────────────────────────────────────────────────────────────── #}
+    <ul class="defra-tile-grid">
+      {% for tile in tiles %}
+      <li>
+        <div class="defra-tile">
+          {% if tile.caption %}
+          <span class="govuk-caption-m">{{ tile.caption }}</span>
+          {% endif %}
+          <h2 class="govuk-heading-m defra-tile__title">
+            <a class="defra-tile__link" href="{{ tile.href }}">{{ tile.title }}</a>
+          </h2>
+          <p class="govuk-body defra-tile__body">{{ tile.description }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+
+    {# ── Stat cards (optional) ──────────────────────────────────────────
+      Clickable stat highlight cards. 4-column grid → 2 → 1 (responsive).
+      Top border: 4px solid #008531. Number in Defra green, bold, 36px.
+    ─────────────────────────────────────────────────────────────────────── #}
+    {% if stats and stats.length %}
+    <div class="app-hub__stats govuk-!-margin-top-6">
+      {% for stat in stats %}
+      <a class="app-stat-card" href="{{ stat.href }}">
+        <span class="app-stat-card__number">{{ stat.number }}</span>
+        <span class="app-stat-card__label">{{ stat.label }}</span>
+        {% if stat.description %}
+        <span class="app-stat-card__description">{{ stat.description }}</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Hub sections (optional) ────────────────────────────────────────
+      Grouped card lists for hub/section gateway pages.
+      2-column card grid within each section.
+    ─────────────────────────────────────────────────────────────────────── #}
+    {% if sections and sections.length %}
+    {% for section in sections %}
+    <section class="app-hub__section">
+      <h2 class="govuk-heading-m">{{ section.heading }}</h2>
+      <ul class="app-hub__card-list">
+        {% for card in section.cards %}
+        <li class="app-hub__card">
+          <h3 class="govuk-heading-s app-hub__card-title">
+            <a class="govuk-link" href="{{ card.href }}">{{ card.title }}</a>
+          </h3>
+          {% if card.description %}
+          <p class="govuk-body-s app-hub__card-description">{{ card.description }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+    {% endif %}
+
+  </div>
+
+{% endblock %}

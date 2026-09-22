@@ -1,0 +1,53 @@
+{#
+  AICE Design Language — Section Layout (with sidebar navigation)
+
+  Use for: content pages that belong to a multi-page section where users
+  need to navigate between related pages. Renders a one-third sidebar
+  containing the section-navigation partial, and a two-thirds content column.
+
+  Expected template variables:
+    title           — page heading (h1) and browser tab prefix
+    caption         — small caption text above h1 (optional)
+    description     — lead paragraph below h1 (optional)
+    sectionTitle    — used in breadcrumb default instead of title (optional)
+    breadcrumbItems — array of { text, href } for govukBreadcrumbs;
+                      defaults to "Digital Defra / Digital service manual / sectionTitle or title"
+    sectionNav      — array of sections for the sidebar nav:
+                        [{ title, items: [{ text, href }] }]
+                      consumed by partials/section-navigation.njk
+    content         — Markdown string for the main body
+    supportBox      — { title?, description?, items? } — enables the support box (optional)
+#}
+{% extends "layouts/page.njk" %}
+
+{% block beforeContent %}
+{{ govukBreadcrumbs({
+  items: breadcrumbItems or [
+    { text: "Digital Defra", href: "/" },
+    { text: "Digital service manual", href: "/service-manual" },
+    { text: sectionTitle or title }
+  ]
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+
+  {# Sidebar — section navigation ──────────────────────────────────────────
+    The app-sub-navigation becomes sticky (position: sticky; top: 20px)
+    on viewports ≥ 648px. On narrower screens it stacks above the content.
+  ─────────────────────────────────────────────────────────────────────── #}
+  <div class="govuk-grid-column-one-third">
+    {% include "partials/section-navigation.njk" %}
+  </div>
+
+  <div class="govuk-grid-column-two-thirds">
+    {% if caption %}<span class="govuk-caption-xl">{{ caption }}</span>{% endif %}
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+    {% if description %}<p class="govuk-body-l">{{ description }}</p>{% endif %}
+    {{ content | markdown | safe }}
+    {% include "partials/support-box.njk" %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{#
+  AICE Design Language — Side Navigation Layout
+
+  Use for: content pages with a persistent left-rail navigation listing
+  the sections of a manual or reference guide (broader than section.njk's
+  in-section nav). Renders a one-quarter sidebar using the navigation partial
+  and a three-quarters content area.
+
+  Expected template variables:
+    title      — page heading (h1) and browser tab prefix
+    content    — Markdown string for the main body
+    supportBox — { title?, description?, items? } — enables the support box (optional)
+
+  The navigation partial (partials/navigation.njk) renders a static list of
+  manual sections using govuk-list. Customise that partial for your project.
+#}
+{% extends "layouts/page.njk" %}
+
+{% block content %}
+<div class="govuk-grid-row">
+
+  {# Sidebar — manual section navigation ───────────────────────────────────
+    Uses govuk-list with govuk-link items. aria-current is applied via
+    the `currentUrl` template variable compared against each item's href.
+  ─────────────────────────────────────────────────────────────────────── #}
+  <div class="govuk-grid-column-one-quarter">
+    {% include "partials/navigation.njk" %}
+  </div>
+
+  <div class="govuk-grid-column-three-quarters">
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+    {{ content | markdown | safe }}
+    {% include "partials/support-box.njk" %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{#
+  AICE Design Language — Two-Thirds Layout
+
+  Use for: content pages that need an explicit caption and description block
+  alongside the two-thirds body column. Functionally similar to article.njk
+  but breadcrumbs default to include the service manual path.
+
+  Expected template variables:
+    title           — page heading (h1) and browser tab prefix
+    caption         — small caption text above h1 (required)
+    description     — lead paragraph below h1 (required)
+    breadcrumbs     — array of { text, href } for govukBreadcrumbs (optional);
+                      defaults to "Digital Defra / Digital service manual / title"
+    content         — Markdown string for the main body
+    supportBox      — { title?, description?, items? } — enables the support box (optional)
+#}
+{% extends "layouts/page.njk" %}
+
+{% block beforeContent %}
+{% if breadcrumbs %}
+{{ govukBreadcrumbs({
+  items: breadcrumbs
+}) }}
+{% else %}
+{{ govukBreadcrumbs({
+  items: [
+    { text: "Digital Defra", href: "/" },
+    { text: "Digital service manual", href: "/service-manual" },
+    { text: title }
+  ]
+}) }}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <span class="govuk-caption-xl">{{ caption }}</span>
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+    <p class="govuk-body-l">{{ description }}</p>
+    {{ content | markdown | safe }}
+    {% include "partials/support-box.njk" %}
+  </div>
+</div>
+{% endblock %}

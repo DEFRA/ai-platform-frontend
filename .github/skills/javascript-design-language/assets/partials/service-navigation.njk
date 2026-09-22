@@ -1,0 +1,34 @@
+{#
+  AICE Design Language — Service Navigation Partial
+
+  Responsive service-level navigation bar rendered below the header.
+  Shows a horizontal list on desktop; collapses to hamburger on mobile.
+  Uses aria-current="page" and startsWith() matching for active items.
+
+  Expected template variables:
+    currentUrl — current page path; used to apply aria-current to matching items
+
+  Customise the <li> items for your project's top-level service sections.
+#}
+<nav class="defra-service-navigation" aria-label="Service navigation" data-module="defra-service-navigation">
+  <div class="defra-service-navigation__inner">
+    <button type="button" class="defra-service-navigation__toggle js-service-navigation-toggle" aria-controls="service-navigation-list" aria-expanded="false" hidden>
+      Menu
+    </button>
+    <ul class="defra-service-navigation__list" id="service-navigation-list">
+      <li class="defra-service-navigation__item">
+        <a class="defra-service-navigation__link" href="/">
+          Home
+        </a>
+      </li>
+      {# Add further service sections here, for example: #}
+      {#
+      <li class="defra-service-navigation__item">
+        <a class="defra-service-navigation__link"{% if currentUrl and currentUrl.startsWith('/section') %} aria-current="page"{% endif %} href="/section">
+          Section name
+        </a>
+      </li>
+      #}
+    </ul>
+  </div>
+</nav>

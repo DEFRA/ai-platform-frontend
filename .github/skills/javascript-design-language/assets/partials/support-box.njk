@@ -1,0 +1,35 @@
+{#
+  AICE Design Language — Support Box Partial
+
+  Optional contextual help box rendered at the bottom of content pages.
+  Only displayed when the `supportBox` object is set in the view context.
+  Styled with a light grey background and a 5px Defra green left border.
+
+  Expected template variables:
+    supportBox — object (optional):
+      supportBox.title       — heading text; defaults to "Get support"
+      supportBox.description — paragraph of HTML/text (optional)
+      supportBox.items       — array of HTML strings rendered as a govuk-list (optional)
+
+  Example view context:
+    supportBox: {
+      title: 'Get help',
+      description: 'Contact the team if you need support.',
+      items: ['<a href="mailto:team@defra.gov.uk">team@defra.gov.uk</a>']
+    }
+#}
+{% if supportBox %}
+<div class="defra-support-box">
+  <h2 class="govuk-heading-m">{{ supportBox.title | default('Get support') }}</h2>
+  {% if supportBox.description %}
+  <p class="govuk-body">{{ supportBox.description | safe }}</p>
+  {% endif %}
+  {% if supportBox.items %}
+  <ul class="govuk-list">
+    {% for item in supportBox.items %}
+    <li>{{ item | safe }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}

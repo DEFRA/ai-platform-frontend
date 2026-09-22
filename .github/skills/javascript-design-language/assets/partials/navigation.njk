@@ -1,0 +1,24 @@
+{#
+  AICE Design Language — Navigation Partial (Manual Sections Sidebar)
+
+  Used by side-nav.njk. Renders a static govuk-list of manual section links.
+  Applies `manual-navigation__link--current` to the item matching currentUrl.
+
+  Expected template variables:
+    currentUrl — current page path; matched exactly against each item's href
+
+  Customise the <li> items for your project's sections.
+#}
+<nav aria-label="Manual sections">
+  <ul class="govuk-list govuk-list--spaced">
+    <li>
+      <a
+        href="/"
+        class="govuk-link{% if currentUrl == '/' %} manual-navigation__link--current{% endif %}"
+      >
+        Home
+      </a>
+    </li>
+    {# Add further section links here following the same pattern #}
+  </ul>
+</nav>

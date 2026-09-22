@@ -1,0 +1,40 @@
+{#
+  AICE Design Language — Article Layout
+
+  Use for: standard content pages — guides, reference articles, how-to pages.
+  Renders a two-thirds column with an optional caption, h1, lead paragraph,
+  markdown body, and an optional support box at the bottom.
+
+  Expected template variables:
+    title           — page heading (h1) and browser tab prefix
+    caption         — small caption text above h1 (optional)
+    description     — lead paragraph below h1 (optional)
+    breadcrumbItems — array of { text, href } for govukBreadcrumbs;
+                      defaults to "Digital Defra / title"
+    content         — Markdown string for the main body
+    supportBox      — { title?, description?, items? } — enables the support box (optional)
+#}
+{% extends "layouts/page.njk" %}
+
+{% block beforeContent %}
+{{ govukBreadcrumbs({
+  items: breadcrumbItems or [
+    { text: "Digital Defra", href: "/" },
+    { text: title }
+  ]
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if caption %}<span class="govuk-caption-xl">{{ caption }}</span>{% endif %}
+    <h1 class="govuk-heading-xl">{{ title }}</h1>
+    {% if description %}
+    <p class="govuk-body-l">{{ description }}</p>
+    {% endif %}
+    {{ content | markdown | safe }}
+    {% include "partials/support-box.njk" %}
+  </div>
+</div>
+{% endblock %}
