@@ -135,7 +135,11 @@ describe('#modelsController', () => {
 
   test('GET /models/{slug} returns 404 for an unknown slug', async () => {
     fetchMock.mockResponseOnce(
-      JSON.stringify({ statusCode: 404, error: 'Not Found', code: 'not-found' }),
+      JSON.stringify({
+        statusCode: 404,
+        error: 'Not Found',
+        code: 'not-found'
+      }),
       { status: 404 }
     )
 

@@ -114,9 +114,7 @@ export const connectController = {
           modelSlug: request.payload.modelSlug || undefined
         })
 
-        return h
-          .redirect('/connect/shared/model')
-          .code(statusCodes.seeOther)
+        return h.redirect('/connect/shared/model').code(statusCodes.seeOther)
       }
     }
   },
@@ -177,9 +175,7 @@ export const connectController = {
           modelSlug: request.payload.modelSlug
         })
 
-        return h
-          .redirect('/connect/shared/details')
-          .code(statusCodes.seeOther)
+        return h.redirect('/connect/shared/details').code(statusCodes.seeOther)
       }
     }
   },
@@ -231,9 +227,7 @@ export const connectController = {
           purpose: request.payload.purpose ?? ''
         })
 
-        return h
-          .redirect('/connect/shared/check')
-          .code(statusCodes.seeOther)
+        return h.redirect('/connect/shared/check').code(statusCodes.seeOther)
       }
     }
   },

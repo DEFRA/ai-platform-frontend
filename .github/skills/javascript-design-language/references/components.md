@@ -18,7 +18,11 @@ White background header containing three grid columns: logo | service name | sea
   <div class="defra-header__inner">
     <!-- Logo -->
     <a href="/" class="defra-header__logo-link">
-      <img class="defra-header__logo" src="/assets/defra-logo.svg" alt="Defra">
+      <img
+        class="defra-header__logo"
+        src="/assets/defra-logo.svg"
+        alt="Defra"
+      />
     </a>
     <!-- Service name -->
     <a href="/" class="defra-header__service-name">Defra Service Manual</a>
@@ -26,7 +30,7 @@ White background header containing three grid columns: logo | service name | sea
     <form class="defra-header-search" role="search">
       <div class="defra-header-search--nhs">
         <div class="defra-header-search__wrapper">
-          <input class="defra-header-search__input" type="search" name="q">
+          <input class="defra-header-search__input" type="search" name="q" />
         </div>
         <button class="defra-header-search__button" type="submit">
           <!-- search icon svg -->
@@ -38,6 +42,7 @@ White background header containing three grid columns: logo | service name | sea
 ```
 
 Key details:
+
 - Grid: `grid-template-columns: auto 1fr auto; gap: 24px`
 - Service name colour: `#00a33b` (Defra green AA)
 - Service name font: Arial, 22px bold (responsive: 18px at 768px, 16px at 480px)
@@ -54,14 +59,25 @@ Full-width Defra green bar directly below the header. White text links in a hori
 <nav class="defra-primary-nav" aria-label="Primary navigation">
   <div class="defra-primary-nav__inner">
     <ul class="defra-primary-nav__list">
-      <li><a class="defra-primary-nav__link defra-primary-nav__link--current" href="/service-manual">Digital service manual</a></li>
-      <li><a class="defra-primary-nav__link" href="/delivery-groups">Delivery groups</a></li>
+      <li>
+        <a
+          class="defra-primary-nav__link defra-primary-nav__link--current"
+          href="/service-manual"
+          >Digital service manual</a
+        >
+      </li>
+      <li>
+        <a class="defra-primary-nav__link" href="/delivery-groups"
+          >Delivery groups</a
+        >
+      </li>
     </ul>
   </div>
 </nav>
 ```
 
 Key details:
+
 - Background: `#008531`
 - Links: white, underlined, 16px
 - Add `defra-primary-nav__link--current` for the active section
@@ -75,9 +91,18 @@ Responsive secondary navigation for within a section. Shows a hamburger toggle o
 ```html
 <nav class="defra-service-navigation" aria-label="Section navigation">
   <div class="defra-service-navigation__inner">
-    <button class="defra-service-navigation__toggle" aria-expanded="false">Menu</button>
+    <button class="defra-service-navigation__toggle" aria-expanded="false">
+      Menu
+    </button>
     <ul class="defra-service-navigation__list">
-      <li><a class="defra-service-navigation__link" aria-current="page" href="/section/page">Page title</a></li>
+      <li>
+        <a
+          class="defra-service-navigation__link"
+          aria-current="page"
+          href="/section/page"
+          >Page title</a
+        >
+      </li>
     </ul>
   </div>
 </nav>
@@ -102,6 +127,7 @@ Full-width Defra green strip containing breadcrumb navigation. White text and li
 ```
 
 Key details:
+
 - Background: `#008531`; all text white
 - Used on content pages — **not** on entry/hero pages (breadcrumbs there use `.defra-breadcrumbs--inverse`)
 
@@ -115,12 +141,15 @@ Key details:
 <div class="defra-hero">
   <div class="defra-width-container">
     <h1 class="govuk-heading-xl">Service name</h1>
-    <p class="govuk-body-l">A short description of what this service provides.</p>
+    <p class="govuk-body-l">
+      A short description of what this service provides.
+    </p>
   </div>
 </div>
 ```
 
 Key details:
+
 - `width: 100vw; left: 50%; transform: translateX(-50%)` — bleeds past the container to full viewport width
 - Background: `#008531`; text: white
 - Padding: `40px 15px`
@@ -161,13 +190,16 @@ The `.defra-hero__whats-new` box has a semi-transparent white border (`rgba(255,
       <h3 class="govuk-heading-s defra-tile__title">
         <a class="defra-tile__link" href="/section">Section name</a>
       </h3>
-      <p class="govuk-body-s defra-tile__body">Short description of the section.</p>
+      <p class="govuk-body-s defra-tile__body">
+        Short description of the section.
+      </p>
     </div>
   </li>
 </ul>
 ```
 
 Key details:
+
 - Grid: 3 columns → 1 column at ≤776px
 - Tile border: `1px solid #b1b4b6`; hover: `#008531` border, light grey background, lift effect
 - Accessible: only the heading is the semantic link; a CSS `::after` pseudo-element stretches click target to the full card
@@ -183,7 +215,9 @@ An informational strip used below the hero on entry pages to flag version/status
 ```html
 <div class="defra-version-banner">
   <span class="defra-version-banner__label">v2.1</span>
-  <p class="defra-version-banner__text">Last updated January 2025. <a href="/changelog">See what's changed</a>.</p>
+  <p class="defra-version-banner__text">
+    Last updated January 2025. <a href="/changelog">See what's changed</a>.
+  </p>
 </div>
 ```
 
@@ -199,7 +233,10 @@ Contact/help box used at the bottom of content pages.
 ```html
 <div class="defra-support-box">
   <h2 class="govuk-heading-s">Get help</h2>
-  <p class="govuk-body">Contact the team at <a href="mailto:team@defra.gov.uk">team@defra.gov.uk</a>.</p>
+  <p class="govuk-body">
+    Contact the team at
+    <a href="mailto:team@defra.gov.uk">team@defra.gov.uk</a>.
+  </p>
 </div>
 ```
 
@@ -222,14 +259,20 @@ Custom footer with Defra green top border and meta links.
             <a class="defra-footer__link" href="/privacy">Privacy</a>
           </li>
           <li class="defra-footer__inline-list-item">
-            <a class="defra-footer__link" href="/accessibility">Accessibility</a>
+            <a class="defra-footer__link" href="/accessibility"
+              >Accessibility</a
+            >
           </li>
         </ul>
       </div>
       <div class="defra-footer__meta-item">
         <p class="defra-footer__licence-description">
           All content is available under the
-          <a class="defra-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence v3.0</a>.
+          <a
+            class="defra-footer__link"
+            href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"
+            >Open Government Licence v3.0</a
+          >.
         </p>
       </div>
     </div>
@@ -341,7 +384,9 @@ Left sidebar navigation for content pages with multiple sections.
   <h2 class="app-subnav__header">Contents</h2>
   <ul class="app-subnav__section">
     <li class="app-subnav__section-item app-subnav__section-item--current">
-      <a class="app-subnav__link app-subnav__link--current" href="/section/page">Current page</a>
+      <a class="app-subnav__link app-subnav__link--current" href="/section/page"
+        >Current page</a
+      >
     </li>
     <li class="app-subnav__section-item">
       <a class="app-subnav__link" href="/section/other">Other page</a>
