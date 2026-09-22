@@ -1,0 +1,41 @@
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+<table class="govuk-table app-model-table" data-testid="model-table">
+  <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Available models</caption>
+  <thead class="govuk-table__head">
+    <tr class="govuk-table__row">
+      <th scope="col" class="govuk-table__header">Model</th>
+      <th scope="col" class="govuk-table__header">Provider</th>
+      <th scope="col" class="govuk-table__header">Context window</th>
+      <th scope="col" class="govuk-table__header">Status</th>
+    </tr>
+  </thead>
+  <tbody class="govuk-table__body">
+    {% for model in params.models %}
+      <tr class="govuk-table__row{{ ' app-model-table__row--disabled' if not model.eligible }}"
+          data-testid="model-table-row"
+          {{ 'aria-disabled="true"' | safe if not model.eligible }}>
+        <td class="govuk-table__cell">
+          {% if model.eligible %}
+            <a class="govuk-link" href="/models/{{ model.slug }}" data-testid="model-table-link">{{ model.displayName }}</a>
+          {% else %}
+            <span data-testid="model-table-name">{{ model.displayName }}</span>
+          {% endif %}
+        </td>
+        <td class="govuk-table__cell">{{ model.provider }}</td>
+        <td class="govuk-table__cell">{{ model.contextWindow }}</td>
+        <td class="govuk-table__cell">
+          {% if model.eligible %}
+            {{ govukTag({ text: "Available", classes: "govuk-tag--green" }) }}
+          {% else %}
+            {{ govukTag({ text: model.statusReason or "Not available", classes: "govuk-tag--grey" }) }}
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if params.models.length == 0 %}
+  <p class="govuk-body" data-testid="model-table-empty">No models match your filters.</p>
+{% endif %}

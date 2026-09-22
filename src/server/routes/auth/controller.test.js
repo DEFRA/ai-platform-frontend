@@ -1,6 +1,7 @@
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
+import createFetchMock from 'vitest-fetch-mock'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
   getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
@@ -45,6 +46,9 @@ function cookieHeader(jar) {
     .join('; ')
 }
 
+const fetchMock = createFetchMock(vi)
+fetchMock.enableMocks()
+
 describe('#authController', () => {
   let server
 
@@ -58,6 +62,7 @@ describe('#authController', () => {
   })
 
   beforeEach(() => {
+    fetchMock.resetMocks()
     getOidcConfig.mockResolvedValue('fake-oidc-config')
   })
 
@@ -95,12 +100,23 @@ describe('#authController', () => {
     expect(headers.location).toBe('/sign-in')
   })
 
-  test('GET /auth/callback exchanges the code and redirects to /sign-in/team', async () => {
+  test('GET /auth/callback exchanges the code, upserts the user and redirects to /connect', async () => {
     const loginResponse = await server.inject({
       method: 'GET',
       url: '/auth/login'
     })
     const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: {
+          _id: 'user-1',
+          email: 'test.user@defra.gov.uk',
+          displayName: 'Test User'
+        },
+        team: null
+      })
+    )
 
     const { statusCode, headers } = await server.inject({
       method: 'GET',
@@ -109,7 +125,59 @@ describe('#authController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/sign-in/team')
+    expect(headers.location).toBe('/connect')
+  })
+
+  test('GET /auth/callback redirects to returnTo when it was set before login', async () => {
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login?returnTo=%2Fmanage'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: {
+          _id: 'user-1',
+          email: 'test.user@defra.gov.uk',
+          displayName: 'Test User'
+        },
+        team: null
+      })
+    )
+
+    const { statusCode, headers } = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/manage')
+  })
+
+  test('GET /auth/callback shows a safe error page for a disallowed email domain', async () => {
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ code: 'domain-not-allowed', message: 'Not allowed' }),
+      { status: 403 }
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.forbidden)
+    expect(result).toEqual(
+      expect.stringContaining('You cannot sign in with this account')
+    )
   })
 
   test('GET /auth/callback renders a sign-in-problem page when the code exchange fails', async () => {

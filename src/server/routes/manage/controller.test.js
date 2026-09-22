@@ -51,7 +51,7 @@ async function signIn(server) {
   return signInViaOidc(server, fetchMock)
 }
 
-describe('#accountController', () => {
+describe('#manageController', () => {
   let server
 
   beforeAll(async () => {
@@ -67,17 +67,17 @@ describe('#accountController', () => {
     fetchMock.resetMocks()
   })
 
-  test('GET /account redirects to /sign-in when signed out', async () => {
+  test('GET /manage redirects to /sign-in when signed out', async () => {
     const { statusCode, headers } = await server.inject({
       method: 'GET',
-      url: '/account'
+      url: '/manage'
     })
 
     expect(statusCode).toBe(302)
-    expect(headers.location).toBe('/sign-in?returnTo=%2Faccount')
+    expect(headers.location).toBe('/sign-in?returnTo=%2Fmanage')
   })
 
-  test('GET /account lists credentials with model names', async () => {
+  test('GET /manage lists credentials with model names', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleCredential] }))
@@ -85,7 +85,7 @@ describe('#accountController', () => {
 
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(cookies) }
     })
 
@@ -94,7 +94,7 @@ describe('#accountController', () => {
     expect(result).toEqual(expect.stringContaining('ab12'))
   })
 
-  test('GET /account shows the empty state with no credentials', async () => {
+  test('GET /manage shows the empty state with no credentials', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
@@ -102,7 +102,7 @@ describe('#accountController', () => {
 
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(cookies) }
     })
 
@@ -112,7 +112,24 @@ describe('#accountController', () => {
     )
   })
 
-  test('POST /account/credentials/{id}/renew shows a success banner', async () => {
+  test('GET /manage shows a "Your teams" placeholder', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining('You are not a member of a team yet')
+    )
+  })
+
+  test('POST /manage/credentials/{id}/renew shows a success banner', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(
@@ -121,13 +138,13 @@ describe('#accountController', () => {
 
     const postRenew = await server.inject({
       method: 'POST',
-      url: '/account/credentials/cred-1/renew',
+      url: '/manage/credentials/cred-1/renew',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb }
     })
 
     expect(postRenew.statusCode).toBe(303)
-    expect(postRenew.headers.location).toBe('/account')
+    expect(postRenew.headers.location).toBe('/manage')
 
     const redirectCookies = mergeCookies(cookies, postRenew)
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
@@ -135,14 +152,14 @@ describe('#accountController', () => {
 
     const { result } = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(redirectCookies) }
     })
 
     expect(result).toEqual(expect.stringContaining('Credential renewed'))
   })
 
-  test('POST /account/credentials/{id}/renew shows an error banner once the cap is reached', async () => {
+  test('POST /manage/credentials/{id}/renew shows an error banner once the cap is reached', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(
@@ -157,7 +174,7 @@ describe('#accountController', () => {
 
     const postRenew = await server.inject({
       method: 'POST',
-      url: '/account/credentials/cred-1/renew',
+      url: '/manage/credentials/cred-1/renew',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb }
     })
@@ -170,7 +187,7 @@ describe('#accountController', () => {
 
     const { result } = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(redirectCookies) }
     })
 
@@ -179,7 +196,7 @@ describe('#accountController', () => {
     )
   })
 
-  test('GET /account/credentials/{id}/revoke shows the confirm page', async () => {
+  test('GET /manage/credentials/{id}/revoke shows the confirm page', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(JSON.stringify(sampleCredential))
@@ -187,7 +204,7 @@ describe('#accountController', () => {
 
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/account/credentials/cred-1/revoke',
+      url: '/manage/credentials/cred-1/revoke',
       headers: { cookie: cookieHeader(cookies) }
     })
 
@@ -195,30 +212,30 @@ describe('#accountController', () => {
     expect(result).toEqual(expect.stringContaining('GPT-4o'))
   })
 
-  test('POST /account/credentials/{id}/revoke with "no" takes no action', async () => {
+  test('POST /manage/credentials/{id}/revoke with "no" takes no action', async () => {
     const cookies = await signIn(server)
     fetchMock.mockClear()
 
     const { statusCode, headers } = await server.inject({
       method: 'POST',
-      url: '/account/credentials/cred-1/revoke',
+      url: '/manage/credentials/cred-1/revoke',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb, confirmRevoke: 'no' }
     })
 
     expect(statusCode).toBe(303)
-    expect(headers.location).toBe('/account')
+    expect(headers.location).toBe('/manage')
     expect(fetchMock.mock.calls).toHaveLength(0)
   })
 
-  test('POST /account/credentials/{id}/revoke with "yes" revokes and shows a banner', async () => {
+  test('POST /manage/credentials/{id}/revoke with "yes" revokes and shows a banner', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(null, { status: 204 })
 
     const postRevoke = await server.inject({
       method: 'POST',
-      url: '/account/credentials/cred-1/revoke',
+      url: '/manage/credentials/cred-1/revoke',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb, confirmRevoke: 'yes' }
     })
@@ -231,14 +248,14 @@ describe('#accountController', () => {
 
     const { result } = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(redirectCookies) }
     })
 
     expect(result).toEqual(expect.stringContaining('Credential revoked'))
   })
 
-  test('POST /account/credentials/{id}/revoke rejects an unselected radio', async () => {
+  test('POST /manage/credentials/{id}/revoke rejects an unselected radio', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(JSON.stringify(sampleCredential))
@@ -246,7 +263,7 @@ describe('#accountController', () => {
 
     const { statusCode, result } = await server.inject({
       method: 'POST',
-      url: '/account/credentials/cred-1/revoke',
+      url: '/manage/credentials/cred-1/revoke',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb }
     })
@@ -255,7 +272,7 @@ describe('#accountController', () => {
     expect(result).toEqual(expect.stringContaining('There is a problem'))
   })
 
-  test('GET /account/credentials/{id}/revoke redirects to /account for an unknown id', async () => {
+  test('GET /manage/credentials/{id}/revoke redirects to /manage for an unknown id', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(
@@ -269,11 +286,11 @@ describe('#accountController', () => {
 
     const { statusCode, headers } = await server.inject({
       method: 'GET',
-      url: '/account/credentials/unknown-id/revoke',
+      url: '/manage/credentials/unknown-id/revoke',
       headers: { cookie: cookieHeader(cookies) }
     })
 
     expect(statusCode).toBe(303)
-    expect(headers.location).toBe('/account')
+    expect(headers.location).toBe('/manage')
   })
 })

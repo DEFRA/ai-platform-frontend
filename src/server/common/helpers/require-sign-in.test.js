@@ -2,7 +2,7 @@ import { requireSignIn } from './require-sign-in.js'
 
 function mockRequest(user) {
   return {
-    path: '/connect-model',
+    path: '/connect',
     yar: {
       get: () => user
     }
@@ -24,9 +24,7 @@ describe('#requireSignIn', () => {
 
     const result = requireSignIn(request, h)
 
-    expect(h.redirect).toHaveBeenCalledWith(
-      '/sign-in?returnTo=%2Fconnect-model'
-    )
+    expect(h.redirect).toHaveBeenCalledWith('/sign-in?returnTo=%2Fconnect')
     expect(result).toBe('redirected')
   })
 

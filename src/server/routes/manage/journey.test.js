@@ -43,13 +43,14 @@ const sampleModel = {
 }
 
 /**
- * Exercises the full J1-J4 journey through the frontend in one test, with
- * every external dependency mocked exactly where the architecture already
- * isolates it: Entra ID (vi.mock above), and the backend API (fetchMock) —
- * which in production is itself backed by the backend's mocked Azure APIM
- * adapter, so nothing in this chain depends on real cloud infrastructure.
+ * Exercises the full B03-B07 Route 1 journey through the frontend in one
+ * test, with every external dependency mocked exactly where the architecture
+ * already isolates it: Entra ID (vi.mock above), and the backend API
+ * (fetchMock) - which in production is itself backed by the backend's mocked
+ * Azure APIM adapter, so nothing in this chain depends on real cloud
+ * infrastructure.
  */
-describe('J1-J4 full journey (sign in, connect a model, manage the credential)', () => {
+describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)', () => {
   let server
 
   beforeAll(async () => {
@@ -65,45 +66,59 @@ describe('J1-J4 full journey (sign in, connect a model, manage the credential)',
     fetchMock.resetMocks()
   })
 
-  test('sign in -> connect a model -> renew -> revoke', async () => {
-    // J1: sign in
+  test('sign in -> connect a shared model -> renew -> revoke', async () => {
+    // B03: sign in (no team step)
     let cookies = await signInViaOidc(server, fetchMock)
 
-    // J3: choose a provider, select a model
-    const postChooseProvider = await server.inject({
+    // B06: choose access type, choose a model
+    const postAccessType = await server.inject({
       method: 'POST',
-      url: '/connect-model',
+      url: '/connect',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, provider: 'openai' }
+      payload: { crumb: cookies.crumb, accessType: 'shared' }
     })
-    cookies = mergeCookies(cookies, postChooseProvider)
-    expect(postChooseProvider.statusCode).toBe(303)
+    cookies = mergeCookies(cookies, postAccessType)
+    expect(postAccessType.statusCode).toBe(303)
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
     const getSelectModel = await server.inject({
       method: 'GET',
-      url: '/connect-model/select-model',
+      url: '/connect/shared/model',
       headers: { cookie: cookieHeader(cookies) }
     })
     cookies = mergeCookies(cookies, getSelectModel)
 
     const postSelectModel = await server.inject({
       method: 'POST',
-      url: '/connect-model/select-model',
+      url: '/connect/shared/model',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb, modelSlug: 'gpt-4o' }
     })
     cookies = mergeCookies(cookies, postSelectModel)
     expect(postSelectModel.statusCode).toBe(303)
 
-    // J3: confirm and issue the credential
+    // B06: say what it is for
+    const postDetails = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/details',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: {
+        crumb: cookies.crumb,
+        purpose: 'Journey test',
+        agreeToTerms: 'true'
+      }
+    })
+    cookies = mergeCookies(cookies, postDetails)
+    expect(postDetails.statusCode).toBe(303)
+
+    // B06: check your answers and issue the credential
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
-    const getConfirm = await server.inject({
+    const getCheck = await server.inject({
       method: 'GET',
-      url: '/connect-model/confirm',
+      url: '/connect/shared/check',
       headers: { cookie: cookieHeader(cookies) }
     })
-    cookies = mergeCookies(cookies, getConfirm)
+    cookies = mergeCookies(cookies, getCheck)
 
     const issuedCredential = {
       _id: 'cred-journey-1',
@@ -118,19 +133,19 @@ describe('J1-J4 full journey (sign in, connect a model, manage the credential)',
       JSON.stringify({ credential: issuedCredential, secret: 'mock_secret' })
     )
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
-    const postConfirm = await server.inject({
+    const postCheck = await server.inject({
       method: 'POST',
-      url: '/connect-model/confirm',
+      url: '/connect/shared/check',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, agreeToTerms: 'true' }
+      payload: { crumb: cookies.crumb }
     })
-    cookies = mergeCookies(cookies, postConfirm)
-    expect(postConfirm.statusCode).toBe(303)
-    expect(postConfirm.headers.location).toBe('/connect-model/credential')
+    cookies = mergeCookies(cookies, postCheck)
+    expect(postCheck.statusCode).toBe(303)
+    expect(postCheck.headers.location).toBe('/connect/shared/credential')
 
     const getCredential = await server.inject({
       method: 'GET',
-      url: '/connect-model/credential',
+      url: '/connect/shared/credential',
       headers: { cookie: cookieHeader(cookies) }
     })
     cookies = mergeCookies(cookies, getCredential)
@@ -138,19 +153,19 @@ describe('J1-J4 full journey (sign in, connect a model, manage the credential)',
       expect.stringContaining('Manage your credentials')
     )
 
-    // J4: the credential appears on the account page
+    // B07: the credential appears on /manage
     fetchMock.mockResponseOnce(JSON.stringify({ items: [issuedCredential] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    const getAccount = await server.inject({
+    const getManage = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(cookies) }
     })
-    cookies = mergeCookies(cookies, getAccount)
-    expect(getAccount.statusCode).toBe(statusCodes.ok)
-    expect(getAccount.result).toEqual(expect.stringContaining('GPT-4o'))
+    cookies = mergeCookies(cookies, getManage)
+    expect(getManage.statusCode).toBe(statusCodes.ok)
+    expect(getManage.result).toEqual(expect.stringContaining('GPT-4o'))
 
-    // J4: renew it
+    // B07: renew it
     fetchMock.mockResponseOnce(
       JSON.stringify({
         ...issuedCredential,
@@ -161,7 +176,7 @@ describe('J1-J4 full journey (sign in, connect a model, manage the credential)',
     )
     const postRenew = await server.inject({
       method: 'POST',
-      url: '/account/credentials/cred-journey-1/renew',
+      url: '/manage/credentials/cred-journey-1/renew',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb }
     })
@@ -174,22 +189,22 @@ describe('J1-J4 full journey (sign in, connect a model, manage the credential)',
       })
     )
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    const getAccountAfterRenew = await server.inject({
+    const getManageAfterRenew = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(cookies) }
     })
-    cookies = mergeCookies(cookies, getAccountAfterRenew)
-    expect(getAccountAfterRenew.result).toEqual(
+    cookies = mergeCookies(cookies, getManageAfterRenew)
+    expect(getManageAfterRenew.result).toEqual(
       expect.stringContaining('Credential renewed')
     )
 
-    // J4: revoke it
+    // B07: revoke it
     fetchMock.mockResponseOnce(JSON.stringify(issuedCredential))
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
     const getRevokeConfirm = await server.inject({
       method: 'GET',
-      url: '/account/credentials/cred-journey-1/revoke',
+      url: '/manage/credentials/cred-journey-1/revoke',
       headers: { cookie: cookieHeader(cookies) }
     })
     cookies = mergeCookies(cookies, getRevokeConfirm)
@@ -198,7 +213,7 @@ describe('J1-J4 full journey (sign in, connect a model, manage the credential)',
     fetchMock.mockResponseOnce(null, { status: 204 })
     const postRevoke = await server.inject({
       method: 'POST',
-      url: '/account/credentials/cred-journey-1/revoke',
+      url: '/manage/credentials/cred-journey-1/revoke',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb, confirmRevoke: 'yes' }
     })
@@ -211,16 +226,16 @@ describe('J1-J4 full journey (sign in, connect a model, manage the credential)',
       })
     )
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    const getAccountAfterRevoke = await server.inject({
+    const getManageAfterRevoke = await server.inject({
       method: 'GET',
-      url: '/account',
+      url: '/manage',
       headers: { cookie: cookieHeader(cookies) }
     })
 
-    expect(getAccountAfterRevoke.result).toEqual(
+    expect(getManageAfterRevoke.result).toEqual(
       expect.stringContaining('Credential revoked')
     )
-    expect(getAccountAfterRevoke.result).toEqual(
+    expect(getManageAfterRevoke.result).toEqual(
       expect.stringContaining('revoked')
     )
   })

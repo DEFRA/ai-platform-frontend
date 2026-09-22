@@ -1,14 +1,11 @@
 import { buildNavigation } from './build-navigation.js'
 
-function mockRequest(options, { signedIn = false, pending = false } = {}) {
+function mockRequest(options, { signedIn = false } = {}) {
   return {
     ...options,
     yar: {
       get: (key) => {
         if (signedIn && key === 'user') return { displayName: 'Dev User' }
-        if (pending && key === 'pendingOidcIdentity') {
-          return { displayName: 'Dev User' }
-        }
         return undefined
       }
     }
@@ -16,7 +13,7 @@ function mockRequest(options, { signedIn = false, pending = false } = {}) {
 }
 
 describe('#buildNavigation', () => {
-  test('Should hide "Connect to model" when signed out', () => {
+  test('Should hide "Manage AI access" when signed out', () => {
     expect(
       buildNavigation(mockRequest({ path: '/non-existent-path' }))
     ).toEqual([
@@ -24,6 +21,16 @@ describe('#buildNavigation', () => {
         current: false,
         text: 'Home',
         href: '/'
+      },
+      {
+        current: false,
+        text: 'Browse models',
+        href: '/models'
+      },
+      {
+        current: false,
+        text: 'Connect to a model',
+        href: '/connect'
       },
       {
         current: false,
@@ -46,37 +53,18 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Connect to model',
-        href: '/connect-model'
+        text: 'Browse models',
+        href: '/models'
       },
       {
         current: false,
-        text: 'Account',
-        href: '/account'
+        text: 'Connect to a model',
+        href: '/connect'
       },
       {
         current: false,
-        text: 'About',
-        href: '/about'
-      }
-    ])
-  })
-
-  test('Should show "Connect to model" once Entra ID login succeeds, before the team step', () => {
-    expect(
-      buildNavigation(
-        mockRequest({ path: '/non-existent-path' }, { pending: true })
-      )
-    ).toEqual([
-      {
-        current: false,
-        text: 'Home',
-        href: '/'
-      },
-      {
-        current: false,
-        text: 'Connect to model',
-        href: '/connect-model'
+        text: 'Manage AI access',
+        href: '/manage'
       },
       {
         current: false,
@@ -84,14 +72,6 @@ describe('#buildNavigation', () => {
         href: '/about'
       }
     ])
-  })
-
-  test('Should hide "Account" until the team step is finished, unlike "Connect to model"', () => {
-    expect(
-      buildNavigation(
-        mockRequest({ path: '/non-existent-path' }, { pending: true })
-      )
-    ).not.toContainEqual(expect.objectContaining({ text: 'Account' }))
   })
 
   test('Should provide expected highlighted navigation details', () => {
@@ -105,13 +85,18 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Connect to model',
-        href: '/connect-model'
+        text: 'Browse models',
+        href: '/models'
       },
       {
         current: false,
-        text: 'Account',
-        href: '/account'
+        text: 'Connect to a model',
+        href: '/connect'
+      },
+      {
+        current: false,
+        text: 'Manage AI access',
+        href: '/manage'
       },
       {
         current: false,
@@ -121,10 +106,10 @@ describe('#buildNavigation', () => {
     ])
   })
 
-  test('Should highlight Connect to model for its sub-routes', () => {
+  test('Should highlight Connect to a model for its sub-routes', () => {
     expect(
       buildNavigation(
-        mockRequest({ path: '/connect-model/select-model' }, { signedIn: true })
+        mockRequest({ path: '/connect/shared/model' }, { signedIn: true })
       )
     ).toEqual([
       {
@@ -133,14 +118,19 @@ describe('#buildNavigation', () => {
         href: '/'
       },
       {
+        current: false,
+        text: 'Browse models',
+        href: '/models'
+      },
+      {
         current: true,
-        text: 'Connect to model',
-        href: '/connect-model'
+        text: 'Connect to a model',
+        href: '/connect'
       },
       {
         current: false,
-        text: 'Account',
-        href: '/account'
+        text: 'Manage AI access',
+        href: '/manage'
       },
       {
         current: false,
@@ -150,11 +140,11 @@ describe('#buildNavigation', () => {
     ])
   })
 
-  test('Should highlight Account for its sub-routes', () => {
+  test('Should highlight Manage AI access for its sub-routes', () => {
     expect(
       buildNavigation(
         mockRequest(
-          { path: '/account/credentials/1/revoke' },
+          { path: '/manage/credentials/1/revoke' },
           { signedIn: true }
         )
       )
@@ -166,13 +156,18 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Connect to model',
-        href: '/connect-model'
+        text: 'Browse models',
+        href: '/models'
+      },
+      {
+        current: false,
+        text: 'Connect to a model',
+        href: '/connect'
       },
       {
         current: true,
-        text: 'Account',
-        href: '/account'
+        text: 'Manage AI access',
+        href: '/manage'
       },
       {
         current: false,

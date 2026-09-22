@@ -1,6 +1,6 @@
 {% extends 'layouts/page.njk' %}
 
-{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
@@ -18,21 +18,25 @@
         }) }}
       {% endif %}
 
-      <p class="govuk-body">Signed in as {{ displayName }} ({{ email }})</p>
-
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
-        <input type="hidden" name="returnTo" value="{{ returnTo }}">
+        <input type="hidden" name="modelSlug" value="{{ modelSlug }}">
 
-        {{ govukInput({
-          label: { text: "Team name" },
-          id: "teamName",
-          name: "teamName",
-          value: values.teamName,
-          errorMessage: fieldErrors.teamName
+        {{ govukRadios({
+          idPrefix: "accessType",
+          name: "accessType",
+          fieldset: {
+            legend: {
+              text: "What kind of access do you need?",
+              isPageHeading: false,
+              classes: "govuk-fieldset__legend--m"
+            }
+          },
+          errorMessage: fieldErrors.accessType,
+          items: accessTypeItems
         }) }}
 
-        {{ govukButton({ text: "Continue" }) }}
+        {{ govukButton({ text: "Continue" if signedIn else "Please sign in to continue" }) }}
       </form>
     </div>
   </div>

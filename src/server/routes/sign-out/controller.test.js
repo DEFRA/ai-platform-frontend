@@ -4,7 +4,7 @@ import { createServer } from '#/server/server.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
 import {
   signInViaOidc,
-  completeOidcLogin,
+  mergeCookies,
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 
@@ -82,8 +82,9 @@ describe('#signOutController', () => {
     expect(headers.location).toBe('/')
   })
 
-  test('POST /sign-out works before the team step is finished (only a pending Entra ID identity, no session user yet)', async () => {
-    const cookies = await completeOidcLogin(server)
+  test('POST /sign-out works even without a signed-in session', async () => {
+    const homeResponse = await server.inject({ method: 'GET', url: '/' })
+    const cookies = mergeCookies({}, homeResponse)
 
     const { statusCode, headers } = await server.inject({
       method: 'POST',

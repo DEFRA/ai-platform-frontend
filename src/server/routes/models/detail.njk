@@ -1,0 +1,83 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "code-examples/macro.njk" import appCodeExamples %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading,
+    caption: model.provider
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="govuk-body">{{ model.description }}</p>
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Provider" },
+            value: { text: model.provider }
+          },
+          {
+            key: { text: "Family" },
+            value: { text: model.family }
+          },
+          {
+            key: { text: "Version" },
+            value: { text: model.version }
+          },
+          {
+            key: { text: "Context window" },
+            value: { text: model.contextWindow }
+          },
+          {
+            key: { text: "Region / data zone" },
+            value: { text: model.region + " / " + model.dataZone }
+          },
+          {
+            key: { text: "Tiers" },
+            value: { text: model.tiers | join(", ") }
+          }
+        ]
+      }) }}
+
+      {% if model.useCases.length > 0 %}
+        <h2 class="govuk-heading-m">Use cases</h2>
+        <ul class="govuk-list govuk-list--bullet" data-testid="model-use-cases">
+          {% for useCase in model.useCases %}
+            <li>{{ useCase }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if model.links.length > 0 %}
+        <h2 class="govuk-heading-m">Best practice</h2>
+        <ul class="govuk-list" data-testid="model-links">
+          {% for link in model.links %}
+            <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <h2 class="govuk-heading-m">Example request</h2>
+      {{ appCodeExamples({
+        endpoint: model.endpoint,
+        secretPlaceholder: "<YOUR_SUBSCRIPTION_KEY>"
+      }) }}
+
+      <h2 class="govuk-heading-m">Connect to this model</h2>
+
+      {% if canConnect %}
+        {{ govukButton({
+          text: "Connect to this model",
+          href: "/connect?modelSlug=" + model.slug
+        }) }}
+      {% elif not eligible %}
+        {{ govukTag({ text: "Not approved for the research tier", classes: "govuk-tag--grey" }) }}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

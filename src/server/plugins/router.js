@@ -6,8 +6,9 @@ import { health } from '../routes/health/index.js'
 import { signIn } from '../routes/sign-in/index.js'
 import { signOut } from '../routes/sign-out/index.js'
 import { auth } from '../routes/auth/index.js'
-import { connectModel } from '../routes/connect-model/index.js'
-import { account } from '../routes/account/index.js'
+import { models } from '../routes/models/index.js'
+import { connect } from '../routes/connect/index.js'
+import { manage } from '../routes/manage/index.js'
 import { serveStaticFiles } from './serve-static-files.js'
 import { config } from '#/config/config.js'
 
@@ -27,8 +28,9 @@ export const router = {
         signIn,
         signOut,
         auth,
-        connectModel,
-        account
+        models,
+        connect,
+        manage
       ])
 
       // Static assets

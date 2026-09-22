@@ -24,8 +24,10 @@ export function cookieHeader(jar) {
     .join('; ')
 }
 
-// Drives GET /auth/login -> GET /auth/callback (both mocked) so the session
-// ends up with a pending Entra ID identity, ready for /sign-in/team.
+// Drives GET /auth/login -> GET /auth/callback (both mocked), which upserts
+// the user via the backend API and signs them straight in - there is no
+// separate team step. Callers must mock the POST /v1/users response on
+// fetchMock before calling this (see signInViaOidc for the common case).
 export async function completeOidcLogin(server) {
   const loginResponse = await server.inject({
     method: 'GET',
@@ -42,11 +44,10 @@ export async function completeOidcLogin(server) {
   return mergeCookies(cookies, callbackResponse)
 }
 
-// Completes the full sign-in journey (Entra + team name) and returns the
-// authenticated session's cookie jar for use by subsequent server.inject calls.
-export async function signInViaOidc(server, fetchMock, { teamName } = {}) {
-  const cookies = await completeOidcLogin(server)
-
+// Completes the full sign-in journey (Entra ID + backend user upsert) and
+// returns the authenticated session's cookie jar for use by subsequent
+// server.inject calls.
+export async function signInViaOidc(server, fetchMock) {
   fetchMock.mockResponseOnce(
     JSON.stringify({
       user: {
@@ -54,16 +55,9 @@ export async function signInViaOidc(server, fetchMock, { teamName } = {}) {
         email: 'test.user@defra.gov.uk',
         displayName: 'Test User'
       },
-      team: { _id: 'team-1', name: teamName ?? 'Platform Team' }
+      team: null
     })
   )
 
-  const postTeam = await server.inject({
-    method: 'POST',
-    url: '/sign-in/team',
-    headers: { cookie: cookieHeader(cookies) },
-    payload: { crumb: cookies.crumb, teamName: teamName ?? 'Platform Team' }
-  })
-
-  return mergeCookies(cookies, postTeam)
+  return completeOidcLogin(server)
 }

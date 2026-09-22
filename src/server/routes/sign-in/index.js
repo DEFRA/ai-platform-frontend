@@ -4,7 +4,7 @@ const publicRoute = { app: { public: true } }
 
 /**
  * Sets up the single sign-in journey: /sign-in triggers Entra ID OIDC login,
- * and /sign-in/team collects a team name once Entra login succeeds.
+ * which upserts the user and signs them in directly on /auth/callback.
  * These routes are registered in src/server/plugins/router.js.
  */
 export const signIn = {
@@ -17,18 +17,6 @@ export const signIn = {
           path: '/sign-in',
           options: publicRoute,
           ...signInController.get
-        },
-        {
-          method: 'GET',
-          path: '/sign-in/team',
-          options: publicRoute,
-          ...signInController.team.get
-        },
-        {
-          method: 'POST',
-          path: '/sign-in/team',
-          options: { ...publicRoute, ...signInController.team.post.options },
-          handler: signInController.team.post.handler
         }
       ])
     }
