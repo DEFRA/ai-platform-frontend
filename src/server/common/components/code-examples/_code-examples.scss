@@ -1,0 +1,7 @@
+@use "govuk-frontend" as *;
+
+.app-code-examples__pre {
+  overflow-x: auto;
+  padding: govuk-spacing(3);
+  background-color: govuk-colour("light-grey");
+}

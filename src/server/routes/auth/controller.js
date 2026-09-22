@@ -3,10 +3,11 @@ import * as client from 'openid-client'
 import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
+import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import {
   setOidcLoginState,
   takeOidcLoginState,
-  setPendingOidcIdentity
+  setSessionUser
 } from '#/server/common/helpers/session.js'
 
 const scope = 'openid profile email'
@@ -47,6 +48,20 @@ function failedView(h) {
       actionText: 'Try signing in again'
     })
     .code(statusCodes.badRequest)
+}
+
+// Shown when Entra ID login succeeds but the account's email domain isn't
+// on the allow-list (e.g. the wrong tenant).
+function domainNotAllowedView(h) {
+  return h
+    .view('error/index', {
+      pageTitle: 'Sign-in not allowed',
+      heading: 'You cannot sign in with this account',
+      message: 'Your account is not eligible to use this service.',
+      actionHref: '/sign-in',
+      actionText: 'Try a different account'
+    })
+    .code(statusCodes.forbidden)
 }
 
 export const authController = {
@@ -119,17 +134,32 @@ export const authController = {
       }
 
       const claims = tokens.claims()
+      const email = claims.email ?? claims.preferred_username
+      const displayName = claims.name ?? claims.email
 
-      setPendingOidcIdentity(request, {
-        email: claims.email ?? claims.preferred_username,
-        displayName: claims.name ?? claims.email
+      let user
+      try {
+        ;({ user } = await apiClient(request).post('/v1/users', {
+          email,
+          displayName
+        }))
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'domain-not-allowed') {
+          return domainNotAllowedView(h)
+        }
+
+        throw error
+      }
+
+      setSessionUser(request, {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName
       })
 
-      const returnTo = pending.returnTo
-        ? `?returnTo=${encodeURIComponent(pending.returnTo)}`
-        : ''
+      const returnTo = pending.returnTo || '/connect'
 
-      return h.redirect(`/sign-in/team${returnTo}`).code(statusCodes.seeOther)
+      return h.redirect(returnTo).code(statusCodes.seeOther)
     }
   }
 }

@@ -4,7 +4,7 @@ description: AICE (AI Capability and Enablement) design language reference for D
 compatibility: GOV.UK Frontend (GDS) based projects. Assets use SCSS and HTML.
 metadata:
   author: defra-aice
-  version: "1.0"
+  version: '1.0'
   github-repo: DEFRA/aice-team
   github-ref: main
   github-tree-sha: <sha at install time>
@@ -37,11 +37,13 @@ Never override `.govuk-*` classes directly. Add Defra-specific classes alongside
 Every page is one of two modes:
 
 **Entry/hub pages** — top-level section gateways and the home page:
+
 - Open with a full-viewport-width `.defra-hero` (Defra green background, white text)
 - Follow the hero with tile grids or stat cards
 - Used for: home page, major section gateways
 
 **Content pages** — all other pages:
+
 - No hero
 - Standard `.defra-breadcrumb-bar` (green strip) below navigation
 - Two-thirds column for body text
@@ -52,13 +54,13 @@ Both modes always include: `.defra-header`, `.defra-primary-nav`, and `.defra-fo
 
 ## Quick colour reference
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| Defra green | `#008531` | Nav backgrounds, hero, breadcrumb bar, footer border, active indicators |
-| Defra green AA | `#00a33b` | Service name link; white text on green (large text) |
-| GOV.UK blue | `#1d70b8` | **All body links** — never replace with green |
-| GOV.UK yellow | `#ffdd00` | Focus indicators only |
-| GOV.UK light grey | `#f3f2f1` | Page/card backgrounds |
+| Token             | Hex       | Use                                                                     |
+| ----------------- | --------- | ----------------------------------------------------------------------- |
+| Defra green       | `#008531` | Nav backgrounds, hero, breadcrumb bar, footer border, active indicators |
+| Defra green AA    | `#00a33b` | Service name link; white text on green (large text)                     |
+| GOV.UK blue       | `#1d70b8` | **All body links** — never replace with green                           |
+| GOV.UK yellow     | `#ffdd00` | Focus indicators only                                                   |
+| GOV.UK light grey | `#f3f2f1` | Page/card backgrounds                                                   |
 
 See [references/colours.md](references/colours.md) for the complete palette.
 

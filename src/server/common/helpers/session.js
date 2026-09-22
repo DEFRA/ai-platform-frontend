@@ -2,7 +2,6 @@ const SESSION_USER_KEY = 'user'
 const PENDING_ACCESS_KEY = 'pendingAccess'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
-const PENDING_OIDC_IDENTITY_KEY = 'pendingOidcIdentity'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
 
 export function getSessionUser(request) {
@@ -51,23 +50,6 @@ export function takeOidcLoginState(request) {
   const value = request.yar.get(OIDC_LOGIN_KEY)
   request.yar.clear(OIDC_LOGIN_KEY)
   return value
-}
-
-export function setPendingOidcIdentity(request, value) {
-  request.yar.set(PENDING_OIDC_IDENTITY_KEY, value)
-}
-
-export function getPendingOidcIdentity(request) {
-  // Same as getSessionUser: must not throw when yar isn't initialised (e.g. error pages).
-  try {
-    return request.yar?.get(PENDING_OIDC_IDENTITY_KEY)
-  } catch {
-    return undefined
-  }
-}
-
-export function clearPendingOidcIdentity(request) {
-  request.yar.clear(PENDING_OIDC_IDENTITY_KEY)
 }
 
 export function setAccountNotification(request, value) {

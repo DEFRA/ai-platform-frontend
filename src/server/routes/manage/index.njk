@@ -15,15 +15,17 @@
         {{ govukNotificationBanner(notificationBanner) }}
       {% endif %}
 
+      <h2 class="govuk-heading-m">Your credentials</h2>
+
       {% if credentials.length == 0 %}
         <p class="govuk-body">You do not have any credentials yet.</p>
         <p class="govuk-body">
-          <a class="govuk-link" href="/connect-model">Connect to a model</a>
+          <a class="govuk-link" href="/connect">Connect to a model</a>
         </p>
       {% else %}
         {% for credential in credentials %}
           <div class="govuk-!-margin-bottom-6">
-            <h2 class="govuk-heading-m">{{ credential.modelDisplayName }}</h2>
+            <h3 class="govuk-heading-s">{{ credential.modelDisplayName }}</h3>
 
             {{ govukTag({
               text: credential.status,
@@ -47,19 +49,22 @@
 
             {% if credential.status != "revoked" %}
               {% if credential.renewalsRemaining > 0 %}
-                <form method="post" action="/account/credentials/{{ credential._id }}/renew" novalidate>
+                <form method="post" action="/manage/credentials/{{ credential._id }}/renew" novalidate>
                   <input type="hidden" name="crumb" value="{{ crumb }}">
                   {{ govukButton({ text: "Renew", classes: "govuk-button--secondary" }) }}
                 </form>
               {% endif %}
 
               <p class="govuk-body">
-                <a class="govuk-link" href="/account/credentials/{{ credential._id }}/revoke">Revoke this credential</a>
+                <a class="govuk-link" href="/manage/credentials/{{ credential._id }}/revoke">Revoke this credential</a>
               </p>
             {% endif %}
           </div>
         {% endfor %}
       {% endif %}
+
+      <h2 class="govuk-heading-m">Your teams</h2>
+      <p class="govuk-body" data-testid="manage-teams-placeholder">You are not a member of a team yet.</p>
     </div>
   </div>
 {% endblock %}

@@ -39,11 +39,13 @@ Every page uses one of two visual modes. The choice is determined by the page's 
 ```
 
 **Key requirements:**
+
 - `.govuk-main-wrapper` must have `padding-top: 0` so the hero sits flush below the nav bar
 - The hero uses `width: 100vw; left: 50%; transform: translateX(-50%)` — the parent must not have `overflow-x: hidden` at the `<html>` or `<body>` level
 - Breadcrumbs on entry pages (if shown) use `.defra-breadcrumbs--inverse` (white text overlaid on the hero), not the standard breadcrumb bar
 
 **Variants:**
+
 - **Home page:** Single-column hero, then tile grid
 - **Section gateway:** Hero may include a `.defra-hero__whats-new` sidebar column, followed by stat cards and hub card sections
 
@@ -151,9 +153,9 @@ Journey end state using the GOV.UK panel component.
 
 ## Responsive behaviour
 
-| Breakpoint | Change |
-|-----------|--------|
-| ≤ 768px | Header search hidden; nav collapses to hamburger |
-| ≤ 776px | Tile grid: 3 → 1 column; hub cards: 2 → 1 column; stat cards: 4 → 2 columns |
-| ≤ 648px | Sidebar nav: sticky → normal flow (stacks above content) |
-| ≤ 480px | Service name: 18px → 16px; logo: 45px → 40px; stat cards: 2 → 1 column |
+| Breakpoint | Change                                                                      |
+| ---------- | --------------------------------------------------------------------------- |
+| ≤ 768px    | Header search hidden; nav collapses to hamburger                            |
+| ≤ 776px    | Tile grid: 3 → 1 column; hub cards: 2 → 1 column; stat cards: 4 → 2 columns |
+| ≤ 648px    | Sidebar nav: sticky → normal flow (stacks above content)                    |
+| ≤ 480px    | Service name: 18px → 16px; logo: 45px → 40px; stat cards: 2 → 1 column      |

@@ -4,6 +4,7 @@ import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   signInViaOidc,
+  mergeCookies,
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 
@@ -49,11 +50,26 @@ describe('#requireSignInGlobally', () => {
   test('redirects an unauthenticated request for a protected route to sign in', async () => {
     const { statusCode, headers } = await server.inject({
       method: 'GET',
-      url: '/connect-model'
+      url: '/manage'
     })
 
     expect(statusCode).toBe(302)
-    expect(headers.location).toBe('/sign-in?returnTo=%2Fconnect-model')
+    expect(headers.location).toBe('/sign-in?returnTo=%2Fmanage')
+  })
+
+  test('allows GET /connect without a session, but not POST /connect', async () => {
+    const getConnect = await server.inject({ method: 'GET', url: '/connect' })
+    expect(getConnect.statusCode).toBe(statusCodes.ok)
+    const cookies = mergeCookies({}, getConnect)
+
+    const postConnect = await server.inject({
+      method: 'POST',
+      url: '/connect',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, accessType: 'shared' }
+    })
+    expect(postConnect.statusCode).toBe(302)
+    expect(postConnect.headers.location).toBe('/sign-in?returnTo=%2Fconnect')
   })
 
   test('allows / and /about without a session', async () => {
@@ -85,9 +101,12 @@ describe('#requireSignInGlobally', () => {
   test('allows a protected route once signed in via Entra ID', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
 
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
     const { statusCode } = await server.inject({
       method: 'GET',
-      url: '/connect-model',
+      url: '/manage',
       headers: { cookie: cookieHeader(cookies) }
     })
 

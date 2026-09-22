@@ -1,0 +1,5 @@
+@use "govuk-frontend" as *;
+
+.app-model-table__row--disabled {
+  color: govuk-colour("mid-grey");
+}

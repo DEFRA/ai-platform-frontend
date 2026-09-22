@@ -59,7 +59,7 @@ function notificationBannerParams(notification) {
   }
 }
 
-export const accountController = {
+export const manageController = {
   list: {
     get: {
       async handler(request, h) {
@@ -71,9 +71,9 @@ export const accountController = {
           buildModelNameMap(request)
         ])
 
-        return h.view('account/index', {
-          pageTitle: 'Your account',
-          heading: 'Your account',
+        return h.view('manage/index', {
+          pageTitle: 'Manage AI access',
+          heading: 'Manage AI access',
           credentials: items.map((credential) => ({
             ...credential,
             modelDisplayName:
@@ -118,7 +118,7 @@ export const accountController = {
           }
         }
 
-        return h.redirect('/account').code(statusCodes.seeOther)
+        return h.redirect('/manage').code(statusCodes.seeOther)
       }
     }
   },
@@ -136,14 +136,14 @@ export const accountController = {
           })
         } catch (error) {
           if (isNotFound(error)) {
-            return h.redirect('/account').code(statusCodes.seeOther)
+            return h.redirect('/manage').code(statusCodes.seeOther)
           }
           throw error
         }
 
         const model = await findModel(request, credential.modelSlug)
 
-        return h.view('account/revoke', {
+        return h.view('manage/revoke', {
           pageTitle: 'Confirm revoke',
           heading: 'Are you sure you want to revoke this credential?',
           credential,
@@ -168,7 +168,7 @@ export const accountController = {
             const model = await findModel(request, credential.modelSlug)
 
             return h
-              .view('account/revoke', {
+              .view('manage/revoke', {
                 pageTitle: 'Error: Confirm revoke',
                 heading: 'Are you sure you want to revoke this credential?',
                 credential,
@@ -203,7 +203,7 @@ export const accountController = {
           }
         }
 
-        return h.redirect('/account').code(statusCodes.seeOther)
+        return h.redirect('/manage').code(statusCodes.seeOther)
       }
     }
   }

@@ -3,7 +3,6 @@ import createFetchMock from 'vitest-fetch-mock'
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
-  completeOidcLogin,
   signInViaOidc,
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
@@ -60,82 +59,19 @@ describe('#signInController', () => {
   test('GET /sign-in preserves returnTo when redirecting to Entra ID login', async () => {
     const { statusCode, headers } = await server.inject({
       method: 'GET',
-      url: '/sign-in?returnTo=%2Fconnect-model'
+      url: '/sign-in?returnTo=%2Fconnect'
     })
 
     expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/auth/login?returnTo=%2Fconnect-model')
-  })
-
-  test('GET /sign-in/team redirects to /sign-in when there is no pending Entra ID identity', async () => {
-    const { statusCode, headers } = await server.inject({
-      method: 'GET',
-      url: '/sign-in/team'
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/sign-in')
-  })
-
-  test('GET /sign-in/team renders a form pre-filled with the Entra ID identity', async () => {
-    const cookies = await completeOidcLogin(server)
-
-    const { statusCode, result } = await server.inject({
-      method: 'GET',
-      url: '/sign-in/team',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('test.user@defra.gov.uk'))
-  })
-
-  test('GET /sign-in/team shows "Sign out" in the nav once Entra ID login has succeeded', async () => {
-    const cookies = await completeOidcLogin(server)
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/sign-in/team',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(expect.stringContaining('Sign out ('))
-    expect(result).not.toEqual(expect.stringContaining('>Sign in<'))
-  })
-
-  test('POST /sign-in/team with a team name signs the user in and redirects', async () => {
-    const cookies = await completeOidcLogin(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        user: {
-          _id: 'user-2',
-          email: 'test.user@defra.gov.uk',
-          displayName: 'Test User'
-        },
-        team: { _id: 'team-2', name: 'Platform Team' }
-      })
-    )
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/sign-in/team',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, teamName: 'Platform Team' }
-    })
-
-    expect(statusCode).toBe(303)
-    expect(headers.location).toBe('/connect-model')
+    expect(headers.location).toBe('/auth/login?returnTo=%2Fconnect')
   })
 
   test('nav shows "Sign out" instead of "Sign in" on the very next page after finishing sign-in', async () => {
-    const cookies = await signInViaOidc(server, fetchMock, {
-      teamName: 'Platform Team'
-    })
+    const cookies = await signInViaOidc(server, fetchMock)
 
     const { statusCode, result } = await server.inject({
       method: 'GET',
-      url: '/connect-model',
+      url: '/connect',
       headers: { cookie: cookieHeader(cookies) }
     })
 

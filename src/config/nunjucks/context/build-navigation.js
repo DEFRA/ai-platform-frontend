@@ -1,7 +1,4 @@
-import {
-  getSessionUser,
-  getPendingOidcIdentity
-} from '#/server/common/helpers/session.js'
+import { getSessionUser } from '#/server/common/helpers/session.js'
 
 export function buildNavigation(request) {
   const navigation = [
@@ -9,25 +6,25 @@ export function buildNavigation(request) {
       text: 'Home',
       href: '/',
       current: request?.path === '/'
+    },
+    {
+      text: 'Browse models',
+      href: '/models',
+      current: request?.path?.startsWith('/models')
     }
   ]
 
-  // Shown as soon as Entra ID login succeeds, matching the nav's sign-in/out
-  // state, even before the team step (see context.js's navUser) is done.
-  if (getSessionUser(request) ?? getPendingOidcIdentity(request)) {
-    navigation.push({
-      text: 'Connect to model',
-      href: '/connect-model',
-      current: request?.path?.startsWith('/connect-model')
-    })
-  }
+  navigation.push({
+    text: 'Connect to a model',
+    href: '/connect',
+    current: request?.path?.startsWith('/connect')
+  })
 
-  // /account requires the full team step, unlike the pending-identity-friendly check above.
   if (getSessionUser(request)) {
     navigation.push({
-      text: 'Account',
-      href: '/account',
-      current: request?.path?.startsWith('/account')
+      text: 'Manage AI access',
+      href: '/manage',
+      current: request?.path?.startsWith('/manage')
     })
   }
 

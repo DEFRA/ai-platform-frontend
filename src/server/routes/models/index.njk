@@ -1,0 +1,47 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "model-table/macro.njk" import appModelTable %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <form method="get" novalidate>
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-third">
+            {{ govukSelect({
+              id: "provider",
+              name: "provider",
+              label: { text: "Provider" },
+              items: [
+                { value: "", text: "All providers", selected: filters.provider == "" },
+                { value: "openai", text: "OpenAI", selected: filters.provider == "openai" }
+              ]
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-third">
+            {{ govukSelect({
+              id: "tier",
+              name: "tier",
+              label: { text: "Tier" },
+              items: [
+                { value: "", text: "All tiers", selected: filters.tier == "" },
+                { value: "research", text: "Research", selected: filters.tier == "research" }
+              ]
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-third">
+            {{ govukButton({ text: "Apply filters", classes: "govuk-button--secondary govuk-!-margin-top-6" }) }}
+          </div>
+        </div>
+      </form>
+
+      {{ appModelTable({ models: models }) }}
+    </div>
+  </div>
+{% endblock %}

@@ -4,10 +4,7 @@ import { readFileSync } from 'node:fs'
 import { config } from '#/config/config.js'
 import { buildNavigation } from './build-navigation.js'
 import { createLogger } from '#/server/common/helpers/logging/logger.js'
-import {
-  getSessionUser,
-  getPendingOidcIdentity
-} from '#/server/common/helpers/session.js'
+import { getSessionUser } from '#/server/common/helpers/session.js'
 
 const logger = createLogger()
 const assetPath = config.get('assetPath')
@@ -36,9 +33,7 @@ export function context(request) {
     breadcrumbs: [],
     navigation: buildNavigation(request),
     signedInUser,
-    // Entra ID login has succeeded but the team step isn't done yet - the nav
-    // should still read as signed in rather than flipping back to "Sign in".
-    navUser: signedInUser ?? getPendingOidcIdentity(request),
+    navUser: signedInUser,
     getAssetPath(asset) {
       if (!config.get('isProduction')) {
         return `${assetPath}/${asset}`
