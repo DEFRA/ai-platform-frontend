@@ -15,7 +15,7 @@ CDP (Core Delivery Platform) Node.js frontend template — Hapi server + Nunjuck
 - Install: `npm install`
 - Dev server: `npm run dev`
 - Tests: `npm test` (Vitest, Node env vars `AWS_EMF_ENVIRONMENT=Local TZ=UTC`); watch mode: `npm run test:watch`
-- Lint: `npm run lint` (JS via ESLint/neostandard + SCSS via Stylelint); format check: `npm run format:check`
+- Lint: `npm run lint` (JS via ESLint/neostandard + SCSS via Stylelint with `stylelint-config-gds`); format check: `npm run format:check`
 - Full pre-commit check: `npm run git:pre-commit-hook`
 
 ## Conventions
@@ -32,6 +32,7 @@ CDP (Core Delivery Platform) Node.js frontend template — Hapi server + Nunjuck
 - **Keeping AICE skills current**: the copies under `.github/skills/` are a point-in-time snapshot, not a live link — `DEFRA/aice-team` updates do not propagate automatically. To refresh: `copilot plugin update aice-javascript@defra-aice`, then re-copy the changed skill folder(s) from `~/.copilot/installed-plugins/defra-aice/aice-javascript/skills/` over `.github/skills/` in this repo, and open a PR. Do this periodically (e.g. quarterly) or when AICE announces a style guide change.
 - **Look and feel**: build on GOV.UK Frontend, then layer Defra branding on top per `.github/skills/javascript-design-language/SKILL.md` (the authoritative, specific source — the general [Defra design guidance](https://digital.defra.gov.uk/design/branding) is the fallback for anything not covered there). Two brand greens, not one: `$defra-green` (`#008531`) for backgrounds — nav bar, hero, breadcrumb bar, footer border — and `$defra-green-aa` (`#00a33b`) for text/links on green (the service name link), since the primary green fails WCAG AA contrast for normal text on white. Body links stay GOV.UK blue (`#1d70b8`) always, never green. Defra header/logo/footer in place of the GOV.UK crown/header/footer; Helvetica/Arial font stacks rather than GOV.UK's "New Transport" font, since this service is not hosted on a `gov.uk` domain. Component classes: `.govuk-*` used as-is (never overridden directly), `.defra-*` for shared brand components (header, footer, nav, hero, tiles), `.app-*` for feature-specific ones.
 - **Words**: follow the [Defra content style guide](https://digital.defra.gov.uk/content/defra-style-guide) for Defra-specific terms (it explicitly defers to the [GOV.UK style guide A to Z](https://www.gov.uk/guidance/style-guide/a-to-z) for everything else) — plain English, "people" rather than "users", sentence case for "Defra" (never "DEFRA").
+- **Accessibility**: all HTML must meet WCAG 2.2 Level AA — every interactive element keyboard accessible, every image has alt text, every form field has a label. GOV.UK Design System components/patterns satisfy this out of the box; don't hand-roll a replacement for one.
 - **AICE engineering standards**: this codebase must follow `.github/skills/javascript-style-guide/SKILL.md`, `javascript-testing-standards/SKILL.md` and `javascript-review-standards/SKILL.md`, in addition to this repo's own conventions above. Key points: ES modules with named exports only (no default exports), function declarations over arrow functions except for callbacks, exact-pinned dependency versions, and `vi.mock()`/`nock` only for modules or network calls this repo owns. **Known divergence**: the AICE testing standard specifies a dedicated `tests/` tree mirroring `src/`, while this repo colocates tests beside the file under test (see above) — treat the AICE guide as the default for anything not already an established convention here, and raise a decision with the team before moving existing tests wholesale.
 
 ## Code Quality and Design Principles
@@ -79,12 +80,13 @@ This repo already complies with Defra's dependency guidance — keep it that way
 - `neostandard`, not bare `eslint`/`prettier`/`standard` configs.
 - No TypeScript without an approved exception — vanilla JS with JSDoc.
 - No `lodash` or `moment` — use native JS methods and `date-fns` (already a dependency) instead.
+- No frontend JavaScript frameworks (React, Vue, Angular) — server-rendered Nunjucks only, progressive enhancement via `src/client/javascripts/application.js`.
 - New dependencies must be widely used, actively maintained, and compatible with the current Node.js LTS.
 
 ## Security
 
 - Follow OWASP Secure Coding Practices.
-- Never log, persist, or expose PII (names, addresses, emails, phone numbers) or secrets.
+- Never log, persist, or expose PII (names, addresses, emails, phone numbers) or secrets — logging is structured JSON via `hapi-pino` + `@elastic/ecs-pino-format`, and this rule applies to every log line, including error/debug levels.
 - Validate and sanitise all user input with `joi`.
 - CSP is enforced via Blankie ([content-security-policy.js](../src/server/plugins/content-security-policy.js)) — no `unsafe-inline`/`unsafe-eval`; extend the allow-lists there rather than relaxing the policy globally.
 - CSRF protection is enforced via `@hapi/crumb` on state-changing routes.
