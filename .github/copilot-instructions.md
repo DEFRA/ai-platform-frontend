@@ -43,3 +43,71 @@ CDP (Core Delivery Platform) Node.js frontend template — Hapi server + Nunjuck
   - **Interface segregation**: keep helper modules focused and export only what callers need — don't force callers to depend on unrelated functions in the same file.
   - **Dependency inversion**: routes/controllers depend on the `apiClient` abstraction for backend calls, never on `fetch` or hardcoded URLs directly, so the transport can change without touching route code.
 - Backend calls always go through `api-client.js` and treat `ai-platform-backend-api` as a RESTful JSON API: use the correct HTTP method for the operation (`GET` for reads, `POST` for creates/actions), send/receive JSON bodies, and map non-2xx responses via the API's `code` field rather than parsing messages.
+
+## Naming conventions
+
+- **Route directories and JS files**: `kebab-case` (e.g. `src/server/routes/sign-in/`, `oidc-client.js`, `session-cache.js`) — not camelCase.
+- **Routes (URL paths)**: lowercase with hyphens (e.g. `/sign-in`, `/sign-out`).
+- **Environment variables**: `UPPER_SNAKE_CASE` (e.g. `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`).
+- **Config keys**: `lowerCamelCase`, read via `config.get('session.cookie.secure')` style dotted paths — never `process.env` directly outside `src/config/config.js`.
+- **CSS classes**: `.govuk-*` used as-is, `.defra-*` for shared brand components, `.app-*` for feature-specific ones (see Design and content standards below).
+- **Test files**: `<name>.test.js` colocated next to the file under test.
+
+## Branching and version control
+
+- `main` is always shippable — it must build, pass all tests, and be deployable at any time.
+- All work happens on branches, never directly on `main`. Follow trunk-based development with short-lived feature branches and pull requests.
+- Branch naming: `<type>/<brief-description>` (`feature/`, `fix/`, `docs/`, `refactor/`, `test/`, `chore/`).
+- Commit messages use conventional format: `type: short description` (`feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`).
+- Open a pull request and get it reviewed before merging to `main`.
+
+## Quality gates
+
+CI (`.github/workflows/check-pull-request.yml`) currently runs on every PR: `npm run security-audit`, `npm ci`, `npm run build:frontend`, `npm run format:check`, `npm run lint`, `npm test` (coverage), and a Docker image build test. All of these must pass before merging.
+
+- SonarCloud is configured (`sonar-project.properties`) but the scan step is **currently commented out** in `check-pull-request.yml` and `publish.yml` — it is not yet an active CI gate. Don't assume a Sonar quality gate is blocking merges until that step is uncommented.
+- Follow the Defra tiered coverage targets as the aspiration for any code you touch: ≥90% global, ≥95% for core business logic, 100% for error handling and security-critical paths — and never let coverage decrease from the current baseline.
+- At least one approving code review from another developer before merging.
+
+## Allowed / discouraged dependencies
+
+This repo already complies with Defra's dependency guidance — keep it that way when adding new packages:
+
+- Hapi, not Express/Fastify/Koa.
+- Standalone `joi`, not the deprecated `@hapi/joi`.
+- Native `fetch`/`undici`, not `request` or `axios`.
+- `neostandard`, not bare `eslint`/`prettier`/`standard` configs.
+- No TypeScript without an approved exception — vanilla JS with JSDoc.
+- No `lodash` or `moment` — use native JS methods and `date-fns` (already a dependency) instead.
+- New dependencies must be widely used, actively maintained, and compatible with the current Node.js LTS.
+
+## Security
+
+- Follow OWASP Secure Coding Practices.
+- Never log, persist, or expose PII (names, addresses, emails, phone numbers) or secrets.
+- Validate and sanitise all user input with `joi`.
+- CSP is enforced via Blankie ([content-security-policy.js](../src/server/plugins/content-security-policy.js)) — no `unsafe-inline`/`unsafe-eval`; extend the allow-lists there rather than relaxing the policy globally.
+- CSRF protection is enforced via `@hapi/crumb` on state-changing routes.
+- Session cookies ([session-cache.js](../src/server/plugins/session-cache.js)) use `@hapi/yar` with `isSecure` from config and `isSameSite: 'Lax'` — don't loosen these without understanding the OIDC redirect flow that requires `Lax`.
+- Sign-in is Entra ID (Azure AD) via `openid-client` ([oidc-client.js](../src/server/common/helpers/oidc-client.js), [auth/controller.js](../src/server/routes/auth/controller.js)) — do not build a bespoke sign-in flow or add another identity provider without a documented decision.
+- Only use approved MCP servers (see [Defra MCP guidance](https://defra.github.io/defra-ai-sdlc/pages/appendix/defra-mcp-guidance/)) — do not enable community or self-built MCP servers.
+
+## Documentation
+
+- Write JSDoc comments for exported functions.
+- Keep the README up to date with setup, run, and environment variable changes.
+- Document breaking changes in PR descriptions.
+
+## How Copilot should respond
+
+- Follow conventions already in the codebase — check existing patterns first.
+- Prefer modifying existing files over creating new ones when the change fits naturally.
+- Provide minimal diffs touching only the necessary files; do not refactor unrelated code.
+- Always include or update tests for changed behaviour.
+- For any form or reusable UI pattern, propose or extend a Nunjucks macro/component using GOV.UK components.
+- Keep solutions DRY: before adding new utilities, search `src/server/common/` and existing routes for similar code.
+- If a request conflicts with these instructions, or would use a discouraged library, skip tests, hardcode a secret, or break a quality gate — flag it explicitly and do not proceed silently.
+
+## Licence
+
+All code is published under the [Open Government Licence v3](../LICENCE) unless an exception is approved.
