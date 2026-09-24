@@ -15,8 +15,11 @@ export const signIn = {
         {
           method: 'GET',
           path: '/sign-in',
-          options: publicRoute,
-          ...signInController.get
+          options: {
+            ...publicRoute,
+            validate: signInController.get.options.validate
+          },
+          handler: signInController.get.handler
         }
       ])
     }

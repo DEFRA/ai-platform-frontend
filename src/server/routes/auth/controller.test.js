@@ -178,6 +178,32 @@ describe('#authController', () => {
     expect(result).toEqual(
       expect.stringContaining('You cannot sign in with this account')
     )
+    expect(result).toEqual(
+      expect.stringContaining('/sign-in?prompt=select_account')
+    )
+  })
+
+  test('GET /auth/login passes prompt=select_account through to the authorization request', async () => {
+    const { buildAuthorizationUrl } = await import('openid-client')
+
+    await server.inject({
+      method: 'GET',
+      url: '/auth/login?prompt=select_account'
+    })
+
+    expect(buildAuthorizationUrl).toHaveBeenCalledWith(
+      'fake-oidc-config',
+      expect.objectContaining({ prompt: 'select_account' })
+    )
+  })
+
+  test('GET /auth/login rejects an unsupported prompt value', async () => {
+    const { statusCode } = await server.inject({
+      method: 'GET',
+      url: '/auth/login?prompt=none'
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
   })
 
   test('GET /auth/callback renders a sign-in-problem page when the code exchange fails', async () => {

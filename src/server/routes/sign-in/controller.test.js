@@ -66,6 +66,25 @@ describe('#signInController', () => {
     expect(headers.location).toBe('/auth/login?returnTo=%2Fconnect')
   })
 
+  test('GET /sign-in forwards prompt=select_account so users can pick a different account', async () => {
+    const { statusCode, headers } = await server.inject({
+      method: 'GET',
+      url: '/sign-in?prompt=select_account'
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/auth/login?prompt=select_account')
+  })
+
+  test('GET /sign-in rejects an unsupported prompt value', async () => {
+    const { statusCode } = await server.inject({
+      method: 'GET',
+      url: '/sign-in?prompt=none'
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+  })
+
   test('nav shows "Sign out" instead of "Sign in" on the very next page after finishing sign-in', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
 
