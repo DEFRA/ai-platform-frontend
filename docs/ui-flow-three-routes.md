@@ -51,7 +51,8 @@ route touches this page; Story = build story reference).
 | `/connect/team/select`            |     | •   | •   | B09      | Not built                                         |
 | `/connect/team/model`             |     | •   | •   | B09      | Not built                                         |
 | `/connect/team/details`           |     | •   |     | B09      | Not built                                         |
-| `/connect/team/request/{id}`      |     | •   | •   | B09      | Not built. Also the credential page               |
+| `/connect/team/request/{teamId}/{id}` |     | •   | •   | B09      | Built. Polling wait page                          |
+| `/connect/team/credential`        |     | •   | •   | B09      | Built. Final credential page (secret shown once)  |
 | `/manage`                         | •   | •   | •   | B07      | Not built                                         |
 | `/manage/credentials/{id}/renew`  | •   |     |     | B07      | Not built                                         |
 | `/manage/credentials/{id}/rotate` |     | •   | •   | B10      | Not built                                         |
@@ -119,9 +120,9 @@ Flow sections: BEFORE THE SERVICE -> SET THE TEAM UP -> ASK FOR A MODEL -> WAIT 
 5. Choose a model - `/connect/team/model`. Models carrying the team tier.
 6. Say what and where - `/connect/team/details`. Purpose, and environment. Only "dev" offered in this slice.
 7. Check your answers - `/connect/team/check`, `POST /v1/credentials {tier: team}`. Writes a pending credential, then calls the port. Error: `409 if one is pending or active`.
-8. Being set up - `/connect/team/request/{id}`. Meta refresh so it works without JavaScript. No duration is agreed.
+8. Being set up - `/connect/team/request/{teamId}/{id}`. Meta refresh so it works without JavaScript. No duration is agreed.
 9. Diamond "Provisioning outcome?" -> pending: loops back to Being set up. active -> Connection details. failed -> Issue failed.
-10. Connection details - `/connect/team/request/{id}` (same URL becomes the credential page). Secret shown once, to the requester only.
+10. Connection details - `/connect/team/credential`, redirected to from the wait page once the deployment is `active`. Secret shown once, to the requester only.
 11. Issue failed - `502 upstream-unavailable`. Persists as failed with failureReason. No secret leaks.
 12. Manage AI access - `/manage`, `GET /v1/credentials`. Team section lists the credential for every member. No secret.
 
@@ -174,7 +175,7 @@ revoke, or a new request is needed, was left open.
 - Sign in: `/sign-in?returnTo=` (not `/auth/sign-in` or similar).
 - Access-type chooser: `/connect` (replaces the old `/connect-model` root).
 - Shared/research sub-flow: `/connect/shared/model`, `/connect/shared/details`, `/connect/shared/check`, `/connect/shared/credential`.
-- Team sub-flow: `/connect/team/select`, `/teams/new`, `/teams/{id}` (add members), `/connect/team/model`, `/connect/team/details`, `/connect/team/request/{id}` (both "being set up" polling page AND final credential page reuse the same URL).
+- Team sub-flow: `/connect/team/select`, `/teams/new`, `/teams/{id}` (add members), `/connect/team/model`, `/connect/team/details`, `/connect/team/request/{teamId}/{id}` (the "being set up" polling page), `/connect/team/credential` (the final credential page).
 - Manage/account area: `/manage` (not `/account`), `GET /v1/credentials`; admin actions `/manage/credentials/{id}/rotate` and `/manage/credentials/{id}/revoke`.
 - Backend surface added: `GET /v1/teams`, `POST /v1/teams`, `POST /v1/teams/{id}/members`, `POST /v1/credentials {tier: team}` (extends the existing issue endpoint), `POST /v1/credentials/{id}/rotate` (rotate is distinct from renew), team role checks (403 admin-required for non-admins doing rotate/revoke), 404 (not 403) when accessing another team's credential by id.
 - Mongo collections added: `teams`, `teamMembers` (or embedded in teams); `credentials` gained a `tier` field (research/team), `teamId`, attribution fields.

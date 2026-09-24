@@ -5,6 +5,7 @@ import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
 import {
   setOidcLoginState,
   takeOidcLoginState,
@@ -167,7 +168,7 @@ export const authController = {
         displayName: user.displayName
       })
 
-      const returnTo = pending.returnTo || '/connect'
+      const returnTo = safeReturnTo(pending.returnTo, '/connect')
 
       return h.redirect(returnTo).code(statusCodes.seeOther)
     }

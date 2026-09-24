@@ -17,8 +17,17 @@ const slugParamSchema = Joi.object({
 // The backend only ever returns eligible: true models today, but the
 // catalogue is designed to also show ineligible models (e.g. other
 // providers/tiers not yet approved) greyed out, once the seed data grows.
-function isModelEligible(model) {
-  return model.eligible !== false && (model.tiers ?? []).includes('research')
+// With no tier filter a model counts as eligible if it offers any tier we sell.
+const OFFERED_TIERS = ['research', 'team']
+
+function isModelEligible(model, tier) {
+  const tiers = model.tiers ?? []
+  const requiredTiers = tier ? [tier] : OFFERED_TIERS
+
+  return (
+    model.eligible !== false &&
+    requiredTiers.some((required) => tiers.includes(required))
+  )
 }
 
 function buildQueryString({ provider, tier }) {
@@ -50,7 +59,7 @@ export const modelsController = {
           heading: 'Browse models',
           models: items.map((model) => ({
             ...model,
-            eligible: isModelEligible(model)
+            eligible: isModelEligible(model, tier)
           })),
           filters: { provider: provider ?? '', tier: tier ?? '' }
         })

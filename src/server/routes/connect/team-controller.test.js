@@ -311,7 +311,8 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev'
+          environment: 'dev',
+          requestedBy: 'user-1'
         }
       })
     )
@@ -371,7 +372,8 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3b',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev'
+          environment: 'dev',
+          requestedBy: 'user-1'
         }
       })
     )
@@ -394,6 +396,49 @@ describe('#teamConnectController', () => {
 
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
     expect(getRequest.headers.location).toBe('/manage')
+  })
+
+  test('request wait page never reveals the secret to a teammate who did not request the deployment', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-3c', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-3c',
+          status: 'active',
+          modelSlug: 'gpt-4o',
+          environment: 'dev',
+          requestedBy: 'a-different-teammate'
+        }
+      })
+    )
+
+    const getRequest = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-3c',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(getRequest.statusCode).toBe(statusCodes.seeOther)
+    expect(getRequest.headers.location).toBe('/manage')
+    // No credential POST is made at all, so no secret can be minted for them.
+    expect(fetchMock.mock.calls.at(-1)[0]).toEqual(
+      expect.stringContaining('/v1/teams/team-1/deployments/deployment-3c')
+    )
   })
 
   test('request wait page shows a not found page for an unknown deployment', async () => {

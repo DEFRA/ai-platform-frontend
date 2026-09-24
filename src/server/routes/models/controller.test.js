@@ -128,9 +128,7 @@ describe('#modelsController', () => {
       url: '/models/gpt-4o'
     })
 
-    expect(result).toEqual(
-      expect.stringContaining('Not approved for the research tier')
-    )
+    expect(result).toEqual(expect.stringContaining('Not approved for use yet'))
   })
 
   test('GET /models/{slug} returns 404 for an unknown slug', async () => {

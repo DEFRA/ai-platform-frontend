@@ -3,6 +3,7 @@ import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
 import {
   getSessionUser,
   getPendingAccess,
@@ -24,7 +25,11 @@ const newTeamSchema = Joi.object({
   }),
   serviceCode: Joi.string().trim().max(20).allow('').optional(),
   description: Joi.string().trim().max(500).allow('').optional(),
-  returnTo: Joi.string().allow('').optional()
+  // Same-origin paths only - this value is redirected to after team creation.
+  returnTo: Joi.string()
+    .pattern(/^\/(?![/\\])[\w\-/%?=&.#]*$/)
+    .allow('')
+    .optional()
 })
 
 const addMemberSchema = Joi.object({
@@ -90,7 +95,10 @@ export const teamsController = {
             serviceCode: pendingTeam.serviceCode ?? '',
             description: pendingTeam.description ?? ''
           },
-          returnTo: request.query.returnTo ?? pendingTeam.returnTo ?? '',
+          returnTo: safeReturnTo(
+            request.query.returnTo ?? pendingTeam.returnTo,
+            ''
+          ),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -181,7 +189,11 @@ export const teamsController = {
               teamId: team._id
             })
 
-            return h.redirect(pendingTeam.returnTo).code(statusCodes.seeOther)
+            return h
+              .redirect(
+                safeReturnTo(pendingTeam.returnTo, `/teams/${team._id}`)
+              )
+              .code(statusCodes.seeOther)
           }
 
           return h.redirect(`/teams/${team._id}`).code(statusCodes.seeOther)

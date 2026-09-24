@@ -53,6 +53,16 @@ const IN_PROGRESS_STATUSES = [
 ]
 const FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
 
+// The team journey needs both a chosen team and a chosen model. Without the
+// teamId a shared-flow session would fall through to /v1/teams/undefined/....
+function hasTeamJourneyState(pendingAccess) {
+  return Boolean(
+    pendingAccess?.modelSlug &&
+    pendingAccess?.teamId &&
+    pendingAccess?.accessType === 'team'
+  )
+}
+
 // Friendly, non-jargon progress stages shown on the wait page - each maps to
 // one or more of design C's real GitOps states, never shown to the user directly.
 const STAGE_GROUPS = [
@@ -270,7 +280,7 @@ export const teamConnectController = {
       handler(request, h) {
         const pendingAccess = getPendingAccess(request)
 
-        if (!pendingAccess?.modelSlug) {
+        if (!hasTeamJourneyState(pendingAccess)) {
           return redirectToStart(h)
         }
 
@@ -305,7 +315,7 @@ export const teamConnectController = {
       handler(request, h) {
         const pendingAccess = getPendingAccess(request)
 
-        if (!pendingAccess?.modelSlug) {
+        if (!hasTeamJourneyState(pendingAccess)) {
           return redirectToStart(h)
         }
 
@@ -325,7 +335,7 @@ export const teamConnectController = {
       async handler(request, h) {
         const pendingAccess = getPendingAccess(request)
 
-        if (!pendingAccess?.modelSlug) {
+        if (!hasTeamJourneyState(pendingAccess)) {
           return redirectToStart(h)
         }
 
@@ -349,7 +359,7 @@ export const teamConnectController = {
         const pendingAccess = getPendingAccess(request)
         const sessionUser = getSessionUser(request)
 
-        if (!pendingAccess?.modelSlug) {
+        if (!hasTeamJourneyState(pendingAccess)) {
           return redirectToStart(h)
         }
 
@@ -366,7 +376,7 @@ export const teamConnectController = {
               modelSlug: pendingAccess.modelSlug,
               environment: pendingAccess.environment
             },
-            { userId: sessionUser.id }
+            { userId: sessionUser.id, idempotencyKey: randomUUID() }
           )
 
           return h
@@ -459,6 +469,18 @@ export const teamConnectController = {
             failed: true,
             stages: []
           })
+        }
+
+        // Only the member who requested the deployment may trigger issuance and
+        // see the one-time secret. Everyone else gets the read-only /manage view.
+        if (deployment.requestedBy !== sessionUser.id) {
+          setAccountNotification(request, {
+            type: 'success',
+            message:
+              "Your team's model is ready to use - see it below. Ask the person who requested it for the connection details."
+          })
+
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
         // status is 'active': issue (or reuse) the shared team credential.
