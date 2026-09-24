@@ -1,0 +1,30 @@
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+<div class="app-button-group" data-testid="credential-actions">
+  {{ govukButton({
+    text: "View",
+    href: "/manage/credentials/" + params.credential._id,
+    classes: "app-button--view",
+    attributes: { "data-testid": "credential-action-view" }
+  }) }}
+
+  {% if params.showRenewRevoke and params.credential.status != "revoked" %}
+    {% if params.credential.renewalsRemaining > 0 %}
+      <form method="post" action="/manage/credentials/{{ params.credential._id }}/renew" novalidate class="app-button-group__form">
+        <input type="hidden" name="crumb" value="{{ params.crumb }}">
+        {{ govukButton({
+          text: "Renew",
+          classes: "app-button--renew",
+          attributes: { "data-testid": "credential-action-renew" }
+        }) }}
+      </form>
+    {% endif %}
+
+    {{ govukButton({
+      text: "Revoke",
+      href: "/manage/credentials/" + params.credential._id + "/revoke",
+      classes: "app-button--revoke govuk-button--warning",
+      attributes: { "data-testid": "credential-action-revoke" }
+    }) }}
+  {% endif %}
+</div>

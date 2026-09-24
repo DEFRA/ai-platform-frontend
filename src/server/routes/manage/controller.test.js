@@ -185,6 +185,38 @@ describe('#manageController', () => {
     )
   })
 
+  test('GET /manage keeps a research credential personal even when its stamped teamId no longer matches any current team', async () => {
+    const cookies = await signIn(server)
+    const staleTeamCredential = {
+      ...sampleCredential,
+      _id: 'cred-stale-team',
+      teamId: 'team-old-no-longer-member',
+      tier: 'research'
+    }
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [staleTeamCredential] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).not.toEqual(
+      expect.stringContaining('You do not have any credentials yet')
+    )
+    expect(result).toEqual(expect.stringContaining('ab12'))
+    expect(result).toEqual(
+      expect.stringContaining('This team does not have any credentials yet')
+    )
+  })
+
   test('GET /manage shows a "check progress" link for an in-progress team deployment', async () => {
     const cookies = await signIn(server)
 
@@ -279,6 +311,45 @@ describe('#manageController', () => {
     expect(result).toEqual(expect.stringContaining('Ready to view'))
     expect(result).toEqual(
       expect.stringContaining('/connect/team/request/team-1/deployment-3')
+    )
+  })
+
+  test('GET /manage sorts a team with a request in progress before other teams, so a refresh keeps showing it', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          { _id: 'team-1', name: 'Flood Risk Team' },
+          { _id: 'team-2', name: 'Coastal Erosion Team' }
+        ]
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-4',
+            teamId: 'team-2',
+            modelSlug: 'gpt-4o',
+            status: 'deploying'
+          }
+        ]
+      })
+    )
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result.indexOf('Coastal Erosion Team')).toBeLessThan(
+      result.indexOf('Flood Risk Team')
     )
   })
 
@@ -489,6 +560,23 @@ describe('#manageController', () => {
     expect(result).not.toEqual(
       expect.stringContaining('Revoke this credential')
     )
+  })
+
+  test('GET /manage/credentials/{id} shows a red tag for a revoked credential', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ ...sampleCredential, status: 'revoked' })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(expect.stringContaining('govuk-tag--red'))
   })
 
   test('GET /manage/credentials/{id} shows a not found page for an unknown id', async () => {

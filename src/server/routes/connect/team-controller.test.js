@@ -395,7 +395,7 @@ describe('#teamConnectController', () => {
     })
 
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
-    expect(getRequest.headers.location).toBe('/manage')
+    expect(getRequest.headers.location).toBe('/manage#manage-team-team-1')
   })
 
   test('request wait page never reveals the secret to a teammate who did not request the deployment', async () => {
@@ -434,7 +434,7 @@ describe('#teamConnectController', () => {
     })
 
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
-    expect(getRequest.headers.location).toBe('/manage')
+    expect(getRequest.headers.location).toBe('/manage#manage-team-team-1')
     // No credential POST is made at all, so no secret can be minted for them.
     expect(fetchMock.mock.calls.at(-1)[0]).toEqual(
       expect.stringContaining('/v1/teams/team-1/deployments/deployment-3c')

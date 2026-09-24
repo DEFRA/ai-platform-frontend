@@ -480,7 +480,9 @@ export const teamConnectController = {
               "Your team's model is ready to use - see it below. Ask the person who requested it for the connection details."
           })
 
-          return h.redirect('/manage').code(statusCodes.seeOther)
+          return h
+            .redirect(`/manage#manage-team-${teamId}`)
+            .code(statusCodes.seeOther)
         }
 
         // status is 'active': issue (or reuse) the shared team credential.
@@ -507,7 +509,9 @@ export const teamConnectController = {
             message: "Your team's model is ready to use - see it below."
           })
 
-          return h.redirect('/manage').code(statusCodes.seeOther)
+          return h
+            .redirect(`/manage#manage-team-${teamId}`)
+            .code(statusCodes.seeOther)
         }
 
         const model = await apiClient(request).get(
