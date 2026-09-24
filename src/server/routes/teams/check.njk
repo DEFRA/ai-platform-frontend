@@ -1,0 +1,44 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorMessage %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: [{ text: errorMessage }]
+        }) }}
+      {% endif %}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Team name" },
+            value: { text: pendingTeam.name }
+          },
+          {
+            key: { text: "Service code" },
+            value: { text: pendingTeam.serviceCode or "Not given" }
+          },
+          {
+            key: { text: "Description" },
+            value: { text: pendingTeam.description or "Not given" }
+          }
+        ]
+      }) }}
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukButton({ text: "Confirm and create team" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

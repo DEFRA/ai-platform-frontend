@@ -1,9 +1,11 @@
 import * as client from 'openid-client'
+import Joi from 'joi'
 
 import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
 import {
   setOidcLoginState,
   takeOidcLoginState,
@@ -11,6 +13,11 @@ import {
 } from '#/server/common/helpers/session.js'
 
 const scope = 'openid profile email'
+
+export const loginQuerySchema = Joi.object({
+  returnTo: Joi.string().optional(),
+  prompt: Joi.string().valid('select_account').optional()
+}).unknown(false)
 
 function redirectUri() {
   return `${config.get('appBaseUrl')}/auth/callback`
@@ -58,7 +65,7 @@ function domainNotAllowedView(h) {
       pageTitle: 'Sign-in not allowed',
       heading: 'You cannot sign in with this account',
       message: 'Your account is not eligible to use this service.',
-      actionHref: '/sign-in',
+      actionHref: '/sign-in?prompt=select_account',
       actionText: 'Try a different account'
     })
     .code(statusCodes.forbidden)
@@ -66,6 +73,9 @@ function domainNotAllowedView(h) {
 
 export const authController = {
   login: {
+    options: {
+      validate: { query: loginQuerySchema }
+    },
     async handler(request, h) {
       let oidcConfig
 
@@ -95,7 +105,8 @@ export const authController = {
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         state,
-        nonce
+        nonce,
+        ...(request.query.prompt ? { prompt: request.query.prompt } : {})
       })
 
       return h.redirect(authorizationUrl.href)
@@ -157,7 +168,7 @@ export const authController = {
         displayName: user.displayName
       })
 
-      const returnTo = pending.returnTo || '/connect'
+      const returnTo = safeReturnTo(pending.returnTo, '/connect')
 
       return h.redirect(returnTo).code(statusCodes.seeOther)
     }

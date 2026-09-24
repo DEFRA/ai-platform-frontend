@@ -9,6 +9,7 @@ import { auth } from '../routes/auth/index.js'
 import { models } from '../routes/models/index.js'
 import { connect } from '../routes/connect/index.js'
 import { manage } from '../routes/manage/index.js'
+import { teams } from '../routes/teams/index.js'
 import { serveStaticFiles } from './serve-static-files.js'
 import { config } from '#/config/config.js'
 
@@ -30,7 +31,8 @@ export const router = {
         auth,
         models,
         connect,
-        manage
+        manage,
+        teams
       ])
 
       // Static assets

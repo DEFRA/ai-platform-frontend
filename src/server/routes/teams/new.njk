@@ -1,0 +1,59 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="returnTo" value="{{ returnTo }}">
+
+        {{ govukInput({
+          id: "name",
+          name: "name",
+          value: values.name,
+          label: {
+            text: "Team name",
+            classes: "govuk-label--m"
+          },
+          errorMessage: fieldErrors.name
+        }) }}
+
+        {{ govukInput({
+          id: "serviceCode",
+          name: "serviceCode",
+          value: values.serviceCode,
+          label: { text: "Service code (optional)" },
+          hint: { text: "This is not verified yet." },
+          errorMessage: fieldErrors.serviceCode
+        }) }}
+
+        {{ govukCharacterCount({
+          id: "description",
+          name: "description",
+          maxlength: 500,
+          value: values.description,
+          label: { text: "Description (optional)" },
+          errorMessage: fieldErrors.description
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

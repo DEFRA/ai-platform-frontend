@@ -1,0 +1,27 @@
+{% extends 'layouts/page.njk' %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if teams.length == 0 %}
+        <p class="govuk-body">You are not a member of a team yet.</p>
+      {% else %}
+        <ul class="govuk-list">
+          {% for team in teams %}
+            <li>
+              <a class="govuk-link" href="/teams/{{ team._id }}">{{ team.name }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <p class="govuk-body">
+        <a class="govuk-link" href="/teams/new">Create a new team</a>
+      </p>
+    </div>
+  </div>
+{% endblock %}

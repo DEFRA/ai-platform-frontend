@@ -1,0 +1,65 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorMessage %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: [{ text: errorMessage }]
+        }) }}
+      {% endif %}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Provider" },
+            value: { text: model.provider }
+          },
+          {
+            key: { text: "Model" },
+            value: { text: model.displayName }
+          },
+          {
+            key: { text: "Tier" },
+            value: { text: "Team (dedicated deployment)" }
+          },
+          {
+            key: { text: "Environment" },
+            value: { text: environment }
+          },
+          {
+            key: { text: "Purpose" },
+            value: { text: purpose or "Not given" }
+          }
+        ]
+      }) }}
+
+      {{ govukWarningText({
+        text: "Setting up a dedicated deployment for your team can take a few minutes.",
+        iconFallbackText: "Warning"
+      }) }}
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukButton({ text: "Confirm and request access" }) }}
+
+        {% if existingRequestUrl %}
+          <p class="govuk-body">
+            <a class="govuk-link" href="{{ existingRequestUrl }}">View the existing request</a>
+          </p>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+{% endblock %}

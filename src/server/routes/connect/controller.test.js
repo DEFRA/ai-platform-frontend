@@ -166,17 +166,18 @@ describe('#connectController', () => {
     expect(result).toEqual(expect.stringContaining('There is a problem'))
   })
 
-  test('POST /connect rejects the disabled team access type', async () => {
+  test('POST /connect routes the team access type to /connect/team/select', async () => {
     const cookies = await signIn(server)
 
-    const { statusCode } = await server.inject({
+    const { statusCode, headers } = await server.inject({
       method: 'POST',
       url: '/connect',
       headers: { cookie: cookieHeader(cookies) },
       payload: { crumb: cookies.crumb, accessType: 'team' }
     })
 
-    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/connect/team/select')
   })
 
   test('POST /connect/shared/details without accepting terms re-renders with an error and makes no API call', async () => {

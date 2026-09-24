@@ -82,6 +82,7 @@ describe('#manageController', () => {
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleCredential] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
     const { result, statusCode } = await server.inject({
       method: 'GET',
@@ -94,9 +95,33 @@ describe('#manageController', () => {
     expect(result).toEqual(expect.stringContaining('ab12'))
   })
 
+  test('GET /manage still renders when a team deployment lookup fails', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleCredential] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ message: 'boom' }), {
+      status: statusCodes.internalServerError
+    })
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('GPT-4o'))
+    expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
+  })
+
   test('GET /manage shows the empty state with no credentials', async () => {
     const cookies = await signIn(server)
 
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
@@ -112,9 +137,10 @@ describe('#manageController', () => {
     )
   })
 
-  test('GET /manage shows a "Your teams" placeholder', async () => {
+  test('GET /manage shows a "Your teams" placeholder with no team memberships', async () => {
     const cookies = await signIn(server)
 
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
@@ -126,6 +152,133 @@ describe('#manageController', () => {
 
     expect(result).toEqual(
       expect.stringContaining('You are not a member of a team yet')
+    )
+  })
+
+  test('GET /manage lists a shared team credential under the team section', async () => {
+    const cookies = await signIn(server)
+    const teamCredential = {
+      ...sampleCredential,
+      _id: 'cred-team-1',
+      teamId: 'team-1',
+      tier: 'team'
+    }
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [teamCredential] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
+    expect(result).toEqual(expect.stringContaining('ab12'))
+    expect(result).toEqual(
+      expect.stringContaining('You do not have any credentials yet')
+    )
+  })
+
+  test('GET /manage shows a "check progress" link for an in-progress team deployment', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-1',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'deploying'
+          }
+        ]
+      })
+    )
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('Setting up'))
+    expect(result).toEqual(
+      expect.stringContaining('/connect/team/request/team-1/deployment-1')
+    )
+  })
+
+  test('GET /manage shows a "setup failed" status for a failed team deployment', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-2',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'checks-failed'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(expect.stringContaining('Setup failed'))
+  })
+
+  test('GET /manage shows a "ready to view" link for an active deployment with no credential yet', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-3',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'active'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(expect.stringContaining('Ready to view'))
+    expect(result).toEqual(
+      expect.stringContaining('/connect/team/request/team-1/deployment-3')
     )
   })
 
@@ -147,6 +300,7 @@ describe('#manageController', () => {
     expect(postRenew.headers.location).toBe('/manage')
 
     const redirectCookies = mergeCookies(cookies, postRenew)
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
@@ -182,6 +336,7 @@ describe('#manageController', () => {
     expect(postRenew.statusCode).toBe(303)
 
     const redirectCookies = mergeCookies(cookies, postRenew)
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
@@ -245,6 +400,7 @@ describe('#manageController', () => {
     const redirectCookies = mergeCookies(cookies, postRevoke)
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
     const { result } = await server.inject({
       method: 'GET',
@@ -292,5 +448,68 @@ describe('#manageController', () => {
 
     expect(statusCode).toBe(303)
     expect(headers.location).toBe('/manage')
+  })
+
+  test('GET /manage/credentials/{id} shows the persistent detail page', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleCredential))
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('GPT-4o'))
+    expect(result).toEqual(expect.stringContaining('ab12'))
+    expect(result).toEqual(expect.stringContaining('Renew'))
+    expect(result).toEqual(expect.stringContaining('Revoke this credential'))
+  })
+
+  test('GET /manage/credentials/{id} hides renew/revoke actions for a team credential', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ ...sampleCredential, teamId: 'team-1', tier: 'team' })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining('Team (dedicated deployment)')
+    )
+    expect(result).not.toEqual(
+      expect.stringContaining('Revoke this credential')
+    )
+  })
+
+  test('GET /manage/credentials/{id} shows a not found page for an unknown id', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Not Found'
+      }),
+      { status: 404 }
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/unknown-id',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.notFound)
+    expect(result).toEqual(expect.stringContaining('Credential not found'))
   })
 })

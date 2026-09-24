@@ -14,8 +14,11 @@ export const auth = {
         {
           method: 'GET',
           path: '/auth/login',
-          options: publicRoute,
-          ...authController.login
+          options: {
+            ...publicRoute,
+            validate: authController.login.options.validate
+          },
+          handler: authController.login.handler
         },
         {
           method: 'GET',

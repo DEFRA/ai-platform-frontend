@@ -1,5 +1,6 @@
 const SESSION_USER_KEY = 'user'
 const PENDING_ACCESS_KEY = 'pendingAccess'
+const PENDING_TEAM_KEY = 'pendingTeam'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
@@ -28,6 +29,18 @@ export function getPendingAccess(request) {
 
 export function setPendingAccess(request, value) {
   request.yar.set(PENDING_ACCESS_KEY, value)
+}
+
+export function getPendingTeam(request) {
+  return request.yar.get(PENDING_TEAM_KEY)
+}
+
+export function setPendingTeam(request, value) {
+  request.yar.set(PENDING_TEAM_KEY, value)
+}
+
+export function clearPendingTeam(request) {
+  request.yar.clear(PENDING_TEAM_KEY)
 }
 
 export function setIssuedCredential(request, value) {

@@ -16,7 +16,7 @@ import {
 } from '#/server/common/helpers/govuk-errors.js'
 
 const accessTypeSchema = Joi.object({
-  accessType: Joi.string().valid('shared').required().messages({
+  accessType: Joi.string().valid('shared', 'team').required().messages({
     'any.only': 'Select an access type',
     'any.required': 'Select an access type'
   }),
@@ -54,8 +54,8 @@ function buildAccessTypeItems(selectedAccessType) {
     {
       value: 'team',
       text: 'Dedicated model for your team',
-      hint: { text: 'Not available yet.' },
-      disabled: true
+      hint: { text: 'A model deployed just for your team.' },
+      checked: selectedAccessType === 'team'
     }
   ]
 }
@@ -114,7 +114,12 @@ export const connectController = {
           modelSlug: request.payload.modelSlug || undefined
         })
 
-        return h.redirect('/connect/shared/model').code(statusCodes.seeOther)
+        const nextStep =
+          request.payload.accessType === 'team'
+            ? '/connect/team/select'
+            : '/connect/shared/model'
+
+        return h.redirect(nextStep).code(statusCodes.seeOther)
       }
     }
   },

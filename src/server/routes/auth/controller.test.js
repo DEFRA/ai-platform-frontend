@@ -156,6 +156,34 @@ describe('#authController', () => {
     expect(headers.location).toBe('/manage')
   })
 
+  test('GET /auth/callback ignores an off-site returnTo and falls back to /connect', async () => {
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login?returnTo=https%3A%2F%2Fattacker.example'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: {
+          _id: 'user-1',
+          email: 'test.user@defra.gov.uk',
+          displayName: 'Test User'
+        },
+        team: null
+      })
+    )
+
+    const { statusCode, headers } = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/connect')
+  })
+
   test('GET /auth/callback shows a safe error page for a disallowed email domain', async () => {
     const loginResponse = await server.inject({
       method: 'GET',
@@ -178,6 +206,32 @@ describe('#authController', () => {
     expect(result).toEqual(
       expect.stringContaining('You cannot sign in with this account')
     )
+    expect(result).toEqual(
+      expect.stringContaining('/sign-in?prompt=select_account')
+    )
+  })
+
+  test('GET /auth/login passes prompt=select_account through to the authorization request', async () => {
+    const { buildAuthorizationUrl } = await import('openid-client')
+
+    await server.inject({
+      method: 'GET',
+      url: '/auth/login?prompt=select_account'
+    })
+
+    expect(buildAuthorizationUrl).toHaveBeenCalledWith(
+      'fake-oidc-config',
+      expect.objectContaining({ prompt: 'select_account' })
+    )
+  })
+
+  test('GET /auth/login rejects an unsupported prompt value', async () => {
+    const { statusCode } = await server.inject({
+      method: 'GET',
+      url: '/auth/login?prompt=none'
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
   })
 
   test('GET /auth/callback renders a sign-in-problem page when the code exchange fails', async () => {

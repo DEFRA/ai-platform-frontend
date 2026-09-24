@@ -1,0 +1,61 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+
+      <h2 class="govuk-heading-m">Members</h2>
+
+      <table class="govuk-table">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th class="govuk-table__header" scope="col">Email</th>
+            <th class="govuk-table__header" scope="col">Role</th>
+            <th class="govuk-table__header" scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for member in members %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">{{ member.email or "Team creator" }}</td>
+              <td class="govuk-table__cell">{{ member.role }}</td>
+              <td class="govuk-table__cell">{{ member.status }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if isAdmin %}
+        <h2 class="govuk-heading-m">Add a member</h2>
+
+        <form method="post" action="/teams/{{ team._id }}/members" novalidate>
+          <input type="hidden" name="crumb" value="{{ crumb }}">
+
+          {{ govukInput({
+            id: "email",
+            name: "email",
+            type: "email",
+            label: { text: "Email address" },
+            errorMessage: fieldErrors.email
+          }) }}
+
+          {{ govukButton({ text: "Add member" }) }}
+        </form>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
