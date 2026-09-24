@@ -8,6 +8,7 @@
 > work, left alone.
 
 ## Files created/changed
+
 - Backend Phase A: `src/services/team-service.js`, `src/routes/teams.js` + `.test.js` (new); updated
   `src/plugins/router.js` (register teams), `src/plugins/mongodb.js` (teamMembers indexes),
   `src/services/user-service.js` (bind invited members by email on `upsertUser`).
@@ -35,6 +36,7 @@
   scope). Added `statusCodes.conflict = 409` to the frontend's shared status-codes constant.
 
 ## Design decisions/deviations (all documented, none functional gaps)
+
 - Did NOT add a `PROVISIONING_MODE` mock/real config toggle for `TenantOrchestrator` - the existing
   `CredentialIssuer` has no such toggle either (just a default parameter
   `issuer = mockCredentialIssuer`), so `mock-tenant-orchestrator.js` is wired the same way
@@ -65,12 +67,13 @@ invited members).
 session-only - it depended on `pendingAccess` to know which team/model/environment to poll, so
 navigating away (closing the tab, losing the session) made the in-progress request unreachable, and
 `/manage` never linked to it. Fixed:
+
 - Backend: added `listDeploymentsForTeam` + `GET /v1/teams/{teamId}/deployments` (list, not just by
   id) so `/manage` can show every in-progress/failed/unrevealed deployment per team.
 - Frontend: route is now `/connect/team/request/{teamId}/{id}` (URL-driven, no session dependency -
   derives `modelSlug`/`environment` from the deployment record itself, so it's a stable, bookmarkable
   link). Wait page shows friendly 3-stage progress (`Reviewing your request` -> `Setting up your
-  team's dedicated model` -> `Running final checks`) instead of one flat message, plus a permanent
+team's dedicated model` -> `Running final checks`) instead of one flat message, plus a permanent
   link to `/manage`. `/manage`'s team section now has a "Requests" sub-list with "Check progress" /
   "Setup failed" / "Ready to view" rows and links back into the (now-stable) wait page URL for any
   deployment that hasn't yet produced a viewed credential. If a teammate visits an already-revealed
@@ -98,6 +101,7 @@ PR #6 - see [design-orchestration.md](../../../ai-platform-discovery-docs/src/co
 for the full detail). The old approach (a single mocked `CredentialIssuer.issue()` call held
 `pending` for a delay) was DISCARDED. Design C makes clear that "connect to a dedicated team model"
 is two distinct backend concepts, and the route plan follows that split:
+
 - **Phase 1, GitOps-shaped (new, once per team+model+environment):** provisioning the team's
   access to the model itself - modelled by a new mocked `TenantOrchestrator` port using design C's
   real operation state names. This is the slow part with the "being set up" wait page.
@@ -121,6 +125,7 @@ Route 3's plan (B10), even though team creation makes the creator an admin.
 
 **VALIDATED 23 Sept 2026 against current codebase before implementation** - Route 1 confirmed
 IMPLEMENTED (dependency satisfied). Findings and decisions locked with user:
+
 - **Gap found & resolved:** `credential-service.js` currently derives `teamId` via
   `findTeamIdForUser(db, userId)` reading a single `teamId` field on the `users` doc - incompatible
   with the new many-to-many `teamMembers` model. Decision: the frontend passes `teamId` explicitly
@@ -146,42 +151,24 @@ IMPLEMENTED (dependency satisfied). Findings and decisions locked with user:
 ## Steps
 
 Phase A - Backend: teams data model and CRUD (B08) - unchanged from the original plan
+
 1. New `ai-platform-backend-api/src/services/team-service.js`: `createTeam(db, {name, serviceCode, description, createdBy, idempotencyKey})` - normalise name (`toLowerCase().trim().replace(/\s+/g,'-')`) same pattern as the team-by-name upsert removed from `user-service.js` in Route 1; check for an existing team by `createdBy` + `idempotencyKey` first (idempotent replay, same pattern as `issueCredential` in `src/services/credential-service.js`); insert team then insert the creator into `teamMembers` with `role: 'admin'`, `status: 'active'`. Throw `409 team-exists` via `boomWithCode(Boom.conflict, ..., 'team-exists')` on duplicate `normalisedName`.
 2. `listTeamsForUser(db, userId)`, `findTeamById(db, {id, userId})` (404 via `boomWithCode`/`Boom.notFound` if requester has no `teamMembers` row for that team - do not leak existence), `addMember(db, {teamId, actorUserId, email})` (403 `admin-required` if actor's `teamMembers` role isn't `admin`; inserts invited row `{teamId, email, role: 'user', status: 'invited'}`).
 3. New `ai-platform-backend-api/src/routes/teams.js`: `GET /v1/teams` (list for `x-user-id`), `POST /v1/teams` (Joi: `name` 3-60 chars, optional `serviceCode` as loose free text, optional `description`; requires `idempotency-key` header like `POST /v1/credentials`), `GET /v1/teams/{id}`, `POST /v1/teams/{id}/members` (Joi: `email`).
 4. `ai-platform-backend-api/src/plugins/mongodb.js`: add indexes - `teamMembers` compound `{teamId:1, userId:1}` and `{email:1}` (for invite binding lookup); the existing unique `teams.normalisedName` index already covers B08's duplicate-name rule.
 5. `ai-platform-backend-api/src/services/user-service.js`: on `upsertUser`, after the user upsert, bind any `teamMembers` rows with matching `email` and `status: 'invited'` to the signed-in user (`$set: { userId, status: 'active' }`) - this is how an invited member's membership activates on first sign-in (per B08's "bound on first sign-in").
 
-Phase B - Backend: `TenantOrchestrator` port + team deployment provisioning (B09, REWORKED) *depends on Phase A*
-6. New `ai-platform-backend-api/src/adapters/tenant-orchestrator.js`: port typedef with `requestDeployment({teamId, modelSlug, environment, operationId})` -> the real GitOps commit/PR/deploy-workflow chain, one call, async result delivered by polling; and `getDeploymentStatus({operationId})`. Mirrors the shape of `credential-issuer.js` (JSDoc port + a `mock-tenant-orchestrator.js` adapter), selected by a new `PROVISIONING_MODE`-style config key added to `src/config.js`.
-7. New `ai-platform-backend-api/src/adapters/mock-tenant-orchestrator.js`: on `requestDeployment`, inserts a record and schedules it to advance through design C's real states on a configurable timer: `requested` -> `pr-raised` -> `merged` -> `deploying` -> `deployed` -> `verified` -> `active` (happy path), with a configurable chance/trigger to land on `checks-failed` or `deploy-failed` instead (terminal, for testing the failure UI) via the same reserved-test-pattern approach as Route 1's mock issuer failure simulation.
-8. New collection `teamDeployments`: `{_id, teamId, modelSlug, environment, status, operationId, requestedBy, createdAt, activatedAt, failureReason}`. Unique index on `{teamId, modelSlug, environment}` - one deployment record per team+model+environment ever; a second request while `requested`..`verified` or `active` returns `409` with a link to the existing one (matches B09's acceptance criteria).
-9a. `ai-platform-backend-api/src/common/seed/models.seed.json`: add (or extend an existing entry with) at least one model carrying `tiers: ['team']` (or `['research', 'team']`) and a new `environments: ['dev']` field, so Phase B/C/D eligibility checks and the frontend model-select step have a real team-tier model to select.
-9. New `ai-platform-backend-api/src/services/team-deployment-service.js`: `requestDeployment(db, {teamId, modelSlug, environment, requestedBy}, orchestrator)` - verify requester is a `teamMembers` row for `teamId` (404 if not), model carries the `team` tier and lists `environment` (403 `model-not-eligible` otherwise), no existing non-terminal/`active` record for `{teamId, modelSlug, environment}` (409), then insert `requested` and call `orchestrator.requestDeployment(...)`. `getDeployment(db, {id, teamId})`, `findActiveDeployment(db, {teamId, modelSlug, environment})`.
-10. New `ai-platform-backend-api/src/routes/team-deployments.js` (or nest under `teams.js`): `POST /v1/teams/{teamId}/deployments` (payload: `modelSlug`, `environment`), `GET /v1/teams/{teamId}/deployments/{id}` (for the "being set up" poll).
-11. `ai-platform-backend-api/src/services/credential-service.js`: extend `issueCredential` so a `tier: 'team'` request carries an explicit `teamId` in the payload (do NOT derive it from `users.teamId`/`findTeamIdForUser` - that single-team field is incompatible with the new many-to-many `teamMembers` model; leave `findTeamIdForUser` in place only for research tier, or remove if unused). Instead of holding `pending` itself, first checks `findActiveDeployment(db, {teamId, modelSlug, environment})` is `active` (`409`/link if not - "deployment not ready yet") - if active, proceed **synchronously** exactly like research tier (same `issuer.issue()` mock, instant).
-12. **Locked decision: explicit second call, not auto-issue.** The mock orchestrator's `active` transition (item 7) does NOT call `issueCredential` itself. Instead, the frontend's polling wait page (step 22), on observing `status: active` from `GET /v1/teams/{teamId}/deployments/{id}`, makes one `POST /v1/credentials` call (with `tier: 'team'`, `teamId`, `modelSlug`) before rendering the credential.
-13. `ai-platform-backend-api/src/services/credential-service.js`: extend `listCredentials(db, {userId})` to also return credentials where `teamId` is one of the user's `teamMembers` team ids (union with the existing own-`userId` query) - needed for `/manage`'s real "Your teams" section (item 24 below).
-14. Introduce the `environment` field's Joi enum wherever it's newly added (`teamDeployments`, `POST /v1/credentials` team-tier payload) as `dev|qa|preprod|prod|uat` per design C, but validate/allow only `'dev'` in this slice (reject others with a clear `environment-not-available` 403 or similar) - future environments become a policy change, not a schema change.
+Phase B - Backend: `TenantOrchestrator` port + team deployment provisioning (B09, REWORKED) _depends on Phase A_ 6. New `ai-platform-backend-api/src/adapters/tenant-orchestrator.js`: port typedef with `requestDeployment({teamId, modelSlug, environment, operationId})` -> the real GitOps commit/PR/deploy-workflow chain, one call, async result delivered by polling; and `getDeploymentStatus({operationId})`. Mirrors the shape of `credential-issuer.js` (JSDoc port + a `mock-tenant-orchestrator.js` adapter), selected by a new `PROVISIONING_MODE`-style config key added to `src/config.js`. 7. New `ai-platform-backend-api/src/adapters/mock-tenant-orchestrator.js`: on `requestDeployment`, inserts a record and schedules it to advance through design C's real states on a configurable timer: `requested` -> `pr-raised` -> `merged` -> `deploying` -> `deployed` -> `verified` -> `active` (happy path), with a configurable chance/trigger to land on `checks-failed` or `deploy-failed` instead (terminal, for testing the failure UI) via the same reserved-test-pattern approach as Route 1's mock issuer failure simulation. 8. New collection `teamDeployments`: `{_id, teamId, modelSlug, environment, status, operationId, requestedBy, createdAt, activatedAt, failureReason}`. Unique index on `{teamId, modelSlug, environment}` - one deployment record per team+model+environment ever; a second request while `requested`..`verified` or `active` returns `409` with a link to the existing one (matches B09's acceptance criteria).
+9a. `ai-platform-backend-api/src/common/seed/models.seed.json`: add (or extend an existing entry with) at least one model carrying `tiers: ['team']` (or `['research', 'team']`) and a new `environments: ['dev']` field, so Phase B/C/D eligibility checks and the frontend model-select step have a real team-tier model to select. 9. New `ai-platform-backend-api/src/services/team-deployment-service.js`: `requestDeployment(db, {teamId, modelSlug, environment, requestedBy}, orchestrator)` - verify requester is a `teamMembers` row for `teamId` (404 if not), model carries the `team` tier and lists `environment` (403 `model-not-eligible` otherwise), no existing non-terminal/`active` record for `{teamId, modelSlug, environment}` (409), then insert `requested` and call `orchestrator.requestDeployment(...)`. `getDeployment(db, {id, teamId})`, `findActiveDeployment(db, {teamId, modelSlug, environment})`. 10. New `ai-platform-backend-api/src/routes/team-deployments.js` (or nest under `teams.js`): `POST /v1/teams/{teamId}/deployments` (payload: `modelSlug`, `environment`), `GET /v1/teams/{teamId}/deployments/{id}` (for the "being set up" poll). 11. `ai-platform-backend-api/src/services/credential-service.js`: extend `issueCredential` so a `tier: 'team'` request carries an explicit `teamId` in the payload (do NOT derive it from `users.teamId`/`findTeamIdForUser` - that single-team field is incompatible with the new many-to-many `teamMembers` model; leave `findTeamIdForUser` in place only for research tier, or remove if unused). Instead of holding `pending` itself, first checks `findActiveDeployment(db, {teamId, modelSlug, environment})` is `active` (`409`/link if not - "deployment not ready yet") - if active, proceed **synchronously** exactly like research tier (same `issuer.issue()` mock, instant). 12. **Locked decision: explicit second call, not auto-issue.** The mock orchestrator's `active` transition (item 7) does NOT call `issueCredential` itself. Instead, the frontend's polling wait page (step 22), on observing `status: active` from `GET /v1/teams/{teamId}/deployments/{id}`, makes one `POST /v1/credentials` call (with `tier: 'team'`, `teamId`, `modelSlug`) before rendering the credential. 13. `ai-platform-backend-api/src/services/credential-service.js`: extend `listCredentials(db, {userId})` to also return credentials where `teamId` is one of the user's `teamMembers` team ids (union with the existing own-`userId` query) - needed for `/manage`'s real "Your teams" section (item 24 below). 14. Introduce the `environment` field's Joi enum wherever it's newly added (`teamDeployments`, `POST /v1/credentials` team-tier payload) as `dev|qa|preprod|prod|uat` per design C, but validate/allow only `'dev'` in this slice (reject others with a clear `environment-not-available` 403 or similar) - future environments become a policy change, not a schema change.
 
-Phase C - Frontend: team select/create (B08) - unchanged from the original plan *depends on Phase A, parallel with Phase B*
-15. `ai-platform-frontend/src/server/routes/connect/index.js` (built in Route 1): enable the previously-disabled "Dedicated model for your team" radio; selecting it routes to `/connect/team/select`.
-16. New `ai-platform-frontend/src/server/routes/connect/team/select.njk` + handler: `GET/POST /connect/team/select` - lists the user's teams (`GET /v1/teams`) as radios plus a "Create a new team" link; if none, goes straight to create.
-17. New `ai-platform-frontend/src/server/routes/teams/`: `index.js`, `controller.js`, views for `GET /teams` (list, reachable directly too), `GET/POST /teams/new` (name/serviceCode/description form -> check-answers -> `POST /v1/teams` with a generated `Idempotency-Key`, same pattern as `api-client.js` credential calls), `GET /teams/{id}` (members list; admins see an "Add a member" form posting to `POST /v1/teams/{id}/members`; non-admins see view-only).
-18. Register the new `teams` plugin in `ai-platform-frontend/src/server/plugins/router.js`.
+Phase C - Frontend: team select/create (B08) - unchanged from the original plan _depends on Phase A, parallel with Phase B_ 15. `ai-platform-frontend/src/server/routes/connect/index.js` (built in Route 1): enable the previously-disabled "Dedicated model for your team" radio; selecting it routes to `/connect/team/select`. 16. New `ai-platform-frontend/src/server/routes/connect/team/select.njk` + handler: `GET/POST /connect/team/select` - lists the user's teams (`GET /v1/teams`) as radios plus a "Create a new team" link; if none, goes straight to create. 17. New `ai-platform-frontend/src/server/routes/teams/`: `index.js`, `controller.js`, views for `GET /teams` (list, reachable directly too), `GET/POST /teams/new` (name/serviceCode/description form -> check-answers -> `POST /v1/teams` with a generated `Idempotency-Key`, same pattern as `api-client.js` credential calls), `GET /teams/{id}` (members list; admins see an "Add a member" form posting to `POST /v1/teams/{id}/members`; non-admins see view-only). 18. Register the new `teams` plugin in `ai-platform-frontend/src/server/plugins/router.js`.
 
-Phase D - Frontend: connect to a dedicated team model, GitOps-shaped wait page (B09, REWORKED) *depends on Phase B, C*
-19. New `ai-platform-frontend/src/server/routes/connect/team/model.njk`+handler: `GET/POST /connect/team/model` - models carrying the `team` tier and listing environment `dev` (mirrors Route 1's `/connect/shared/model` pattern).
-20. New `.../connect/team/details.njk` - purpose textarea + environment field (`dev` pre-selected/only option, disabled others with hint per B09).
-21. New `.../connect/team/check.njk` - check-your-answers, generates `Idempotency-Key`, posts `{modelSlug, teamId, environment}` to the new `POST /v1/teams/{teamId}/deployments` (NOT `/v1/credentials` directly - that's the change from the old plan).
-22. New `.../connect/team/request/{id}.njk`+handler: `GET /connect/team/request/{id}` - polls `GET /v1/teams/{teamId}/deployments/{id}` via a `<meta http-equiv="refresh">` (no JavaScript, per B09); shows a friendly status while `status` is any of `requested`/`pr-raised`/`merged`/`deploying`/`deployed`/`verified` (group these as one user-facing "being set up" message); once the deployment is `active`, fetch the now-issued team credential (`GET /v1/credentials`, filter by `teamId`+`modelSlug`) and render it in place (secret shown once, to the requester only); shows a safe error if `checks-failed`/`deploy-failed`.
-23. Handle `409` (existing non-terminal/active deployment for this team+model -> link to the existing request/credential page) and `404` (not a team member) `ApiError` codes from `api-client.js` in the check/request controllers.
+Phase D - Frontend: connect to a dedicated team model, GitOps-shaped wait page (B09, REWORKED) _depends on Phase B, C_ 19. New `ai-platform-frontend/src/server/routes/connect/team/model.njk`+handler: `GET/POST /connect/team/model` - models carrying the `team` tier and listing environment `dev` (mirrors Route 1's `/connect/shared/model` pattern). 20. New `.../connect/team/details.njk` - purpose textarea + environment field (`dev` pre-selected/only option, disabled others with hint per B09). 21. New `.../connect/team/check.njk` - check-your-answers, generates `Idempotency-Key`, posts `{modelSlug, teamId, environment}` to the new `POST /v1/teams/{teamId}/deployments` (NOT `/v1/credentials` directly - that's the change from the old plan). 22. New `.../connect/team/request/{id}.njk`+handler: `GET /connect/team/request/{id}` - polls `GET /v1/teams/{teamId}/deployments/{id}` via a `<meta http-equiv="refresh">` (no JavaScript, per B09); shows a friendly status while `status` is any of `requested`/`pr-raised`/`merged`/`deploying`/`deployed`/`verified` (group these as one user-facing "being set up" message); once the deployment is `active`, fetch the now-issued team credential (`GET /v1/credentials`, filter by `teamId`+`modelSlug`) and render it in place (secret shown once, to the requester only); shows a safe error if `checks-failed`/`deploy-failed`. 23. Handle `409` (existing non-terminal/active deployment for this team+model -> link to the existing request/credential page) and `404` (not a team member) `ApiError` codes from `api-client.js` in the check/request controllers.
 
-Phase E - Frontend: real "Your teams" section on /manage (B09's manage-page requirement) *depends on Phase B item 13, D*
-24. `ai-platform-frontend/src/server/routes/manage/` (renamed in Route 1): replace the placeholder "Your teams" block with a real listing - one sub-section per team, each credential showing model, status tag, key hint, issued/expiry, **no** renew/revoke/rotate actions yet (that's Route 3/B10) - read-only for now, listing every member's shared team credential per B09's "shows on `/manage` under the team for all members".
-25. Update `manage/controller.test.js`/`journey.test.js` to cover the new team section.
+Phase E - Frontend: real "Your teams" section on /manage (B09's manage-page requirement) _depends on Phase B item 13, D_ 24. `ai-platform-frontend/src/server/routes/manage/` (renamed in Route 1): replace the placeholder "Your teams" block with a real listing - one sub-section per team, each credential showing model, status tag, key hint, issued/expiry, **no** renew/revoke/rotate actions yet (that's Route 3/B10) - read-only for now, listing every member's shared team credential per B09's "shows on `/manage` under the team for all members". 25. Update `manage/controller.test.js`/`journey.test.js` to cover the new team section.
 
 ## Relevant files
+
 - `ai-platform-backend-api/src/services/team-service.js` (new), `src/routes/teams.js` (new)
 - `ai-platform-backend-api/src/adapters/tenant-orchestrator.js`, `mock-tenant-orchestrator.js` (new)
 - `ai-platform-backend-api/src/services/team-deployment-service.js` (new), `src/routes/team-deployments.js` (new)
@@ -195,12 +182,14 @@ Phase E - Frontend: real "Your teams" section on /manage (B09's manage-page requ
 - `ai-platform-frontend/src/server/plugins/router.js` - register `teams`
 
 ## Verification
+
 1. Backend: new unit/integration tests for `team-service.js`, `teams.js` routes (409 team-exists, 403 admin-required, 404 not-a-member), `team-deployment-service.js` (state progression, 409 duplicate, `checks-failed`/`deploy-failed` terminal states), team-tier branch of `issueCredential` (only proceeds once deployment `active`), extended `listCredentials`.
 2. Frontend: controller/journey tests for team select/create, connect/team/* flow including the "being set up" page without JavaScript across the grouped GitOps states, and the new `/manage` team section.
 3. Manual: sign in -> `/connect` -> dedicated team radio -> create a team -> choose a model -> details -> check answers -> "being set up" page auto-refreshes through the GitOps states -> becomes credential page -> `/manage` shows it under the team.
 4. `npm test`, `npm run lint` in both repos.
 
 ## Decisions
+
 - Team creator becomes the team's first admin (per B08's stated interim rule) - not re-litigated here.
 - Billing/service code verification is out of scope (captured, stored `unverified`, never verified) - matches B08 explicitly.
 - Invited membership is by Defra email match at next sign-in (no Entra group lookup) - matches current email-based identity model post Route-1 changes.
@@ -213,5 +202,6 @@ Phase E - Frontend: real "Your teams" section on /manage (B09's manage-page requ
 - **Locked 23 Sept 2026:** `serviceCode` is loose free text with no regex pattern (matches "never verified" decision).
 
 ## Further considerations
+
 1. Nobody notifies an invited member today (flagged as an open gap on the diagram itself) - out of scope unless a notification step is added.
 2. No route lets the requester hand the secret to teammates after issue (also flagged as open on the diagram) - out of scope for this plan.

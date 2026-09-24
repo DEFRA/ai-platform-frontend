@@ -90,8 +90,7 @@ function deploymentTagClass(status) {
 function decorateDeployment(deployment, modelNames) {
   return {
     ...deployment,
-    modelDisplayName:
-      modelNames[deployment.modelSlug] ?? deployment.modelSlug,
+    modelDisplayName: modelNames[deployment.modelSlug] ?? deployment.modelSlug,
     statusText: deploymentStatusText(deployment.status),
     tagClass: deploymentTagClass(deployment.status),
     requestUrl: `/connect/team/request/${deployment.teamId}/${deployment._id}`
@@ -144,16 +143,18 @@ function notificationBannerParams(notification) {
 
 export const manageController = {
   list: {
-    get: {      async handler(request, h) {
+    get: {
+      async handler(request, h) {
         const sessionUser = getSessionUser(request)
-        const [{ items }, modelNames, { items: teamItems }] =
-          await Promise.all([
+        const [{ items }, modelNames, { items: teamItems }] = await Promise.all(
+          [
             apiClient(request).get('/v1/credentials', {
               userId: sessionUser.id
             }),
             buildModelNameMap(request),
             apiClient(request).get('/v1/teams', { userId: sessionUser.id })
-          ])
+          ]
+        )
 
         const deployments = (
           await Promise.all(

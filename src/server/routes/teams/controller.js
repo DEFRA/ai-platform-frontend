@@ -35,9 +35,7 @@ const addMemberSchema = Joi.object({
 })
 
 function isForbidden(error) {
-  return (
-    error instanceof ApiError && error.statusCode === statusCodes.forbidden
-  )
+  return error instanceof ApiError && error.statusCode === statusCodes.forbidden
 }
 
 function errorMessageForCode(error) {

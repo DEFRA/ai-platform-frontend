@@ -460,8 +460,12 @@ describe('#manageController', () => {
       headers: { cookie: cookieHeader(cookies) }
     })
 
-    expect(result).toEqual(expect.stringContaining('Team (dedicated deployment)'))
-    expect(result).not.toEqual(expect.stringContaining('Revoke this credential'))
+    expect(result).toEqual(
+      expect.stringContaining('Team (dedicated deployment)')
+    )
+    expect(result).not.toEqual(
+      expect.stringContaining('Revoke this credential')
+    )
   })
 
   test('GET /manage/credentials/{id} shows a not found page for an unknown id', async () => {

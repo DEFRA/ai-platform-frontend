@@ -1,5 +1,5 @@
 ---
-title: "UI flow: three routes to a credential"
+title: 'UI flow: three routes to a credential'
 description: "Captured record of the finalized user journey diagrams (v5, 18 September 2026) that drove this repo's and ai-platform-backend-api's route plans, since the source images live outside version control."
 ---
 
@@ -32,33 +32,34 @@ orchestration model referenced throughout (GitOps vs Direct API paths), see
 "Every page, which routes touch it, what existed at 17 September 2026" (R1/R2/R3 = dot means that
 route touches this page; Story = build story reference).
 
-| Route path | R1 | R2 | R3 | Story | State at 17 Sept 2026 |
-|---|---|---|---|---|---|
-| `/` | • | | | B06 | Built, no content yet |
-| `/models` | • | | | B04 | Not built |
-| `/models/{slug}` | • | | | B04 | Not built |
-| `/sign-in?returnTo=` | • | • | • | B03 | Built as the superseded self-declared form |
-| `/auth/callback` | • | • | • | B03 | Not built |
-| `/sign-out` | • | • | • | B03 | Built |
-| `/connect` | • | • | | B06, B09 | Nearest was `/connect-model`, a provider question |
-| `/connect/shared/model` | • | | | B06 | Nearest was `/connect-model/select-model` |
-| `/connect/shared/details` | • | | | B06 | Not built |
-| `/connect/shared/check` | • | | | B06 | Nearest was `/connect-model/confirm` |
-| `/connect/shared/credential` | • | | | B06 | Nearest was `/connect-model/credential` |
-| `/teams` | | • | | B08 | Not built |
-| `/teams/new` | | • | | B08 | Not built |
-| `/teams/{id}` | | • | | B08 | Not built |
-| `/connect/team/select` | | • | • | B09 | Not built |
-| `/connect/team/model` | | • | • | B09 | Not built |
-| `/connect/team/details` | | • | | B09 | Not built |
-| `/connect/team/request/{id}` | | • | • | B09 | Not built. Also the credential page |
-| `/manage` | • | • | • | B07 | Not built |
-| `/manage/credentials/{id}/renew` | • | | | B07 | Not built |
-| `/manage/credentials/{id}/rotate` | | • | • | B10 | Not built |
-| `/manage/credentials/{id}/revoke` | • | • | • | B07, B10 | Not built |
-| `/health` | | | | B01 | Built on both services |
+| Route path                        | R1  | R2  | R3  | Story    | State at 17 Sept 2026                             |
+| --------------------------------- | --- | --- | --- | -------- | ------------------------------------------------- |
+| `/`                               | •   |     |     | B06      | Built, no content yet                             |
+| `/models`                         | •   |     |     | B04      | Not built                                         |
+| `/models/{slug}`                  | •   |     |     | B04      | Not built                                         |
+| `/sign-in?returnTo=`              | •   | •   | •   | B03      | Built as the superseded self-declared form        |
+| `/auth/callback`                  | •   | •   | •   | B03      | Not built                                         |
+| `/sign-out`                       | •   | •   | •   | B03      | Built                                             |
+| `/connect`                        | •   | •   |     | B06, B09 | Nearest was `/connect-model`, a provider question |
+| `/connect/shared/model`           | •   |     |     | B06      | Nearest was `/connect-model/select-model`         |
+| `/connect/shared/details`         | •   |     |     | B06      | Not built                                         |
+| `/connect/shared/check`           | •   |     |     | B06      | Nearest was `/connect-model/confirm`              |
+| `/connect/shared/credential`      | •   |     |     | B06      | Nearest was `/connect-model/credential`           |
+| `/teams`                          |     | •   |     | B08      | Not built                                         |
+| `/teams/new`                      |     | •   |     | B08      | Not built                                         |
+| `/teams/{id}`                     |     | •   |     | B08      | Not built                                         |
+| `/connect/team/select`            |     | •   | •   | B09      | Not built                                         |
+| `/connect/team/model`             |     | •   | •   | B09      | Not built                                         |
+| `/connect/team/details`           |     | •   |     | B09      | Not built                                         |
+| `/connect/team/request/{id}`      |     | •   | •   | B09      | Not built. Also the credential page               |
+| `/manage`                         | •   | •   | •   | B07      | Not built                                         |
+| `/manage/credentials/{id}/renew`  | •   |     |     | B07      | Not built                                         |
+| `/manage/credentials/{id}/rotate` |     | •   | •   | B10      | Not built                                         |
+| `/manage/credentials/{id}/revoke` | •   | •   | •   | B07, B10 | Not built                                         |
+| `/health`                         |     |     |     | B01      | Built on both services                            |
 
 Footnotes:
+
 - Shared pages are rows with more than one dot: `/sign-in`, `/manage` and the credential pattern are used by all three routes.
 - Sources: build stories B01-B10 (17 September 2026) and route registrations in `ai-platform-frontend`. Rotate and revoke are marked for Route 2 because its creator is an admin, even though the Route 2 sheet stops at the handover.
 

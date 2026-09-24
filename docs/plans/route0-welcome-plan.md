@@ -16,6 +16,7 @@ Per the AICE `javascript-design-language` skill (`ai-platform-frontend/.github/s
 its `references/layouts.md` defines an **entry/hub page** pattern (`.defra-hero` full-width green
 banner + `.defra-tile-grid` 3-column tiles below) that is exactly this page's shape - use it
 instead of generic GOV.UK cards:
+
 - Base layout: `assets/layouts/hub.njk` (extends `assets/layouts/page.njk`) - copy/adapt into
   `src/server/common/templates/layouts/` if not already wired up from earlier route work.
 - Hero: `.defra-hero` (Defra green `$defra-green` `#008531` background, white `govuk-heading-xl`
@@ -58,11 +59,13 @@ instead of generic GOV.UK cards:
    first, likely already present as the service name link.
 
 ## Relevant files
+
 - `ai-platform-frontend/src/server/routes/home/controller.js` - view model additions
 - `ai-platform-frontend/src/server/routes/home/index.njk` - the three-card welcome content
 - `ai-platform-frontend/src/server/routes/home/controller.test.js` - updated assertions
 
 ## Verification
+
 1. `npm test` in ai-platform-frontend - updated `home/controller.test.js`.
 2. Manual: visit `/` signed out - see three cards + models link, all public; click each and confirm
    it lands on `/models`, `/connect`, `/manage` respectively (the latter two prompting sign-in first
@@ -72,6 +75,7 @@ instead of generic GOV.UK cards:
 4. `npm run lint` / `npm run format:check`.
 
 ## Decisions
+
 - Build this after Routes 1-3 land so links are real; if built earlier, stub the three hrefs and
   track them as a follow-up rather than guessing at not-yet-built paths.
 - Use the AICE design-language skill's hub/tile-grid pattern (`.defra-hero` + `.defra-tile-grid`)
@@ -84,6 +88,7 @@ instead of generic GOV.UK cards:
   team" case which the other two doors don't cover.
 
 ## Further considerations
+
 1. Should the "Set up your team" card pre-select the team radio on `/connect` via a query param, or
    just land on the plain chooser? Recommend the plain chooser to avoid extra plumbing, unless the
    Route 2 implementer finds it trivial to support.

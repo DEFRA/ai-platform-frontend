@@ -72,7 +72,11 @@ function buildStageProgress(status) {
   return STAGE_GROUPS.map((stage, index) => ({
     label: stage.label,
     state:
-      index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'pending'
+      index < currentIndex
+        ? 'done'
+        : index === currentIndex
+          ? 'current'
+          : 'pending'
   }))
 }
 
@@ -490,9 +494,7 @@ export const teamConnectController = {
 
         setIssuedCredential(request, { credential, secret, model })
 
-        return h
-          .redirect('/connect/team/credential')
-          .code(statusCodes.seeOther)
+        return h.redirect('/connect/team/credential').code(statusCodes.seeOther)
       }
     }
   },

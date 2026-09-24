@@ -127,9 +127,7 @@ describe('#teamsController', () => {
       headers: { cookie: cookieHeader(cookies) }
     })
     cookies = mergeCookies(cookies, getCheck)
-    expect(getCheck.result).toEqual(
-      expect.stringContaining('Flood Risk Team')
-    )
+    expect(getCheck.result).toEqual(expect.stringContaining('Flood Risk Team'))
 
     fetchMock.mockResponseOnce(JSON.stringify({ team: sampleTeam }))
 
@@ -244,7 +242,11 @@ describe('#teamsController', () => {
 
     fetchMock.mockResponseOnce(
       JSON.stringify({
-        member: { email: 'invitee@defra.gov.uk', role: 'user', status: 'invited' }
+        member: {
+          email: 'invitee@defra.gov.uk',
+          role: 'user',
+          status: 'invited'
+        }
       })
     )
 

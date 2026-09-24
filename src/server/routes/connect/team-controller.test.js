@@ -149,7 +149,9 @@ describe('#teamConnectController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/teams/new?returnTo=%2Fconnect%2Fteam%2Fselect')
+    expect(headers.location).toBe(
+      '/teams/new?returnTo=%2Fconnect%2Fteam%2Fselect'
+    )
   })
 
   test('POST /connect/team/select with no team re-renders with an error', async () => {
@@ -190,7 +192,9 @@ describe('#teamConnectController', () => {
     expect(getCheck.result).toEqual(expect.stringContaining('GPT-4o'))
 
     fetchMock.mockResponseOnce(
-      JSON.stringify({ deployment: { _id: 'deployment-1', status: 'requested' } })
+      JSON.stringify({
+        deployment: { _id: 'deployment-1', status: 'requested' }
+      })
     )
     const postCheck = await server.inject({
       method: 'POST',
@@ -239,7 +243,9 @@ describe('#teamConnectController', () => {
     cookies = await reachCheckStep(server, cookies)
 
     fetchMock.mockResponseOnce(
-      JSON.stringify({ deployment: { _id: 'deployment-2', status: 'requested' } })
+      JSON.stringify({
+        deployment: { _id: 'deployment-2', status: 'requested' }
+      })
     )
     const postCheck = await server.inject({
       method: 'POST',
@@ -278,7 +284,9 @@ describe('#teamConnectController', () => {
     cookies = await reachCheckStep(server, cookies)
 
     fetchMock.mockResponseOnce(
-      JSON.stringify({ deployment: { _id: 'deployment-3', status: 'requested' } })
+      JSON.stringify({
+        deployment: { _id: 'deployment-3', status: 'requested' }
+      })
     )
     const postCheck = await server.inject({
       method: 'POST',
@@ -308,7 +316,10 @@ describe('#teamConnectController', () => {
       })
     )
     fetchMock.mockResponseOnce(
-      JSON.stringify({ credential: issuedCredential, secret: 'mock_team_secret' })
+      JSON.stringify({
+        credential: issuedCredential,
+        secret: 'mock_team_secret'
+      })
     )
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
 
@@ -342,7 +353,9 @@ describe('#teamConnectController', () => {
     cookies = await reachCheckStep(server, cookies)
 
     fetchMock.mockResponseOnce(
-      JSON.stringify({ deployment: { _id: 'deployment-3b', status: 'requested' } })
+      JSON.stringify({
+        deployment: { _id: 'deployment-3b', status: 'requested' }
+      })
     )
     const postCheck = await server.inject({
       method: 'POST',
@@ -410,7 +423,9 @@ describe('#teamConnectController', () => {
     cookies = await reachCheckStep(server, cookies)
 
     fetchMock.mockResponseOnce(
-      JSON.stringify({ deployment: { _id: 'deployment-4', status: 'requested' } })
+      JSON.stringify({
+        deployment: { _id: 'deployment-4', status: 'requested' }
+      })
     )
     const postCheck = await server.inject({
       method: 'POST',
