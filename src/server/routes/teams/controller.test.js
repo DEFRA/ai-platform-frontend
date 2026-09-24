@@ -215,6 +215,63 @@ describe('#teamsController', () => {
     expect(result).not.toEqual(expect.stringContaining('Add a member'))
   })
 
+  test('GET /teams/{id} masks other members\u2019 email addresses from a non-admin', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [
+          { userId: 'user-1', role: 'user', status: 'active' },
+          {
+            userId: 'user-2',
+            email: 'colleague@defra.gov.uk',
+            role: 'user',
+            status: 'active'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).not.toEqual(
+      expect.stringContaining('colleague@defra.gov.uk')
+    )
+    expect(result).toEqual(expect.stringContaining('@defra.gov.uk'))
+  })
+
+  test('GET /teams/{id} shows full email addresses to an admin', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [
+          { userId: 'user-1', role: 'admin', status: 'active' },
+          {
+            userId: 'user-2',
+            email: 'colleague@defra.gov.uk',
+            role: 'user',
+            status: 'active'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(expect.stringContaining('colleague@defra.gov.uk'))
+  })
+
   test('GET /teams/{id} shows a not found page for a non-member', async () => {
     const cookies = await signIn(server)
 

@@ -92,6 +92,71 @@ describe('#modelsController', () => {
     )
   })
 
+  test('GET /models?tier=team shows a team-only model as eligible', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ ...sampleModel, tiers: ['team'] }]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/models?tier=team'
+    })
+
+    expect(result).not.toEqual(
+      expect.stringContaining('app-model-table__row--disabled')
+    )
+  })
+
+  test('GET /models?tier=team marks a research-only model as ineligible', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ ...sampleModel, tiers: ['research'] }]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/models?tier=team'
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining('app-model-table__row--disabled')
+    )
+  })
+
+  test('GET /models with no tier filter accepts either offered tier', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          { ...sampleModel, slug: 'team-only', tiers: ['team'] },
+          { ...sampleModel, slug: 'research-only', tiers: ['research'] }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({ method: 'GET', url: '/models' })
+
+    expect(result).not.toEqual(
+      expect.stringContaining('app-model-table__row--disabled')
+    )
+  })
+
+  test('GET /models marks a model offering no approved tier as ineligible', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ ...sampleModel, tiers: ['enterprise'] }]
+      })
+    )
+
+    const { result } = await server.inject({ method: 'GET', url: '/models' })
+
+    expect(result).toEqual(
+      expect.stringContaining('app-model-table__row--disabled')
+    )
+  })
+
   test('GET /models/{slug} shows a Connect button for an eligible model even when signed out', async () => {
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
 

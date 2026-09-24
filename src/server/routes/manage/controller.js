@@ -156,15 +156,27 @@ export const manageController = {
           ]
         )
 
-        const deployments = (
-          await Promise.all(
-            teamItems.map((team) =>
-              apiClient(request).get(`/v1/teams/${team._id}/deployments`, {
-                userId: sessionUser.id
-              })
-            )
+        // Deployment listings are supplementary: a transient failure on one
+        // team must not take down the whole Manage page.
+        const deploymentResults = await Promise.allSettled(
+          teamItems.map((team) =>
+            apiClient(request).get(`/v1/teams/${team._id}/deployments`, {
+              userId: sessionUser.id
+            })
           )
-        ).flatMap((response) => response.items)
+        )
+
+        const deployments = deploymentResults.flatMap((result) => {
+          if (result.status === 'rejected') {
+            request.logger.warn(
+              { err: result.reason },
+              'Could not load team deployments for the manage page'
+            )
+            return []
+          }
+
+          return result.value.items
+        })
 
         const personalCredentials = items.filter(
           (credential) => !credential.teamId

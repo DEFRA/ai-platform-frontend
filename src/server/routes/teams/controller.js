@@ -51,6 +51,18 @@ function errorMessageForCode(error) {
   return error.message
 }
 
+// Only an admin needs to see a colleague's full address (to manage invites);
+// everyone else gets a masked form so the page isn't a team-wide email list.
+function maskEmail(email) {
+  const [localPart, domain] = email.split('@')
+
+  if (!domain) {
+    return 'Hidden'
+  }
+
+  return `${localPart.slice(0, 1)}${'*'.repeat(Math.max(localPart.length - 1, 1))}@${domain}`
+}
+
 async function loadTeamForView(request, id) {
   const sessionUser = getSessionUser(request)
   const result = await apiClient(request).get(`/v1/teams/${id}`, {
@@ -61,7 +73,15 @@ async function loadTeamForView(request, id) {
     (member) => member.userId === sessionUser.id && member.role === 'admin'
   )
 
-  return { ...result, isAdmin }
+  const members = result.members.map((member) => ({
+    ...member,
+    email:
+      member.email && !isAdmin && member.userId !== sessionUser.id
+        ? maskEmail(member.email)
+        : member.email
+  }))
+
+  return { ...result, members, isAdmin }
 }
 
 export const teamsController = {

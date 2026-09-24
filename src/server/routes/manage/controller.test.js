@@ -95,6 +95,29 @@ describe('#manageController', () => {
     expect(result).toEqual(expect.stringContaining('ab12'))
   })
 
+  test('GET /manage still renders when a team deployment lookup fails', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleCredential] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ message: 'boom' }), {
+      status: statusCodes.internalServerError
+    })
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('GPT-4o'))
+    expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
+  })
+
   test('GET /manage shows the empty state with no credentials', async () => {
     const cookies = await signIn(server)
 
