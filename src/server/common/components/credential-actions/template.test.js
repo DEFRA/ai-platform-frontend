@@ -32,12 +32,8 @@ describe('Credential actions component', () => {
       showRenewRevoke: false
     })
 
-    expect($actions('[data-testid="credential-action-renew"]')).toHaveLength(
-      0
-    )
-    expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(
-      0
-    )
+    expect($actions('[data-testid="credential-action-renew"]')).toHaveLength(0)
+    expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(0)
   })
 
   test('Should render Renew and Revoke buttons for an active credential when showRenewRevoke is true', () => {
@@ -61,9 +57,7 @@ describe('Credential actions component', () => {
       showRenewRevoke: true
     })
 
-    expect($actions('[data-testid="credential-action-renew"]')).toHaveLength(
-      0
-    )
+    expect($actions('[data-testid="credential-action-renew"]')).toHaveLength(0)
   })
 
   test('Should not render Renew or Revoke for a revoked credential', () => {
@@ -72,11 +66,7 @@ describe('Credential actions component', () => {
       showRenewRevoke: true
     })
 
-    expect($actions('[data-testid="credential-action-renew"]')).toHaveLength(
-      0
-    )
-    expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(
-      0
-    )
+    expect($actions('[data-testid="credential-action-renew"]')).toHaveLength(0)
+    expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(0)
   })
 })
