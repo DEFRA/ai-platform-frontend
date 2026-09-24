@@ -1,0 +1,45 @@
+{% extends 'layouts/page.njk' %}
+
+{% block head %}
+  {{ super() }}
+  {% if refreshSeconds %}
+    <meta http-equiv="refresh" content="{{ refreshSeconds }}">
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if failed %}
+        <p class="govuk-body">Something went wrong while setting up your team's dedicated model access.</p>
+        <p class="govuk-body">
+          <a class="govuk-link" href="/connect">Start again</a>
+        </p>
+        <p class="govuk-body">
+          <a class="govuk-link" href="/manage">Manage AI access</a>
+        </p>
+      {% else %}
+        <ol class="govuk-list">
+          {% for stage in stages %}
+            <li>
+              {% if stage.state == "done" %}
+                <strong>Done:</strong> {{ stage.label }}
+              {% elif stage.state == "current" %}
+                <strong>In progress:</strong> {{ stage.label }}
+              {% else %}
+                {{ stage.label }}
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+
+        <p class="govuk-body">This page will refresh automatically. You do not need to do anything.</p>
+        <p class="govuk-body">This usually takes a few minutes. You can also come back later from <a class="govuk-link" href="/manage">Manage AI access</a>.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

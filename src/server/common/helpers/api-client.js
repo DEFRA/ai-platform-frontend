@@ -5,14 +5,16 @@ const tracingHeader = config.get('tracing.header')
 const defaultTimeoutMs = 5000
 
 /**
- * Error thrown for any non-2xx response from the backend API, carrying its stable `code`.
+ * Error thrown for any non-2xx response from the backend API, carrying its stable `code`
+ * plus any extra context fields the backend attached (e.g. `existingId` on a 409).
  */
 export class ApiError extends Error {
-  constructor({ statusCode, code, message }) {
+  constructor({ statusCode, code, message, ...extra }) {
     super(message)
     this.name = 'ApiError'
     this.statusCode = statusCode
     this.code = code
+    Object.assign(this, extra)
   }
 }
 
@@ -62,6 +64,7 @@ async function callApi(
 
   if (!response.ok) {
     throw new ApiError({
+      ...body,
       statusCode: response.status,
       code: body?.code ?? 'error',
       message: body?.message ?? 'Something went wrong'

@@ -103,6 +103,7 @@ describe('#requireSignInGlobally', () => {
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
     const { statusCode } = await server.inject({
       method: 'GET',

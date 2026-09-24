@@ -16,6 +16,11 @@ export const manage = {
           handler: manageController.list.get.handler
         },
         {
+          method: 'GET',
+          path: '/manage/credentials/{id}',
+          handler: manageController.view.get.handler
+        },
+        {
           method: 'POST',
           path: '/manage/credentials/{id}/renew',
           handler: manageController.renew.post.handler

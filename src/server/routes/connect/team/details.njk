@@ -1,0 +1,55 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukCharacterCount({
+          id: "purpose",
+          name: "purpose",
+          maxlength: 500,
+          value: values.purpose,
+          label: {
+            text: "What will you use this model for?",
+            classes: "govuk-label--m"
+          },
+          hint: { text: "For example, the project or piece of work this deployment supports." },
+          errorMessage: fieldErrors.purpose
+        }) }}
+
+        {{ govukRadios({
+          idPrefix: "environment",
+          name: "environment",
+          fieldset: {
+            legend: {
+              text: "Environment",
+              classes: "govuk-fieldset__legend--m"
+            }
+          },
+          hint: { text: "Only Development is available today." },
+          items: environmentItems
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

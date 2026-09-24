@@ -46,6 +46,26 @@ describe('#apiClient', () => {
     })
   })
 
+  test('post() carries extra backend error fields (e.g. existingId) onto the ApiError', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        message: 'A deployment already exists',
+        code: 'deployment-exists',
+        existingId: 'deployment-1'
+      }),
+      { status: 409 }
+    )
+
+    await expect(
+      apiClient({ headers: {} }).post('/v1/teams/team-1/deployments', {
+        modelSlug: 'x'
+      })
+    ).rejects.toMatchObject({
+      code: 'deployment-exists',
+      existingId: 'deployment-1'
+    })
+  })
+
   test('throws an ApiError when the network request itself fails', async () => {
     fetchMock.mockRejectOnce(new Error('network down'))
 
