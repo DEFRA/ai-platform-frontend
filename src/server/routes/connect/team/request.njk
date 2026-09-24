@@ -1,5 +1,7 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
 {% block head %}
   {{ super() }}
   {% if refreshSeconds %}
@@ -38,7 +40,12 @@
         </ol>
 
         <p class="govuk-body">This page will refresh automatically. You do not need to do anything.</p>
-        <p class="govuk-body">This usually takes a few minutes. You can also come back later from <a class="govuk-link" href="/manage">Manage AI access</a>.</p>
+        <p class="govuk-body">This usually takes a few minutes. You can also come back later.</p>
+
+        {{ govukButton({
+          text: "Manage AI access",
+          href: "/manage"
+        }) }}
       {% endif %}
     </div>
   </div>

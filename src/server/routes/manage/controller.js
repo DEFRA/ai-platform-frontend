@@ -100,7 +100,10 @@ function decorateDeployment(deployment, modelNames) {
 function buildTeamSections(teamItems, credentials, deployments, modelNames) {
   return teamItems.map((team) => {
     const teamCredentials = credentials
-      .filter((credential) => credential.teamId === team._id)
+      .filter(
+        (credential) =>
+          credential.teamId === team._id && credential.tier === 'team'
+      )
       .map((credential) => decorateCredential(credential, modelNames))
 
     const modelSlugsWithActiveCredential = new Set(
@@ -141,6 +144,33 @@ function notificationBannerParams(notification) {
   }
 }
 
+// govukTabs always marks its first item as initially selected, and the
+// meta-refresh page reload always lands back on that first tab - so a team
+// with a request still in progress is sorted to the front, meaning a
+// refresh naturally keeps showing the team whose progress is being checked.
+function withInProgressTeamFirst(teamItems, deployments) {
+  const inProgressTeamIds = new Set(
+    deployments
+      .filter(
+        (deployment) =>
+          !DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status) &&
+          deployment.status !== 'active'
+      )
+      .map((deployment) => deployment.teamId)
+  )
+
+  if (inProgressTeamIds.size === 0) {
+    return teamItems
+  }
+
+  return [...teamItems].sort((a, b) => {
+    const aInProgress = inProgressTeamIds.has(a._id)
+    const bInProgress = inProgressTeamIds.has(b._id)
+
+    return aInProgress === bInProgress ? 0 : aInProgress ? -1 : 1
+  })
+}
+
 export const manageController = {
   list: {
     get: {
@@ -178,8 +208,17 @@ export const manageController = {
           return result.value.items
         })
 
+        // teamId is stamped at issue time from the user's team and can go
+        // stale if they later change teams; tier is the reliable signal for
+        // personal vs shared, since teamId is never used for authorization.
         const personalCredentials = items.filter(
-          (credential) => !credential.teamId
+          (credential) => credential.tier !== 'team'
+        )
+
+        const hasInProgressDeployment = deployments.some(
+          (deployment) =>
+            !DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status) &&
+            deployment.status !== 'active'
         )
 
         return h.view('manage/index', {
@@ -188,10 +227,16 @@ export const manageController = {
           credentials: personalCredentials.map((credential) =>
             decorateCredential(credential, modelNames)
           ),
-          teams: buildTeamSections(teamItems, items, deployments, modelNames),
+          teams: buildTeamSections(
+            withInProgressTeamFirst(teamItems, deployments),
+            items,
+            deployments,
+            modelNames
+          ),
           notificationBanner: notificationBannerParams(
             takeAccountNotification(request)
-          )
+          ),
+          refreshSeconds: hasInProgressDeployment ? 5 : undefined
         })
       }
     }
