@@ -32,32 +32,32 @@ orchestration model referenced throughout (GitOps vs Direct API paths), see
 "Every page, which routes touch it, what existed at 17 September 2026" (R1/R2/R3 = dot means that
 route touches this page; Story = build story reference).
 
-| Route path                        | R1  | R2  | R3  | Story    | State at 17 Sept 2026                             |
-| --------------------------------- | --- | --- | --- | -------- | ------------------------------------------------- |
-| `/`                               | •   |     |     | B06      | Built, no content yet                             |
-| `/models`                         | •   |     |     | B04      | Not built                                         |
-| `/models/{slug}`                  | •   |     |     | B04      | Not built                                         |
-| `/sign-in?returnTo=`              | •   | •   | •   | B03      | Built as the superseded self-declared form        |
-| `/auth/callback`                  | •   | •   | •   | B03      | Not built                                         |
-| `/sign-out`                       | •   | •   | •   | B03      | Built                                             |
-| `/connect`                        | •   | •   |     | B06, B09 | Nearest was `/connect-model`, a provider question |
-| `/connect/shared/model`           | •   |     |     | B06      | Nearest was `/connect-model/select-model`         |
-| `/connect/shared/details`         | •   |     |     | B06      | Not built                                         |
-| `/connect/shared/check`           | •   |     |     | B06      | Nearest was `/connect-model/confirm`              |
-| `/connect/shared/credential`      | •   |     |     | B06      | Nearest was `/connect-model/credential`           |
-| `/teams`                          |     | •   |     | B08      | Not built                                         |
-| `/teams/new`                      |     | •   |     | B08      | Not built                                         |
-| `/teams/{id}`                     |     | •   |     | B08      | Not built                                         |
-| `/connect/team/select`            |     | •   | •   | B09      | Not built                                         |
-| `/connect/team/model`             |     | •   | •   | B09      | Not built                                         |
-| `/connect/team/details`           |     | •   |     | B09      | Not built                                         |
+| Route path                            | R1  | R2  | R3  | Story    | State at 17 Sept 2026                             |
+| ------------------------------------- | --- | --- | --- | -------- | ------------------------------------------------- |
+| `/`                                   | •   |     |     | B06      | Built, no content yet                             |
+| `/models`                             | •   |     |     | B04      | Not built                                         |
+| `/models/{slug}`                      | •   |     |     | B04      | Not built                                         |
+| `/sign-in?returnTo=`                  | •   | •   | •   | B03      | Built as the superseded self-declared form        |
+| `/auth/callback`                      | •   | •   | •   | B03      | Not built                                         |
+| `/sign-out`                           | •   | •   | •   | B03      | Built                                             |
+| `/connect`                            | •   | •   |     | B06, B09 | Nearest was `/connect-model`, a provider question |
+| `/connect/shared/model`               | •   |     |     | B06      | Nearest was `/connect-model/select-model`         |
+| `/connect/shared/details`             | •   |     |     | B06      | Not built                                         |
+| `/connect/shared/check`               | •   |     |     | B06      | Nearest was `/connect-model/confirm`              |
+| `/connect/shared/credential`          | •   |     |     | B06      | Nearest was `/connect-model/credential`           |
+| `/teams`                              |     | •   |     | B08      | Not built                                         |
+| `/teams/new`                          |     | •   |     | B08      | Not built                                         |
+| `/teams/{id}`                         |     | •   |     | B08      | Not built                                         |
+| `/connect/team/select`                |     | •   | •   | B09      | Not built                                         |
+| `/connect/team/model`                 |     | •   | •   | B09      | Not built                                         |
+| `/connect/team/details`               |     | •   |     | B09      | Not built                                         |
 | `/connect/team/request/{teamId}/{id}` |     | •   | •   | B09      | Built. Polling wait page                          |
-| `/connect/team/credential`        |     | •   | •   | B09      | Built. Final credential page (secret shown once)  |
-| `/manage`                         | •   | •   | •   | B07      | Not built                                         |
-| `/manage/credentials/{id}/renew`  | •   |     |     | B07      | Not built                                         |
-| `/manage/credentials/{id}/rotate` |     | •   | •   | B10      | Not built                                         |
-| `/manage/credentials/{id}/revoke` | •   | •   | •   | B07, B10 | Not built                                         |
-| `/health`                         |     |     |     | B01      | Built on both services                            |
+| `/connect/team/credential`            |     | •   | •   | B09      | Built. Final credential page (secret shown once)  |
+| `/manage`                             | •   | •   | •   | B07      | Not built                                         |
+| `/manage/credentials/{id}/renew`      | •   |     |     | B07      | Not built                                         |
+| `/manage/credentials/{id}/rotate`     |     | •   | •   | B10      | Not built                                         |
+| `/manage/credentials/{id}/revoke`     | •   | •   | •   | B07, B10 | Not built                                         |
+| `/health`                             |     |     |     | B01      | Built on both services                            |
 
 Footnotes:
 
