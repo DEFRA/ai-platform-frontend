@@ -164,9 +164,17 @@ function buildTeamSections(teamItems, credentials, deployments, modelNames) {
       )
       .map((credential) => decorateCredential(credential, modelNames, isAdmin))
 
-    const modelSlugsWithActiveCredential = new Set(
+    // A model whose credential was ever actually issued (active or later
+    // revoked) has already been through the "check progress"/first-reveal
+    // flow - keep it out of Requests permanently so revoking a credential
+    // doesn't resurrect its request row and let "check progress" issue a
+    // brand new one. Only 'failed'/'pending' issuance leaves a model still
+    // waiting on that flow.
+    const modelSlugsWithIssuedCredential = new Set(
       teamCredentials
-        .filter((credential) => credential.status === 'active')
+        .filter((credential) =>
+          ['active', 'revoked'].includes(credential.status)
+        )
         .flatMap((credential) => credential.allowedDeployments ?? [])
     )
 
@@ -176,7 +184,7 @@ function buildTeamSections(teamItems, credentials, deployments, modelNames) {
         (deployment) =>
           !(
             deployment.status === 'active' &&
-            modelSlugsWithActiveCredential.has(deployment.modelSlug)
+            modelSlugsWithIssuedCredential.has(deployment.modelSlug)
           )
       )
       .map((deployment) => decorateDeployment(deployment, modelNames))

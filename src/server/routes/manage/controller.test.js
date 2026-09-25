@@ -351,6 +351,50 @@ describe('#manageController', () => {
     )
   })
 
+  test('GET /manage does not show a request row for a model whose team credential has since been revoked', async () => {
+    const cookies = await signIn(server)
+    const revokedTeamCredential = {
+      ...sampleCredential,
+      _id: 'cred-team-revoked',
+      teamId: 'team-1',
+      tier: 'team',
+      status: 'revoked',
+      allowedDeployments: ['gpt-4o']
+    }
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [revokedTeamCredential] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-5',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'active'
+          }
+        ]
+      })
+    )
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).not.toEqual(expect.stringContaining('Ready to view'))
+    expect(result).not.toEqual(
+      expect.stringContaining('/connect/team/request/team-1/deployment-5')
+    )
+  })
+
   test('GET /manage sorts a team with a request in progress before other teams, so a refresh keeps showing it', async () => {
     const cookies = await signIn(server)
 
