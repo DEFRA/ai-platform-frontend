@@ -15,12 +15,12 @@ The core product journey is "three routes to a credential" — see
 [docs/ui-flow-three-routes.md](ui-flow-three-routes.md) for the full flow and
 [docs/plans/](plans/) for the build plan behind each route.
 
-| Route | Covers | Status |
-| --- | --- | --- |
-| [Route 0](plans/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three | **Not yet implemented** — placeholder page only |
-| [Route 1](plans/route1-plan.md) | Research tier: browse the model catalogue, request a personal shared-model credential, manage it | **Implemented** (22 Sept 2026) |
-| [Route 2](plans/route2-plan.md) | Team tier: create/select a team, request a dedicated model deployment for it | **Implemented** (23 Sept 2026, refactored 25 Sept 2026 to match the discovery-docs design pack) |
-| [Route 3](plans/route3-plan.md) | Team tier: joining a team that already has access, admin-vs-user role enforcement, credential rotation | **Implemented** (25 Sept 2026) |
+| Route                                   | Covers                                                                                                 | Status                                                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| [Route 0](plans/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three                                           | **Not yet implemented** — placeholder page only                                                 |
+| [Route 1](plans/route1-plan.md)         | Research tier: browse the model catalogue, request a personal shared-model credential, manage it       | **Implemented** (22 Sept 2026)                                                                  |
+| [Route 2](plans/route2-plan.md)         | Team tier: create/select a team, request a dedicated model deployment for it                           | **Implemented** (23 Sept 2026, refactored 25 Sept 2026 to match the discovery-docs design pack) |
+| [Route 3](plans/route3-plan.md)         | Team tier: joining a team that already has access, admin-vs-user role enforcement, credential rotation | **Implemented** (25 Sept 2026)                                                                  |
 
 ## Route 1 — Research tier shared model access
 

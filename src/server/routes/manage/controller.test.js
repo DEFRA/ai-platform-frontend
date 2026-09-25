@@ -553,7 +553,9 @@ describe('#manageController', () => {
     )
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
     fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk', role: 'user' }] })
+      JSON.stringify({
+        items: [{ _id: 'team-1', name: 'Flood Risk', role: 'user' }]
+      })
     )
 
     const { result } = await server.inject({
@@ -587,7 +589,9 @@ describe('#manageController', () => {
     )
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
     fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk', role: 'admin' }] })
+      JSON.stringify({
+        items: [{ _id: 'team-1', name: 'Flood Risk', role: 'admin' }]
+      })
     )
 
     const { result } = await server.inject({

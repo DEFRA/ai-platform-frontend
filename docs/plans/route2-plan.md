@@ -269,14 +269,14 @@ should keep its own `npm test`/`npm run lint` green before moving on, per this r
    one document per `{teamId, environment}` (drop `modelSlug` from the unique key) carrying
    `deployments: [{modelSlug, status, ...}]` (today's per-model progression, now nested) plus new
    `gateway: {credentialType, allowedDeployments: [], limits}` and `oauthClient: {enabled,
-   appRoles: []}` siblings, mirroring the design pack's `environments/{env}/{team}.json` shape.
+appRoles: []}` siblings, mirroring the design pack's `environments/{env}/{team}.json` shape.
    Requesting a second dedicated model for a team that already has a document for that environment
    appends to `deployments[]`/`allowedDeployments[]` instead of inserting a new document - the unique
    index and 409 `deployment-exists` semantics move from "per model" to "per model within the
    document", i.e. a 409 only when that specific `modelSlug` is already present.
 2. **Backend - one credential per team per environment.** In `credential-service.js`'s `tier ===
-   'team'` branch: stop keying `credentials` by `{teamId, modelSlug, tier: 'team', status:
-   'active'}`; key by `{teamId, environment, tier: 'team', status: 'active'}` instead, so a second
+'team'` branch: stop keying `credentials` by `{teamId, modelSlug, tier: 'team', status:
+'active'}`; key by `{teamId, environment, tier: 'team', status: 'active'}` instead, so a second
    dedicated model reuses the team's existing credential row (extending its `allowedDeployments`
    mirror) rather than creating a sibling row. `findActiveDeployment` becomes "is this modelSlug
    present and `active` inside the team's environment document" per point 1.
@@ -294,7 +294,7 @@ should keep its own `npm test`/`npm run lint` green before moving on, per this r
    built; this is a "don't collide names later" note, not an immediate code change.
 5. **Backend - environment naming.** Change the Joi enum in `credentials.js`/`team-deployments.js`
    from `.valid('dev', 'qa', 'preprod', 'prod', 'uat')` to the Phase 1 set (`.valid('infradev',
-   'sandbox')`, widened later as consumer environments are added per the registry), and change
+'sandbox')`, widened later as consumer environments are added per the registry), and change
    `team-deployment-service.js`'s policy gate from `environment !== 'dev'` to allow `'sandbox'` (the
    live Phase 1 environment; `'infradev'` is platform-internal/synthetic, not team-facing) - confirm
    the exact allowed value(s) with the team before changing, since this is a product/config decision,
@@ -329,7 +329,7 @@ frontend 176/176 tests pass, both repos lint clean.
   `team-{teamId}-{modelSlug}-{environment}` to `team-{teamId}-{environment}`.
 - New `reserveCredentialType()` in `team-deployment-service.js` fixes `gateway.credentialType`
   (`'oauth'|'subscription-key'`) on first use per team+environment and throws `409
-  credential-type-fixed` on a later mismatch. `POST /v1/credentials` accepts an optional
+credential-type-fixed` on a later mismatch. `POST /v1/credentials` accepts an optional
   `credentialType` field (team tier only, defaults to `subscription-key`) - no UI sets it yet
   (decision below), but the mechanism and mock adapter support for both are in place and tested.
   `mockCredentialIssuer.issue()`/`.rotate()` produce a distinguishable secret per type
