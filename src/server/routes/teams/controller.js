@@ -305,7 +305,7 @@ export const teamsController = {
           await apiClient(request).post(
             `/v1/teams/${id}/members`,
             { email: request.payload.email },
-            { userId: sessionUser.id }
+            { userId: sessionUser.id, idempotencyKey: randomUUID() }
           )
         } catch (error) {
           if (!(error instanceof ApiError) || !isForbidden(error)) {

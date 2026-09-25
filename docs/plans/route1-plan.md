@@ -8,6 +8,36 @@
 > intentionally left out at the time: no Defra reskin; backend still hides ineligible models from
 > the catalogue API.
 
+**UPDATED 25 Sept 2026 - discovery-docs design pack alignment:** `ai-platform-discovery-docs` added
+[design-orchestration.md#model-access](../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+("Model access enforcement", 23 Sept) and
+[design-environments.md#phase-1](../../../ai-platform-discovery-docs/src/content/design-environments.md)
+(the Phase 1 SND1/SND4 proof, 24-25 Sept) after this route shipped. Re-read against what's built:
+
+- The Research tier shape already matches the design pack closely and needs **no functional
+  change**: a subscription-key credential issued to one person (never a team), `RESEARCH_CREDENTIAL_TTL_DAYS`/renewal-cap
+  enforcement, and a platform-owned `research` team file with its own `/research` gateway path and
+  shared deployments - this is exactly what `credential-service.js`'s non-`team` branch and
+  `mock-credential-issuer.js` already do.
+- New and not yet reflected anywhere in this codebase: the design pack now says the `research` team
+  file "exists only where the `research` team file exists" - in Phase 1 that is `SND4` (sandbox) and
+  a synthetic copy in `SND1` (infradev), and explicitly **there is no `/research` path in a
+  production environment**. This plan's `issueCredential`/`POST /v1/credentials` calls carry no
+  `environment` concept for the research tier today (the field is accepted but unused for
+  eligibility) - fine while the MVP runs one environment, but worth a follow-up once a second
+  environment exists so a research request can't be issued somewhere the `research` team file
+  doesn't (yet) exist.
+- New stable error code introduced by the design pack: gateway-level `model-not-granted` (a
+  deployment outside a team's `allowedDeployments[]`), which is **distinct** from this route's
+  already-implemented catalogue-level `model-not-eligible` (tier/eligibility check before a
+  credential is even requested). No collision today since Route 1 never simulates the gateway, but
+  don't reuse `model-not-eligible` if/when gateway-level enforcement is ever mocked - see
+  [Route 2's alignment note](route2-plan.md#design-pack-alignment-25-sept-2026) for where that
+  matters far more.
+
+No refactor of Route 1's shipped code is required by this update; it's a documentation-only
+reconciliation kept here so the next reader doesn't have to cross-reference three repos to see why.
+
 Scope: ONE of three routes from the finalized UI flow (see the
 [ui-flow doc](../ui-flow-three-routes.md) and build-stories
 B01-B10). Route 2 (team creation, B08/B09) and Route 3 (joining a team, B07-continued/B09/B10) are

@@ -1,6 +1,29 @@
 # Route 3: Team tier, joining a team that has access (B07 cont., B09 reuse, B10)
 
-> Part of the ["three routes to a credential"](../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 1](route1-plan.md), [Route 2](route2-plan.md). **Status: not yet implemented** — re-validate against the current `team-service.js` shape before starting (see Route 2's follow-up note; `teamMembers.userId` can be `null` for not-yet-bound invited members).
+> Part of the ["three routes to a credential"](../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 1](route1-plan.md), [Route 2](route2-plan.md).
+>
+> **STATUS: IMPLEMENTED 25 Sept 2026**, built directly on Route 2's design-pack refactor (same day)
+> rather than the original per-model credential shape - see notes below. Backend 92/92 tests pass,
+> frontend 176/176 tests pass, both repos lint clean.
+
+**UPDATED 25 Sept 2026 - discovery-docs design pack alignment:** before starting this plan, read
+[Route 2's design pack alignment note](route2-plan.md#design-pack-alignment-25-sept-2026) and its
+**Refactor plan** section in full - `ai-platform-discovery-docs` merged design pack content (23-25
+Sept 2026) after Route 2 shipped that changes the shape this plan builds on:
+
+- Route 2's Refactor plan moves team access from "one credential per team+model" to **one credential
+  per team per environment** with a `gateway.allowedDeployments[]` list. If that refactor lands
+  first (recommended), this plan's rotate/revoke operate on **one credential per team**, covering
+  every model in that team's `allowedDeployments` at once - there is no per-model rotate. If it
+  doesn't land first, this plan's Phase A/B steps below still work against today's per-model
+  `credentials` rows, but every "rotate this credential" action then only affects one model, which
+  will need redoing once Route 2's refactor lands.
+- Credentials may now be `oauth`-typed as well as `subscription-key`-typed (design pack's
+  `gateway.credentialType`, fixed per team per environment via `credential-type-fixed`). `rotate()`
+  needs to produce a new value in whichever shape the team's existing credential uses - a new client
+  secret for `oauth`, a new key for `subscription-key` - not assume the subscription-key shape.
+- Admin-vs-user role enforcement (this plan's core new work) is unaffected by any of the above: the
+  design pack doesn't change who may act, only what one credential covers and how it's typed.
 
 Scope: third of three route plans (image 4 / build-stories B07 continuation + B09's reuse path +
 B10). Depends on [Route 2's plan](route2-plan.md) being implemented first: reuses the real
@@ -60,3 +83,40 @@ Phase C - Verification of "reuse" and cross-team isolation (B09 reuse path, no n
 
 1. No "leave the team" / offboarding route exists or is planned here (diagram explicitly marks this as not built) - flag if a fourth plan should scope it.
 2. Where to source a member's role for `/manage` rendering (extend `GET /v1/credentials` response vs a separate `GET /v1/teams/{id}` lookup per team) - recommend embedding `role` directly on each team credential item returned by `GET /v1/credentials` to avoid N+1 calls from the frontend.
+
+## Implementation notes (25 Sept 2026)
+
+Built directly on top of Route 2's design-pack refactor (implemented the same day), which changed
+the shape this plan targets - the "Depends on Route 2 Phase A/B" steps below were re-validated
+against the refactored `team-deployment-service.js`/`credential-service.js`, not the original
+per-model shape.
+
+- **Rotate/revoke act on one credential per team per environment**, not per model - a team's
+  `allowedDeployments` (however many models) share one secret, so rotating/revoking affects every
+  model that credential covers at once. There is no per-model rotate, matching the design-pack
+  reality that Route 2's refactor established.
+- `team-service.js`: added `getMemberRole(db, {teamId, userId})`. Also extended `listTeamsForUser()`
+  to embed each team's `role` for the caller directly in `GET /v1/teams` (the plan's own "Further
+  considerations" #2 recommendation, adopted) - this is what `/manage` and the single-credential
+  view page use to role-gate, with no extra per-team API call.
+- `credential-issuer.js`/`mock-credential-issuer.js`: `rotate()` didn't already exist (the plan
+  assumed a no-op stub that turned out not to be there) - added fresh, keyed off the credential's
+  `apimSubscriptionId` prefix (`team-…` vs research) and `credentialType` to produce the right
+  secret shape; `expiresAt`/policy are untouched by rotation, only `keyHint`/`rotatedAt` change.
+- `credential-service.js`: added `loadCredentialForAction()` (role-aware, replaces the owner-only
+  `findCredentialForUser` for rotate/revoke only - `renewCredential` stays owner-only/research-only,
+  since team credentials don't renew as a concept) and `requireAdminForTeamCredential()`; both
+  `rotateCredential` and `revokeCredential` now 404 for a non-member and 403 `admin-required` for a
+  `user`-role member, exactly as specced. Added `POST /v1/credentials/{id}/rotate`.
+- Frontend: `manage/controller.js` gained `isTeamAdmin()` (reads the `role` from `GET /v1/teams`),
+  new `rotate`/`rotated` handlers and views (`manage/rotate.njk` confirm page, `manage/rotated.njk`
+  one-time reveal with `cache-control: no-store`, mirroring the existing issue-page pattern), and
+  the `revoke` POST handler now catches `403 admin-required` gracefully (notification + redirect,
+  not a crash) even though the button is never rendered for a non-admin. `credential-actions`
+  component gained a `showRotateRevoke`-gated Rotate button alongside Revoke (View is unconditional).
+- `manage/credential.njk` (the persistent detail page) and `manage/revoke.njk`/`rotate.njk` now
+  support a credential covering several models (`allowedDeployments`) - a small models list/joined
+  names instead of one singular `model`, since that's what Route 2's refactor changed the shape to.
+- Phase C (reuse/cross-team isolation verification) - covered by existing Route 2 tests plus new
+  cross-team-admin-404 and non-member-404 rotate/revoke tests; no new build was needed, confirming
+  the plan's own prediction.

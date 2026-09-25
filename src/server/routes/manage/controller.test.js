@@ -544,9 +544,17 @@ describe('#manageController', () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(
-      JSON.stringify({ ...sampleCredential, teamId: 'team-1', tier: 'team' })
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        allowedDeployments: ['gpt-4o']
+      })
     )
     fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk', role: 'user' }] })
+    )
 
     const { result } = await server.inject({
       method: 'GET',
@@ -560,6 +568,36 @@ describe('#manageController', () => {
     expect(result).not.toEqual(
       expect.stringContaining('Revoke this credential')
     )
+    expect(result).not.toEqual(
+      expect.stringContaining('Rotate this credential')
+    )
+  })
+
+  test('GET /manage/credentials/{id} shows rotate/revoke actions for a team admin', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        credentialType: 'subscription-key',
+        allowedDeployments: ['gpt-4o']
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk', role: 'admin' }] })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(expect.stringContaining('Rotate this credential'))
+    expect(result).toEqual(expect.stringContaining('Revoke this credential'))
   })
 
   test('GET /manage/credentials/{id} shows a red tag for a revoked credential', async () => {

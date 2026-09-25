@@ -16,11 +16,24 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 
-// Only `dev` is available today (B09) - every design C environment is shown
-// so the option isn't a surprise later, but only `dev` is enabled, matching
-// the backend's `environment-not-available` policy for anything else.
+// Phase 1 (confirmed 24 Sept 2026): the one live team-facing environment is
+// the Sandbox (SND4) - every design C environment is shown so the option
+// isn't a surprise later, but only `sandbox` is enabled, matching the
+// backend's `environment-not-available` policy for anything else.
 const ENVIRONMENT_ITEMS = [
-  { value: 'dev', text: 'Development (dev)', checked: true },
+  { value: 'sandbox', text: 'Sandbox', checked: true },
+  {
+    value: 'infradev',
+    text: 'Infradev',
+    disabled: true,
+    hint: { text: 'Platform-internal - not available to teams.' }
+  },
+  {
+    value: 'dev',
+    text: 'Development (dev)',
+    disabled: true,
+    hint: { text: 'Not available yet.' }
+  },
   {
     value: 'qa',
     text: 'QA',
@@ -106,7 +119,7 @@ const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
-  environment: Joi.string().valid('dev').default('dev')
+  environment: Joi.string().valid('sandbox').default('sandbox')
 })
 
 function redirectToStart(h) {
@@ -322,7 +335,7 @@ export const teamConnectController = {
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: 'dev'
+          environment: 'sandbox'
         })
 
         return h.redirect('/connect/team/check').code(statusCodes.seeOther)

@@ -17,7 +17,7 @@ plan's own "Relevant files" and "Steps" sections for the exact list on a given r
 - [docs/plans/route0-welcome-plan.md](../../docs/plans/route0-welcome-plan.md) — home page (`/`). Not yet implemented.
 - [docs/plans/route1-plan.md](../../docs/plans/route1-plan.md) — research tier shared model access (`/models`, `/connect/shared/*`, `/manage`). Implemented.
 - [docs/plans/route2-plan.md](../../docs/plans/route2-plan.md) — team tier, first person in a team (`/teams`, `/connect/team/*`). Implemented.
-- [docs/plans/route3-plan.md](../../docs/plans/route3-plan.md) — team tier, joining a team that has access (rotate/revoke role enforcement). Not yet implemented.
+- [docs/plans/route3-plan.md](../../docs/plans/route3-plan.md) — team tier, joining a team that has access (rotate/revoke role enforcement). Implemented.
 
 Each plan's "STATUS" line at the top records whether it has been built. Cross-repo context:
 

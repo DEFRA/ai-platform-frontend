@@ -20,7 +20,7 @@
       {% endif %}
 
       {{ govukWarningText({
-        text: "Revoking " + modelNamesText + " cannot be undone. You will need to connect again to get a new credential.",
+        text: "Rotating " + modelNamesText + " creates a new secret and immediately stops the old one working. Any application still using the old secret will fail until it is updated.",
         iconFallbackText: "Warning"
       }) }}
 
@@ -32,12 +32,12 @@
           name: "confirmRevoke",
           fieldset: {
             legend: {
-              text: "Are you sure you want to revoke this credential?"
+              text: "Are you sure you want to rotate this credential?"
             }
           },
           errorMessage: fieldErrors.confirmRevoke,
           items: [
-            { value: "yes", text: "Yes, revoke this credential" },
+            { value: "yes", text: "Yes, rotate this credential" },
             { value: "no", text: "No, take me back to Manage AI access" }
           ]
         }) }}

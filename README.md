@@ -6,6 +6,7 @@
 
 Core delivery platform Node.js Frontend Template.
 
+- [Documentation](#documentation)
 - [Requirements](#requirements)
   - [Node.js](#nodejs)
 - [Server-side Caching](#server-side-caching)
@@ -26,6 +27,13 @@ Core delivery platform Node.js Frontend Template.
   - [SonarCloud](#sonarcloud)
 - [Licence](#licence)
   - [About the licence](#about-the-licence)
+
+## Documentation
+
+- [Implemented features](docs/implemented-features.md) — what's been built so far across this repo and
+  `ai-platform-backend-api`, for new joiners.
+- [UI flow: three routes to a credential](docs/ui-flow-three-routes.md) and the per-route plans in
+  [docs/plans/](docs/plans/) — the authoritative design/build detail behind the journey.
 
 ## Requirements
 

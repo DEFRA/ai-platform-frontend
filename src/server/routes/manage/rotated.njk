@@ -1,0 +1,38 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/panel/macro.njk" import govukPanel %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {{ govukPanel({
+        titleText: "Credential rotated",
+        text: "The old secret for " + modelNamesText + " no longer works"
+      }) }}
+
+      {{ govukWarningText({
+        text: "This is the only time the new secret will be shown. Copy it now and store it securely.",
+        iconFallbackText: "Warning"
+      }) }}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: credential.credentialType == "oauth" and "Client secret" or "Subscription key" },
+            value: { text: secret }
+          },
+          {
+            key: { text: "Expires" },
+            value: { text: credential.expiresAt }
+          }
+        ]
+      }) }}
+
+      <p class="govuk-body">
+        <a class="govuk-link" href="/manage">Back to Manage AI access</a>
+      </p>
+    </div>
+  </div>
+{% endblock %}

@@ -261,7 +261,7 @@ describe('#teamConnectController', () => {
           _id: 'deployment-2',
           status: 'deploying',
           modelSlug: 'gpt-4o',
-          environment: 'dev'
+          environment: 'sandbox'
         }
       })
     )
@@ -311,7 +311,7 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev',
+          environment: 'sandbox',
           requestedBy: 'user-1'
         }
       })
@@ -372,7 +372,7 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3b',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev',
+          environment: 'sandbox',
           requestedBy: 'user-1'
         }
       })
@@ -421,7 +421,7 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3c',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev',
+          environment: 'sandbox',
           requestedBy: 'a-different-teammate'
         }
       })
