@@ -498,6 +498,35 @@ export const teamConnectController = {
             .code(statusCodes.seeOther)
         }
 
+        // Defense in depth for /manage already hiding this deployment's
+        // request row once its credential is revoked: a stale/bookmarked
+        // link could still reach this handler directly, so re-check here
+        // too before issuing anything. A revoked team credential is a
+        // deliberate, final action - it must not be silently resurrected.
+        const { items: existingCredentials } = await apiClient(request).get(
+          '/v1/credentials',
+          { userId: sessionUser.id }
+        )
+        const wasRevoked = existingCredentials.some(
+          (existing) =>
+            existing.teamId === teamId &&
+            existing.tier === 'team' &&
+            existing.status === 'revoked' &&
+            (existing.allowedDeployments ?? []).includes(deployment.modelSlug)
+        )
+
+        if (wasRevoked) {
+          setAccountNotification(request, {
+            type: 'success',
+            message:
+              'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
+          })
+
+          return h
+            .redirect(`/manage#manage-team-${teamId}`)
+            .code(statusCodes.seeOther)
+        }
+
         // status is 'active': issue (or reuse) the shared team credential.
         // Deployment fields (not session) are the source of truth here, so
         // this page works even after the session's pendingAccess is gone -
