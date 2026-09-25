@@ -185,6 +185,43 @@ describe('#manageController', () => {
     )
   })
 
+  test('GET /manage renders one row with joined names and a "Models" header for a multi-model team credential', async () => {
+    const cookies = await signIn(server)
+    const teamCredential = {
+      ...sampleCredential,
+      _id: 'cred-team-multi',
+      teamId: 'team-1',
+      tier: 'team',
+      allowedDeployments: ['gpt-4o', 'claude-3-opus']
+    }
+    const secondModel = {
+      slug: 'claude-3-opus',
+      displayName: 'Claude 3 Opus',
+      provider: 'anthropic'
+    }
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [teamCredential] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [sampleModel, secondModel] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('>Models<'))
+    expect(result).toEqual(expect.stringContaining('GPT-4o, Claude 3 Opus'))
+    // Both models share one credential row, not one row each.
+    expect(result.split('GPT-4o, Claude 3 Opus')).toHaveLength(2)
+  })
+
   test('GET /manage keeps a research credential personal even when its stamped teamId no longer matches any current team', async () => {
     const cookies = await signIn(server)
     const staleTeamCredential = {
@@ -602,6 +639,81 @@ describe('#manageController', () => {
 
     expect(result).toEqual(expect.stringContaining('Rotate this credential'))
     expect(result).toEqual(expect.stringContaining('Revoke this credential'))
+  })
+
+  test('GET /manage/credentials/{id} looks up each model individually and shows one row per model for a multi-model team credential', async () => {
+    const cookies = await signIn(server)
+    const secondModel = {
+      slug: 'claude-3-opus',
+      displayName: 'Claude 3 Opus',
+      provider: 'anthropic'
+    }
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        credentialType: 'subscription-key',
+        allowedDeployments: ['gpt-4o', 'claude-3-opus']
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(JSON.stringify(secondModel))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ _id: 'team-1', name: 'Flood Risk', role: 'user' }]
+      })
+    )
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(fetchMock.requests().map((request) => request.url)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('/v1/models/gpt-4o'),
+        expect.stringContaining('/v1/models/claude-3-opus')
+      ])
+    )
+    expect(result).toEqual(expect.stringContaining('GPT-4o'))
+    expect(result).toEqual(expect.stringContaining('Claude 3 Opus'))
+    expect(result).toEqual(expect.stringContaining('openai'))
+    expect(result).toEqual(expect.stringContaining('anthropic'))
+  })
+
+  test('GET /manage/credentials/{id} labels an OAuth credential as a client secret instead of a key', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        credentialType: 'oauth',
+        allowedDeployments: ['gpt-4o'],
+        keyHint: undefined
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ _id: 'team-1', name: 'Flood Risk', role: 'user' }]
+      })
+    )
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('Client secret'))
+    expect(result).not.toEqual(expect.stringContaining('…undefined'))
   })
 
   test('GET /manage/credentials/{id} shows a red tag for a revoked credential', async () => {
