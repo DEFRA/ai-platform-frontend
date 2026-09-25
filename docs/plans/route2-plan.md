@@ -7,6 +7,59 @@
 > baseline noted in Route 1's plan (65/118 files, essentially the whole tree) - not caused by this
 > work, left alone.
 
+## Design pack alignment (25 Sept 2026)
+
+`ai-platform-discovery-docs` merged a design pack after this route shipped (21-25 Sept 2026):
+[design-orchestration.md#model-access](../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+("Model access enforcement", area C, 23 Sept), [design-environments.md#phase-1](../../../ai-platform-discovery-docs/src/content/design-environments.md)
+(the Phase 1 SND1/SND4 proof, 24-25 Sept) and [design-repositories-pipelines.md](../../../ai-platform-discovery-docs/src/content/design-repositories-pipelines.md).
+Unlike Route 1, this is **not** a documentation-only reconciliation - the design pack fixes several
+things this route built ahead of the design, in a materially different shape. Flagged here for the
+refactor that follows this file's update (see chat/PR description); nothing in this section has been
+built yet.
+
+1. **One credential per team per environment, not one per team+model.** [Model access
+   enforcement](../../../ai-platform-discovery-docs/src/content/design-orchestration.md) is explicit: a team gets a single API at path
+   `/{team}` in each environment, gated by one `gateway.credentialType` and one
+   `gateway.allowedDeployments[]` allow-list; requesting a second dedicated model for a team already
+   using the platform **adds an entry to that same allow-list**, it does not mint a second
+   credential. This codebase instead creates an independent `teamDeployments` row and an independent
+   `credentials` row (`tier: 'team'`) per `{teamId, modelSlug, environment}` - there is no concept of
+   a single team-wide credential or an allow-list anywhere in `team-deployment-service.js` or
+   `credential-service.js`.
+2. **Credential type is fixed and typed, and can be OAuth.** `gateway.credentialType` is `oauth`
+   (an Entra client-credentials token bound to a team application registration with the
+   `Model.Invoke` app role) or `subscription-key`, chosen once per team per environment - changing it
+   is a team-file edit that regenerates the API, and the design pack names a stable
+   `credential-type-fixed` error code for rejecting a switch. `mock-credential-issuer.js` and
+   `mock-tenant-orchestrator.js` only ever produce one generic `type: 'apim-subscription'` shape with
+   a `mock-` secret; there is no `oauth` credential path, no team application/service-principal
+   concept, and no fixed-type-per-team enforcement.
+3. **New stable code `model-not-granted`.** The gateway's per-request 403 when a deployment isn't in
+   the caller's `allowedDeployments[]` is `model-not-granted` - distinct from the already-implemented
+   catalogue-level `model-not-eligible` (checked once, before a deployment is even requested) and
+   from `deployment-not-ready` (this codebase's stand-in for "the team's stack hasn't reached
+   `active` yet", which the design pack doesn't name as a stable code but is a reasonable interim
+   state on the way to `active`).
+4. **Real desired-state shape.** The team's actual state document
+   (`environments/{env}/{team}.json` in `ai-platform-tenants`) is `project.name`, `deployments[]`,
+   `gateway.{credentialType, allowedDeployments[], limits}` and `oauthClient.{enabled, appRoles[]}`.
+   `teamDeployments` (this codebase's Mongo collection) is a reasonable mirror of `deployments[]`
+   alone; it has no sibling `gateway`/`oauthClient` state, which is what needs to exist for point 1
+   above to be buildable.
+5. **Environment naming.** The design pack's Phase 1 (confirmed 24 Sept 2026 by the senior
+   stakeholder) runs the real MVP against `infradev` (`SND1`) and `sandbox` (`SND4`) - not a literal
+   `dev` environment. `team-deployment-service.js`'s `if (environment !== 'dev')` policy gate and the
+   Joi `.valid('dev', 'qa', 'preprod', 'prod', 'uat')` enum in both `credentials.js` and
+   `team-deployments.js` neither allow `infradev`/`sandbox` nor match the one environment Phase 1
+   actually runs in.
+6. **Tier naming.** The design pack's catalogue schema uses `tiers: ['research', 'dedicated']`; this
+   codebase persists `tier: 'team'` on credentials and `tiers: ['research', 'team']` in
+   `models.seed.json`. Likely fine as a portal-facing rename only ("Team tier" UI copy stays), but
+   worth a deliberate decision rather than silent drift if/when a real catalogue import lands.
+
+See the end of this file for the specific refactor steps this implies.
+
 ## Files created/changed
 
 - Backend Phase A: `src/services/team-service.js`, `src/routes/teams.js` + `.test.js` (new); updated
@@ -205,3 +258,95 @@ Phase E - Frontend: real "Your teams" section on /manage (B09's manage-page requ
 
 1. Nobody notifies an invited member today (flagged as an open gap on the diagram itself) - out of scope unless a notification step is added.
 2. No route lets the requester hand the secret to teammates after issue (also flagged as open on the diagram) - out of scope for this plan.
+
+## Refactor plan (not yet started) - design pack alignment
+
+Concrete follow-up for the six gaps in [Design pack alignment](#design-pack-alignment-25-sept-2026)
+above. Sequenced so the data-model change lands before anything reads it differently; each phase
+should keep its own `npm test`/`npm run lint` green before moving on, per this repo's quality gates.
+
+1. **Backend - reshape team access state.** In `team-deployment-service.js`/`teamDeployments`: keep
+   one document per `{teamId, environment}` (drop `modelSlug` from the unique key) carrying
+   `deployments: [{modelSlug, status, ...}]` (today's per-model progression, now nested) plus new
+   `gateway: {credentialType, allowedDeployments: [], limits}` and `oauthClient: {enabled,
+appRoles: []}` siblings, mirroring the design pack's `environments/{env}/{team}.json` shape.
+   Requesting a second dedicated model for a team that already has a document for that environment
+   appends to `deployments[]`/`allowedDeployments[]` instead of inserting a new document - the unique
+   index and 409 `deployment-exists` semantics move from "per model" to "per model within the
+   document", i.e. a 409 only when that specific `modelSlug` is already present.
+2. **Backend - one credential per team per environment.** In `credential-service.js`'s `tier ===
+'team'` branch: stop keying `credentials` by `{teamId, modelSlug, tier: 'team', status:
+'active'}`; key by `{teamId, environment, tier: 'team', status: 'active'}` instead, so a second
+   dedicated model reuses the team's existing credential row (extending its `allowedDeployments`
+   mirror) rather than creating a sibling row. `findActiveDeployment` becomes "is this modelSlug
+   present and `active` inside the team's environment document" per point 1.
+3. **Backend - typed, fixed credentials.** Extend the `CredentialIssuer`/`TenantOrchestrator` mock
+   adapters to accept `credentialType: 'oauth' | 'subscription-key'` and return a shape that
+   distinguishes them (an opaque `mock-oauth-` vs `mock-key-` prefix is enough for a mock); persist
+   `credentialType` on the team's environment document at first issuance and reject a later request
+   that asks for a different type with a new `boomWithCode(Boom.conflict, ..., 'credential-type-fixed')`.
+   `oauth`-typed teams don't get a `keyHint`/secret in the same shape as a subscription key - the
+   frontend `/connect/team/credential` and `/manage` views need a second rendering branch for it.
+4. **Backend - adopt `model-not-granted`.** Where the gateway allow-list check would live (today
+   nowhere - there's no runtime gateway simulation), reserve the code `model-not-granted` rather than
+   reusing `model-not-eligible`/`deployment-not-ready` for it, so a future gateway mock or real
+   adapter can throw it without a rename. No route changes needed until that gateway simulation is
+   built; this is a "don't collide names later" note, not an immediate code change.
+5. **Backend - environment naming.** Change the Joi enum in `credentials.js`/`team-deployments.js`
+   from `.valid('dev', 'qa', 'preprod', 'prod', 'uat')` to the Phase 1 set (`.valid('infradev',
+'sandbox')`, widened later as consumer environments are added per the registry), and change
+   `team-deployment-service.js`'s policy gate from `environment !== 'dev'` to allow `'sandbox'` (the
+   live Phase 1 environment; `'infradev'` is platform-internal/synthetic, not team-facing) - confirm
+   the exact allowed value(s) with the team before changing, since this is a product/config decision,
+   not a pure refactor.
+6. **Frontend - follow the backend shape.** `connect/team-controller.js`'s check/request/credential
+   steps and `manage/controller.js`'s team section need to read `gateway.allowedDeployments`/
+   `deployments[]` instead of one `teamDeployments` row per model, and render the oauth-vs-key
+   credential difference from point 3. `teams/` route and `/connect/team/select` are unaffected
+   (team creation/membership is untouched by any of this).
+7. **Decide on tier naming (point 6 above)** separately - low urgency, no functional risk either way,
+   but do it before any real catalogue import replaces `models.seed.json` so the values agree on day
+   one.
+
+Do not start this refactor without validating points 1-3 against whatever `ai-platform-tenants`'
+actual (not yet written) schema looks like once a human has reviewed it - this plan proposes the
+Mongo-side mirror, not the Git-side file, and the two need not be byte-identical.
+
+**REFACTOR IMPLEMENTED 25 Sept 2026.** All six points above are done. Backend 92/92 tests pass,
+frontend 176/176 tests pass, both repos lint clean.
+
+- `teamDeployments` is now one document per `{teamId, environment}` with a `deployments[]` array
+  (each entry keeps its own stable `id`, `modelSlug`, `status`, `operationId` etc. - flattened back
+  to the old per-deployment `_id` shape in service responses, so routes/frontend needed no changes
+  for deployment listing) plus `gateway.{credentialType, allowedDeployments, limits}` and
+  `oauthClient.{enabled, appRoles}`. Reaching `active` adds the model to `gateway.allowedDeployments`.
+  Every mutation is serialised behind an `acquireLockWithRetry('team-deployment:{teamId}:{environment}')`
+  lock (idempotency-key/duplicate-model checks moved from a Mongo unique index into this lock, since
+  several models now share one document).
+- `credentials` for `tier: 'team'` are now keyed by `{teamId, environment, tier, status}` (not
+  `modelSlug`) and carry `allowedDeployments: []` (extended via `$addToSet` when a second model's
+  deployment reaches `active`) instead of a singular `modelSlug`. `apimSubscriptionId` changed from
+  `team-{teamId}-{modelSlug}-{environment}` to `team-{teamId}-{environment}`.
+- New `reserveCredentialType()` in `team-deployment-service.js` fixes `gateway.credentialType`
+  (`'oauth'|'subscription-key'`) on first use per team+environment and throws `409
+credential-type-fixed` on a later mismatch. `POST /v1/credentials` accepts an optional
+  `credentialType` field (team tier only, defaults to `subscription-key`) - no UI sets it yet
+  (decision below), but the mechanism and mock adapter support for both are in place and tested.
+  `mockCredentialIssuer.issue()`/`.rotate()` produce a distinguishable secret per type
+  (`mock-key-…`/`mock-oauth-…`, vs research's unchanged `mock_…`).
+- Reserved (not yet wired to any runtime gateway simulation) the `model-not-granted` stable code
+  per the design pack, kept distinct from `model-not-eligible`/`deployment-not-ready`.
+- Environment naming: **decided with the user** to rename now rather than defer. Policy-allowed
+  team environment is `sandbox` (Phase 1's one live team-facing environment); Joi schemas accept
+  `'infradev'|'sandbox'` (`infradev` is schema-valid but never policy-allowed - it's
+  platform-internal). Updated in `team-deployment-service.js`, `routes/credentials.js`,
+  `routes/team-deployments.js`, `models.seed.json` (`gpt-4o`/`gpt-4-1` environments), and every test
+  fixture that previously used `'dev'`.
+- Frontend: `manage/controller.js`'s `decorateCredential`/`buildTeamSections` read
+  `allowedDeployments` (joined display names) instead of a singular `modelSlug`; `connect/team-controller.js`'s
+  environment radios/schema default to `sandbox`.
+- **Decided with the user:** no UI lets a team pick `oauth` vs `subscription-key` - out of scope,
+  no build-story asks for it; the connect journey always requests the default `subscription-key`.
+- Backend `listTeamsForUser()` now embeds each team's `role` for the caller directly, so `/manage`
+  and the single-credential view page can role-gate actions with no extra per-team API call - this
+  became the actual mechanism Route 3's admin-gating below relies on.

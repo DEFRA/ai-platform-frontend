@@ -16,11 +16,24 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 
-// Only `dev` is available today (B09) - every design C environment is shown
-// so the option isn't a surprise later, but only `dev` is enabled, matching
-// the backend's `environment-not-available` policy for anything else.
+// Phase 1 (confirmed 24 Sept 2026): the one live team-facing environment is
+// the Sandbox (SND4) - every design C environment is shown so the option
+// isn't a surprise later, but only `sandbox` is enabled, matching the
+// backend's `environment-not-available` policy for anything else.
 const ENVIRONMENT_ITEMS = [
-  { value: 'dev', text: 'Development (dev)', checked: true },
+  { value: 'sandbox', text: 'Sandbox', checked: true },
+  {
+    value: 'infradev',
+    text: 'Infradev',
+    disabled: true,
+    hint: { text: 'Platform-internal - not available to teams.' }
+  },
+  {
+    value: 'dev',
+    text: 'Development (dev)',
+    disabled: true,
+    hint: { text: 'Not available yet.' }
+  },
   {
     value: 'qa',
     text: 'QA',
@@ -106,7 +119,7 @@ const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
-  environment: Joi.string().valid('dev').default('dev')
+  environment: Joi.string().valid('sandbox').default('sandbox')
 })
 
 function redirectToStart(h) {
@@ -322,7 +335,7 @@ export const teamConnectController = {
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: 'dev'
+          environment: 'sandbox'
         })
 
         return h.redirect('/connect/team/check').code(statusCodes.seeOther)
@@ -478,6 +491,35 @@ export const teamConnectController = {
             type: 'success',
             message:
               "Your team's model is ready to use - see it below. Ask the person who requested it for the connection details."
+          })
+
+          return h
+            .redirect(`/manage#manage-team-${teamId}`)
+            .code(statusCodes.seeOther)
+        }
+
+        // Defense in depth for /manage already hiding this deployment's
+        // request row once its credential is revoked: a stale/bookmarked
+        // link could still reach this handler directly, so re-check here
+        // too before issuing anything. A revoked team credential is a
+        // deliberate, final action - it must not be silently resurrected.
+        const { items: existingCredentials } = await apiClient(request).get(
+          '/v1/credentials',
+          { userId: sessionUser.id }
+        )
+        const wasRevoked = existingCredentials.some(
+          (existing) =>
+            existing.teamId === teamId &&
+            existing.tier === 'team' &&
+            existing.status === 'revoked' &&
+            (existing.allowedDeployments ?? []).includes(deployment.modelSlug)
+        )
+
+        if (wasRevoked) {
+          setAccountNotification(request, {
+            type: 'success',
+            message:
+              'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
           })
 
           return h

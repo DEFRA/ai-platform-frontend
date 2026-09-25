@@ -261,7 +261,7 @@ describe('#teamConnectController', () => {
           _id: 'deployment-2',
           status: 'deploying',
           modelSlug: 'gpt-4o',
-          environment: 'dev'
+          environment: 'sandbox'
         }
       })
     )
@@ -311,11 +311,12 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev',
+          environment: 'sandbox',
           requestedBy: 'user-1'
         }
       })
     )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(
       JSON.stringify({
         credential: issuedCredential,
@@ -372,11 +373,12 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3b',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev',
+          environment: 'sandbox',
           requestedBy: 'user-1'
         }
       })
     )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(
       JSON.stringify({
         credential: {
@@ -396,6 +398,65 @@ describe('#teamConnectController', () => {
 
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
     expect(getRequest.headers.location).toBe('/manage#manage-team-team-1')
+  })
+
+  test('request wait page redirects to /manage instead of re-issuing a credential once revoked', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-3d', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-3d',
+          status: 'active',
+          modelSlug: 'gpt-4o',
+          environment: 'sandbox',
+          requestedBy: 'user-1'
+        }
+      })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'cred-team-revoked',
+            modelSlug: 'gpt-4o',
+            teamId: 'team-1',
+            tier: 'team',
+            status: 'revoked',
+            allowedDeployments: ['gpt-4o']
+          }
+        ]
+      })
+    )
+
+    const getRequest = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-3d',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(getRequest.statusCode).toBe(statusCodes.seeOther)
+    expect(getRequest.headers.location).toBe('/manage#manage-team-team-1')
+    // No credential POST is made at all - a revoked team credential must
+    // never be silently re-issued via this link.
+    expect(fetchMock.mock.calls.at(-1)[0]).toEqual(
+      expect.stringContaining('/v1/credentials')
+    )
+    expect(fetchMock.mock.calls.at(-1)[1].method).toBe('GET')
   })
 
   test('request wait page never reveals the secret to a teammate who did not request the deployment', async () => {
@@ -421,7 +482,7 @@ describe('#teamConnectController', () => {
           _id: 'deployment-3c',
           status: 'active',
           modelSlug: 'gpt-4o',
-          environment: 'dev',
+          environment: 'sandbox',
           requestedBy: 'a-different-teammate'
         }
       })

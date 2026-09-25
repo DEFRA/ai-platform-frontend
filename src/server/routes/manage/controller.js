@@ -5,7 +5,9 @@ import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import {
   getSessionUser,
   setAccountNotification,
-  takeAccountNotification
+  takeAccountNotification,
+  setIssuedCredential,
+  takeIssuedCredential
 } from '#/server/common/helpers/session.js'
 import {
   buildErrorSummary,
@@ -23,6 +25,39 @@ const revokeConfirmSchema = Joi.object({
 // rather than fetching the whole catalogue for a one-row confirm page.
 async function findModel(request, modelSlug) {
   return apiClient(request).get(`/v1/models/${modelSlug}`)
+}
+
+// A team credential can cover several models (`allowedDeployments`); a
+// research credential always has exactly one (`modelSlug`).
+async function findModelsForCredential(request, credential) {
+  if (credential.tier === 'team') {
+    const slugs = credential.allowedDeployments ?? []
+
+    return Promise.all(slugs.map((slug) => findModel(request, slug)))
+  }
+
+  return [await findModel(request, credential.modelSlug)]
+}
+
+function modelNamesText(models) {
+  return models.map((model) => model.displayName).join(', ') || 'this model'
+}
+
+// The signed-in user's role for one team credential - looked up from the
+// same `GET /v1/teams` list `/manage` already uses, so a single-credential
+// page (not already holding the team list) can still role-gate its actions.
+// Research credentials are self-service regardless of their `teamId`, so
+// this is only ever consulted for `tier === 'team'`.
+async function isTeamAdmin(request, sessionUser, teamId) {
+  if (!teamId) {
+    return false
+  }
+
+  const { items } = await apiClient(request).get('/v1/teams', {
+    userId: sessionUser.id
+  })
+
+  return items.find((team) => team._id === teamId)?.role === 'admin'
 }
 
 async function buildModelNameMap(request) {
@@ -46,11 +81,33 @@ function tagClassForStatus(status) {
   return TAG_CLASS_BY_STATUS[status] ?? 'govuk-tag--grey'
 }
 
-function decorateCredential(credential, modelNames) {
+function modelDisplayNameFor(credential, modelNames) {
+  if (credential.tier === 'team') {
+    const slugs = credential.allowedDeployments ?? []
+
+    return slugs.length > 0
+      ? slugs.map((slug) => modelNames[slug] ?? slug).join(', ')
+      : 'No models yet'
+  }
+
+  return modelNames[credential.modelSlug] ?? credential.modelSlug
+}
+
+function modelCountFor(credential) {
+  if (credential.tier === 'team') {
+    return (credential.allowedDeployments ?? []).length
+  }
+
+  return 1
+}
+
+function decorateCredential(credential, modelNames, isAdmin = false) {
   return {
     ...credential,
-    modelDisplayName: modelNames[credential.modelSlug] ?? credential.modelSlug,
-    tagClass: tagClassForStatus(credential.status)
+    modelDisplayName: modelDisplayNameFor(credential, modelNames),
+    modelCount: modelCountFor(credential),
+    tagClass: tagClassForStatus(credential.status),
+    showRotateRevoke: credential.tier === 'team' && isAdmin
   }
 }
 
@@ -99,17 +156,26 @@ function decorateDeployment(deployment, modelNames) {
 
 function buildTeamSections(teamItems, credentials, deployments, modelNames) {
   return teamItems.map((team) => {
+    const isAdmin = team.role === 'admin'
     const teamCredentials = credentials
       .filter(
         (credential) =>
           credential.teamId === team._id && credential.tier === 'team'
       )
-      .map((credential) => decorateCredential(credential, modelNames))
+      .map((credential) => decorateCredential(credential, modelNames, isAdmin))
 
-    const modelSlugsWithActiveCredential = new Set(
+    // A model whose credential was ever actually issued (active or later
+    // revoked) has already been through the "check progress"/first-reveal
+    // flow - keep it out of Requests permanently so revoking a credential
+    // doesn't resurrect its request row and let "check progress" issue a
+    // brand new one. Only 'failed'/'pending' issuance leaves a model still
+    // waiting on that flow.
+    const modelSlugsWithIssuedCredential = new Set(
       teamCredentials
-        .filter((credential) => credential.status === 'active')
-        .map((credential) => credential.modelSlug)
+        .filter((credential) =>
+          ['active', 'revoked'].includes(credential.status)
+        )
+        .flatMap((credential) => credential.allowedDeployments ?? [])
     )
 
     const teamDeployments = deployments
@@ -118,15 +184,23 @@ function buildTeamSections(teamItems, credentials, deployments, modelNames) {
         (deployment) =>
           !(
             deployment.status === 'active' &&
-            modelSlugsWithActiveCredential.has(deployment.modelSlug)
+            modelSlugsWithIssuedCredential.has(deployment.modelSlug)
           )
       )
       .map((deployment) => decorateDeployment(deployment, modelNames))
 
+    const modelColumnHeader = teamCredentials.some(
+      (credential) => credential.modelCount > 1
+    )
+      ? 'Models'
+      : 'Model'
+
     return {
       ...team,
+      isAdmin,
       credentials: teamCredentials,
-      deployments: teamDeployments
+      deployments: teamDeployments,
+      modelColumnHeader
     }
   })
 }
@@ -269,13 +343,20 @@ export const manageController = {
           throw error
         }
 
-        const model = await findModel(request, credential.modelSlug)
+        const models = await findModelsForCredential(request, credential)
+        const isAdmin =
+          credential.tier === 'team'
+            ? await isTeamAdmin(request, sessionUser, credential.teamId)
+            : false
+        const heading =
+          credential.tier === 'team' ? 'Team credential' : models[0].displayName
 
         return h.view('manage/credential', {
-          pageTitle: model.displayName,
-          heading: model.displayName,
+          pageTitle: heading,
+          heading,
           credential,
-          model
+          models,
+          isAdmin
         })
       }
     }
@@ -334,13 +415,13 @@ export const manageController = {
           throw error
         }
 
-        const model = await findModel(request, credential.modelSlug)
+        const models = await findModelsForCredential(request, credential)
 
         return h.view('manage/revoke', {
           pageTitle: 'Confirm revoke',
           heading: 'Are you sure you want to revoke this credential?',
           credential,
-          model,
+          modelNamesText: modelNamesText(models),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -358,14 +439,14 @@ export const manageController = {
               `/v1/credentials/${id}`,
               { userId: sessionUser.id }
             )
-            const model = await findModel(request, credential.modelSlug)
+            const models = await findModelsForCredential(request, credential)
 
             return h
               .view('manage/revoke', {
                 pageTitle: 'Error: Confirm revoke',
                 heading: 'Are you sure you want to revoke this credential?',
                 credential,
-                model,
+                modelNamesText: modelNamesText(models),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
               })
@@ -390,6 +471,14 @@ export const manageController = {
               message: 'Credential revoked.'
             })
           } catch (error) {
+            if (error instanceof ApiError && error.code === 'admin-required') {
+              setAccountNotification(request, {
+                type: 'error',
+                message: 'Only a team admin can revoke this credential.'
+              })
+              return h.redirect('/manage').code(statusCodes.seeOther)
+            }
+
             if (!(error instanceof ApiError) || !isNotFound(error)) {
               throw error
             }
@@ -397,6 +486,132 @@ export const manageController = {
         }
 
         return h.redirect('/manage').code(statusCodes.seeOther)
+      }
+    }
+  },
+
+  rotate: {
+    get: {
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id } = request.params
+
+        let credential
+        try {
+          credential = await apiClient(request).get(`/v1/credentials/${id}`, {
+            userId: sessionUser.id
+          })
+        } catch (error) {
+          if (isNotFound(error)) {
+            return h.redirect('/manage').code(statusCodes.seeOther)
+          }
+          throw error
+        }
+
+        const models = await findModelsForCredential(request, credential)
+
+        return h.view('manage/rotate', {
+          pageTitle: 'Confirm rotate',
+          heading: 'Are you sure you want to rotate this credential?',
+          credential,
+          modelNamesText: modelNamesText(models),
+          errorSummary: null,
+          fieldErrors: {}
+        })
+      }
+    },
+
+    post: {
+      options: {
+        validate: {
+          payload: revokeConfirmSchema,
+          failAction: async (request, h, error) => {
+            const sessionUser = getSessionUser(request)
+            const { id } = request.params
+            const credential = await apiClient(request).get(
+              `/v1/credentials/${id}`,
+              { userId: sessionUser.id }
+            )
+            const models = await findModelsForCredential(request, credential)
+
+            return h
+              .view('manage/rotate', {
+                pageTitle: 'Error: Confirm rotate',
+                heading: 'Are you sure you want to rotate this credential?',
+                credential,
+                modelNamesText: modelNamesText(models),
+                errorSummary: buildErrorSummary(error),
+                fieldErrors: buildFieldErrors(error)
+              })
+              .code(statusCodes.badRequest)
+              .takeover()
+          }
+        }
+      },
+      async handler(request, h) {
+        const { id } = request.params
+
+        if (request.payload.confirmRevoke !== 'yes') {
+          return h.redirect('/manage').code(statusCodes.seeOther)
+        }
+
+        const sessionUser = getSessionUser(request)
+
+        try {
+          const { credential, secret } = await apiClient(request).post(
+            `/v1/credentials/${id}/rotate`,
+            undefined,
+            { userId: sessionUser.id }
+          )
+
+          const models = await findModelsForCredential(request, credential)
+
+          setIssuedCredential(request, {
+            credential,
+            secret,
+            modelNamesText: modelNamesText(models)
+          })
+
+          return h
+            .redirect(`/manage/credentials/${id}/rotated`)
+            .code(statusCodes.seeOther)
+        } catch (error) {
+          if (error instanceof ApiError && error.code === 'admin-required') {
+            setAccountNotification(request, {
+              type: 'error',
+              message: 'Only a team admin can rotate this credential.'
+            })
+            return h.redirect('/manage').code(statusCodes.seeOther)
+          }
+
+          if (!(error instanceof ApiError) || !isNotFound(error)) {
+            throw error
+          }
+
+          return h.redirect('/manage').code(statusCodes.seeOther)
+        }
+      }
+    }
+  },
+
+  rotated: {
+    get: {
+      handler(request, h) {
+        const issued = takeIssuedCredential(request)
+
+        if (!issued) {
+          return h.redirect('/manage').code(statusCodes.seeOther)
+        }
+
+        return h
+          .view('manage/rotated', {
+            pageTitle: 'Credential rotated',
+            heading: 'Credential rotated',
+            credential: issued.credential,
+            secret: issued.secret,
+            modelNamesText: issued.modelNamesText
+          })
+          .header('cache-control', 'no-store')
       }
     }
   }

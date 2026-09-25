@@ -27,4 +27,20 @@
       attributes: { "data-testid": "credential-action-revoke" }
     }) }}
   {% endif %}
+
+  {% if params.credential.showRotateRevoke and params.credential.status != "revoked" %}
+    {{ govukButton({
+      text: "Rotate",
+      href: "/manage/credentials/" + params.credential._id + "/rotate",
+      classes: "app-button--rotate",
+      attributes: { "data-testid": "credential-action-rotate" }
+    }) }}
+
+    {{ govukButton({
+      text: "Revoke",
+      href: "/manage/credentials/" + params.credential._id + "/revoke",
+      classes: "app-button--revoke govuk-button--warning",
+      attributes: { "data-testid": "credential-action-revoke" }
+    }) }}
+  {% endif %}
 </div>

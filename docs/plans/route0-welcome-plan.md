@@ -2,6 +2,15 @@
 
 > Part of the ["three routes to a credential"](../ui-flow-three-routes.md) journey. See also [Route 1](route1-plan.md), [Route 2](route2-plan.md), [Route 3](route3-plan.md). **Status: not yet implemented.**
 
+**UPDATED 25 Sept 2026 - discovery-docs design pack alignment:** `ai-platform-discovery-docs` merged
+a design pack (areas A-D, "model access enforcement", and a Phase 1 SND1/SND4 proof) between
+21-25 Sept 2026, after this plan was written but before it or Route 3 were built. None of it changes
+this page's shape - the hub/tile layout, tier descriptions and link targets below still hold. The
+only thing worth carrying forward once Routes 1-3 exist: the "Manage your team's AI access" tile
+copy should stay tier-agnostic (it must not promise a specific environment name like "dev") since
+Phase 1 runs real teams against `sandbox` (`SND4`), not a `dev` environment - see
+[Route 2's alignment note](route2-plan.md#design-pack-alignment-25-sept-2026) for the full detail.
+
 Scope: a new small plan, separate from Routes 1-3, covering the home page (`/`) content. Not a
 build story of its own - it is the shared front door the diagrams' three routes all start from
 (directly, or via `/models`). Currently `ai-platform-frontend/src/server/routes/home/index.njk`
