@@ -22,37 +22,7 @@ import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 // isn't a surprise later, but only `sandbox` is enabled, matching the
 // backend's `environment-not-available` policy for anything else.
 const ENVIRONMENT_ITEMS = [
-  { value: 'sandbox', text: 'Sandbox', checked: true },
-  {
-    value: 'infradev',
-    text: 'Infradev',
-    disabled: true,
-    hint: { text: 'Platform-internal - not available to teams.' }
-  },
-  {
-    value: 'dev',
-    text: 'Development (dev)',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  },
-  {
-    value: 'qa',
-    text: 'QA',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  },
-  {
-    value: 'preprod',
-    text: 'Pre-production',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  },
-  {
-    value: 'prod',
-    text: 'Production',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  }
+  { value: 'sandbox', text: 'Sandbox', checked: true }  
 ]
 
 // The wait page groups every intermediate GitOps state into one friendly

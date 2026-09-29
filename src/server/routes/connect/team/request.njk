@@ -44,15 +44,15 @@
         }) }}
 
         <h2 class="govuk-heading-m">Progress</h2>
-        <ol class="govuk-list" aria-live="polite">
+        <ol class="govuk-list govuk-list--spaced" aria-live="polite">
           {% for stage in stages %}
-            <li>
+            <li style="padding: 0.25rem 0;">
               {% if stage.state == "done" %}
-                <strong>Done:</strong> {{ stage.label }}
+                <strong class="govuk-tag govuk-tag--green">Done:</strong> {{ stage.label }}
               {% elif stage.state == "current" %}
-                <strong>Doing now:</strong> {{ stage.label }}
+                <strong class="govuk-tag govuk-tag--blue">Doing now:</strong> {{ stage.label }}
               {% else %}
-                <strong>To do:</strong> {{ stage.label }}
+                <strong class="govuk-tag govuk-tag--grey">To do:</strong> {{ stage.label }}
               {% endif %}
             </li>
           {% endfor %}

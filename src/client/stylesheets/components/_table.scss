@@ -1,0 +1,11 @@
+@use "govuk-frontend" as *;
+
+// Design decision: table headers use 600 weight, not GOV.UK's bold default.
+.govuk-table__header {
+  font-weight: 600;
+}
+
+// Design decision: table text use 16 as font-size, not GOV.UK's 19 as default.
+.govuk-table {
+  @include govuk-font($size: 16);
+}
