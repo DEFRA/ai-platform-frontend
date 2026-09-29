@@ -13,7 +13,7 @@ function mockRequest(options, { signedIn = false } = {}) {
 }
 
 describe('#buildNavigation', () => {
-  test('Should hide "Manage AI access" when signed out', () => {
+  test('Should hide "Your access" when signed out', () => {
     expect(
       buildNavigation(mockRequest({ path: '/non-existent-path' }))
     ).toEqual([
@@ -24,17 +24,12 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Browse models',
+        text: 'Models',
         href: '/models'
       },
       {
         current: false,
-        text: 'Connect to a model',
-        href: '/connect'
-      },
-      {
-        current: false,
-        text: 'About',
+        text: 'Help',
         href: '/about'
       }
     ])
@@ -53,28 +48,23 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Browse models',
+        text: 'Models',
         href: '/models'
       },
       {
         current: false,
-        text: 'Connect to a model',
-        href: '/connect'
-      },
-      {
-        current: false,
-        text: 'Manage AI access',
+        text: 'Your access',
         href: '/manage'
       },
       {
         current: false,
-        text: 'About',
+        text: 'Help',
         href: '/about'
       }
     ])
   })
 
-  test('Should provide expected highlighted navigation details', () => {
+  test('Should highlight Home', () => {
     expect(
       buildNavigation(mockRequest({ path: '/' }, { signedIn: true }))
     ).toEqual([
@@ -85,31 +75,26 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Browse models',
+        text: 'Models',
         href: '/models'
       },
       {
         current: false,
-        text: 'Connect to a model',
-        href: '/connect'
-      },
-      {
-        current: false,
-        text: 'Manage AI access',
+        text: 'Your access',
         href: '/manage'
       },
       {
         current: false,
-        text: 'About',
+        text: 'Help',
         href: '/about'
       }
     ])
   })
 
-  test('Should highlight Connect to a model for its sub-routes', () => {
+  test('Should highlight Models for its sub-routes', () => {
     expect(
       buildNavigation(
-        mockRequest({ path: '/connect/shared/model' }, { signedIn: true })
+        mockRequest({ path: '/models/gpt-4o' }, { signedIn: true })
       )
     ).toEqual([
       {
@@ -118,29 +103,24 @@ describe('#buildNavigation', () => {
         href: '/'
       },
       {
-        current: false,
-        text: 'Browse models',
+        current: true,
+        text: 'Models',
         href: '/models'
       },
       {
-        current: true,
-        text: 'Connect to a model',
-        href: '/connect'
-      },
-      {
         current: false,
-        text: 'Manage AI access',
+        text: 'Your access',
         href: '/manage'
       },
       {
         current: false,
-        text: 'About',
+        text: 'Help',
         href: '/about'
       }
     ])
   })
 
-  test('Should highlight Manage AI access for its sub-routes', () => {
+  test('Should highlight Your access for its sub-routes', () => {
     expect(
       buildNavigation(
         mockRequest(
@@ -156,24 +136,47 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Browse models',
+        text: 'Models',
         href: '/models'
       },
       {
-        current: false,
-        text: 'Connect to a model',
-        href: '/connect'
-      },
-      {
         current: true,
-        text: 'Manage AI access',
+        text: 'Your access',
         href: '/manage'
       },
       {
         current: false,
-        text: 'About',
+        text: 'Help',
+        href: '/about'
+      }
+    ])
+  })
+
+  test('Should highlight Help', () => {
+    expect(
+      buildNavigation(mockRequest({ path: '/about' }, { signedIn: true }))
+    ).toEqual([
+      {
+        current: false,
+        text: 'Home',
+        href: '/'
+      },
+      {
+        current: false,
+        text: 'Models',
+        href: '/models'
+      },
+      {
+        current: false,
+        text: 'Your access',
+        href: '/manage'
+      },
+      {
+        current: true,
+        text: 'Help',
         href: '/about'
       }
     ])
   })
 })
+

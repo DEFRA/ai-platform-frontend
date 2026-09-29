@@ -1,51 +1,31 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "code-examples/macro.njk" import appCodeExamples %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back to models", href: "/models" }) }}
+{% endblock %}
 
 {% block content %}
   {{ appHeading({
     text: heading,
-    caption: model.provider
+    caption: modelLocationCaption
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       <p class="govuk-body">{{ model.description }}</p>
 
-      {{ govukSummaryList({
-        rows: [
-          {
-            key: { text: "Provider" },
-            value: { text: model.provider }
-          },
-          {
-            key: { text: "Family" },
-            value: { text: model.family }
-          },
-          {
-            key: { text: "Version" },
-            value: { text: model.version }
-          },
-          {
-            key: { text: "Context window" },
-            value: { text: model.contextWindow }
-          },
-          {
-            key: { text: "Region / data zone" },
-            value: { text: model.region + " / " + model.dataZone }
-          },
-          {
-            key: { text: "Tiers" },
-            value: { text: model.tiers | join(", ") }
-          }
-        ]
-      }) }}
+      {{ govukSummaryList({ rows: summaryRows }) }}
 
       {% if model.useCases.length > 0 %}
-        <h2 class="govuk-heading-m">Use cases</h2>
+        <h2 class="govuk-heading-m">Good for</h2>
         <ul class="govuk-list govuk-list--bullet" data-testid="model-use-cases">
           {% for useCase in model.useCases %}
             <li>{{ useCase }}</li>
@@ -62,14 +42,6 @@
         </ul>
       {% endif %}
 
-      <h2 class="govuk-heading-m">Example request</h2>
-      {{ appCodeExamples({
-        endpoint: model.endpoint,
-        secretPlaceholder: "<YOUR_SUBSCRIPTION_KEY>"
-      }) }}
-
-      <h2 class="govuk-heading-m">Connect to this model</h2>
-
       {% if canConnect %}
         {{ govukButton({
           text: "Connect to this model",
@@ -78,6 +50,19 @@
       {% elif not eligible %}
         {{ govukTag({ text: "Not approved for use yet", classes: "govuk-tag--grey" }) }}
       {% endif %}
+    </div>
+  </div>
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <h2 class="govuk-heading-m">Call it from your code</h2>
+      {{ appCodeExamples({
+        endpoint: model.endpoint,
+        secretPlaceholder: "<YOUR_SUBSCRIPTION_KEY>"
+      }) }}
+      {{ govukInsetText({
+        text: "This endpoint is a mock while the gateway is being built. Calls to it will not reach a model yet."
+      }) }}
     </div>
   </div>
 {% endblock %}

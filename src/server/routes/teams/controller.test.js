@@ -272,6 +272,136 @@ describe('#teamsController', () => {
     expect(result).toEqual(expect.stringContaining('colleague@defra.gov.uk'))
   })
 
+  test('GET /teams/{id} shows a member\u2019s display name and hides removed members', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [
+          { userId: 'user-1', role: 'admin', status: 'active' },
+          {
+            _id: 'member-2',
+            userId: 'user-2',
+            email: 'colleague@defra.gov.uk',
+            displayName: 'Colleague Name',
+            role: 'user',
+            status: 'active'
+          },
+          {
+            _id: 'member-3',
+            userId: 'user-3',
+            email: 'gone@defra.gov.uk',
+            displayName: 'Gone Already',
+            role: 'user',
+            status: 'removed'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(expect.stringContaining('Colleague Name'))
+    expect(result).not.toEqual(expect.stringContaining('Gone Already'))
+  })
+
+  test('GET /teams/{id} shows Remove for an admin, but not for the sole admin\u2019s own row', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [
+          { _id: 'member-1', userId: 'user-1', role: 'admin', status: 'active' },
+          {
+            _id: 'member-2',
+            userId: 'user-2',
+            email: 'colleague@defra.gov.uk',
+            role: 'user',
+            status: 'active'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining('/teams/team-1/members/member-2/remove')
+    )
+    expect(result).not.toEqual(
+      expect.stringContaining('/teams/team-1/members/member-1/remove')
+    )
+  })
+
+  test('POST /teams/{id}/members/{memberId}/remove removes a member and redirects back', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(null, { status: 204 })
+
+    const { statusCode, headers } = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/members/member-2/remove',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/teams/team-1')
+  })
+
+  test('POST /teams/{id}/members/{memberId}/remove shows a banner when the last admin cannot be removed', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'A team must keep at least one admin',
+        code: 'last-admin'
+      }),
+      { status: 409 }
+    )
+
+    const postRemove = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/members/member-1/remove',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postRemove.statusCode).toBe(statusCodes.seeOther)
+
+    const redirectCookies = mergeCookies(cookies, postRemove)
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [
+          { _id: 'member-1', userId: 'user-1', role: 'admin', status: 'active' }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(redirectCookies) }
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining('A team must keep at least one admin')
+    )
+  })
+
   test('GET /teams/{id} shows a not found page for a non-member', async () => {
     const cookies = await signIn(server)
 

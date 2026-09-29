@@ -133,7 +133,7 @@ describe('#manageController', () => {
 
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(
-      expect.stringContaining('You do not have any credentials yet')
+      expect.stringContaining('You do not have a key yet')
     )
   })
 
@@ -180,8 +180,8 @@ describe('#manageController', () => {
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
     expect(result).toEqual(expect.stringContaining('ab12'))
-    expect(result).toEqual(
-      expect.stringContaining('You do not have any credentials yet')
+    expect(result).not.toEqual(
+      expect.stringContaining('You do not have a key yet')
     )
   })
 
@@ -246,12 +246,10 @@ describe('#manageController', () => {
 
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).not.toEqual(
-      expect.stringContaining('You do not have any credentials yet')
+      expect.stringContaining('You do not have a key yet')
     )
     expect(result).toEqual(expect.stringContaining('ab12'))
-    expect(result).toEqual(
-      expect.stringContaining('This team does not have any credentials yet')
-    )
+    expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
   })
 
   test('GET /manage shows a "check progress" link for an in-progress team deployment', async () => {
@@ -758,6 +756,43 @@ describe('#manageController', () => {
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(expect.stringContaining('Client secret'))
     expect(result).not.toEqual(expect.stringContaining('…undefined'))
+  })
+
+  test('rotating a team credential (no fixed expiry) does not 500 on the rotated page', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        credential: {
+          ...sampleCredential,
+          teamId: 'team-1',
+          tier: 'team',
+          expiresAt: null
+        },
+        secret: 'mock_rotated_secret'
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postRotate = await server.inject({
+      method: 'POST',
+      url: '/manage/credentials/cred-1/rotate',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, confirmRevoke: 'yes' }
+    })
+
+    expect(postRotate.statusCode).toBe(303)
+    expect(postRotate.headers.location).toBe('/manage/credentials/cred-1/rotated')
+
+    const cookiesAfterRotate = mergeCookies(cookies, postRotate)
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/rotated',
+      headers: { cookie: cookieHeader(cookiesAfterRotate) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('Does not expire'))
   })
 
   test('GET /manage/credentials/{id} shows a red tag for a revoked credential', async () => {

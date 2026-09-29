@@ -15,15 +15,13 @@ describe('#formatDate', () => {
 
   describe('With defaults', () => {
     test('Date should be in expected format', () => {
-      expect(formatDate('2023-02-01T11:40:02.242Z')).toBe(
-        'Wed 1st February 2023'
-      )
+      expect(formatDate('2023-02-01T11:40:02.242Z')).toBe('1 February 2023')
     })
   })
 
   describe('With Date object', () => {
     test('Date should be in expected format', () => {
-      expect(formatDate(new Date())).toBe('Wed 1st February 2023')
+      expect(formatDate(new Date())).toBe('1 February 2023')
     })
   })
 
@@ -35,6 +33,13 @@ describe('#formatDate', () => {
           "h:mm aaa 'on' EEEE do MMMM yyyy"
         )
       ).toBe('11:40 am on Wednesday 1st February 2023')
+    })
+  })
+
+  describe('With a null or undefined value (team credentials have no expiry)', () => {
+    test('Should return null rather than throwing', () => {
+      expect(formatDate(null)).toBe(null)
+      expect(formatDate(undefined)).toBe(null)
     })
   })
 })

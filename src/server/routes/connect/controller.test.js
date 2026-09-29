@@ -115,7 +115,7 @@ describe('#connectController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Connect to a model'))
+    expect(result).toEqual(expect.stringContaining('What access do you need?'))
     expect(result).toEqual(
       expect.stringContaining('Please sign in to continue')
     )

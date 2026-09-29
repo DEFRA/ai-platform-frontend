@@ -1,8 +1,14 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/radios/macro.njk" import govukRadios %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: "/models" }) }}
+{% endblock %}
 
 {% block content %}
   {{ appHeading({
@@ -18,6 +24,13 @@
         }) }}
       {% endif %}
 
+      {% if modelDisplayName %}
+        <p class="govuk-body">
+          You are connecting to {{ modelDisplayName }}.
+          <a class="govuk-link" href="/models/{{ modelSlug }}">Change model</a>
+        </p>
+      {% endif %}
+
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         <input type="hidden" name="modelSlug" value="{{ modelSlug }}">
@@ -27,17 +40,21 @@
           name: "accessType",
           fieldset: {
             legend: {
-              text: "What kind of access do you need?",
-              isPageHeading: false,
-              classes: "govuk-fieldset__legend--m"
+              text: heading,
+              classes: "govuk-visually-hidden"
             }
           },
           errorMessage: fieldErrors.accessType,
           items: accessTypeItems
         }) }}
 
+        <p class="govuk-body">
+          Not sure? Start with research access. You can move to a team key later and keep the same sign-in.
+        </p>
+
         {{ govukButton({ text: "Continue" if signedIn else "Please sign in to continue" }) }}
       </form>
     </div>
   </div>
 {% endblock %}
+

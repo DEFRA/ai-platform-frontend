@@ -15,6 +15,7 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 
 // Phase 1 (confirmed 24 Sept 2026): the one live team-facing environment is
 // the Sandbox (SND4) - every design C environment is shown so the option
@@ -74,33 +75,6 @@ function hasTeamJourneyState(pendingAccess) {
     pendingAccess?.teamId &&
     pendingAccess?.accessType === 'team'
   )
-}
-
-// Friendly, non-jargon progress stages shown on the wait page - each maps to
-// one or more of design C's real GitOps states, never shown to the user directly.
-const STAGE_GROUPS = [
-  { label: 'Reviewing your request', statuses: ['requested', 'pr-raised'] },
-  {
-    label: "Setting up your team's dedicated model",
-    statuses: ['merged', 'deploying', 'deployed']
-  },
-  { label: 'Running final checks', statuses: ['verified'] }
-]
-
-function buildStageProgress(status) {
-  const currentIndex = STAGE_GROUPS.findIndex((stage) =>
-    stage.statuses.includes(status)
-  )
-
-  return STAGE_GROUPS.map((stage, index) => ({
-    label: stage.label,
-    state:
-      index < currentIndex
-        ? 'done'
-        : index === currentIndex
-          ? 'current'
-          : 'pending'
-  }))
 }
 
 const selectTeamSchema = Joi.object({
@@ -456,7 +430,7 @@ export const teamConnectController = {
                 message:
                   'This request does not exist, or you are not a member of this team.',
                 actionHref: '/manage',
-                actionText: 'Manage AI access'
+                actionText: 'Go to your access'
               })
               .code(statusCodes.notFound)
           }
@@ -466,11 +440,12 @@ export const teamConnectController = {
 
         if (IN_PROGRESS_STATUSES.includes(deployment.status)) {
           return h.view('connect/team/request', {
-            pageTitle: "Setting up your team's access",
-            heading: "Setting up your team's access",
+            pageTitle: 'Setting up your team key',
+            heading: 'Setting up your team key',
             refreshSeconds: 3,
+            lastCheckedAt: formatDate(new Date(), 'HH:mm'),
             failed: false,
-            stages: buildStageProgress(deployment.status)
+            stages: deployment.progressSteps
           })
         }
 
@@ -494,7 +469,7 @@ export const teamConnectController = {
           })
 
           return h
-            .redirect(`/manage#manage-team-${teamId}`)
+            .redirect('/manage')
             .code(statusCodes.seeOther)
         }
 
@@ -523,7 +498,7 @@ export const teamConnectController = {
           })
 
           return h
-            .redirect(`/manage#manage-team-${teamId}`)
+            .redirect('/manage')
             .code(statusCodes.seeOther)
         }
 
@@ -552,7 +527,7 @@ export const teamConnectController = {
           })
 
           return h
-            .redirect(`/manage#manage-team-${teamId}`)
+            .redirect('/manage')
             .code(statusCodes.seeOther)
         }
 
@@ -587,3 +562,4 @@ export const teamConnectController = {
     }
   }
 }
+

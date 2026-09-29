@@ -95,7 +95,8 @@ describe('#signInController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Sign out ('))
+    expect(result).toEqual(expect.stringContaining('Signed in as'))
+    expect(result).toEqual(expect.stringContaining('Sign out'))
     expect(result).not.toEqual(expect.stringContaining('>Sign in<'))
   })
 })

@@ -13,7 +13,7 @@ const revokedCredential = {
 }
 
 describe('Credential actions component', () => {
-  test('Should always render a View button', () => {
+  test('Should always render a View link', () => {
     const $actions = renderComponent('credential-actions', {
       credential: activeCredential,
       showRenewRevoke: false
@@ -22,8 +22,8 @@ describe('Credential actions component', () => {
 
     expect($view).toHaveLength(1)
     expect($view.attr('href')).toBe('/manage/credentials/cred-1')
-    expect($view.hasClass('govuk-button')).toBe(true)
-    expect($view.hasClass('app-button--view')).toBe(true)
+    expect($view.hasClass('govuk-link')).toBe(true)
+    expect($view.hasClass('govuk-button')).toBe(false)
   })
 
   test('Should not render Renew or Revoke when showRenewRevoke is false', () => {
@@ -36,7 +36,7 @@ describe('Credential actions component', () => {
     expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(0)
   })
 
-  test('Should render Renew and Revoke buttons for an active credential when showRenewRevoke is true', () => {
+  test('Should render Renew as a link-styled button and Revoke as a link for an active credential when showRenewRevoke is true', () => {
     const $actions = renderComponent('credential-actions', {
       credential: activeCredential,
       showRenewRevoke: true,
@@ -45,10 +45,12 @@ describe('Credential actions component', () => {
     const $renew = $actions('[data-testid="credential-action-renew"]')
     const $revoke = $actions('[data-testid="credential-action-revoke"]')
 
-    expect($renew.hasClass('app-button--renew')).toBe(true)
+    expect($renew.hasClass('app-link-button')).toBe(true)
+    expect($renew.hasClass('govuk-button')).toBe(false)
     expect($actions('input[name="crumb"]').val()).toBe('crumb-token')
     expect($revoke.attr('href')).toBe('/manage/credentials/cred-1/revoke')
-    expect($revoke.hasClass('app-button--revoke')).toBe(true)
+    expect($revoke.hasClass('govuk-link')).toBe(true)
+    expect($revoke.hasClass('govuk-button')).toBe(false)
   })
 
   test('Should not render Renew when there are no renewals remaining', () => {
@@ -70,7 +72,7 @@ describe('Credential actions component', () => {
     expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(0)
   })
 
-  test('Should render Rotate and Revoke buttons for an active credential when showRotateRevoke is true', () => {
+  test('Should render Rotate and Revoke links for an active credential when showRotateRevoke is true', () => {
     const $actions = renderComponent('credential-actions', {
       credential: { ...activeCredential, showRotateRevoke: true }
     })
@@ -79,7 +81,8 @@ describe('Credential actions component', () => {
 
     expect($rotate).toHaveLength(1)
     expect($rotate.attr('href')).toBe('/manage/credentials/cred-1/rotate')
-    expect($rotate.hasClass('app-button--rotate')).toBe(true)
+    expect($rotate.hasClass('govuk-link')).toBe(true)
+    expect($rotate.hasClass('govuk-button')).toBe(false)
     expect($revoke.attr('href')).toBe('/manage/credentials/cred-1/revoke')
   })
 

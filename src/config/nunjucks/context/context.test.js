@@ -58,6 +58,7 @@ describe('context and cache', () => {
         expect(contextResult).toEqual({
           assetPath: '/public/assets',
           breadcrumbs: [],
+          currentPath: '/',
           getAssetPath: expect.any(Function),
           navigation: [
             {
@@ -67,21 +68,16 @@ describe('context and cache', () => {
             },
             {
               current: false,
-              text: 'Browse models',
+              text: 'Models',
               href: '/models'
             },
             {
               current: false,
-              text: 'Connect to a model',
-              href: '/connect'
-            },
-            {
-              current: false,
-              text: 'About',
+              text: 'Help',
               href: '/about'
             }
           ],
-          serviceName: 'ai-platform-frontend',
+          serviceName: 'AI Platform Portal',
           serviceUrl: '/'
         })
       })
@@ -157,6 +153,7 @@ describe('context and cache', () => {
         expect(contextResult).toEqual({
           assetPath: '/public/assets',
           breadcrumbs: [],
+          currentPath: '/',
           getAssetPath: expect.any(Function),
           navigation: [
             {
@@ -166,21 +163,16 @@ describe('context and cache', () => {
             },
             {
               current: false,
-              text: 'Browse models',
+              text: 'Models',
               href: '/models'
             },
             {
               current: false,
-              text: 'Connect to a model',
-              href: '/connect'
-            },
-            {
-              current: false,
-              text: 'About',
+              text: 'Help',
               href: '/about'
             }
           ],
-          serviceName: 'ai-platform-frontend',
+          serviceName: 'AI Platform Portal',
           serviceUrl: '/'
         })
       })

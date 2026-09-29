@@ -8,28 +8,22 @@ export function buildNavigation(request) {
       current: request?.path === '/'
     },
     {
-      text: 'Browse models',
+      text: 'Models',
       href: '/models',
       current: request?.path?.startsWith('/models')
     }
   ]
 
-  navigation.push({
-    text: 'Connect to a model',
-    href: '/connect',
-    current: request?.path?.startsWith('/connect')
-  })
-
   if (getSessionUser(request)) {
     navigation.push({
-      text: 'Manage AI access',
+      text: 'Your access',
       href: '/manage',
       current: request?.path?.startsWith('/manage')
     })
   }
 
   navigation.push({
-    text: 'About',
+    text: 'Help',
     href: '/about',
     current: request?.path === '/about'
   })

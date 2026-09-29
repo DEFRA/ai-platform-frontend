@@ -1,17 +1,74 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
 {% block content %}
+  {% if signedIn and expiringBanner %}
+    {{ govukNotificationBanner({
+      titleText: "Important",
+      html: 'Your research key runs out in ' + expiringBanner.daysLeft + ' day' + ('' if expiringBanner.daysLeft == 1 else 's') + ', on ' + expiringBanner.expiresAtText + '. <a class="govuk-notification-banner__link" href="' + expiringBanner.renewUrl + '">Renew your key</a>'
+    }) }}
+  {% endif %}
+
   {{ appHeading({
-    text: heading,
-    caption: "ai-platform-frontend"
+    text: heading
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      <div class="govuk-body" data-testid="app-page-body">
-        <p></p>
-      </div>
+      <p class="govuk-body-l">
+        Use approved AI models in your Defra service. You do not need an Azure account.
+      </p>
+
+      {% if signedIn %}
+        {{ govukButton({ text: "Browse models", href: "/models", isStartButton: true }) }}
+
+        <h2 class="govuk-heading-m">Your access</h2>
+
+        {% if teamAccess %}
+          {{ govukInsetText({
+            html: teamAccess.teamName + ' already has a key for ' + teamAccess.modelsText + '. Anyone in the team can use it, so you may not need your own.<br><a class="govuk-link" href="' + teamAccess.credentialUrl + '">View the ' + teamAccess.teamName + ' key</a>'
+          }) }}
+        {% endif %}
+
+        <p class="govuk-body">
+          <a class="govuk-link" href="/manage">See every key you and your teams hold</a>
+        </p>
+      {% else %}
+        {{ govukButton({ text: "Start now", href: "/models", isStartButton: true }) }}
+
+        <h2 class="govuk-heading-m">Who it is for</h2>
+        <p class="govuk-body">
+          Anyone at Defra building a service or trying an idea out. Sign in with your Defra account.
+        </p>
+
+        <h2 class="govuk-heading-m">How it works</h2>
+        <p class="govuk-body">It takes about 5 minutes.</p>
+        <ol class="govuk-list govuk-list--number">
+          <li>Pick a model from the list.</li>
+          <li>Tell us what you are building.</li>
+          <li>Get a key and a code example to paste into your service.</li>
+        </ol>
+
+        <h2 class="govuk-heading-m">What you get</h2>
+        <ul class="govuk-list govuk-list--bullet">
+          <li>A key that works for 7 days, in the Sandbox environment.</li>
+          <li>60 requests a minute and 100,000 tokens a day.</li>
+          <li>Models hosted in the UK, so your data stays in the UK.</li>
+        </ul>
+
+        {{ govukInsetText({
+          text: "This service is in alpha. Sandbox is for building and trying things out. Do not put OFFICIAL-SENSITIVE data through it."
+        }) }}
+
+        <h2 class="govuk-heading-m">Browse without signing in</h2>
+        <p class="govuk-body">
+          <a class="govuk-link" href="/models">See the models you can use</a>
+        </p>
+      {% endif %}
     </div>
   </div>
-
 {% endblock %}
+

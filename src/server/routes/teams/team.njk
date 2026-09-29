@@ -1,8 +1,18 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back to your access", href: "/manage" }) }}
+{% endblock %}
 
 {% block content %}
   {{ appHeading({
@@ -11,6 +21,13 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
+      {% if notification %}
+        {{ govukNotificationBanner({
+          text: notification.message,
+          type: "success" if notification.type == "success" else ""
+        }) }}
+      {% endif %}
+
       {% if errorSummary %}
         {{ govukErrorSummary({
           titleText: "There is a problem",
@@ -18,22 +35,62 @@
         }) }}
       {% endif %}
 
+      {% set serviceCodeHtml %}
+        {{ team.serviceCode or "Not given" }}
+        {% if not team.verified %}
+          {{ govukTag({ text: "To be verified", classes: "govuk-tag--yellow" }) }}
+        {% endif %}
+      {% endset %}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Service code" },
+            value: { html: serviceCodeHtml }
+          },
+          {
+            key: { text: "What the team does" },
+            value: { text: team.description or "Not given" }
+          },
+          {
+            key: { text: "Your role" },
+            value: { text: "Admin" if isAdmin else "Member" }
+          }
+        ]
+      }) }}
+
       <h2 class="govuk-heading-m">Members</h2>
 
       <table class="govuk-table">
         <thead class="govuk-table__head">
           <tr class="govuk-table__row">
+            <th class="govuk-table__header" scope="col">Name</th>
             <th class="govuk-table__header" scope="col">Email</th>
             <th class="govuk-table__header" scope="col">Role</th>
             <th class="govuk-table__header" scope="col">Status</th>
+            <th class="govuk-table__header" scope="col">Actions</th>
           </tr>
         </thead>
         <tbody class="govuk-table__body">
           {% for member in members %}
             <tr class="govuk-table__row">
+              <td class="govuk-table__cell">{{ member.displayName or "Not signed in yet" }}</td>
               <td class="govuk-table__cell">{{ member.email or "Team creator" }}</td>
-              <td class="govuk-table__cell">{{ member.role }}</td>
-              <td class="govuk-table__cell">{{ member.status }}</td>
+              <td class="govuk-table__cell">{{ "Admin" if member.role == "admin" else "Member" }}</td>
+              <td class="govuk-table__cell">
+                {{ govukTag({
+                  text: "Active" if member.status == "active" else "Invited",
+                  classes: "govuk-tag--green" if member.status == "active" else "govuk-tag--blue"
+                }) }}
+              </td>
+              <td class="govuk-table__cell">
+                {% if member.canRemove %}
+                  <form method="post" action="/teams/{{ team._id }}/members/{{ member._id }}/remove" novalidate>
+                    <input type="hidden" name="crumb" value="{{ crumb }}">
+                    <button type="submit" class="govuk-link app-link-button" data-testid="member-remove">Remove</button>
+                  </form>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
@@ -55,7 +112,13 @@
 
           {{ govukButton({ text: "Add member" }) }}
         </form>
+
+        {{ govukWarningText({
+          text: "Removing someone does not change the team key. Rotate it if they had a copy.",
+          iconFallbackText: "Warning"
+        }) }}
       {% endif %}
     </div>
   </div>
 {% endblock %}
+

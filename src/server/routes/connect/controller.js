@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import Joi from 'joi'
+import { addDays } from 'date-fns'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
@@ -14,6 +15,9 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import { formatDate } from '#/config/nunjucks/filters/format-date.js'
+
+const RESEARCH_CREDENTIAL_DAYS = 7
 
 const accessTypeSchema = Joi.object({
   accessType: Joi.string().valid('shared', 'team').required().messages({
@@ -29,13 +33,17 @@ const selectModelSchema = Joi.object({
     .messages({ 'any.required': 'Select a model' })
 })
 
+const MODEL_PLACEHOLDER = '{model}'
+
 const detailsSchema = Joi.object({
-  purpose: Joi.string().trim().max(500).allow('').optional().messages({
+  purpose: Joi.string().trim().max(500).required().messages({
+    'string.empty': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
+    'any.required': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
   agreeToTerms: Joi.string().valid('true').required().messages({
-    'any.required': 'You must accept the terms to continue',
-    'any.only': 'You must accept the terms to continue'
+    'any.required': 'Confirm that you understand the limits',
+    'any.only': 'Confirm that you understand the limits'
   })
 })
 
@@ -43,18 +51,44 @@ function redirectToStart(h) {
   return h.redirect('/connect').takeover()
 }
 
+function substituteModelPlaceholder(text, modelDisplayName) {
+  return text.replaceAll(MODEL_PLACEHOLDER, modelDisplayName ?? 'this model')
+}
+
+function buildDetailsErrorSummary(error, modelDisplayName) {
+  return buildErrorSummary(error).map((item) => ({
+    ...item,
+    text: substituteModelPlaceholder(item.text, modelDisplayName)
+  }))
+}
+
+function buildDetailsFieldErrors(error, modelDisplayName) {
+  const fieldErrors = buildFieldErrors(error)
+
+  return Object.fromEntries(
+    Object.entries(fieldErrors).map(([key, fieldError]) => [
+      key,
+      { text: substituteModelPlaceholder(fieldError.text, modelDisplayName) }
+    ])
+  )
+}
+
 function buildAccessTypeItems(selectedAccessType) {
   return [
     {
       value: 'shared',
-      text: 'Shared model for research',
-      hint: { text: 'A rate-limited credential for a shared model.' },
+      text: 'Just for me, to research or try something out',
+      hint: {
+        text: 'A key that lasts 7 days in Sandbox. No team needed. Ready in about a minute.'
+      },
       checked: selectedAccessType === 'shared' || !selectedAccessType
     },
     {
       value: 'team',
-      text: 'Dedicated model for your team',
-      hint: { text: 'A model deployed just for your team.' },
+      text: 'For my team',
+      hint: {
+        text: 'A key the whole team shares. Admins can rotate or revoke it. Takes a few minutes to set up.'
+      },
       checked: selectedAccessType === 'team'
     }
   ]
@@ -69,18 +103,96 @@ function buildModelItems(models, selectedModelSlug) {
   }))
 }
 
+// Best-effort lookup for the "You are connecting to {model}" hint - the
+// access-type page must still render if the model can't be looked up.
+async function getModelDisplayName(request, modelSlug) {
+  if (!modelSlug) {
+    return undefined
+  }
+
+  try {
+    const model = await apiClient(request).get(`/v1/models/${modelSlug}`)
+    return model.displayName
+  } catch {
+    return undefined
+  }
+}
+
+function buildCheckAnswersRows(model, purpose) {
+  const rows = [
+    {
+      key: { text: 'Model' },
+      value: { text: model.displayName },
+      actions: {
+        items: [
+          {
+            href: '/connect/shared/model',
+            text: 'Change',
+            visuallyHiddenText: 'model'
+          }
+        ]
+      }
+    },
+    {
+      key: { text: 'Access for' },
+      value: { text: 'Just me, research' },
+      actions: {
+        items: [
+          { href: '/connect', text: 'Change', visuallyHiddenText: 'access for' }
+        ]
+      }
+    },
+    {
+      key: { text: 'What you will use it for' },
+      value: { text: purpose },
+      actions: {
+        items: [
+          {
+            href: '/connect/shared/details',
+            text: 'Change',
+            visuallyHiddenText: 'what you will use it for'
+          }
+        ]
+      }
+    },
+    { key: { text: 'Environment' }, value: { text: 'Sandbox' } }
+  ]
+
+  if (model.limits?.requestsPerMinute) {
+    rows.push({
+      key: { text: 'Rate limit' },
+      value: { text: `${model.limits.requestsPerMinute} requests a minute` }
+    })
+  }
+
+  if (model.limits?.dailyTokens) {
+    rows.push({
+      key: { text: 'Daily allowance' },
+      value: { text: `${model.limits.dailyTokens} tokens` }
+    })
+  }
+
+  rows.push({
+    key: { text: 'Runs out' },
+    value: { text: formatDate(addDays(new Date(), RESEARCH_CREDENTIAL_DAYS)) }
+  })
+
+  return rows
+}
+
 export const connectController = {
   accessType: {
     get: {
-      handler(request, h) {
+      async handler(request, h) {
         const pendingAccess = getPendingAccess(request) ?? {}
         const modelSlug = request.query.modelSlug ?? pendingAccess.modelSlug
 
         return h.view('connect/index', {
-          pageTitle: 'Connect to a model',
-          heading: 'Connect to a model',
+          pageTitle: 'What access do you need?',
+          heading: 'What access do you need?',
           accessTypeItems: buildAccessTypeItems(pendingAccess.accessType),
           modelSlug: modelSlug ?? '',
+          modelDisplayName: await getModelDisplayName(request, modelSlug),
           signedIn: Boolean(getSessionUser(request)),
           errorSummary: null,
           fieldErrors: {}
@@ -91,15 +203,19 @@ export const connectController = {
       options: {
         validate: {
           payload: accessTypeSchema,
-          failAction: (request, h, error) =>
+          failAction: async (request, h, error) =>
             h
               .view('connect/index', {
-                pageTitle: 'Error: Connect to a model',
-                heading: 'Connect to a model',
+                pageTitle: 'Error: What access do you need?',
+                heading: 'What access do you need?',
                 accessTypeItems: buildAccessTypeItems(
                   request.payload.accessType
                 ),
                 modelSlug: request.payload.modelSlug ?? '',
+                modelDisplayName: await getModelDisplayName(
+                  request,
+                  request.payload.modelSlug
+                ),
                 signedIn: Boolean(getSessionUser(request)),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
@@ -187,16 +303,22 @@ export const connectController = {
 
   details: {
     get: {
-      handler(request, h) {
+      async handler(request, h) {
         const pendingAccess = getPendingAccess(request)
 
         if (!pendingAccess?.modelSlug) {
           return redirectToStart(h)
         }
 
+        const modelDisplayName = await getModelDisplayName(
+          request,
+          pendingAccess.modelSlug
+        )
+        const heading = `What will you use ${modelDisplayName ?? 'this model'} for?`
+
         return h.view('connect/shared/details', {
-          pageTitle: 'Say what it is for',
-          heading: 'Say what it is for',
+          pageTitle: heading,
+          heading,
           values: { purpose: pendingAccess.purpose ?? '' },
           errorSummary: null,
           fieldErrors: {}
@@ -207,17 +329,25 @@ export const connectController = {
       options: {
         validate: {
           payload: detailsSchema,
-          failAction: (request, h, error) =>
-            h
+          failAction: async (request, h, error) => {
+            const pendingAccess = getPendingAccess(request)
+            const modelDisplayName = await getModelDisplayName(
+              request,
+              pendingAccess?.modelSlug
+            )
+            const heading = `What will you use ${modelDisplayName ?? 'this model'} for?`
+
+            return h
               .view('connect/shared/details', {
-                pageTitle: 'Error: Say what it is for',
-                heading: 'Say what it is for',
+                pageTitle: `Error: ${heading}`,
+                heading,
                 values: request.payload,
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
+                errorSummary: buildDetailsErrorSummary(error, modelDisplayName),
+                fieldErrors: buildDetailsFieldErrors(error, modelDisplayName)
               })
               .code(statusCodes.badRequest)
               .takeover()
+          }
         }
       },
       handler(request, h) {
@@ -254,6 +384,7 @@ export const connectController = {
           pageTitle: 'Check your answers',
           heading: 'Check your answers',
           model,
+          summaryRows: buildCheckAnswersRows(model, pendingAccess.purpose),
           purpose: pendingAccess.purpose,
           errorMessage: null,
           errorAction: null
@@ -306,6 +437,7 @@ export const connectController = {
                 pageTitle: 'Check your answers',
                 heading: 'Check your answers',
                 model,
+                summaryRows: buildCheckAnswersRows(model, pendingAccess.purpose),
                 purpose: pendingAccess.purpose,
                 errorMessage: errorMessageForCode(error),
                 errorAction: error.code === 'active-credential-exists'

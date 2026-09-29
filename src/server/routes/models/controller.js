@@ -2,6 +2,10 @@ import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import {
+  formatLabel,
+  formatLabelList
+} from '#/config/nunjucks/filters/format-label.js'
 
 const listQuerySchema = Joi.object({
   provider: Joi.string().trim().lowercase().optional(),
@@ -42,6 +46,37 @@ function buildQueryString({ provider, tier }) {
   return query ? `?${query}` : ''
 }
 
+function buildModelSummaryRows(model) {
+  const rows = [
+    { key: { text: 'Provider' }, value: { text: formatLabel(model.provider) } },
+    { key: { text: 'Version' }, value: { text: `${model.version} (pinned)` } },
+    { key: { text: 'Context window' }, value: { text: model.contextWindow } },
+    {
+      key: { text: 'Where it runs' },
+      value: {
+        text: `${formatLabel(model.region)}, ${formatLabel(model.dataZone)} data zone`
+      }
+    },
+    { key: { text: 'Tiers' }, value: { text: formatLabelList(model.tiers) } }
+  ]
+
+  if (model.limits?.requestsPerMinute) {
+    rows.push({
+      key: { text: 'Rate limit' },
+      value: { text: `${model.limits.requestsPerMinute} requests a minute` }
+    })
+  }
+
+  if (model.limits?.dailyTokens) {
+    rows.push({
+      key: { text: 'Daily allowance' },
+      value: { text: `${model.limits.dailyTokens} tokens` }
+    })
+  }
+
+  return rows
+}
+
 export const modelsController = {
   list: {
     get: {
@@ -55,12 +90,13 @@ export const modelsController = {
         )
 
         return h.view('models/index', {
-          pageTitle: 'Browse models',
-          heading: 'Browse models',
+          pageTitle: 'Models',
+          heading: 'Models',
           models: items.map((model) => ({
             ...model,
             eligible: isModelEligible(model, tier)
           })),
+          resultCount: items.length,
           filters: { provider: provider ?? '', tier: tier ?? '' }
         })
       }
@@ -104,7 +140,9 @@ export const modelsController = {
           heading: model.displayName,
           model,
           eligible,
-          canConnect: eligible
+          canConnect: eligible,
+          modelLocationCaption: `${formatLabel(model.provider)}, hosted by Defra in ${formatLabel(model.region)}`,
+          summaryRows: buildModelSummaryRows(model)
         })
       }
     }

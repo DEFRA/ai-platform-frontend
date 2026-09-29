@@ -1,9 +1,15 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
-{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back to your access", href: "/manage" }) }}
+{% endblock %}
 
 {% block content %}
   {{ appHeading({
@@ -20,30 +26,48 @@
       {% endif %}
 
       {{ govukWarningText({
-        text: "Rotating " + modelNamesText + " creates a new secret and immediately stops the old one working. Any application still using the old secret will fail until it is updated.",
+        text: "Anything using the old key stops working straight away.",
         iconFallbackText: "Warning"
+      }) }}
+
+      <p class="govuk-body">
+        You get a new key on the next page. It is shown once, so have somewhere ready to paste it.
+      </p>
+
+      <h3 class="govuk-heading-s">Before you rotate</h3>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>Tell anyone using this key that it is changing.</li>
+        <li>Have your deployment pipeline or secret store open.</li>
+      </ul>
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Key" },
+            value: { text: "ends " + credential.keyHint }
+          },
+          {
+            key: { text: "Models" },
+            value: { text: modelNamesText }
+          },
+          {
+            key: { text: "Environment" },
+            value: { text: "Sandbox" }
+          }
+        ]
       }) }}
 
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="confirmRevoke" value="yes">
 
-        {{ govukRadios({
-          idPrefix: "confirmRevoke",
-          name: "confirmRevoke",
-          fieldset: {
-            legend: {
-              text: "Are you sure you want to rotate this credential?"
-            }
-          },
-          errorMessage: fieldErrors.confirmRevoke,
-          items: [
-            { value: "yes", text: "Yes, rotate this credential" },
-            { value: "no", text: "No, take me back to Manage AI access" }
-          ]
-        }) }}
-
-        {{ govukButton({ text: "Continue" }) }}
+        {{ govukButton({ text: "Yes, rotate the key", classes: "govuk-button--warning" }) }}
       </form>
+
+      <p class="govuk-body">
+        <a class="govuk-link" href="/manage">No, keep the key I have</a>
+      </p>
     </div>
   </div>
 {% endblock %}
+

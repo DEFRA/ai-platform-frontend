@@ -3,6 +3,7 @@
 {# Import GOVUK components globally #}
 {% from "govuk/components/breadcrumbs/macro.njk" import govukBreadcrumbs %}
 {% from "govuk/components/service-navigation/macro.njk" import govukServiceNavigation %}
+{% from "govuk/components/phase-banner/macro.njk" import govukPhaseBanner %}
 
 {# Import custom components globally #}
 {% from "heading/macro.njk" import appHeading %}
@@ -12,10 +13,11 @@
 {% set navigationEndHtml %}
   <li class="govuk-service-navigation__item app-sign-in-out">
     {% if navUser %}
+      <span class="app-sign-in-out__name">Signed in as {{ navUser.displayName }}</span>
       <form method="post" action="/sign-out">
         <input type="hidden" name="crumb" value="{{ crumb }}">
         <button type="submit" class="govuk-service-navigation__link app-sign-in-out__button">
-          Sign out ({{ navUser.displayName }})
+          Sign out
         </button>
       </form>
     {% else %}
@@ -37,17 +39,15 @@
 {% endblock %}
 
 {% block header %}
-  {# serviceName being used in govukHeader will be @deprecated in v6. It has moved to govukServiceNavigation - https://github.com/alphagov/govuk-frontend/blob/main/CHANGELOG.md#move-service-name-and-navigation-links-from-the-govuk-header-to-service-navigation-component #}
-  {{ govukHeader({
-    homepageUrl: "https://www.gov.uk/",
-    classes: "app-header",
-    containerClasses: "govuk-width-container",
-    serviceName: serviceName,
-    serviceUrl: serviceUrl,
-    useTudorCrown: true
-  }) }}
+  <header class="defra-header">
+    <div class="defra-header__inner">
+      <img class="defra-header__logo" src="{{ getAssetPath('src/client/assets/images/defra-logo.svg') }}" alt="Department for Environment, Food &amp; Rural Affairs">
+      <a href="{{ serviceUrl }}" class="defra-header__svc">{{ serviceName }}</a>
+    </div>
+  </header>
 
   {{ govukServiceNavigation({
+    classes: "defra-primary-nav",
     navigation: navigation,
     slots: {
       navigationEnd: navigationEndHtml
@@ -60,9 +60,14 @@
 {% endblock %}
 
 {% block beforeContent %}
-  {% if breadcrumbs.length > 1 %}
+  {{ govukPhaseBanner({
+    tag: { text: "Alpha" },
+    html: 'This is a new service. <a class="govuk-link" href="#">Give feedback</a> to help us improve it.'
+  }) }}
+
+  {% if currentPath != "/" %}
     {{ govukBreadcrumbs({
-      items: breadcrumbs
+      items: breadcrumbs if breadcrumbs.length > 1 else [{ text: "Home", href: "/" }, { text: heading or pageTitle }]
     }) }}
   {% endif %}
 {% endblock %}
@@ -70,26 +75,26 @@
 {% block content %}{% endblock %}
 
 {% block footer %}
-  {{ govukFooter({
-    meta: {
-      items: [
-        {
-          href: "https://www.gov.uk/help/privacy-notice",
-          text: "Privacy"
-        },
-        {
-          href: "https://www.gov.uk/help/cookies",
-          text: "Cookies"
-        },
-        {
-          href: "https://www.gov.uk/help/accessibility-statement",
-          text: "Accessibility statement"
-        }
-      ]
-    }
-  }) }}
+  <footer class="defra-footer">
+    <div class="govuk-width-container">
+      <ul class="defra-footer__list">
+        <li><a class="defra-footer__link" href="https://www.gov.uk/help/privacy-notice">Privacy</a></li>
+        <li><a class="defra-footer__link" href="https://www.gov.uk/help/cookies">Cookies</a></li>
+        <li><a class="defra-footer__link" href="https://www.gov.uk/help/accessibility-statement">Accessibility statement</a></li>
+      </ul>
+      <p class="govuk-body">
+        Maintained by the AI Capability and Enablement team at Defra.
+        If you've got a question or want to feed back, <a class="defra-footer__link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">get in touch</a>.
+      </p>
+      <p class="govuk-body">
+        All content is available under the
+        <a class="defra-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">Open Government Licence v3.0</a>, except where otherwise stated
+      </p>
+    </div>
+  </footer>
 {% endblock %}
 
 {% block bodyEnd %}
   <script type="module" src="{{ getAssetPath('src/client/javascripts/application.js') }}"></script>
 {% endblock %}
+

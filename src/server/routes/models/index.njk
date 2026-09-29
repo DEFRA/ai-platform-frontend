@@ -11,6 +11,8 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
+      <p class="govuk-body">Models you can use, and the ones you cannot use yet.</p>
+
       <form method="get" novalidate>
         <div class="govuk-grid-row">
           <div class="govuk-grid-column-one-third">
@@ -38,9 +40,14 @@
           </div>
           <div class="govuk-grid-column-one-third">
             {{ govukButton({ text: "Apply filters", classes: "govuk-button--secondary govuk-!-margin-top-6" }) }}
+            <p class="govuk-body">
+              <a class="govuk-link" href="/models" data-testid="models-clear-filters">Clear filters</a>
+            </p>
           </div>
         </div>
       </form>
+
+      <p class="govuk-body" data-testid="models-result-count">Showing {{ resultCount }} models</p>
 
       {{ appModelTable({ models: models }) }}
     </div>
