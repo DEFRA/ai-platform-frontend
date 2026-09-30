@@ -1,0 +1,25 @@
+# Dependencies and lockfiles
+node_modules/
+package-lock.json
+
+# Build output and caches
+.cache/
+.vite/
+.public/
+coverage/
+
+# Version control and tooling metadata
+.git/
+.husky/
+.sonarlint/
+
+# Local logs and ad-hoc test output (not part of the source tree)
+*.log
+lint_output.log
+vitest_account_out.txt
+vitest_out.txt
+vitest_output.log
+vitest_output2.log
+
+# Local secrets
+.env
