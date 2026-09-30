@@ -317,7 +317,12 @@ describe('#teamsController', () => {
       JSON.stringify({
         team: sampleTeam,
         members: [
-          { _id: 'member-1', userId: 'user-1', role: 'admin', status: 'active' },
+          {
+            _id: 'member-1',
+            userId: 'user-1',
+            role: 'admin',
+            status: 'active'
+          },
           {
             _id: 'member-2',
             userId: 'user-2',

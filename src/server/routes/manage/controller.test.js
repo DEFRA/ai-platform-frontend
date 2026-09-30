@@ -132,9 +132,7 @@ describe('#manageController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(
-      expect.stringContaining('You do not have a key yet')
-    )
+    expect(result).toEqual(expect.stringContaining('You do not have a key yet'))
   })
 
   test('GET /manage shows a "Your teams" placeholder with no team memberships', async () => {
@@ -782,7 +780,9 @@ describe('#manageController', () => {
     })
 
     expect(postRotate.statusCode).toBe(303)
-    expect(postRotate.headers.location).toBe('/manage/credentials/cred-1/rotated')
+    expect(postRotate.headers.location).toBe(
+      '/manage/credentials/cred-1/rotated'
+    )
 
     const cookiesAfterRotate = mergeCookies(cookies, postRotate)
     const { statusCode, result } = await server.inject({

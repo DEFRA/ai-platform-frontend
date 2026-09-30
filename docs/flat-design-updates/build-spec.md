@@ -20,7 +20,7 @@ Suggested order, cheapest first:
 1. **Theme, once.** Drop in `_govuk-frontend.scss`. That is roughly 60% of the
    visual change and it applies to every page at once. No AI needed.
 2. **Chrome, once.** Header, nav and footer (below). One layout file.
-3. **Content changes, no AI at all.** Every note tagged *Content* on the sheets is a
+3. **Content changes, no AI at all.** Every note tagged _Content_ on the sheets is a
    string swap in a template. Grep and replace.
 4. **Presenter layer, once.** One filter that every enum and date passes through.
    Kills a whole class of drift permanently.
@@ -41,20 +41,23 @@ does not allow off a GOV.UK domain.
 ```html
 <header class="defra-header">
   <div class="defra-header__inner">
-    <img class="defra-header__logo" src="/assets/defra-logo.svg"
-         alt="Department for Environment, Food &amp; Rural Affairs">
+    <img
+      class="defra-header__logo"
+      src="/assets/defra-logo.svg"
+      alt="Department for Environment, Food &amp; Rural Affairs"
+    />
     <a href="/" class="defra-header__svc">Get AI model access</a>
   </div>
 </header>
 ```
 
-| Property | Value |
-| --- | --- |
-| Background | `#ffffff` |
-| Inner container | `max-width: 960px; margin: 0 auto; padding: 12px 15px` |
-| Layout | `display: flex; align-items: center; gap: 22px` |
-| Logo | `115px` wide, `60px` tall, the Defra SVG |
-| Service name | `24px`, `#0b0c0c`, no underline, baseline aligned with the logo |
+| Property        | Value                                                           |
+| --------------- | --------------------------------------------------------------- |
+| Background      | `#ffffff`                                                       |
+| Inner container | `max-width: 960px; margin: 0 auto; padding: 12px 15px`          |
+| Layout          | `display: flex; align-items: center; gap: 22px`                 |
+| Logo            | `115px` wide, `60px` tall, the Defra SVG                        |
+| Service name    | `24px`, `#0b0c0c`, no underline, baseline aligned with the logo |
 
 Service name comes from `serviceName` in `src/config/config.js`. It currently reads
 `ai-platform-frontend`, which also appears in every page title.
@@ -64,14 +67,14 @@ Service name comes from `serviceName` in `src/config/config.js`. It currently re
 `govukServiceNavigation` exists in govuk-frontend 6. Restyle it to Defra's bar rather
 than building one.
 
-| Property | Value |
-| --- | --- |
-| Background | `#008531` |
-| Bottom rule | `1px solid rgba(255,255,255,0.3)` |
-| Inner container | `max-width: 960px; margin: 0 auto` |
-| Link | `#ffffff`, `16px`, weight `400`, `padding: 12px 16px`, no underline |
-| Link bottom border | `4px solid transparent` |
-| Active item | weight `700`, `border-bottom-color: #ffffff`, `aria-current="page"` |
+| Property           | Value                                                               |
+| ------------------ | ------------------------------------------------------------------- |
+| Background         | `#008531`                                                           |
+| Bottom rule        | `1px solid rgba(255,255,255,0.3)`                                   |
+| Inner container    | `max-width: 960px; margin: 0 auto`                                  |
+| Link               | `#ffffff`, `16px`, weight `400`, `padding: 12px 16px`, no underline |
+| Link bottom border | `4px solid transparent`                                             |
+| Active item        | weight `700`, `border-bottom-color: #ffffff`, `aria-current="page"` |
 
 Items, signed in: **Models**, **Your access**, **Help**, then right-aligned
 `Signed in as {name}` and **Sign out**.
@@ -91,21 +94,30 @@ Dropped from the current nav: **Home**, because the service name links home, and
 ```html
 <footer class="defra-footer">
   <div class="govuk-width-container">
-    <ul><li>Privacy</li><li>Cookies</li><li>Accessibility statement</li></ul>
-    <p>Maintained by the AI Capability and Enablement team at Defra.
-       If you've got a question or want to feed back, <a href="#">get in touch</a>.</p>
-    <p>All content is available under the
-       <a href="#">Open Government Licence v3.0</a>, except where otherwise stated</p>
+    <ul>
+      <li>Privacy</li>
+      <li>Cookies</li>
+      <li>Accessibility statement</li>
+    </ul>
+    <p>
+      Maintained by the AI Capability and Enablement team at Defra. If you've
+      got a question or want to feed back, <a href="#">get in touch</a>.
+    </p>
+    <p>
+      All content is available under the
+      <a href="#">Open Government Licence v3.0</a>, except where otherwise
+      stated
+    </p>
   </div>
 </footer>
 ```
 
-| Property | Value |
-| --- | --- |
-| Top rule | `10px solid #008531` |
-| Background | `#f3f2f1` |
-| Padding | `25px 0` |
-| Links | `#0b0c0c`, `16px`, underlined |
+| Property   | Value                         |
+| ---------- | ----------------------------- |
+| Top rule   | `10px solid #008531`          |
+| Background | `#f3f2f1`                     |
+| Padding    | `25px 0`                      |
+| Links      | `#0b0c0c`, `16px`, underlined |
 
 ---
 
@@ -114,22 +126,22 @@ Dropped from the current nav: **Home**, because the service name links home, and
 One place every enum and date passes through, so the raw values stop reaching the
 screen. Build this before the page work.
 
-| Raw | Shown |
-| --- | --- |
-| `openai` | OpenAI |
-| `anthropic` | Anthropic |
-| `uksouth` / `uk` | UK South |
-| `research, team` | Research, Team |
-| `gpt-4o` | GPT-4o |
-| `active` | Active |
-| `pending` | Setting up |
-| `revoked` | Revoked |
-| `expired` | Expired |
-| `failed` | Failed |
-| `approved` | Approved |
-| `not-approved` | Not approved |
-| `planned` | Planned |
-| ISO timestamp | 12 October 2026 |
+| Raw              | Shown           |
+| ---------------- | --------------- |
+| `openai`         | OpenAI          |
+| `anthropic`      | Anthropic       |
+| `uksouth` / `uk` | UK South        |
+| `research, team` | Research, Team  |
+| `gpt-4o`         | GPT-4o          |
+| `active`         | Active          |
+| `pending`        | Setting up      |
+| `revoked`        | Revoked         |
+| `expired`        | Expired         |
+| `failed`         | Failed          |
+| `approved`       | Approved        |
+| `not-approved`   | Not approved    |
+| `planned`        | Planned         |
+| ISO timestamp    | 12 October 2026 |
 
 ---
 
@@ -224,7 +236,7 @@ reason  Hosted in the US, not the UK or EU
 ```
 
 Status wording comes from the provider status in B04. Do not use "Available": the
-platform keeps *available model*, *eligible offering* and *active grant* as separate
+platform keeps _available model_, _eligible offering_ and _active grant_ as separate
 things and "Available" blurs them.
 
 ---

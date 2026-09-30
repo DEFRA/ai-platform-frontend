@@ -36,11 +36,15 @@ const selectModelSchema = Joi.object({
 const MODEL_PLACEHOLDER = '{model}'
 
 const detailsSchema = Joi.object({
-  purpose: Joi.string().trim().max(500).required().messages({
-    'string.empty': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
-    'any.required': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
-    'string.max': 'Purpose must be 500 characters or fewer'
-  }),
+  purpose: Joi.string()
+    .trim()
+    .max(500)
+    .required()
+    .messages({
+      'string.empty': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
+      'any.required': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
+      'string.max': 'Purpose must be 500 characters or fewer'
+    }),
   agreeToTerms: Joi.string().valid('true').required().messages({
     'any.required': 'Confirm that you understand the limits',
     'any.only': 'Confirm that you understand the limits'
@@ -437,7 +441,10 @@ export const connectController = {
                 pageTitle: 'Check your answers',
                 heading: 'Check your answers',
                 model,
-                summaryRows: buildCheckAnswersRows(model, pendingAccess.purpose),
+                summaryRows: buildCheckAnswersRows(
+                  model,
+                  pendingAccess.purpose
+                ),
                 purpose: pendingAccess.purpose,
                 errorMessage: errorMessageForCode(error),
                 errorAction: error.code === 'active-credential-exists'

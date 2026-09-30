@@ -571,4 +571,3 @@ describe('#teamConnectController', () => {
     )
   })
 })
-

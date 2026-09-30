@@ -21,9 +21,7 @@ import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 // the Sandbox (SND4) - every design C environment is shown so the option
 // isn't a surprise later, but only `sandbox` is enabled, matching the
 // backend's `environment-not-available` policy for anything else.
-const ENVIRONMENT_ITEMS = [
-  { value: 'sandbox', text: 'Sandbox', checked: true }  
-]
+const ENVIRONMENT_ITEMS = [{ value: 'sandbox', text: 'Sandbox', checked: true }]
 
 // The wait page groups every intermediate GitOps state into one friendly
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
@@ -438,9 +436,7 @@ export const teamConnectController = {
               "Your team's model is ready to use - see it below. Ask the person who requested it for the connection details."
           })
 
-          return h
-            .redirect('/manage')
-            .code(statusCodes.seeOther)
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
         // Defense in depth for /manage already hiding this deployment's
@@ -467,9 +463,7 @@ export const teamConnectController = {
               'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
           })
 
-          return h
-            .redirect('/manage')
-            .code(statusCodes.seeOther)
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
         // status is 'active': issue (or reuse) the shared team credential.
@@ -496,9 +490,7 @@ export const teamConnectController = {
             message: "Your team's model is ready to use - see it below."
           })
 
-          return h
-            .redirect('/manage')
-            .code(statusCodes.seeOther)
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
         const model = await apiClient(request).get(
@@ -532,4 +524,3 @@ export const teamConnectController = {
     }
   }
 }
-

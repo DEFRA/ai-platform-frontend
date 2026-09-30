@@ -137,7 +137,11 @@ function statusDisplayFor(credential) {
   }
 }
 
-function decorateKeyRow(credential, modelNames, { forText, showRenewRevoke, isAdmin }) {
+function decorateKeyRow(
+  credential,
+  modelNames,
+  { forText, showRenewRevoke, isAdmin }
+) {
   const statusDisplay = statusDisplayFor(credential)
 
   return {
@@ -227,17 +231,25 @@ function buildIssuedModelSlugsByTeam(teamCredentials) {
   return issuedByTeam
 }
 
-function buildBeingSetUpRows(deployments, teamCredentials, teamsById, modelNames) {
+function buildBeingSetUpRows(
+  deployments,
+  teamCredentials,
+  teamsById,
+  modelNames
+) {
   const issuedModelSlugsByTeam = buildIssuedModelSlugsByTeam(teamCredentials)
 
   return deployments
     .filter(
       (deployment) =>
-        !issuedModelSlugsByTeam.get(deployment.teamId)?.has(deployment.modelSlug)
+        !issuedModelSlugsByTeam
+          .get(deployment.teamId)
+          ?.has(deployment.modelSlug)
     )
     .map((deployment) => ({
       ...deployment,
-      modelDisplayName: modelNames[deployment.modelSlug] ?? deployment.modelSlug,
+      modelDisplayName:
+        modelNames[deployment.modelSlug] ?? deployment.modelSlug,
       forText: teamsById.get(deployment.teamId)?.name ?? 'Unknown team',
       statusText: deploymentStatusText(deployment.status),
       tagClass: deploymentTagClass(deployment.status),

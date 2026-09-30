@@ -9,7 +9,9 @@ const RENEWAL_WARNING_DAYS = 3
 async function buildModelNameMap(request) {
   try {
     const { items } = await apiClient(request).get('/v1/models')
-    return Object.fromEntries(items.map((model) => [model.slug, model.displayName]))
+    return Object.fromEntries(
+      items.map((model) => [model.slug, model.displayName])
+    )
   } catch {
     return {}
   }
@@ -87,7 +89,10 @@ export const homeController = {
         userId: sessionUser.id
       }))
     } catch (error) {
-      request.logger.warn({ err: error }, 'Could not load access summary for the home page')
+      request.logger.warn(
+        { err: error },
+        'Could not load access summary for the home page'
+      )
     }
 
     const teamsById = new Map(teamsList.map((team) => [team._id, team]))

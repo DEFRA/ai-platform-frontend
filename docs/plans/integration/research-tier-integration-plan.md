@@ -36,12 +36,12 @@ user signs in → requests access to a model → backend calls ARM → APIM subs
 Route 1 shipped on 22 Sept 2026 against two mocks. This plan replaces both, adds the credential
 persistence the design pack requires, and restructures issuing so it is not Azure-only:
 
-| Seam | Today | After this plan |
-|------|-------|-----------------|
-| Credential issuing | [`mock-credential-issuer.js`](../../../../ai-platform-backend-api/src/adapters/mock-credential-issuer.js) generates a fake key locally | Azure **ARM management-plane** adapter behind the same `CredentialIssuer` port |
-| Provider choice | Hardcoded default parameter | Registry keyed by provider; adding AWS Bedrock is a new adapter plus one registry entry |
-| Model catalogue | [`models.seed.json`](../../../../ai-platform-backend-api/src/common/seed/models.seed.json) re-seeded on every start | Derived from real Foundry deployments, held in `ai-platform-infra/catalogue/`, read via Octokit and synced to MongoDB |
-| Credential storage | Secret returned once, never persisted anywhere | Written to `kv-aip-{env}-tenants` Key Vault, with an audited view/re-share path |
+| Seam               | Today                                                                                                                                  | After this plan                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Credential issuing | [`mock-credential-issuer.js`](../../../../ai-platform-backend-api/src/adapters/mock-credential-issuer.js) generates a fake key locally | Azure **ARM management-plane** adapter behind the same `CredentialIssuer` port                                        |
+| Provider choice    | Hardcoded default parameter                                                                                                            | Registry keyed by provider; adding AWS Bedrock is a new adapter plus one registry entry                               |
+| Model catalogue    | [`models.seed.json`](../../../../ai-platform-backend-api/src/common/seed/models.seed.json) re-seeded on every start                    | Derived from real Foundry deployments, held in `ai-platform-infra/catalogue/`, read via Octokit and synced to MongoDB |
+| Credential storage | Secret returned once, never persisted anywhere                                                                                         | Written to `kv-aip-{env}-tenants` Key Vault, with an audited view/re-share path                                       |
 
 ## Critical correction: ARM management plane, not APIM's own APIs
 
@@ -53,25 +53,25 @@ Two traps worth naming, because both look plausible:
 
 **Trap 1 — the legacy direct management API.** APIM also exposes
 `https://{apim}.management.azure-api.net`, authenticated with a SharedAccessSignature token. It is
-*not* what this plan uses. Everything here goes to `https://management.azure.com` with an OAuth
+_not_ what this plan uses. Everything here goes to `https://management.azure.com` with an OAuth
 **bearer** token from Entra ID, acquired for the `https://management.azure.com/.default` scope. ARM
 gives Entra-issued tokens, RBAC-scoped roles and activity-log auditing, with no shared gateway
 secret; the legacy endpoint gives none of those.
 
-**Trap 2 — authoring a facade.** Creating `/issue` and `/revoke` operations *on* APIM, fronting
+**Trap 2 — authoring a facade.** Creating `/issue` and `/revoke` operations _on_ APIM, fronting
 something else, would put credential management on the same gateway it manages, reachable by anyone
 holding a gateway key. Control plane and data plane stay separate.
 
 All five lifecycle operations, with `api-version=2024-05-01` and
 `{base} = https://management.azure.com/subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.ApiManagement/service/{apim}`:
 
-| Port method | ARM call | Notes |
-|-------------|----------|-------|
-| `issue` | `PUT {base}/subscriptions/{sid}` with `{"properties":{"scope":"{base}/apis/{apiId}","displayName":"...","state":"active"}}`, then `POST {base}/subscriptions/{sid}/listSecrets` | The key is never returned by `PUT` or `GET` — `listSecrets` is the only way to read it |
-| `rotate` | `POST {base}/subscriptions/{sid}/regeneratePrimaryKey`, then `listSecrets` | Let Azure mint the key rather than supplying our own. Returns 204 with no body, hence the second call |
-| `renew` | `PATCH {base}/subscriptions/{sid}` with `{"properties":{"expirationDate":"..."}}` | APIM's `expirationDate` is **audit metadata only** — it deactivates nothing. The backend keeps owning TTL enforcement |
-| `suspend` | `PATCH {base}/subscriptions/{sid}` with `{"properties":{"state":"suspended"}}` | |
-| `revoke` | `DELETE {base}/subscriptions/{sid}` | |
+| Port method | ARM call                                                                                                                                                                        | Notes                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `issue`     | `PUT {base}/subscriptions/{sid}` with `{"properties":{"scope":"{base}/apis/{apiId}","displayName":"...","state":"active"}}`, then `POST {base}/subscriptions/{sid}/listSecrets` | The key is never returned by `PUT` or `GET` — `listSecrets` is the only way to read it                                |
+| `rotate`    | `POST {base}/subscriptions/{sid}/regeneratePrimaryKey`, then `listSecrets`                                                                                                      | Let Azure mint the key rather than supplying our own. Returns 204 with no body, hence the second call                 |
+| `renew`     | `PATCH {base}/subscriptions/{sid}` with `{"properties":{"expirationDate":"..."}}`                                                                                               | APIM's `expirationDate` is **audit metadata only** — it deactivates nothing. The backend keeps owning TTL enforcement |
+| `suspend`   | `PATCH {base}/subscriptions/{sid}` with `{"properties":{"state":"suspended"}}`                                                                                                  |                                                                                                                       |
+| `revoke`    | `DELETE {base}/subscriptions/{sid}`                                                                                                                                             |                                                                                                                       |
 
 **`PATCH` and `DELETE` require an `If-Match` header.** Send the ETag from a prior read, or `*`.
 Omitting it returns 412 and is an easy half-hour to lose.
@@ -88,10 +88,10 @@ is infrastructure work, and it is Phase 0.
 The single easiest thing to get wrong, because the obvious environment variable names are already
 taken.
 
-| App registration | Purpose | Lives in | Environment variables |
-|------------------|---------|----------|-----------------------|
-| **Existing** | Entra ID SSO / sign-in **only** | frontend [`config.js`](../../../src/config/config.js) as `azureAd.*` | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` |
-| **New** | Backend → Azure ARM, for the credential issuer | backend `src/config.js` as `armAuth.*` | `AZURE_ARM_TENANT_ID`, `AZURE_ARM_CLIENT_ID`, `AZURE_ARM_CLIENT_SECRET` |
+| App registration | Purpose                                        | Lives in                                                             | Environment variables                                                   |
+| ---------------- | ---------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Existing**     | Entra ID SSO / sign-in **only**                | frontend [`config.js`](../../../src/config/config.js) as `azureAd.*` | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`             |
+| **New**          | Backend → Azure ARM, for the credential issuer | backend `src/config.js` as `armAuth.*`                               | `AZURE_ARM_TENANT_ID`, `AZURE_ARM_CLIENT_ID`, `AZURE_ARM_CLIENT_SECRET` |
 
 The new registration is provided to us, not created by this plan. It holds **Contributor** and
 **User Access Administrator** on the subscription, and uses a **client secret — no certificates**.
@@ -106,14 +106,14 @@ ClientSecretCredential(armAuth.tenantId, armAuth.clientId, armAuth.clientSecret)
 
 Three separate failure modes if they reuse the SSO names:
 
-1. **Silent inheritance.** `AZURE_TENANT_ID` is already set at the *environment* level in
+1. **Silent inheritance.** `AZURE_TENANT_ID` is already set at the _environment_ level in
    `cdp-app-config/environments/*/defaults.env` for SSO. The backend would pick it up
    automatically. If the ARM registration sits in a different tenant, it fails looking like a bad
    secret.
 2. **Two secrets, one name.** Two different `AZURE_CLIENT_SECRET` values for two different
    registrations, indistinguishable in CDP secrets by name alone.
 3. **The nasty one.** `@azure/identity`'s `EnvironmentCredential` and `DefaultAzureCredential` read
-   *exactly* `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`. We construct
+   _exactly_ `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`. We construct
    `ClientSecretCredential` explicitly, so this is safe today — but anyone later "simplifying" to
    `DefaultAzureCredential` would silently authenticate to ARM as the **SSO** registration, and fail
    with a permissions error pointing at entirely the wrong thing.
@@ -124,7 +124,7 @@ The config section is named `armAuth` rather than `azure`, deliberately mirrorin
 ### Two consequences of the roles it holds
 
 **Contributor does not grant secret access.** On an RBAC-authorised Key Vault, Contributor manages
-the *vault* but cannot read or write *secrets*. Phase 3 needs an explicit **Key Vault Secrets
+the _vault_ but cannot read or write _secrets_. Phase 3 needs an explicit **Key Vault Secrets
 Officer** assignment — step 0.10. User Access Administrator is what lets us make that assignment
 ourselves, so it is self-service, but it will not work until it is done.
 
@@ -142,9 +142,9 @@ and
 [design-infrastructure.md](../../../../ai-platform-discovery-docs/src/content/design-infrastructure.md).
 Each of these is easy to get wrong by reasoning from first principles:
 
-1. **APIM products are not used.** *"Why the boundary is an API for each team and not a product in
+1. **APIM products are not used.** _"Why the boundary is an API for each team and not a product in
    API Management... Products are not used. The path selects the team's policy; the token or key
-   proves the caller is that team."* The research subscription must therefore be **API-scoped** —
+   proves the caller is that team."_ The research subscription must therefore be **API-scoped** —
    `scope: /apis/{researchApiId}` — not `/products/research`.
 2. Research is a platform-owned team named `research`, with an API at `/research` and shared
    deployments. It exists only in SND4 (sandbox) and SND1 (infradev). **There is no `/research`
@@ -156,24 +156,24 @@ Each of these is easy to get wrong by reasoning from first principles:
    suspends and then deletes past-expiry subscriptions through the `CredentialIssuer` port — this
    is already built as `POST /maintenance/expire-credentials`.
 5. Catalogue: a `CatalogueSource` port with a `github` adapter reading `catalogue/` at each
-   environment's pinned release *"with ETag caching on start and on a schedule"*, plus a `file`
+   environment's pinned release _"with ETag caching on start and on a schedule"_, plus a `file`
    adapter for local development. Records are mirrored to MongoDB with `catalogueSha` and
    `release`. **The nightly refresh is the design, not an addition to it.**
 6. Availability rule: a model is available when the catalogue at that environment's release says
    `eligible`, lists the environment, **and** the deployment's ARM `provisioningState` is
    `Succeeded`. Catalogue alone is not enough.
 7. Key Vault (`kv-aip-{env}-tenants`):
-   - Holds every credential the platform issues, *"one secret per credential named by an opaque
-     credential ID, tagged `aip-team`, `aip-service-code` and `aip-environment`"*.
+   - Holds every credential the platform issues, _"one secret per credential named by an opaque
+     credential ID, tagged `aip-team`, `aip-service-code` and `aip-environment`"_.
    - Backend principal is **Key Vault Secrets Officer at vault scope**; no other data-plane
      principal; teams have no access of any kind.
-   - *"Tenant separation inside the tenants vault is enforced by the backend, not by Key Vault"* —
+   - _"Tenant separation inside the tenants vault is enforced by the backend, not by Key Vault"_ —
      the backend resolves the caller's team and role from MongoDB before it names a secret.
      Per-secret role assignments are deliberately not used.
-   - *"View or re-share an existing credential... audited with actor, credential ID and reason...
-     the value is rendered once per request and never cached."*
+   - _"View or re-share an existing credential... audited with actor, credential ID and reason...
+     the value is rendered once per request and never cached."_
    - Secrets soft-deleted for 90 days; purge protection on the vault.
-8. *"Production refuses to start with a mock adapter selected for any of the direct paths."* — so
+8. _"Production refuses to start with a mock adapter selected for any of the direct paths."_ — so
    adapter selection needs a config flag and a production startup guard.
 
 ## Blocking fact
@@ -393,7 +393,7 @@ curl -s -X POST "https://<gateway>/research/deployments/gpt-4-1/chat/completions
 
 **This is the gate.** Expect a completion. Then confirm the negative paths:
 
-- the same curl against a deployment *not* in the named value → 403 `model-not-granted`
+- the same curl against a deployment _not_ in the named value → 403 `model-not-granted`
 - the same curl with no key header → 401
 
 Clean up:
@@ -538,19 +538,19 @@ is what stops the third provider quietly breaking the service.
 
 ## SOLID mapping
 
-| Principle | How |
-|-----------|-----|
+| Principle             | How                                                                                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Single responsibility | ArmClient authenticates; the issuer translates port calls to ARM; the registry resolves; `credential-service` orchestrates |
-| Open/closed | New provider = new adapter + one registry entry; no edit to `credential-service.js` |
-| Liskov substitution | Enforced by the shared contract suite in 1.8, not by convention |
-| Interface segregation | The port keeps its five methods; ArmClient exposes only `request()` |
-| Dependency inversion | The service depends on the registry abstraction, never on a concrete Azure client |
+| Open/closed           | New provider = new adapter + one registry entry; no edit to `credential-service.js`                                        |
+| Liskov substitution   | Enforced by the shared contract suite in 1.8, not by convention                                                            |
+| Interface segregation | The port keeps its five methods; ArmClient exposes only `request()`                                                        |
+| Dependency inversion  | The service depends on the registry abstraction, never on a concrete Azure client                                          |
 
 # Phase 2 — Catalogue from Foundry, through the infra repo, into MongoDB
 
 The "models reflecting those in Foundry" half of the goal, and independent of Phase 1 — the two can
-run in parallel. The chain is deliberate: Foundry is the truth about what *exists*, the catalogue is
-the truth about what is *allowed*, and MongoDB is the read model the API serves.
+run in parallel. The chain is deliberate: Foundry is the truth about what _exists_, the catalogue is
+the truth about what is _allowed_, and MongoDB is the read model the API serves.
 
 1. **Generate the catalogue from 0.3's deployment list.** Create `catalogue/providers/{id}.json`,
    `catalogue/models/{slug}.json` and `catalogue/schema/*.json` in `ai-platform-infra`, one model
@@ -568,6 +568,7 @@ the truth about what is *allowed*, and MongoDB is the read model the API serves.
    `provider` / `offering` is also what `registry.forModel()` keys on in Phase 1, so this is the
    field that would route a Bedrock model to a Bedrock issuer. Tag the result `v0.1.0` so there is a
    pinned release to read.
+
 2. New port `src/adapters/catalogue-source.js` —
    `fetchCatalogue({ ref }) => { models[], providers[], catalogueSha, release }`.
 3. New `src/adapters/github/github-catalogue-source.js` — Octokit, authenticating with either the
@@ -594,7 +595,7 @@ Depends on 0.9.
 1. New port `src/adapters/credential-vault.js` —
    `{ put({credentialId, secret, tags, expiresOn}), get({credentialId}), remove({credentialId}) }`.
    Kept separate from `CredentialIssuer` because the design treats them as sequential steps
-   (*"through the `CredentialIssuer` port, **then** written to `kv-aip-{env}-tenants`"*), and
+   (_"through the `CredentialIssuer` port, **then** written to `kv-aip-{env}-tenants`"_), and
    because it leaves the issuer port signature untouched.
 2. New `src/adapters/azure/key-vault-credential-vault.js` using the `SecretClient` from
    `@azure/keyvault-secrets`, with the same `ClientSecretCredential` built in 1.1. Secret name
@@ -656,7 +657,7 @@ Depends on Phases 2, 3 and 4.
    `endpoint` field.
 2. `src/server/routes/models/` list and detail — render `lifecycle.status`, `eligibility.reason` and
    the new "deployment not live" state, instead of silently hiding ineligible models.
-3. Code snippets keyed off `apiProfile` (design: *"snippets and tabs follow `apiProfile`"*),
+3. Code snippets keyed off `apiProfile` (design: _"snippets and tabs follow `apiProfile`"_),
    replacing any hardcoded chat-completions shape.
 4. Map `model-not-granted` (403, gateway-level) to GOV.UK error copy. It is distinct from the
    existing catalogue-level `model-not-eligible`.
@@ -708,6 +709,7 @@ Everything before this runs locally against the sandbox. This phase is what make
    `Reader` on the Foundry account — Reader is control-plane only, so the backend still cannot call
    a model. Then `az keyvault network-rule add` for the CDP egress ranges. This is a prerequisite
    for promotion, not an optional cleanup.
+
 4. Tidy up the APIM samples now nothing depends on them: delete `echo-api` and, more importantly,
    the `starter` / `unlimited` products, so no keyless request can match an open product.
 5. Docs: dated `**UPDATED**` note in [route1-plan.md](../route1-plan.md);
@@ -757,24 +759,24 @@ Plus the negative path: a deployment outside `research-allowed-deployments` → 
 
 Backend (`ai-platform-backend-api`):
 
-| File | Change |
-|------|--------|
-| `src/adapters/credential-issuer.js` | Port: `apimSubscriptionId` → `externalId`; methods unchanged |
-| `src/adapters/credential-issuer-registry.js` | **New** — `forModel()` / `forCredential()` |
-| `src/adapters/mock-credential-issuer.js` | Stays; must pass the contract suite |
-| `src/adapters/azure/{arm-client,apim-credential-issuer,foundry-deployments,key-vault-credential-vault}.js` | New |
-| `src/adapters/{catalogue-source,file-catalogue-source,credential-vault,mock-credential-vault}.js` | New |
-| `src/adapters/github/github-catalogue-source.js` | New |
-| `src/services/credential-service.js` | Registry injection; `issuerKey`; vault wiring; `revealCredential` |
-| `src/services/models-service.js` | Query gains the liveness condition |
-| `src/services/catalogue-service.js` | New |
-| `src/services/maintenance-service.js` | Reconcile `vaultState: 'unwritten'` |
-| `src/common/seed/{seed-models.js,models.seed.json}` | Becomes the file-adapter fixture |
-| `src/common/backfills/registry.js` | `issuerKey` backfill; catalogue reshape backfill |
-| `src/plugins/mongodb.js` | Swap seed call for `syncCatalogue`; index on `lifecycle.status` |
-| `src/routes/{credentials.js,maintenance.js}` | Reveal route; sync-catalogue route |
-| `src/config.js` | New `armAuth.*` section and the keys below |
-| `vitest.config.js` | Exclude the contract-suite helper from coverage |
+| File                                                                                                       | Change                                                            |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `src/adapters/credential-issuer.js`                                                                        | Port: `apimSubscriptionId` → `externalId`; methods unchanged      |
+| `src/adapters/credential-issuer-registry.js`                                                               | **New** — `forModel()` / `forCredential()`                        |
+| `src/adapters/mock-credential-issuer.js`                                                                   | Stays; must pass the contract suite                               |
+| `src/adapters/azure/{arm-client,apim-credential-issuer,foundry-deployments,key-vault-credential-vault}.js` | New                                                               |
+| `src/adapters/{catalogue-source,file-catalogue-source,credential-vault,mock-credential-vault}.js`          | New                                                               |
+| `src/adapters/github/github-catalogue-source.js`                                                           | New                                                               |
+| `src/services/credential-service.js`                                                                       | Registry injection; `issuerKey`; vault wiring; `revealCredential` |
+| `src/services/models-service.js`                                                                           | Query gains the liveness condition                                |
+| `src/services/catalogue-service.js`                                                                        | New                                                               |
+| `src/services/maintenance-service.js`                                                                      | Reconcile `vaultState: 'unwritten'`                               |
+| `src/common/seed/{seed-models.js,models.seed.json}`                                                        | Becomes the file-adapter fixture                                  |
+| `src/common/backfills/registry.js`                                                                         | `issuerKey` backfill; catalogue reshape backfill                  |
+| `src/plugins/mongodb.js`                                                                                   | Swap seed call for `syncCatalogue`; index on `lifecycle.status`   |
+| `src/routes/{credentials.js,maintenance.js}`                                                               | Reveal route; sync-catalogue route                                |
+| `src/config.js`                                                                                            | New `armAuth.*` section and the keys below                        |
+| `vitest.config.js`                                                                                         | Exclude the contract-suite helper from coverage                   |
 
 Frontend (`ai-platform-frontend`):
 `src/server/routes/models/`, `src/server/routes/connect/shared/credential/`,

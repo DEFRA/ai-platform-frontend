@@ -95,8 +95,7 @@ async function loadTeamForView(request, id) {
         member.email && !isAdmin && member.userId !== sessionUser.id
           ? maskEmail(member.email)
           : member.email,
-      canRemove:
-        isAdmin && !(member.role === 'admin' && activeAdminCount <= 1)
+      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1)
     }))
 
   return { ...result, members, isAdmin }
