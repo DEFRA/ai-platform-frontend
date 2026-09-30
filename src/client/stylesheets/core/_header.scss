@@ -1,20 +1,26 @@
-@use "variables/colours" as *;
-
-// Example namespaced custom element style CSS classes
-
-.app-header {
-  border-bottom-color: $app-light-grey;
+// Sign in/out slot rendered at the end of the Defra service navigation bar.
+// Right-alignment (margin-left: auto) lives in partials/_chrome.scss, scoped
+// to .defra-primary-nav - it needs to out-specificity that partial's own
+// `.govuk-service-navigation__item { margin: 0 }` reset, which a bare
+// .app-sign-in-out rule here can't do.
+.app-sign-in-out {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.app-sign-in-out {
-  margin-left: auto;
+.app-sign-in-out__name {
+  color: #ffffff;
+  font-size: 16px;
 }
 
 .app-sign-in-out__button {
   background: none;
   border: 0;
+  color: #ffffff;
   cursor: pointer;
   font: inherit;
   padding: 0;
+  text-decoration: underline;
 }
 

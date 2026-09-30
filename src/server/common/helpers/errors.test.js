@@ -23,7 +23,7 @@ describe('#errors', () => {
     })
 
     expect(result).toEqual(
-      expect.stringContaining('Page not found | ai-platform-frontend')
+      expect.stringContaining('Page not found | AI Platform Portal')
     )
     expect(statusCode).toBe(statusCodes.notFound)
   })

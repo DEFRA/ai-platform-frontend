@@ -3,7 +3,6 @@
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 {% from "govuk/components/tag/macro.njk" import govukTag %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/tabs/macro.njk" import govukTabs %}
 {% from "credential-actions/macro.njk" import appCredentialActions %}
 
 {% block head %}
@@ -24,41 +23,40 @@
         {{ govukNotificationBanner(notificationBanner) }}
       {% endif %}
 
-      <h2 class="govuk-heading-m">Your credentials</h2>
+      <h2 class="govuk-heading-m">Keys you can use</h2>
 
-      {% if credentials.length == 0 %}
-        <p class="govuk-body">You do not have any credentials yet.</p>
-        <p class="govuk-body">
-          <a class="govuk-link" href="/connect">Connect to a model</a>
-        </p>
+      {% if keyRows.length == 0 %}
+        <p class="govuk-body">You do not have a key yet.</p>
+        <p class="govuk-body">Pick a model and answer three short questions. It takes about 5 minutes.</p>
+        {{ govukButton({ text: "Browse models", href: "/models" }) }}
       {% else %}
-        <table class="govuk-table app-credentials-table">
+        <table class="govuk-table app-credentials-table" data-testid="keys-table">
+          <caption class="govuk-table__caption govuk-visually-hidden">Keys you can use</caption>
           <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-              <th class="govuk-table__header" scope="col">Model</th>
+              <th class="govuk-table__header" scope="col">For</th>
+              <th class="govuk-table__header" scope="col">Models</th>
+              <th class="govuk-table__header" scope="col">Environment</th>
               <th class="govuk-table__header" scope="col">Status</th>
-              <th class="govuk-table__header" scope="col">Key</th>
-              <th class="govuk-table__header" scope="col">Expires</th>
+              <th class="govuk-table__header" scope="col">Runs out</th>
               <th class="govuk-table__header" scope="col">Actions</th>
             </tr>
           </thead>
           <tbody class="govuk-table__body">
-            {% for credential in credentials %}
-              <tr class="govuk-table__row">
-                <td class="govuk-table__cell">{{ credential.modelDisplayName }}</td>
+            {% for row in keyRows %}
+              <tr class="govuk-table__row" data-testid="keys-table-row">
+                <td class="govuk-table__cell">{{ row.forText }}</td>
+                <td class="govuk-table__cell">{{ row.modelDisplayName }}, ends {{ row.keyHint }}</td>
+                <td class="govuk-table__cell">{{ row.environment }}</td>
                 <td class="govuk-table__cell">
-                  {{ govukTag({
-                    text: credential.status,
-                    classes: credential.tagClass
-                  }) }}
+                  {{ govukTag({ text: row.statusText, classes: row.tagClass }) }}
                 </td>
-                <td class="govuk-table__cell">…{{ credential.keyHint }}</td>
-                <td class="govuk-table__cell">{{ credential.expiresAt }}</td>
+                <td class="govuk-table__cell">{{ row.runsOut }}</td>
                 <td class="govuk-table__cell">
                   {{ appCredentialActions({
-                    credential: credential,
+                    credential: row,
                     crumb: crumb,
-                    showRenewRevoke: true
+                    showRenewRevoke: row.showRenewRevoke
                   }) }}
                 </td>
               </tr>
@@ -67,106 +65,62 @@
         </table>
       {% endif %}
 
+      {% if beingSetUpRows.length > 0 %}
+        <h2 class="govuk-heading-m">Being set up</h2>
+        <table class="govuk-table app-credentials-table" data-testid="being-set-up-table">
+          <caption class="govuk-table__caption govuk-visually-hidden">Being set up</caption>
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th class="govuk-table__header" scope="col">Model</th>
+              <th class="govuk-table__header" scope="col">For</th>
+              <th class="govuk-table__header" scope="col">Status</th>
+              <th class="govuk-table__header" scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for deployment in beingSetUpRows %}
+              <tr class="govuk-table__row">
+                <td class="govuk-table__cell">{{ deployment.modelDisplayName }}</td>
+                <td class="govuk-table__cell">{{ deployment.forText }}</td>
+                <td class="govuk-table__cell">
+                  {{ govukTag({
+                    text: deployment.statusText,
+                    classes: deployment.tagClass
+                  }) }}
+                </td>
+                <td class="govuk-table__cell">
+                  <a class="govuk-link app-link--progress" href="{{ deployment.requestUrl }}" data-testid="deployment-check-progress">
+                    {% if deployment.status != "active" %}<span class="app-spinner" aria-hidden="true"></span>{% endif %}
+                    Check progress
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
 
       <h2 class="govuk-heading-m">Your teams</h2>
 
       {% if teams.length == 0 %}
         <p class="govuk-body" data-testid="manage-teams-placeholder">You are not a member of a team yet.</p>
+        <p class="govuk-body">
+          Team keys are shared, last longer and can be rotated. If your team already has one, ask an admin to add you.
+        </p>
+        <p class="govuk-body">
+          <a class="govuk-link" href="/teams/new">Create a team</a>
+        </p>
       {% else %}
-        {% set teamTabItems = [] %}
-        {% for team in teams %}
-          {% set teamPanelHtml %}
-            {% if team.credentials.length == 0 %}
-              <p class="govuk-body">This team does not have any credentials yet.</p>
-            {% else %}
-              <table class="govuk-table app-credentials-table">
-                <thead class="govuk-table__head">
-                  <tr class="govuk-table__row">
-                    <th class="govuk-table__header" scope="col">{{ team.modelColumnHeader }}</th>
-                    <th class="govuk-table__header" scope="col">Status</th>
-                    <th class="govuk-table__header" scope="col">Key</th>
-                    <th class="govuk-table__header" scope="col">Expires</th>
-                    <th class="govuk-table__header" scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody class="govuk-table__body">
-                  {% for credential in team.credentials %}
-                    <tr class="govuk-table__row">
-                      <td class="govuk-table__cell">{{ credential.modelDisplayName }}</td>
-                      <td class="govuk-table__cell">
-                        {{ govukTag({
-                          text: credential.status,
-                          classes: credential.tagClass
-                        }) }}
-                      </td>
-                      <td class="govuk-table__cell">…{{ credential.keyHint }}</td>
-                      <td class="govuk-table__cell">{{ credential.expiresAt }}</td>
-                      <td class="govuk-table__cell">
-                        {{ appCredentialActions({
-                          credential: credential,
-                          showRenewRevoke: false
-                        }) }}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% endif %}
-
-            {% if team.deployments.length > 0 %}
-              <h3 class="govuk-heading-s">Requests</h3>
-
-              <table class="govuk-table app-credentials-table">
-                <thead class="govuk-table__head">
-                  <tr class="govuk-table__row">
-                    <th class="govuk-table__header" scope="col">Model</th>
-                    <th class="govuk-table__header" scope="col">Status</th>
-                    <th class="govuk-table__header" scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody class="govuk-table__body">
-                  {% for deployment in team.deployments %}
-                    <tr class="govuk-table__row">
-                      <td class="govuk-table__cell">{{ deployment.modelDisplayName }}</td>
-                      <td class="govuk-table__cell">
-                        {{ govukTag({
-                          text: deployment.statusText,
-                          classes: deployment.tagClass
-                        }) }}
-                      </td>
-                      <td class="govuk-table__cell">
-                        <div class="app-button-group">
-                          {{ govukButton({
-                            html: 'Check progress' if deployment.status == "active" else '<span class="app-spinner" aria-hidden="true"></span> Check progress',
-                            href: deployment.requestUrl,
-                            classes: "app-button--progress",
-                            attributes: { "data-testid": "deployment-check-progress" }
-                          }) }}
-                        </div>
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% endif %}
-
-            <p class="govuk-body">
-              <a class="govuk-link" href="/teams/{{ team._id }}">View team</a>
-            </p>
-          {% endset %}
-
-          {% set teamTabItems = teamTabItems.concat([{
-            label: team.name,
-            id: "manage-team-" + team._id,
-            panel: { html: teamPanelHtml }
-          }]) %}
-        {% endfor %}
-
-        {{ govukTabs({
-          idPrefix: "manage-teams",
-          items: teamTabItems
-        }) }}
+        <ul class="govuk-list">
+          {% for team in teams %}
+            <li>
+              You are {{ "an admin" if team.role == "admin" else "a member" }} of {{ team.name }}.
+              <a class="govuk-link" href="/teams/{{ team._id }}">See who is in {{ team.name }}</a>
+            </li>
+          {% endfor %}
+        </ul>
       {% endif %}
     </div>
   </div>
 {% endblock %}
+

@@ -44,7 +44,7 @@ export const config = convict({
   serviceName: {
     doc: 'Applications Service Name',
     format: String,
-    default: 'ai-platform-frontend'
+    default: 'AI Platform Portal'
   },
   root: {
     doc: 'Project root',

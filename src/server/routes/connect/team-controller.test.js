@@ -261,7 +261,13 @@ describe('#teamConnectController', () => {
           _id: 'deployment-2',
           status: 'deploying',
           modelSlug: 'gpt-4o',
-          environment: 'sandbox'
+          environment: 'sandbox',
+          progressSteps: [
+            { label: 'Request recorded', state: 'done' },
+            { label: 'Team checked', state: 'done' },
+            { label: 'Setting up access in Azure', state: 'current' },
+            { label: 'Creating your key', state: 'pending' }
+          ]
         }
       })
     )
@@ -275,7 +281,7 @@ describe('#teamConnectController', () => {
     expect(getRequest.result).toEqual(expect.stringContaining('meta'))
     expect(getRequest.result).toEqual(expect.stringContaining('refresh'))
     expect(getRequest.result).toEqual(
-      expect.stringContaining('Reviewing your request')
+      expect.stringContaining('Setting up access in Azure')
     )
   })
 
@@ -303,7 +309,7 @@ describe('#teamConnectController', () => {
       tier: 'team',
       status: 'active',
       keyHint: 'tm01',
-      expiresAt: '2026-09-30T00:00:00.000Z'
+      expiresAt: null
     }
     fetchMock.mockResponseOnce(
       JSON.stringify({
@@ -344,6 +350,9 @@ describe('#teamConnectController', () => {
     expect(getCredential.statusCode).toBe(statusCodes.ok)
     expect(getCredential.result).toEqual(
       expect.stringContaining('mock_team_secret')
+    )
+    expect(getCredential.result).toEqual(
+      expect.stringContaining('Does not expire')
     )
     expect(getCredential.headers['cache-control']).toEqual(
       expect.stringContaining('no-store')
@@ -397,7 +406,7 @@ describe('#teamConnectController', () => {
     })
 
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
-    expect(getRequest.headers.location).toBe('/manage#manage-team-team-1')
+    expect(getRequest.headers.location).toBe('/manage')
   })
 
   test('request wait page redirects to /manage instead of re-issuing a credential once revoked', async () => {
@@ -450,7 +459,7 @@ describe('#teamConnectController', () => {
     })
 
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
-    expect(getRequest.headers.location).toBe('/manage#manage-team-team-1')
+    expect(getRequest.headers.location).toBe('/manage')
     // No credential POST is made at all - a revoked team credential must
     // never be silently re-issued via this link.
     expect(fetchMock.mock.calls.at(-1)[0]).toEqual(
@@ -495,7 +504,7 @@ describe('#teamConnectController', () => {
     })
 
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
-    expect(getRequest.headers.location).toBe('/manage#manage-team-team-1')
+    expect(getRequest.headers.location).toBe('/manage')
     // No credential POST is made at all, so no secret can be minted for them.
     expect(fetchMock.mock.calls.at(-1)[0]).toEqual(
       expect.stringContaining('/v1/teams/team-1/deployments/deployment-3c')

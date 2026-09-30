@@ -38,6 +38,30 @@
 No refactor of Route 1's shipped code is required by this update; it's a documentation-only
 reconciliation kept here so the next reader doesn't have to cross-reference three repos to see why.
 
+**UPDATED 30 Sept 2026 - real integration planned, mocks still in place:** Route 1's two mocked
+seams (`mock-credential-issuer.js` and the `models.seed.json` catalogue) now have a plan to replace
+them - see
+[docs/plans/integration/research-tier-integration-plan.md](integration/research-tier-integration-plan.md).
+Nothing in this route's shipped code has changed yet; **the STATUS above still describes what is
+running**. Read the integration plan before touching credential issuing, the model catalogue, or
+anything under `/connect/shared/*`, because three things this plan assumes turn out to be wrong:
+
+- The four credential operations are **Azure Resource Manager calls on the APIM resource**
+  (`PUT .../subscriptions/{sid}`, `listSecrets`, `PATCH`, `DELETE`), not APIs authored on APIM. The
+  `CredentialIssuer` port signature survives unchanged, but what sits behind it is not an HTTP call
+  to a gateway path.
+- The research subscription is **API-scoped** (`/apis/research`), not product-scoped -
+  design-orchestration.md states plainly that "Products are not used", so the obvious
+  `/products/research` shape would be wrong.
+- The catalogue moves out of this repo's seed file entirely, to `catalogue/` in `ai-platform-infra`
+  read via a GitHub App at a pinned release. `DEFRA/ai-platform-infra` exists but is **empty** as of
+  today, so that catalogue has to be created before the switch can happen.
+
+Also newly in scope, and absent from this route as built: credentials get persisted to
+`kv-aip-{env}-tenants` Key Vault with an audited `POST /v1/credentials/{id}/reveal` view/re-share
+path. Today the secret is shown once and never stored, which the design pack treats as a gap rather
+than the intended end state.
+
 Scope: ONE of three routes from the finalized UI flow (see the
 [ui-flow doc](../ui-flow-three-routes.md) and build-stories
 B01-B10). Route 2 (team creation, B08/B09) and Route 3 (joining a team, B07-continued/B09/B10) are

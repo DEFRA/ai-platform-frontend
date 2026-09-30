@@ -1,9 +1,15 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
 {% from "govuk/components/checkboxes/macro.njk" import govukCheckboxes %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: "/connect" }) }}
+{% endblock %}
 
 {% block content %}
   {{ appHeading({
@@ -19,6 +25,10 @@
         }) }}
       {% endif %}
 
+      <p class="govuk-body">
+        A sentence is enough. We use this to understand what people are building, and to help you if a call is blocked.
+      </p>
+
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
@@ -28,12 +38,20 @@
           maxlength: 500,
           value: values.purpose,
           label: {
-            text: "What will you use this model for?",
-            classes: "govuk-label--m"
+            text: heading,
+            classes: "govuk-visually-hidden"
           },
-          hint: { text: "For example, the project or piece of work this credential supports." },
           errorMessage: fieldErrors.purpose
         }) }}
+
+        <h3 class="govuk-heading-s">Before you continue</h3>
+        <p class="govuk-body">A research key comes with limits:</p>
+        <ul class="govuk-list govuk-list--bullet">
+          <li>building and research only, not a live service</li>
+          <li>no OFFICIAL-SENSITIVE data</li>
+          <li>it stops working after 7 days</li>
+          <li>you can renew it 3 times, then you need a team key</li>
+        </ul>
 
         {{ govukCheckboxes({
           idPrefix: "agreeToTerms",
@@ -41,14 +59,14 @@
           fieldset: {
             legend: {
               text: "Terms of use",
-              classes: "govuk-fieldset__legend--m"
+              classes: "govuk-visually-hidden"
             }
           },
           errorMessage: fieldErrors.agreeToTerms,
           items: [
             {
               value: "true",
-              text: "I agree to the acceptable use terms"
+              text: "I understand these limits"
             }
           ]
         }) }}
@@ -58,3 +76,4 @@
     </div>
   </div>
 {% endblock %}
+

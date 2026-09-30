@@ -31,6 +31,7 @@ export function context(request) {
     serviceName: config.get('serviceName'),
     serviceUrl: '/',
     breadcrumbs: [],
+    currentPath: request?.path,
     navigation: buildNavigation(request),
     signedInUser,
     navUser: signedInUser,

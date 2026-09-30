@@ -1,11 +1,24 @@
 {% extends 'layouts/page.njk' %}
 
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% block head %}
   {{ super() }}
   {% if refreshSeconds %}
-    <meta http-equiv="refresh" content="{{ refreshSeconds }}">
+    <meta http-equiv="refresh" content="{{ refreshSeconds }}" id="app-auto-refresh">
+    <script>
+      (function () {
+        var meta = document.getElementById('app-auto-refresh')
+        if (meta) { meta.remove() }
+        var timer = window.setTimeout(function () {
+          window.location.reload()
+        }, {{ refreshSeconds }} * 1000)
+        window.appStopAutoRefresh = function () {
+          window.clearTimeout(timer)
+        }
+      })()
+    </script>
   {% endif %}
 {% endblock %}
 
@@ -22,31 +35,41 @@
           <a class="govuk-link" href="/connect">Start again</a>
         </p>
         <p class="govuk-body">
-          <a class="govuk-link" href="/manage">Manage AI access</a>
+          <a class="govuk-link" href="/manage">Go to your access</a>
         </p>
       {% else %}
-        <ol class="govuk-list">
+        {{ govukNotificationBanner({
+          text: "This usually takes about 2 minutes. You can leave this page and come back.",
+          titleText: "In progress"
+        }) }}
+
+        <h2 class="govuk-heading-m">Progress</h2>
+        <ol class="govuk-list govuk-list--spaced" aria-live="polite">
           {% for stage in stages %}
-            <li>
+            <li style="padding: 0.25rem 0;">
               {% if stage.state == "done" %}
-                <strong>Done:</strong> {{ stage.label }}
+                <strong class="govuk-tag govuk-tag--green">Done:</strong> {{ stage.label }}
               {% elif stage.state == "current" %}
-                <strong>In progress:</strong> {{ stage.label }}
+                <strong class="govuk-tag govuk-tag--blue">Doing now:</strong> {{ stage.label }}
               {% else %}
-                {{ stage.label }}
+                <strong class="govuk-tag govuk-tag--grey">To do:</strong> {{ stage.label }}
               {% endif %}
             </li>
           {% endfor %}
         </ol>
 
-        <p class="govuk-body">This page will refresh automatically. You do not need to do anything.</p>
-        <p class="govuk-body">This usually takes a few minutes. You can also come back later.</p>
+        <p class="govuk-body">Last checked at {{ lastCheckedAt }}. This page checks again every {{ refreshSeconds }} seconds.</p>
 
-        {{ govukButton({
-          text: "Manage AI access",
-          href: "/manage"
-        }) }}
+        {% if refreshSeconds %}
+          <button type="button" class="govuk-button govuk-button--secondary" id="app-stop-refresh" data-testid="stop-checking" hidden>Stop checking</button>
+        {% endif %}
+
+        <p class="govuk-body">
+          <a class="govuk-link" href="">Check now</a> ·
+          <a class="govuk-link" href="/manage">Go to your access</a>
+        </p>
       {% endif %}
     </div>
   </div>
 {% endblock %}
+

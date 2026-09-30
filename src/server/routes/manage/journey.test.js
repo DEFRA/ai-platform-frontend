@@ -150,7 +150,7 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
     })
     cookies = mergeCookies(cookies, getCredential)
     expect(getCredential.result).toEqual(
-      expect.stringContaining('Manage your credentials')
+      expect.stringContaining('See this key and your other access')
     )
 
     // B07: the credential appears on /manage

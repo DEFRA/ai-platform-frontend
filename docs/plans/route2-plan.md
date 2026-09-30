@@ -7,6 +7,16 @@
 > baseline noted in Route 1's plan (65/118 files, essentially the whole tree) - not caused by this
 > work, left alone.
 
+**UPDATED 29 Sept 2026:** the wait page's friendly progress labels moved from the frontend
+(`STAGE_GROUPS`/`buildStageProgress` in `connect/team-controller.js`, now removed) into the backend
+(`team-deployment-service.js`'s `buildProgressSteps`/`PROGRESS_STEP_LABELS`), which now returns a
+fixed `progressSteps: [{label, state}]` array (4 literal steps: "Request recorded", "Team checked",
+"Setting up access in Azure", "Creating your key") on every deployment response - `null` for a
+terminal failure status. The frontend just renders whatever the backend sends. This is a business
+rule (mapping design C's real GitOps states to user-facing copy), so it now lives with the other
+route/service logic per this repo's "services own business logic" convention, not duplicated/
+re-derived in the frontend.
+
 ## Design pack alignment (25 Sept 2026)
 
 `ai-platform-discovery-docs` merged a design pack after this route shipped (21-25 Sept 2026):
@@ -125,8 +135,7 @@ navigating away (closing the tab, losing the session) made the in-progress reque
   id) so `/manage` can show every in-progress/failed/unrevealed deployment per team.
 - Frontend: route is now `/connect/team/request/{teamId}/{id}` (URL-driven, no session dependency -
   derives `modelSlug`/`environment` from the deployment record itself, so it's a stable, bookmarkable
-  link). Wait page shows friendly 3-stage progress (`Reviewing your request` -> `Setting up your
-team's dedicated model` -> `Running final checks`) instead of one flat message, plus a permanent
+  link). Wait page shows friendly progress steps instead of one flat message, plus a permanent
   link to `/manage`. `/manage`'s team section now has a "Requests" sub-list with "Check progress" /
   "Setup failed" / "Ready to view" rows and links back into the (now-stable) wait page URL for any
   deployment that hasn't yet produced a viewed credential. If a teammate visits an already-revealed

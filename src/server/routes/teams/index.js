@@ -50,6 +50,11 @@ export const teams = {
             validate: teamsController.addMember.post.options.validate
           },
           handler: teamsController.addMember.post.handler
+        },
+        {
+          method: 'POST',
+          path: '/teams/{id}/members/{memberId}/remove',
+          handler: teamsController.removeMember.post.handler
         }
       ])
     }

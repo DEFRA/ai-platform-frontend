@@ -1,0 +1,150 @@
+@use "variables/colours" as *;
+
+// Defra header: replaces the GOV.UK header, which branding does not allow
+// off a GOV.UK domain. See docs/flat-design-updates/build-spec.md.
+.defra-header {
+  background: #ffffff;
+}
+
+.defra-header__inner {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 12px 15px;
+}
+
+.defra-header__logo {
+  width: 115px;
+  height: 60px;
+}
+
+// govuk-frontend's global `a:link`/`a:visited` rule outranks a plain single
+// class on specificity, so this needs the same pseudo-classes to win.
+.defra-header__svc,
+.defra-header__svc:link,
+.defra-header__svc:visited {
+  font-size: 22px;
+  font-weight: 700;
+  color: $defra-green-aa;
+  text-decoration: none;
+}
+
+// Service navigation, restyled to Defra's green bar. Scoped under this class
+// rather than overriding .govuk-service-navigation__* globally.
+.defra-primary-nav {
+  &.govuk-service-navigation {
+    background: $defra-green;
+    border-bottom: 1px solid rgb(255, 255, 255, 0.3);
+  }
+
+  .govuk-service-navigation__wrapper,
+  .govuk-width-container {
+    max-width: 1054px;
+    margin: 0 auto;
+  }
+
+  .govuk-service-navigation__container {
+    align-items: center;
+  }
+
+  .govuk-service-navigation__list {
+    align-items: center;
+    margin-bottom: 0;
+  }
+
+  // Govuk-frontend puts govuk-spacing(3) (24px) top/bottom padding on the
+  // <li> itself; left in place it stacks with the <a>'s own padding below
+  // and makes the bar look like it has a big gap under the links.
+  .govuk-service-navigation__item,
+  .govuk-service-navigation__service-name {
+    margin: 0;
+    padding: 0;
+  }
+
+  .govuk-service-navigation__item--active {
+    padding-bottom: 0;
+    border-bottom-width: 0;
+  }
+
+  // Push sign in/out to the right. Needs to come after (and be at least as
+  // specific as) the .govuk-service-navigation__item margin reset above,
+  // which would otherwise win and zero this out.
+  .app-sign-in-out {
+    margin-left: auto;
+  }
+
+  .govuk-service-navigation__link {
+    display: inline-block;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 400;
+    padding: 12px 16px;
+    text-decoration: none;
+    border-bottom: 4px solid transparent;
+  }
+
+  .govuk-service-navigation__item--active .govuk-service-navigation__link,
+  .govuk-service-navigation__link[aria-current="page"] {
+    font-weight: 700;
+    border-bottom-color: #ffffff;
+  }
+}
+
+// Footer: 10px Defra green top border in place of the GOV.UK crown footer.
+.defra-footer {
+  border-top: 10px solid $defra-green;
+  background: $defra-grey-background;
+  padding: 25px 0;
+}
+
+.defra-footer__link,
+.defra-footer__link:link,
+.defra-footer__link:visited {
+  color: $defra-black;
+  font-size: 16px;
+  text-decoration: underline;
+}
+
+.defra-footer__list {
+  display: flex;
+  gap: 20px;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+// Readonly key field + progressive-enhancement copy button (page 09).
+.app-copy-field {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.app-copy-field__input {
+  flex: 1;
+}
+
+// A form submit that must look like a govuk-link (e.g. "Renew", "Remove" on
+// the team members table), not a button, but still needs to be a real
+// <button> for a state-changing POST. `.govuk-link`'s own colour rules key
+// off `:link`/`:visited`, which never match a <button>, so set it here too.
+.app-link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  color: var(--govuk-link-colour, #1a65a6);
+
+  &:hover {
+    color: var(--govuk-link-hover-colour, #0f4a7d);
+  }
+
+  &:active {
+    color: var(--govuk-link-active-colour, #0b0c0c);
+  }
+}
+
+

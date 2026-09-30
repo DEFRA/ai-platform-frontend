@@ -1,0 +1,44 @@
+// src/client/stylesheets/_govuk-frontend.scss
+//
+// Defra theme for the AI Platform Portal.
+// Replaces the existing file. Verified to compile against govuk-frontend 6.4.0
+// with sass-embedded 1.103.1.
+//
+// Every value is measured from the rendered CSS on digital.defra.gov.uk,
+// not taken from documentation.
+//
+// Why these four overrides do most of the work:
+//   - brand colour       drives the button, its shadow, and focus styles
+//   - link colour        Defra runs a darker blue than GOV.UK
+//   - font family        New Transport is not allowed off a GOV.UK domain
+//   - page width         Defra's container is 960px total, so 930px content
+//
+// Setting the brand colour alone gives you the correct Defra button AND its
+// shadow: govuk-frontend derives box-shadow: 0 2px 0 #083d29 from #008531,
+// which is byte-identical to the Contact us button on digital.defra.gov.uk.
+// Do not hand-set the button colours.
+
+@forward 'pkg:govuk-frontend' with (
+  $govuk-assets-path: '../../../node_modules/govuk-frontend/dist/govuk/assets/',
+  $govuk-global-styles: true,
+
+  // Defra branding: Helvetica or Arial off GOV.UK. Setting this to a stack
+  // without "GDS Transport" also drops the @font-face blocks, so New Transport
+  // stops being downloaded at all.
+  $govuk-font-family: (helvetica, arial, sans-serif),
+  $govuk-include-default-font-face: false,
+
+  // Defra's header, nav and footer use a 960px container with 15px side
+  // padding. Leave this at the govuk-frontend default of 960px and page
+  // content will sit 30px wider than the header, which is visible.
+  $govuk-page-width: 930px,
+
+  // govuk-frontend 6 takes applied colours from this map rather than from
+  // $govuk-brand-colour / $govuk-link-colour, which are now deprecated
+  // aliases. Raw hex values are accepted.
+  $govuk-functional-colours: (
+    'brand': #008531,      // nav bar, buttons, focus. White on it is 4.8:1.
+    'link': #1a65a6,       // 6.1:1 on white, against GOV.UK #1d70b8 at 5.2:1
+    'link-hover': #0f4a7d
+  )
+);

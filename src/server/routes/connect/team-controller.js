@@ -15,44 +15,13 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 
 // Phase 1 (confirmed 24 Sept 2026): the one live team-facing environment is
 // the Sandbox (SND4) - every design C environment is shown so the option
 // isn't a surprise later, but only `sandbox` is enabled, matching the
 // backend's `environment-not-available` policy for anything else.
-const ENVIRONMENT_ITEMS = [
-  { value: 'sandbox', text: 'Sandbox', checked: true },
-  {
-    value: 'infradev',
-    text: 'Infradev',
-    disabled: true,
-    hint: { text: 'Platform-internal - not available to teams.' }
-  },
-  {
-    value: 'dev',
-    text: 'Development (dev)',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  },
-  {
-    value: 'qa',
-    text: 'QA',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  },
-  {
-    value: 'preprod',
-    text: 'Pre-production',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  },
-  {
-    value: 'prod',
-    text: 'Production',
-    disabled: true,
-    hint: { text: 'Not available yet.' }
-  }
-]
+const ENVIRONMENT_ITEMS = [{ value: 'sandbox', text: 'Sandbox', checked: true }]
 
 // The wait page groups every intermediate GitOps state into one friendly
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
@@ -74,33 +43,6 @@ function hasTeamJourneyState(pendingAccess) {
     pendingAccess?.teamId &&
     pendingAccess?.accessType === 'team'
   )
-}
-
-// Friendly, non-jargon progress stages shown on the wait page - each maps to
-// one or more of design C's real GitOps states, never shown to the user directly.
-const STAGE_GROUPS = [
-  { label: 'Reviewing your request', statuses: ['requested', 'pr-raised'] },
-  {
-    label: "Setting up your team's dedicated model",
-    statuses: ['merged', 'deploying', 'deployed']
-  },
-  { label: 'Running final checks', statuses: ['verified'] }
-]
-
-function buildStageProgress(status) {
-  const currentIndex = STAGE_GROUPS.findIndex((stage) =>
-    stage.statuses.includes(status)
-  )
-
-  return STAGE_GROUPS.map((stage, index) => ({
-    label: stage.label,
-    state:
-      index < currentIndex
-        ? 'done'
-        : index === currentIndex
-          ? 'current'
-          : 'pending'
-  }))
 }
 
 const selectTeamSchema = Joi.object({
@@ -456,7 +398,7 @@ export const teamConnectController = {
                 message:
                   'This request does not exist, or you are not a member of this team.',
                 actionHref: '/manage',
-                actionText: 'Manage AI access'
+                actionText: 'Go to your access'
               })
               .code(statusCodes.notFound)
           }
@@ -466,11 +408,12 @@ export const teamConnectController = {
 
         if (IN_PROGRESS_STATUSES.includes(deployment.status)) {
           return h.view('connect/team/request', {
-            pageTitle: "Setting up your team's access",
-            heading: "Setting up your team's access",
+            pageTitle: 'Setting up your team key',
+            heading: 'Setting up your team key',
             refreshSeconds: 3,
+            lastCheckedAt: formatDate(new Date(), 'HH:mm'),
             failed: false,
-            stages: buildStageProgress(deployment.status)
+            stages: deployment.progressSteps
           })
         }
 
@@ -493,9 +436,7 @@ export const teamConnectController = {
               "Your team's model is ready to use - see it below. Ask the person who requested it for the connection details."
           })
 
-          return h
-            .redirect(`/manage#manage-team-${teamId}`)
-            .code(statusCodes.seeOther)
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
         // Defense in depth for /manage already hiding this deployment's
@@ -522,9 +463,7 @@ export const teamConnectController = {
               'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
           })
 
-          return h
-            .redirect(`/manage#manage-team-${teamId}`)
-            .code(statusCodes.seeOther)
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
         // status is 'active': issue (or reuse) the shared team credential.
@@ -551,9 +490,7 @@ export const teamConnectController = {
             message: "Your team's model is ready to use - see it below."
           })
 
-          return h
-            .redirect(`/manage#manage-team-${teamId}`)
-            .code(statusCodes.seeOther)
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
         const model = await apiClient(request).get(

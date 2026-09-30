@@ -1,46 +1,21 @@
-{% from "govuk/components/button/macro.njk" import govukButton %}
-
 <div class="app-button-group" data-testid="credential-actions">
-  {{ govukButton({
-    text: "View",
-    href: "/manage/credentials/" + params.credential._id,
-    classes: "app-button--view",
-    attributes: { "data-testid": "credential-action-view" }
-  }) }}
+  <a class="govuk-link app-link--view" href="/manage/credentials/{{ params.credential._id }}" data-testid="credential-action-view">View</a>
 
   {% if params.showRenewRevoke and params.credential.status != "revoked" %}
     {% if params.credential.renewalsRemaining > 0 %}
       <form method="post" action="/manage/credentials/{{ params.credential._id }}/renew" novalidate class="app-button-group__form">
         <input type="hidden" name="crumb" value="{{ params.crumb }}">
-        {{ govukButton({
-          text: "Renew",
-          classes: "app-button--renew",
-          attributes: { "data-testid": "credential-action-renew" }
-        }) }}
+        <button type="submit" class="govuk-link app-link-button" data-testid="credential-action-renew">Renew</button>
       </form>
     {% endif %}
 
-    {{ govukButton({
-      text: "Revoke",
-      href: "/manage/credentials/" + params.credential._id + "/revoke",
-      classes: "app-button--revoke govuk-button--warning",
-      attributes: { "data-testid": "credential-action-revoke" }
-    }) }}
+    <a class="govuk-link app-link--revoke" href="/manage/credentials/{{ params.credential._id }}/revoke" data-testid="credential-action-revoke">Revoke</a>
   {% endif %}
 
   {% if params.credential.showRotateRevoke and params.credential.status != "revoked" %}
-    {{ govukButton({
-      text: "Rotate",
-      href: "/manage/credentials/" + params.credential._id + "/rotate",
-      classes: "app-button--rotate",
-      attributes: { "data-testid": "credential-action-rotate" }
-    }) }}
+    <a class="govuk-link app-link--rotate" href="/manage/credentials/{{ params.credential._id }}/rotate" data-testid="credential-action-rotate">Rotate</a>
 
-    {{ govukButton({
-      text: "Revoke",
-      href: "/manage/credentials/" + params.credential._id + "/revoke",
-      classes: "app-button--revoke govuk-button--warning",
-      attributes: { "data-testid": "credential-action-revoke" }
-    }) }}
+    <a class="govuk-link app-link--revoke" href="/manage/credentials/{{ params.credential._id }}/revoke" data-testid="credential-action-revoke">Revoke</a>
   {% endif %}
 </div>
+

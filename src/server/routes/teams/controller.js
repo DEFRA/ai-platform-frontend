@@ -10,7 +10,9 @@ import {
   setPendingAccess,
   getPendingTeam,
   setPendingTeam,
-  clearPendingTeam
+  clearPendingTeam,
+  setAccountNotification,
+  takeAccountNotification
 } from '#/server/common/helpers/session.js'
 import {
   buildErrorSummary,
@@ -43,6 +45,10 @@ function isForbidden(error) {
   return error instanceof ApiError && error.statusCode === statusCodes.forbidden
 }
 
+function isNotFound(error) {
+  return error instanceof ApiError && error.statusCode === statusCodes.notFound
+}
+
 function errorMessageForCode(error) {
   if (error.code === 'team-exists') {
     return 'A team with this name already exists.'
@@ -70,16 +76,27 @@ async function loadTeamForView(request, id) {
   })
 
   const isAdmin = result.members.some(
-    (member) => member.userId === sessionUser.id && member.role === 'admin'
+    (member) =>
+      member.userId === sessionUser.id &&
+      member.role === 'admin' &&
+      member.status === 'active'
   )
 
-  const members = result.members.map((member) => ({
-    ...member,
-    email:
-      member.email && !isAdmin && member.userId !== sessionUser.id
-        ? maskEmail(member.email)
-        : member.email
-  }))
+  const activeAdminCount = result.members.filter(
+    (member) => member.role === 'admin' && member.status === 'active'
+  ).length
+
+  const members = result.members
+    // Removed members are kept in the backend for audit purposes only.
+    .filter((member) => member.status !== 'removed')
+    .map((member) => ({
+      ...member,
+      email:
+        member.email && !isAdmin && member.userId !== sessionUser.id
+          ? maskEmail(member.email)
+          : member.email,
+      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1)
+    }))
 
   return { ...result, members, isAdmin }
 }
@@ -266,6 +283,7 @@ export const teamsController = {
           team: result.team,
           members: result.members,
           isAdmin: result.isAdmin,
+          notification: takeAccountNotification(request),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -309,6 +327,36 @@ export const teamsController = {
           )
         } catch (error) {
           if (!(error instanceof ApiError) || !isForbidden(error)) {
+            throw error
+          }
+        }
+
+        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+      }
+    }
+  },
+
+  removeMember: {
+    post: {
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id, memberId } = request.params
+
+        try {
+          await apiClient(request).del(`/v1/teams/${id}/members/${memberId}`, {
+            userId: sessionUser.id
+          })
+        } catch (error) {
+          if (!(error instanceof ApiError)) {
+            throw error
+          }
+
+          if (error.code === 'last-admin') {
+            setAccountNotification(request, {
+              type: 'error',
+              message: 'A team must keep at least one admin.'
+            })
+          } else if (!isForbidden(error) && !isNotFound(error)) {
             throw error
           }
         }

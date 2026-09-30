@@ -6,7 +6,9 @@
     <tr class="govuk-table__row">
       <th scope="col" class="govuk-table__header">Model</th>
       <th scope="col" class="govuk-table__header">Provider</th>
-      <th scope="col" class="govuk-table__header">Context window</th>
+      <th scope="col" class="govuk-table__header">Tier</th>
+      <th scope="col" class="govuk-table__header">Where it runs</th>
+      <th scope="col" class="govuk-table__header govuk-table__header--numeric">Context window</th>
       <th scope="col" class="govuk-table__header">Status</th>
     </tr>
   </thead>
@@ -22,13 +24,19 @@
             <span data-testid="model-table-name">{{ model.displayName }}</span>
           {% endif %}
         </td>
-        <td class="govuk-table__cell">{{ model.provider }}</td>
-        <td class="govuk-table__cell">{{ model.contextWindow }}</td>
+        <td class="govuk-table__cell">{{ model.provider | formatLabel }}</td>
+        {% if model.eligible %}
+          <td class="govuk-table__cell">{{ model.tiers | formatLabelList }}</td>
+          <td class="govuk-table__cell">{{ model.region | formatLabel }}</td>
+          <td class="govuk-table__cell govuk-table__cell--numeric">{{ model.contextWindow }}</td>
+        {% else %}
+          <td class="govuk-table__cell" colspan="3">{{ model.statusReason or "Not approved" }}</td>
+        {% endif %}
         <td class="govuk-table__cell">
           {% if model.eligible %}
-            {{ govukTag({ text: "Available", classes: "govuk-tag--green" }) }}
+            {{ govukTag({ text: "Approved", classes: "govuk-tag--green" }) }}
           {% else %}
-            {{ govukTag({ text: model.statusReason or "Not available", classes: "govuk-tag--grey" }) }}
+            {{ govukTag({ text: "Not approved", classes: "govuk-tag--grey" }) }}
           {% endif %}
         </td>
       </tr>
@@ -39,3 +47,4 @@
 {% if params.models.length == 0 %}
   <p class="govuk-body" data-testid="model-table-empty">No models match your filters.</p>
 {% endif %}
+

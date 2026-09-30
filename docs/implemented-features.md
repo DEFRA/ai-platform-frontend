@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 25 Sept 2026.
+Last updated: 29 Sept 2026.
 
 ## Journey status at a glance
 
@@ -17,7 +17,7 @@ The core product journey is "three routes to a credential" — see
 
 | Route                                   | Covers                                                                                                 | Status                                                                                          |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| [Route 0](plans/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three                                           | **Not yet implemented** — placeholder page only                                                 |
+| [Route 0](plans/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three                                           | **Implemented** (29 Sept 2026, flat design build spec)                                          |
 | [Route 1](plans/route1-plan.md)         | Research tier: browse the model catalogue, request a personal shared-model credential, manage it       | **Implemented** (22 Sept 2026)                                                                  |
 | [Route 2](plans/route2-plan.md)         | Team tier: create/select a team, request a dedicated model deployment for it                           | **Implemented** (23 Sept 2026, refactored 25 Sept 2026 to match the discovery-docs design pack) |
 | [Route 3](plans/route3-plan.md)         | Team tier: joining a team that already has access, admin-vs-user role enforcement, credential rotation | **Implemented** (25 Sept 2026)                                                                  |
@@ -56,6 +56,21 @@ The core product journey is "three routes to a credential" — see
   leaked" rather than "this key is about to expire".
 - Cross-team isolation: a user can never see or act on another team's credential (404, not 403, to
   avoid disclosing existence).
+
+## Flat design update (29 Sept 2026)
+
+- Defra brand chrome applied across every page: `.defra-header`/`.defra-primary-nav` (green,
+  restyled `govukServiceNavigation`)/`.defra-footer`, `govukPhaseBanner` (Alpha), new
+  `_govuk-frontend.scss` theme (Helvetica/Arial, Defra brand colours, 1024px page width). See
+  `docs/flat-design-updates/build-spec.md` and `_govuk-frontend.scss` for the source spec.
+- Nav restructured to Models / Your access (signed in) / Help, dropping Home and Connect to a
+  model as nav items (`src/config/nunjucks/context/build-navigation.js`).
+- Presenter layer: `src/config/nunjucks/filters/format-label.js` (enum -> display label) and a
+  simplified `formatDate` (`d MMMM yyyy`).
+- `/manage` restructured from per-team tabs to one merged "Keys you can use" table (personal +
+  team credentials together) plus a flat "Being set up" table and a plain-text "Your teams" list.
+- Home page (`/`) now has real content for both signed-out and signed-in visitors (was a
+  placeholder) — see the Route 0 status above.
 
 ## Cross-cutting platform features
 

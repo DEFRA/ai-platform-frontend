@@ -1,4 +1,24 @@
 @forward 'pkg:govuk-frontend' with (
   $govuk-assets-path: '../../../node_modules/govuk-frontend/dist/govuk/assets/',
-  $govuk-global-styles: true
+  $govuk-global-styles: true,
+
+  // Defra branding: Helvetica or Arial off GOV.UK. Setting this to a stack
+  // without "GDS Transport" also drops the @font-face blocks, so New Transport
+  // stops being downloaded at all.
+  $govuk-font-family: (helvetica, arial, sans-serif),
+  $govuk-include-default-font-face: false,
+
+  // Defra's header, nav and footer use a 1024px container with 15px side
+  // padding. Leave this at the govuk-frontend default of 960px and page
+  // content will sit narrower than the header, which is visible.
+  $govuk-page-width: 1024px,
+
+  // govuk-frontend 6 takes applied colours from this map rather than from
+  // $govuk-brand-colour / $govuk-link-colour, which are now deprecated
+  // aliases. Raw hex values are accepted.
+  $govuk-functional-colours: (
+    'brand': #008531,      // nav bar, buttons, focus. White on it is 4.8:1.
+    'link': #1a65a6,       // 6.1:1 on white, against GOV.UK #1d70b8 at 5.2:1
+    'link-hover': #0f4a7d
+  )
 );

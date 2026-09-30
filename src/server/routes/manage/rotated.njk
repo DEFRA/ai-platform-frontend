@@ -24,14 +24,14 @@
             value: { text: secret }
           },
           {
-            key: { text: "Expires" },
-            value: { text: credential.expiresAt }
+            key: { text: "Runs out" },
+            value: { text: credential.expiresAt | formatDate or "Does not expire" }
           }
         ]
       }) }}
 
       <p class="govuk-body">
-        <a class="govuk-link" href="/manage">Back to Manage AI access</a>
+        <a class="govuk-link" href="/manage">Back to your access</a>
       </p>
     </div>
   </div>
