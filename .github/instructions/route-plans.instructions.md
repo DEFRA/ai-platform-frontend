@@ -19,6 +19,11 @@ plan's own "Relevant files" and "Steps" sections for the exact list on a given r
 - [docs/plans/route2-plan.md](../../docs/plans/route2-plan.md) — team tier, first person in a team (`/teams`, `/connect/team/*`). Implemented.
 - [docs/plans/route3-plan.md](../../docs/plans/route3-plan.md) — team tier, joining a team that has access (rotate/revoke role enforcement). Implemented.
 
+Cross-cutting plans under `docs/plans/integration/` are not journey routes, but change what a route's
+pages render and which errors they must handle:
+
+- [docs/plans/integration/research-tier-integration-plan.md](../../docs/plans/integration/research-tier-integration-plan.md) — replaces Route 1's mocked credential issuer and seed catalogue with real Azure APIM and a GitHub-hosted catalogue, and adds an audited credential view/re-share page under `/manage`. Not started. Read before changing `/models`, `/connect/shared/*` or anything rendering a credential.
+
 Each plan's "STATUS" line at the top records whether it has been built. Cross-repo context:
 
 - [docs/ui-flow-three-routes.md](../../docs/ui-flow-three-routes.md) — the source UI flow diagrams (route paths, API contract, known gaps), with the original images, captured in text since the originals aren't in any repo.
