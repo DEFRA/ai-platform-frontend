@@ -25,8 +25,8 @@ re-derived in the frontend.
 (the Phase 1 SND1/SND4 proof, 24-25 Sept) and [design-repositories-pipelines.md](../../../ai-platform-discovery-docs/src/content/design-repositories-pipelines.md).
 Unlike Route 1, this is **not** a documentation-only reconciliation - the design pack fixes several
 things this route built ahead of the design, in a materially different shape. Flagged here for the
-refactor that follows this file's update (see chat/PR description); nothing in this section has been
-built yet.
+refactor that follows this file's update (see chat/PR description) - see "Refactor plan" below,
+**implemented the same day** (25 Sept 2026).
 
 1. **One credential per team per environment, not one per team+model.** [Model access
    enforcement](../../../ai-platform-discovery-docs/src/content/design-orchestration.md) is explicit: a team gets a single API at path
@@ -268,7 +268,7 @@ Phase E - Frontend: real "Your teams" section on /manage (B09's manage-page requ
 1. Nobody notifies an invited member today (flagged as an open gap on the diagram itself) - out of scope unless a notification step is added.
 2. No route lets the requester hand the secret to teammates after issue (also flagged as open on the diagram) - out of scope for this plan.
 
-## Refactor plan (not yet started) - design pack alignment
+## Refactor plan (implemented 25 Sept 2026) - design pack alignment
 
 Concrete follow-up for the six gaps in [Design pack alignment](#design-pack-alignment-25-sept-2026)
 above. Sequenced so the data-model change lands before anything reads it differently; each phase

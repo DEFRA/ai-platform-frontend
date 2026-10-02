@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 29 Sept 2026.
+Last updated: 2 Oct 2026 (live smoke test).
 
 ## Journey status at a glance
 
@@ -84,15 +84,39 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `Idempotency-Key` header; replays return the original result rather than creating a duplicate.
 - **Audit events**: every state-changing action records a `recordAuditEvent` entry (actor, action,
   resource, outcome) in a TTL-expiring `auditEvents` collection — never a secret.
-- **Mocked external integrations behind ports**: `CredentialIssuer` (issue/renew/rotate/revoke/
-  suspend against Azure APIM) and `TenantOrchestrator` (GitOps-style team/model provisioning) are
-  both interfaces with mock adapters selected by config — no real Azure/APIM integration exists yet.
+- **`CredentialIssuer` port, now provider-extensible**: issue/renew/rotate/revoke/suspend behind a
+  `credential-issuer-registry` resolved per model (new credentials) or per already-issued credential
+  (via its persisted `issuerKey`) — a `mock` adapter (default) and a real Azure APIM adapter talking
+  to the ARM management plane (`src/adapters/azure/`, `ai-platform-backend-api`), selected by the
+  `PROVISIONING_MODE` config flag (production refuses to start on `mock`). `TenantOrchestrator`
+  (GitOps-style team/model provisioning) is still mock-only. See
+  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1.
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
   multi-step write (team creation, credential issuance, deployment status transitions).
 - **Schema backfills**: a self-applying, one-off data migration mechanism
   (`src/common/backfills/`) added 25 Sept 2026 — see backend README's "Schema backfills" section.
-- **Model catalogue is config/seed-data driven**: idempotently upserted from
-  `src/common/seed/models.seed.json` on every backend start, not hard-coded.
+- **Model catalogue synced from a `CatalogueSource` port**: a `file` adapter (default - reads
+  `src/common/seed/{models,providers}.seed.json`, so tests/compose need no network) and a `github`
+  adapter (Octokit, reads `ai-platform-infra`'s `catalogue/` at a pinned release tag, with ETag
+  caching and a last-good-mirror fallback on any failure), selected by `CATALOGUE_SOURCE`. Synced
+  into MongoDB on every backend start (`syncCatalogue`, `ai-platform-backend-api`) with
+  `catalogueSha`/`release`/`syncedAt`; models no longer present in the source are retired
+  (`eligible: false`, `lifecycle.status: 'retired'`), never deleted. `ai-platform-infra`'s
+  `catalogue/` now holds real content (8 Foundry-deployment models + 1 provider), tagged `v0.1.0`.
+  See [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 2.
+- **Credential secrets persisted to Key Vault, with an audited reveal**: a `CredentialVault` port
+  (`issue`/`rotate` write through it, `revoke` soft-deletes) behind a `mock` adapter (default,
+  in-memory) and a real Azure Key Vault adapter (`@azure/keyvault-secrets`, `ai-platform-backend-api`),
+  selected by the same `PROVISIONING_MODE` flag as the credential issuer. A vault write failure never
+  fails the request (the user already has the secret) — it flags the credential `vaultState:
+  'unwritten'` instead, retried by the existing `reconcilePendingCredentials` maintenance job.
+  `POST /v1/credentials/{id}/reveal` lets an owner (research tier) or team admin (team tier)
+  re-view an already-issued secret, audited with a required reason, `Cache-Control: no-store`. See
+  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 3.
+- **Live-verified against real Azure sandbox resources** (not just mocked/nocked): issue, gateway
+  completion, reveal and revoke all confirmed end-to-end against the real `DEPLOYTESTDEFRA` APIM and
+  `kv-aip-sandbox-tenants` Key Vault. See the plan doc's dated note for the one real bug this
+  surfaced and fixed (ARM `DELETE` empty-body handling).
 - **Security baseline**: structured JSON logging with no PII (`hapi-pino` + ECS format), CSP via
   Blankie, CSRF via `@hapi/crumb`, session cookies via `@hapi/yar` (all frontend); Joi validation
   rejecting unknown keys on every backend route.

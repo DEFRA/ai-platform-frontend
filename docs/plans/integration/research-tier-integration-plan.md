@@ -6,10 +6,241 @@
 > [Route 2](../route2-plan.md), [Route 3](../route3-plan.md) and the
 > [UI flow](../../ui-flow-three-routes.md).
 >
-> **STATUS: NOT STARTED — planned 30 Sept 2026.** Revision 4: a **second, separate** app
-> registration is provided for Azure ARM access (client ID + secret, Contributor + User Access
-> Administrator on the subscription) — so no service principal creation and **no certificates**.
-> CDP deployment is deferred to Phase 6; everything before it runs locally against the sandbox.
+> **STATUS: PHASE 0 COMPLETE, PHASE 1 COMPLETE, PHASE 2 COMPLETE, PHASE 3 COMPLETE, LIVE SMOKE TEST
+> PASSED — Phase 4 and Phase 6 deliberately deferred, not removed (user decision, 2 Oct 2026); Phase
+> 5 next.** Revision 4: a **second, separate** app registration is provided for Azure ARM access
+> (client ID + secret, Contributor + User Access Administrator on the subscription) — so no service
+> principal creation and **no certificates**. CDP deployment is deferred to Phase 6; everything
+> before it runs locally against the sandbox.
+>
+> **UPDATED 2 Oct 2026 (later still) — live local smoke test against the real sandbox PASSED, one
+> real bug found and fixed.** Ran `ai-platform-backend-api` with `PROVISIONING_MODE=azure` against
+> the real sandbox (`DEPLOYTESTDEFRA`/`kv-aip-sandbox-tenants`): issued a credential
+> (`issuerKey: "azure"` confirmed it wasn't mocked), called the gateway directly with the secret and
+> got a real `gpt-4o` completion, revealed the secret again from Key Vault, then revoked. **Bug
+> found**: `revoke` crashed with `SyntaxError: Unexpected end of JSON input` — `arm-client.js`
+> only treated a `204` as an empty body, but ARM's subscription `DELETE` actually returns `200` with
+> an empty body, so `response.json()` blew up on it. Confirmed via `az rest` that the real APIM
+> subscription HAD been deleted despite the crash (the ARM call itself succeeded; only the client's
+> parsing failed) — the credential was left `active` in Mongo while the underlying subscription was
+> already gone, a real correctness bug, not just a cosmetic 500. Fixed by checking the response body
+> text itself rather than the status code (`arm-client.js`); added a regression test for a `200`
+> with an empty body (`arm-client.test.js`, the existing 204 test didn't cover this). Re-ran revoke
+> after the fix — `204`, and a follow-up reveal correctly returned `409 credential-revoked`. Full
+> suite 180/180 green (1 new test), lint clean. This is the kind of gap only a real-Azure run
+> surfaces — nock/mocks in the unit suite modelled ARM's documented `204`, not its actual `200`
+> empty-body behaviour for this operation.
+>
+> **UPDATED 2 Oct 2026 — Phase 4 and Phase 6 skipped for now; next is a live local smoke test, then
+> Phase 5.** User decision: skip Phase 4 (ARM liveness reconcile/scheduled sync — catalogue
+> `eligible` is enough for now, no extra deployment-provisioningState check) and Phase 6 (CDP
+> deployment/Bicep/docs tidy-up — this still runs locally only) so the immediate goal is proving
+> Phases 0-3 work end-to-end against the **real** sandbox resources from Phase 0, not mocked/nocked.
+> Concretely, that means running this repo locally with `PROVISIONING_MODE=azure` and a real `.env`
+> (gitignored, `npm run dev`'s `--env-file-if-exists=.env` picks it up automatically) populated with
+> `AZURE_ARM_TENANT_ID`/`AZURE_ARM_CLIENT_ID`/`AZURE_ARM_CLIENT_SECRET`/`AZURE_ARM_SUBSCRIPTION_ID`/
+> `AZURE_ARM_RESOURCE_GROUP` (`SNDAIEEXPRGP1401` per the Phase 0 note below)/`APIM_SERVICE_NAME`
+> (`DEPLOYTESTDEFRA`)/`AZURE_KEY_VAULT_NAME` (`kv-aip-sandbox-tenants` per 0.9) — `APIM_RESEARCH_API_ID`
+> needs no override, its `research` default already matches the real API built in 0.6/0.7. Catalogue
+> can stay `CATALOGUE_SOURCE=file` (default) since the seed fixture already carries the real Foundry
+> model slugs from Phase 2 - no need to also exercise `CATALOGUE_SOURCE=github` for this check.
+> **Correction to this note's first draft**: the paragraph below originally claimed the gateway
+> needs a hub-connected host, by analogy with this doc's own 0.8 caution. That's wrong for *this*
+> sandbox instance - 0.8's smoke test curl was run directly from an ordinary agent terminal (no VPN,
+> Bastion or jump box), and succeeded, because `DEPLOYTESTDEFRA`'s gateway is the APIM default
+> **public** hostname `https://deploytestdefra.azure-api.net` (SKU/config has no internal VNet
+> injection here), not a private VIP. So the full loop - issue a credential, then call the gateway
+> with its key via Postman/curl from a normal laptop, then reveal/rotate/revoke - is all directly
+> testable with no special network access. See the new README section "Testing against live Azure
+> resources (sandbox)" for the step-by-step, including the gateway request shape. Not yet done:
+> actually running it (needs the user's own secrets in their local `.env`, which the agent cannot
+> see or set).
+>
+> **UPDATED 2 Oct 2026 — are Phase 4 and 6 still applicable? Yes, both - neither is removed from
+> this plan, but neither is next either.** Phase 4 (ARM liveness reconcile): still a valid, useful
+> piece of the design - nothing learned since invalidates it - but it is **not optional background
+> polish**: Phase 5 item 2 ("deployment not live" state) and End-to-end-test step 9
+> (`POST /maintenance/sync-catalogue` → "a model with no live ARM deployment is not eligible") both
+> literally depend on Phase 4's `provisioningState`/`lastReconciledAt` data existing. Skipping Phase
+> 4 for now means Phase 5 must also **drop** item 2 and reuse catalogue-only `eligible`/
+> `eligibility.reason` (already true today, no new work) instead of a true liveness state - updated
+> below - and End-to-end-test step 9 is out of scope until Phase 4 lands. Phase 6 (CDP deployment):
+> still the correct list of steps for *if/when* this is promoted to a shared CDP environment, but
+> there is no deployment decision to promote it yet, so it should not be assumed to follow Phase 5
+> automatically - treat it as a separate future decision, not the next item in sequence. One factual
+> correction while reviewing it: Phase 6.2's reasoning that "the APIM gateway (private VIP) is not
+> reachable from CDP and does not need to be" repeats this doc's pre-Phase-0 private-VIP assumption,
+> which is wrong for `DEPLOYTESTDEFRA` (see the correction above) - fixed in place below. The
+> conclusion (CDP doesn't need gateway egress) still holds, just not for the private-VIP reason
+> originally given.
+>
+> **UPDATED 2 Oct 2026 — `apimSubscriptionId` renamed to `externalGatewaySubscriptionId`.** Phase
+> 6.6-iii's follow-up ("migrate once a second provider exists") done now instead, by request - "we
+> know a second provider doesn't exist yet, but the field shouldn't keep saying APIM" (not
+> `externalId`, Phase 1's original suggestion: that name is already used for the port's in-memory
+> return value, and reusing it for the persisted field would make the two easy to confuse in
+> `credential-service.js`). Expand-backfill-contract, per this repo's schema-change convention: new
+> backfill `2026-10-02-credentials-external-gateway-subscription-id` copies the old field's value
+> into the new one (via an aggregation-pipeline `updateMany`, so a doc that never had the old field,
+> e.g. `pending`/`failed`, is left without the new one rather than getting a bogus `null`); new
+> writes (`issueCredential`'s `active` object) use only the new field name; reads (renew/rotate/
+> revoke, and `maintenance-service.js`'s `expireCredentials`) go through one shared exported helper,
+> `externalGatewaySubscriptionIdOf(credential)`, which still falls back to the old field - remove
+> that fallback (and the now-redundant old field/backfill) in a later "contract" change once
+> confident the backfill has run everywhere, same as any other renamed field. Historical mentions of
+> `apimSubscriptionId` in route1/2/3-plan.md and the design pack's
+> `mvp-portal-ui-api-scope.md` describe decisions made at the time and were deliberately left
+> unedited - this doc and the current source are the authoritative current field name. 179/179
+> backend tests green (5 new), lint clean.
+>
+> **UPDATED 1 Oct 2026 (Phase 2 complete)** — `ai-platform-backend-api`: new `CatalogueSource` port
+> (`src/adapters/catalogue-source.js`), a `file` adapter (`file-catalogue-source.js`, reads the
+> reshaped `src/common/seed/{models,providers}.seed.json` fixtures - the local/test default,
+> `CATALOGUE_SOURCE=file`) and a `github` adapter (`src/adapters/github/github-catalogue-source.js`,
+> Octokit, reads `catalogue/**.json` from `ai-platform-infra` at a pinned release tag via the git
+> trees/blobs API; ETag-conditional on the tag ref, falling back to the last good mirror on a 304
+> or ANY failure - only the first-ever fetch with no mirror can throw). `catalogue-service.js`'s
+> `syncCatalogue` upserts by slug with `catalogueSha`/`release`/`syncedAt`, retires (never deletes)
+> models absent from a non-empty catalogue, and is guarded by a `catalogue-sync` mongo-lock; it
+> deliberately skips (rather than retiring everything) when the source returns zero models, since
+> `ai-platform-infra`'s `catalogue/` is still empty today - a real end-to-end `github` run is
+> blocked on that, not on code. `src/plugins/mongodb.js` now calls `syncCatalogue` instead of the
+> deleted `seedModels`. Added `octokit` as an exact-pinned dependency, with its bundled retry plugin
+> disabled (`request: { retries: 0 }`) since this adapter has its own fallback-to-last-good-mirror
+> resilience. New config: `catalogue.{source,repo,ref}` and `github.{token,appId,installationId,
+> privateKey}`. One deliberate deviation from the plan's literal wording: `endpoint`/`apiVersion`
+> were **not** dropped from the model schema (step 1 said to) - the frontend still reads
+> `model.endpoint`/`model.apiVersion` directly (credential/model detail pages), and dropping them is
+> Phase 5 work once those routes compose the gateway URL themselves; both fields are carried through
+> unchanged for now. The new design-pack `eligibility: {eligible, reason}` shape is similarly kept
+> as flat `eligible` (unchanged, several routes/services already query/read it directly) plus a new
+> `eligibilityReason` field, rather than nesting - avoids a breaking change outside this phase's
+> scope. A backfill (`2026-10-01-models-catalogue-metadata-default`) sets default
+> `lifecycle`/`catalogueSha`/`release`/`syncedAt` on pre-Phase-2 `models` docs. 150/150 backend
+> tests green, lint and format clean.
+>
+> **UPDATED 1 Oct 2026 (Phase 2 fully complete)** — `ai-platform-infra`'s `catalogue/` was empty
+> (the blocker above); populated it with `catalogue/providers/openai.json` and 8
+> `catalogue/models/*.json` records (the real Foundry deployment list from the Phase 0 note below:
+> `gpt-4.1-nano`, `gpt-5-nano`, `gpt-5-nano-2`, `gpt-5-mini`, `gpt-5.3-codex`, `gpt-4o`, `gpt-4o-2`,
+> plus `text-embedding-ada-002` included but `eligibility.eligible: false` per the design pack's
+> RAG/embeddings Future/Unimplemented scope), each matching the design-pack schema (no
+> `endpoint`/`apiVersion`/flat `eligible` - see the deviation note above). Pushed directly to
+> `main` (commit `e713b3e`) and tagged `v0.1.0`, the pinned release `CATALOGUE_REF` resolves
+> against. Version/sku/capacity values in these records are reasonable placeholders modelled on
+> public naming, not yet reconciled against the literal `az cognitiveservices account deployment
+> list` output - correct them when that's available. Phase 2 is now complete end-to-end: the
+> `github` adapter has real content to read, not just a nocked test. Not yet done: an actual run of
+> `CATALOGUE_SOURCE=github` against this content (needs `GITHUB_TOKEN` in a local `.env` - not set
+> by the agent, `.env` is gitignored/copilot-ignored) and Phase 4's liveness reconcile.
+>
+> **UPDATED 1 Oct 2026** — Phase 0 run against subscription `AZR-AIE-SND1` (infradev, not SND4
+> sandbox — accepted for integration testing only), resource group `SNDAIEEXPRGP1401`, APIM
+> `DEPLOYTESTDEFRA`, Foundry account `sndaieinfst1401aiefoundry`. All exit criteria passed: 0.1
+> gate 200, 0.8 smoke test returned a real completion plus the 403/401 negative paths, 0.9 probe
+> secret wrote and deleted. 0.10 (GitHub PAT) is done - a human created the fine-grained PAT.
+> Three concrete deviations from this doc's literal commands that Phase 1/2 code must match, not
+> the snippets below:
+>
+> 1. **Foundry hostname is `services.ai.azure.com`, not `openai.azure.com`.** The account's deployed
+>    backends (and this plan's own 0.5/0.6 steps) use
+>    `https://sndaieinfst1401aiefoundry.services.ai.azure.com/` as the base URL, with no `/openai`
+>    suffix on the backend itself.
+> 2. **Operation URL templates carry the `/openai` prefix instead.** Because the backend URL has no
+>    `/openai` suffix, the `research` API's `chat-completions` operation template is
+>    `/openai/deployments/{deployment-id}/chat/completions` (matching the existing `codex` API's
+>    convention), not the bare `/deployments/{deployment-id}/chat/completions` shown in 0.6.
+> 3. **The policy XML in 0.7 as written is invalid XML** — it nests unescaped double quotes inside
+>    double-quoted attribute values (e.g. `MatchedParameters["deployment-id"]` inside
+>    `value="..."`), which ARM's policy parser rejects. Escape inner quotes as `&quot;` in the
+>    actual policy (not shown inline here — see the applied policy via
+>    `GET {base}/apis/research/policies/policy?api-version=2024-05-01`).
+>
+> Also confirmed already satisfied without any new action: 0.4's managed-identity role assignment —
+> APIM's identity already held `Foundry User` and `Cognitive Services User` on the Foundry account.
+> Real Foundry deployments recorded for Phase 2's catalogue: `gpt-4.1-nano`, `gpt-5-nano`,
+> `gpt-5-nano-2`, `gpt-5-mini`, `text-embedding-ada-002`, `gpt-5.3-codex`, `gpt-4o`, `gpt-4o-2`.
+>
+> **UPDATED 1 Oct 2026 (later same day) — `research` API rebuilt with an evaluated operation set.**
+> The 0.6/0.7 build above was deleted and redone after review: a pre-existing, separately-named
+> API (`sndaieinfst1401aiefoundry`, manually repathed to `test-research`) turned out to mirror the
+> `codex` API's full Azure OpenAI spec import with **no allow-list, no managed-identity auth
+> override and no rate limiting** — just a bare `set-backend-service`. Neither that nor the
+> original single-operation build was right long-term, so the `research` API now ships with:
+>
+> - **Two operations**: `chat-completions` (`POST /openai/deployments/{deployment-id}/chat/completions`)
+>   and `responses` (`POST /openai/responses`) — not the full spec (threads/assistants/vector
+>   stores/batch are not a defined `apiProfile` per `design-orchestration.md` and are deliberately
+>   excluded), and not chat-completions alone (the newer Responses API is a real, supported
+>   `apiProfile` value and a materially better experience for agentic/tool-use patterns).
+> - **`text-embedding-ada-002` excluded** from `research-allowed-deployments` (now 7 entries) even
+>   though it's a real Foundry deployment — the design pack lists RAG/embeddings as explicit
+>   **Future/Unimplemented** scope, independent of what's deployed.
+> - **One shared inbound policy, not per-operation policy copies.** `responses` doesn't carry
+>   `{deployment-id}` in its URL (the model is a JSON body field, unlike `chat-completions`), so the
+>   policy resolves the target deployment with a `<choose>` on whether
+>   `context.Request.MatchedParameters` contains `deployment-id`: if yes, read it from the URL; if
+>   not, read `context.Request.Body.As<JObject>(preserveContent: true)["model"]`. Everything else
+>   (backend routing, managed-identity auth, `llm-token-limit`, `llm-emit-token-metric`) stays in
+>   that one policy so every operation — including ones Phase 2 adds later — inherits the same
+>   enforcement by construction, rather than risking drift between hand-maintained per-operation
+>   copies. Caution: generic type syntax in an expression (`As<JObject>`) must itself be escaped as
+>   `&lt;`/`&gt;` in the policy XML, on top of the `&quot;` quote-escaping already noted above.
+> - Re-verified end-to-end: `chat-completions` → 200 completion; `responses` → 200 completion
+>   (`gpt-4o`, api-version `2025-03-01-preview` — `2024-05-01-preview` 404s on `/openai/responses`,
+>   it predates the Responses API); `responses` with the excluded embeddings model → 403
+>   `model-not-granted`; both operations with no key → 401.
+>
+> **UPDATED 1 Oct 2026 (Phase 1 complete)** — `ai-platform-backend-api`: `src/adapters/azure/`
+> (`azure-credential.js`, `arm-client.js`, `apim-credential-issuer.js`), `credential-issuer-registry.js`,
+> `credential-issuer-contract.js` (shared Liskov suite, run against both the mock and a nocked
+> `apim-credential-issuer`). `credential-issuer.js`'s port renamed `apimSubscriptionId` → `externalId`
+> (still persisted as `credentials.apimSubscriptionId` — one mapping line in `credential-service.js`,
+> no migration); `issuerKey` is now persisted on every credential document (backfilled `'mock'` on
+> existing docs) and resolved per-operation via the new registry (`forModel` on issue, `forCredential`
+> on renew/rotate/revoke/suspend) instead of a hardcoded `mockCredentialIssuer` default — routes
+> needed no changes since they already relied on the service functions' default parameter, not an
+> explicit injection. `config.js` gained `provisioning.mode` (`PROVISIONING_MODE`, default `mock`)
+> and `armAuth.*` (`AZURE_ARM_*`, kept deliberately separate from `azureAd.*`/SSO's plain `AZURE_*`),
+> plus a startup guard: throws if `cdpEnvironment=prod` and mode is `mock`, or if mode is `azure`
+> without the required `armAuth.*` keys set. Added `@azure/identity` (runtime) and `nock` (dev) —
+> nock needed `globalThis.fetch` restored in the two ARM-calling test files first, since the repo's
+> global `.vite/setup-files.js` replaces `fetch` with `vitest-fetch-mock` for every test file and that
+> takes priority over nock's undici-level interception otherwise. Not yet done: the azure adapter has
+> not been run against the real sandbox ARM/APIM from Phase 0 (only nocked) — that end-to-end check,
+> plus wiring `PROVISIONING_MODE=azure` and the `AZURE_ARM_*` secrets into a local `.env`, is the
+> first thing to do before Phase 2.
+
+> **UPDATED 2 Oct 2026 (Phase 3 complete, backend-only)** — `ai-platform-backend-api`: new
+> `CredentialVault` port (`src/adapters/credential-vault.js`), `mock-credential-vault.js` (in-memory,
+> default) and `src/adapters/azure/key-vault-credential-vault.js` (real `SecretClient` from the new
+> `@azure/keyvault-secrets` dependency, reusing `azure-credential.js`'s shared `ClientSecretCredential`
+> - never `arm-client.js`, since Key Vault secrets are a data-plane call on a different host/token
+> audience). Selection is a plain `provisioning.mode` lookup in the new
+> `credential-vault-registry.js` (no per-model/per-credential resolution needed, unlike the issuer
+> registry - there is only ever one active vault). New config `keyVault.vaultName`
+> (`AZURE_KEY_VAULT_NAME`), added to the existing `PROVISIONING_MODE=azure` required-keys guard.
+> Wired into `credential-service.js`: `issueCredential` and `rotateCredential` both call a shared
+> `writeSecretToVault` helper after the issuer call succeeds, which never fails the caller's request
+> - on a vault error it flags `vaultState: 'unwritten'` on the credential document instead (the user
+> already has the secret from the issuer response); `revokeCredential` calls `vault.remove()`
+> best-effort (APIM revoke is the real access control, Key Vault cleanup is hygiene). Extended
+> `reconcilePendingCredentials` (`maintenance-service.js`) to also retry every `vaultState:
+> 'unwritten'` credential by re-calling `issuer.issue()` with the same params - safe because the ARM
+> adapter's `PUT` is an idempotent upsert and `listSecrets` rereads the existing key rather than
+> minting a new one - and reuses the exact same `writeSecretToVault` helper so the retry path can't
+> drift from the original write path. New audited `POST /v1/credentials/{id}/reveal` route (payload
+> `{reason}`, `Cache-Control: no-store`), backed by a new `revealCredential` service function;
+> `recordAuditEvent` gained an optional `reason` field (stored, never logged) for this. **One
+> deliberate scope cut**: design fact 7 says view/re-share is available to "a team admin or platform
+> operator" - only the team-admin path is implemented, since no platform-operator role/concept
+> (collection, flag, or otherwise) exists anywhere else in this codebase yet; add it here when that
+> role lands elsewhere rather than inventing one just for this route. Key Vault secret tags
+> (`aip-team`/`aip-service-code`/`aip-environment`) are best-effort - `aip-service-code` is omitted
+> rather than required when a team has none recorded, since it's operator metadata, not an access
+> control. 161/161 backend tests green, lint clean. Not yet done: running this against the real
+> sandbox Key Vault from Phase 0 (`kv-aip-sandbox-tenants`, only unit-tested with an injected fake
+> `SecretClient` so far) and Phase 5's frontend view/re-share page.
 
 ## The goal
 
@@ -456,25 +687,48 @@ Phase 1 can be proven against `echo-api` before the `research` API exists, which
 it. That decouples "can we mint a working key" from "does the key reach a model", so this phase can
 start as soon as 0.1 returns 200.
 
-## 1.1 `src/adapters/azure/arm-client.js` (new)
+## 1.1 `src/adapters/azure/azure-credential.js` and `arm-client.js` (new)
 
-Single responsibility: acquire a token and make an authenticated ARM request. It knows nothing about
-credentials, subscriptions or models.
+Two modules, because the credential is shared across two different Azure planes but ARM requests are
+not.
 
-- `ClientSecretCredential(tenantId, clientId, clientSecret)` from `armAuth.*` — one instance, built
-  in one place. No certificate path and no credential-type factory: there is exactly one auth method
-  today, and the point of isolating construction here is that swapping to a certificate or managed
-  identity later is a one-line change rather than an abstraction we carry now.
+**`azure-credential.js`** — constructs and exports a single `ClientSecretCredential(tenantId,
+clientId, clientSecret)` from `armAuth.*`. No certificate path and no credential-type factory: there
+is exactly one auth method today, and the point of isolating construction here is that swapping to a
+certificate or managed identity later is a one-line change rather than an abstraction we carry now.
+Phase 3's Key Vault adapter imports this same module — see the note below on why it cannot go
+through `arm-client`.
+
+**`arm-client.js`** — single responsibility: make an authenticated **ARM** request. It knows nothing
+about credentials, subscriptions or models.
+
 - Token via `getToken('https://management.azure.com/.default')`, sent as
   `Authorization: Bearer <token>`. `@azure/identity` caches and refreshes it.
 - Base URL is `https://management.azure.com` — never `{apim}.management.azure-api.net`.
 - Exposes one method, `request(method, path, { body, ifMatch })`, so callers cannot reach anything
   else.
 
+### Only APIM is reached over ARM
+
+Worth being explicit, because the two are easy to conflate:
+
+| Concern | Endpoint | Token audience | RBAC |
+|---------|----------|----------------|------|
+| APIM subscription keys | `management.azure.com/.../Microsoft.ApiManagement/service/{apim}/subscriptions/{sid}` | `https://management.azure.com/.default` | Contributor, or the custom role in 6.3, on the APIM resource |
+| Key Vault secrets (Phase 3) | `https://{vault}.vault.azure.net/secrets/{name}` | `https://vault.azure.net/.default` | **Key Vault Secrets Officer** — a data-plane role |
+| Gateway traffic | `https://{gateway}/research/...` | none; the subscription key *is* the credential | the API policy from 0.7 |
+
+Key Vault does have an ARM surface (`Microsoft.KeyVault/vaults/...`), but it only manages the vault
+itself — creation, network rules, role assignments — never the secrets inside it. That is precisely
+why Contributor can create the vault in 0.9 and still not read a secret out of it, and why Secrets
+Officer has to be granted separately. So a credential is **born in ARM** (`PUT .../subscriptions/{sid}`,
+then `POST .../listSecrets`) and **stored through the Key Vault data plane**. `SecretClient` handles
+its own token exchange from the shared credential; it never calls `arm-client.request()`.
+
 Dependencies: `@azure/identity` plus native `fetch`, rather than `@azure/arm-apimanagement`. Five
 simple REST calls, no pagination and no long-running operations, so the SDK's main benefits do not
 apply — one dependency instead of two. If broad ARM surface is needed later, swapping the SDK in is
-contained to this one file. Add `nock` as a dev dependency: the repo has only `vitest-fetch-mock`
+contained to `arm-client.js`. Add `nock` as a dev dependency: the repo has only `vitest-fetch-mock`
 today, and these tests need HTTP-level interception.
 
 ## 1.2 `src/adapters/credential-issuer.js` (existing port — one change)
@@ -598,10 +852,11 @@ Depends on 0.9.
    (_"through the `CredentialIssuer` port, **then** written to `kv-aip-{env}-tenants`"_), and
    because it leaves the issuer port signature untouched.
 2. New `src/adapters/azure/key-vault-credential-vault.js` using the `SecretClient` from
-   `@azure/keyvault-secrets`, with the same `ClientSecretCredential` built in 1.1. Secret name
-   `cred-{mongoId}` — opaque, and valid against Key Vault's `^[0-9a-zA-Z-]+$` name rule. Tags
-   `aip-team` (`research` for this tier), `aip-service-code`, `aip-environment`. Set `expiresOn`
-   from the credential expiry so the vault reflects the TTL too.
+   `@azure/keyvault-secrets`, importing the shared credential from `azure-credential.js` (1.1) —
+   **not** `arm-client`, because Key Vault secrets are a data-plane concern on a different host and
+   token audience. Secret name `cred-{mongoId}` — opaque, and valid against Key Vault's
+   `^[0-9a-zA-Z-]+$` name rule. Tags `aip-team` (`research` for this tier), `aip-service-code`,
+   `aip-environment`. Set `expiresOn` from the credential expiry so the vault reflects the TTL too.
 3. New `src/adapters/mock-credential-vault.js` — in-memory, for dev and tests, selected by the same
    `PROVISIONING_MODE` guard as the issuer.
 4. Wire into
@@ -650,13 +905,17 @@ Foundry.
 
 # Phase 5 — Frontend
 
-Depends on Phases 2, 3 and 4.
+Depends on Phases 2 and 3. Item 2 originally also depended on Phase 4 (ARM liveness reconcile); since
+that phase is deferred (see the dated note near the top of this doc), item 2 is trimmed to render
+what the catalogue already carries today (`eligible`/`eligibility.reason`) rather than a true
+`provisioningState`-driven "deployment not live" state - revisit once Phase 4 lands.
 
 1. `src/server/routes/connect/shared/credential/` — show the real gateway URL and `/research` path,
    and the real `Ocp-Apim-Subscription-Key` header name, replacing anything derived from the mock
    `endpoint` field.
-2. `src/server/routes/models/` list and detail — render `lifecycle.status`, `eligibility.reason` and
-   the new "deployment not live" state, instead of silently hiding ineligible models.
+2. `src/server/routes/models/` list and detail — render `lifecycle.status` and `eligibility.reason`
+   (both already populated by Phase 2's catalogue sync), instead of silently hiding ineligible
+   models. No ARM-liveness-driven state yet - that's Phase 4 plus a revisit of this item.
 3. Code snippets keyed off `apiProfile` (design: _"snippets and tabs follow `apiProfile`"_),
    replacing any hardcoded chat-completions shape.
 4. Map `model-not-granted` (403, gateway-level) to GOV.UK error copy. It is distinct from the
@@ -670,7 +929,9 @@ Depends on Phases 2, 3 and 4.
 
 # Phase 6 — CDP deployment and docs
 
-Everything before this runs locally against the sandbox. This phase is what makes it deployable.
+Everything before this runs locally against the sandbox. This phase is what makes it deployable -
+not scheduled yet (no decision has been made to promote this service to a shared CDP environment);
+kept here as the agreed steps for whenever that decision happens.
 
 1. Add `AZURE_ARM_TENANT_ID`, `AZURE_ARM_CLIENT_ID` and `AZURE_ARM_CLIENT_SECRET` to CDP secrets for
    `ai-platform-backend-api`, plus `GITHUB_TOKEN` or the GitHub App private key. **These belong to
@@ -680,8 +941,11 @@ Everything before this runs locally against the sandbox. This phase is what make
 2. Confirm egress. CDP routes all outbound traffic through Squid
    (`HTTP_PROXY=http://localhost:3128`): `management.azure.com`, `login.microsoftonline.com`,
    `api.github.com` and `{vault}.vault.azure.net` must all be reachable, and none caught by
-   `GLOBAL_AGENT_NO_PROXY`. The APIM **gateway** (private VIP) is not reachable from CDP and does
-   not need to be — only the browser or the consumer's own workload calls it.
+   `GLOBAL_AGENT_NO_PROXY`. The APIM **gateway** does not need to be reachable from CDP — only the
+   browser or the consumer's own workload calls it — regardless of whether a given APIM instance's
+   gateway happens to be public or VNet-internal (confirmed public for `DEPLOYTESTDEFRA`, see the
+   dated note near the top of this doc; don't assume the same for a different instance without
+   checking).
 3. **Replace Contributor + User Access Administrator with a narrow custom role** before this service
    runs anywhere shared, and lock the tenants vault to CDP egress ranges:
 
@@ -718,8 +982,11 @@ Everything before this runs locally against the sandbox. This phase is what make
    covering the new environment variables, the two-app-registration split, `PROVISIONING_MODE`,
    running against the local file catalogue, and how to add a new credential issuer.
 6. Follow-up issues: (i) move Phase 0.5–0.7 into `ai-platform-infra` Bicep; (ii) private
-   connectivity from CDP to the tenants Key Vault, removing the IP exception; (iii) migrate the
-   stored `apimSubscriptionId` field to `externalId` once a second provider exists.
+   connectivity from CDP to the tenants Key Vault, removing the IP exception; (iii) ~~migrate the
+   stored `apimSubscriptionId` field to `externalId` once a second provider exists~~ — **done 2 Oct
+   2026, ahead of a second provider existing** (see the dated note near the top of this doc) — and
+   renamed to `externalGatewaySubscriptionId`, not `externalId`, to avoid colliding with the port's
+   own in-memory `externalId` field name.
 
 ---
 
@@ -764,6 +1031,7 @@ Backend (`ai-platform-backend-api`):
 | `src/adapters/credential-issuer.js`                                                                        | Port: `apimSubscriptionId` → `externalId`; methods unchanged      |
 | `src/adapters/credential-issuer-registry.js`                                                               | **New** — `forModel()` / `forCredential()`                        |
 | `src/adapters/mock-credential-issuer.js`                                                                   | Stays; must pass the contract suite                               |
+| `src/adapters/azure/azure-credential.js`                                                                   | **New** — the shared `ClientSecretCredential`, used by both planes |
 | `src/adapters/azure/{arm-client,apim-credential-issuer,foundry-deployments,key-vault-credential-vault}.js` | New                                                               |
 | `src/adapters/{catalogue-source,file-catalogue-source,credential-vault,mock-credential-vault}.js`          | New                                                               |
 | `src/adapters/github/github-catalogue-source.js`                                                           | New                                                               |
@@ -884,7 +1152,10 @@ are used by the frontend only.
 ## Open dependencies on other people
 
 - **Client ID, secret and tenant ID** for the new ARM app registration. Blocks everything.
-- **A hub-connected host** for the gateway curl in 0.8 and the end-to-end test — APIM has a private
-  VIP and no public IP. This is the most likely thing to stall the end-to-end run, and worth lining
-  up before you reach 0.8 rather than after.
+- ~~A hub-connected host for the gateway curl in 0.8 and the end-to-end test~~ — **resolved, not
+  actually needed**: `DEPLOYTESTDEFRA`'s gateway turned out to be the APIM default **public**
+  hostname (`https://deploytestdefra.azure-api.net`), confirmed when 0.8's curl succeeded from an
+  ordinary machine with no VPN/Bastion/jump box. This bullet was this doc's own cautious assumption
+  before Phase 0 actually ran against this specific instance - don't assume it applies to a
+  different APIM instance without checking its `gatewayUrl`/VNet config first.
 - **CDP egress IP ranges** for the Key Vault firewall — CDP platform team. Phase 6.3 only.

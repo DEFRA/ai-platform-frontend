@@ -14,7 +14,7 @@ the route folder: past work under this journey has also touched `src/server/comm
 (registering new route plugins) and `test-helpers/` (journey/session test setup) — check the
 plan's own "Relevant files" and "Steps" sections for the exact list on a given route:
 
-- [docs/plans/route0-welcome-plan.md](../../docs/plans/route0-welcome-plan.md) — home page (`/`). Not yet implemented.
+- [docs/plans/route0-welcome-plan.md](../../docs/plans/route0-welcome-plan.md) — home page (`/`). Implemented (29 Sept 2026).
 - [docs/plans/route1-plan.md](../../docs/plans/route1-plan.md) — research tier shared model access (`/models`, `/connect/shared/*`, `/manage`). Implemented.
 - [docs/plans/route2-plan.md](../../docs/plans/route2-plan.md) — team tier, first person in a team (`/teams`, `/connect/team/*`). Implemented.
 - [docs/plans/route3-plan.md](../../docs/plans/route3-plan.md) — team tier, joining a team that has access (rotate/revoke role enforcement). Implemented.
@@ -22,7 +22,7 @@ plan's own "Relevant files" and "Steps" sections for the exact list on a given r
 Cross-cutting plans under `docs/plans/integration/` are not journey routes, but change what a route's
 pages render and which errors they must handle:
 
-- [docs/plans/integration/research-tier-integration-plan.md](../../docs/plans/integration/research-tier-integration-plan.md) — replaces Route 1's mocked credential issuer and seed catalogue with real Azure APIM and a GitHub-hosted catalogue, and adds an audited credential view/re-share page under `/manage`. Not started. Read before changing `/models`, `/connect/shared/*` or anything rendering a credential.
+- [docs/plans/integration/research-tier-integration-plan.md](../../docs/plans/integration/research-tier-integration-plan.md) — replaces Route 1's mocked credential issuer and seed catalogue with real Azure APIM and a GitHub-hosted catalogue, and adds an audited credential view/re-share page under `/manage`. Phase 0 (Azure setup), Phase 1 (backend-only: `CredentialIssuer` registry/Azure adapter), Phase 2 (backend-only: `CatalogueSource` sync, real catalogue content pushed and tagged `v0.1.0` in `ai-platform-infra`) and Phase 3 (backend-only: Key Vault persistence, audited `POST /v1/credentials/{id}/reveal`) complete, with no frontend changes required yet; Phase 4 and Phase 6 are **deferred, not removed** (user decision) — still valid future work, don't start them without being asked. Next up is a live local smoke test of Phases 0-3 against the real sandbox resources (backend-only, see `ai-platform-backend-api`'s README), then Phase 5 — trimmed to drop the "deployment not live" item that depended on Phase 4's liveness data, which doesn't exist yet. Don't assume Phase 6 (CDP deployment) automatically follows Phase 5 - no deployment decision has been made. Read before changing `/models`, `/connect/shared/*` or anything rendering a credential.
 
 Each plan's "STATUS" line at the top records whether it has been built. Cross-repo context:
 
