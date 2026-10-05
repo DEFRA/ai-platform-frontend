@@ -319,6 +319,41 @@ describe('#connectController', () => {
     expect(postCheck.result).toEqual(expect.stringContaining('/manage'))
   })
 
+  test('POST /connect/shared/check shows a renew message and a manage link for an expired credential (409)', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getCheck = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, getCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'credential-expired-use-renew',
+        message: 'Your credential for this model has expired. Renew it instead of requesting a new one.'
+      }),
+      { status: 409 }
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postCheck.statusCode).toBe(409)
+    expect(postCheck.result).toEqual(
+      expect.stringContaining('has expired. Renew it instead')
+    )
+    expect(postCheck.result).toEqual(expect.stringContaining('/manage'))
+  })
+
   test('POST /connect/shared/check shows a safe error when the issuer fails (502)', async () => {
     let cookies = await signIn(server)
     cookies = await reachCheckStep(server, cookies)

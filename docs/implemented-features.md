@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 5 Oct 2026 (in-process credential expiry scheduler; APIM policy expiry backstop merged into the research API policy; issue()/renew() now keep APIM's expirationDate in sync with Mongo).
+Last updated: 5 Oct 2026 (in-process credential expiry scheduler; APIM policy expiry backstop merged into the research API policy; issue()/renew() now keep APIM's expirationDate in sync with Mongo; re-issuing for a model with an expired credential now points the user to renew instead of silently reissuing).
 
 ## Journey status at a glance
 
@@ -87,7 +87,11 @@ These aren't tied to one route — they're shared infrastructure every route abo
   independent of the scheduler's suspend() call — applied directly via ARM, not tracked as a repo
   file. `apim-credential-issuer.js`'s `issue()`/`renew()` set APIM's `expirationDate` (the same
   value as `EndDate`) from the exact `expiresAt` Mongo stores, so the two never drift — `renew()`
-  is now always called on renewal, not only when the credential had already expired.
+  is now always called on renewal, not only when the credential had already expired. Requesting a
+  new research credential for a model that already has an `expired` one is rejected
+  (`409 credential-expired-use-renew`, shown with a "Manage your credentials" link) rather than
+  silently reactivating the same deterministic APIM subscription under a brand-new credential
+  document and Key Vault secret.
 - **Idempotency**: every credential/team/team-deployment creating endpoint requires an
   `Idempotency-Key` header; replays return the original result rather than creating a duplicate.
 - **Audit events**: every state-changing action records a `recordAuditEvent` entry (actor, action,

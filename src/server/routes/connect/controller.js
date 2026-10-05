@@ -450,7 +450,9 @@ export const connectController = {
                 ),
                 purpose: pendingAccess.purpose,
                 errorMessage: errorMessageForCode(error),
-                errorAction: error.code === 'active-credential-exists'
+                errorAction:
+                  error.code === 'active-credential-exists' ||
+                  error.code === 'credential-expired-use-renew'
               })
               .code(error.statusCode)
           }
@@ -486,6 +488,10 @@ export const connectController = {
 function errorMessageForCode(error) {
   if (error.code === 'active-credential-exists') {
     return 'You already have an active credential for this model.'
+  }
+
+  if (error.code === 'credential-expired-use-renew') {
+    return 'Your credential for this model has expired. Renew it instead of requesting a new one.'
   }
 
   if (error.code === 'model-not-eligible') {
