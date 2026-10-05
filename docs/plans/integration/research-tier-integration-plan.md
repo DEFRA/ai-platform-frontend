@@ -51,11 +51,11 @@
 >
 > **UPDATED 5 Oct 2026 (same day) — fixed an unrelated pre-existing bug found while verifying the
 > above: `credential-service.test.js` failed with `MongoServerSelectionError: ECONNREFUSED
-> 127.0.0.1:27017`, reproducibly, including in a clean GitHub Actions run (no Docker, no local
+127.0.0.1:27017`, reproducibly, including in a clean GitHub Actions run (no Docker, no local
 > state) - an earlier draft of this note wrongly blamed local Docker Desktop availability, which was
 > wrong.** Root cause: `convict` snapshots `process.env.MONGO_URI` once, at the moment `#/config.js`
 > is first imported - the in-memory Mongo setup file sets that env var inside its own `beforeAll`,
-> so any test file must only reach `#/config.js` via a **dynamic** `import()` inside its *own*
+> so any test file must only reach `#/config.js` via a **dynamic** `import()` inside its _own_
 > `beforeAll` (registered, and so running, after the setup file's). Every passing real-server test
 > file already did this for `#/server.js`; `credential-service.test.js` broke it by statically
 > importing `#/services/credential-service.js` and `#/adapters/credential-issuer-registry.js` at
