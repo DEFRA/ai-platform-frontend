@@ -5,7 +5,7 @@
     {% if params.credential.renewalsRemaining > 0 %}
       <form method="post" action="/manage/credentials/{{ params.credential._id }}/renew" novalidate class="app-button-group__form">
         <input type="hidden" name="crumb" value="{{ params.crumb }}">
-        <button type="submit" class="govuk-link app-link-button" data-testid="credential-action-renew">Renew</button>
+        <button type="submit" class="govuk-link app-link-button app-button--loading-on-submit" data-testid="credential-action-renew">Renew</button>
       </form>
     {% endif %}
 

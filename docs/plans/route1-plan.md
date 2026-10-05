@@ -38,6 +38,15 @@
 No refactor of Route 1's shipped code is required by this update; it's a documentation-only
 reconciliation kept here so the next reader doesn't have to cross-reference three repos to see why.
 
+**UPDATED 5 Oct 2026 - integration plan Phase 5 (frontend) implemented.** The two mocked-seam
+follow-ups noted below are resolved: `/models`, `/connect/shared/credential` and
+`/manage/credentials/{id}` now show the real APIM gateway request (keyed off `apiProfile`) instead
+of the mock `endpoint` field, and the catalogue pages show ineligible/retired models greyed out
+instead of hiding them. A new audited `/manage/credentials/{id}/view` lets an owner/team admin
+re-reveal an already-issued secret. Full detail in
+[research-tier-integration-plan.md](integration/research-tier-integration-plan.md)'s own dated
+STATUS note, not duplicated here.
+
 **UPDATED 30 Sept 2026 - real integration planned, mocks still in place:** Route 1's two mocked
 seams (`mock-credential-issuer.js` and the `models.seed.json` catalogue) now have a plan to replace
 them - see

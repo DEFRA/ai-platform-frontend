@@ -35,7 +35,7 @@
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
-        {{ govukButton({ text: "Confirm and get my key" }) }}
+        {{ govukButton({ text: "Confirm and get my key", classes: "app-button--loading-on-submit" }) }}
 
         {% if errorAction %}
           <p class="govuk-body">

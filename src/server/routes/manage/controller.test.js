@@ -833,4 +833,135 @@ describe('#manageController', () => {
     expect(statusCode).toBe(statusCodes.notFound)
     expect(result).toEqual(expect.stringContaining('Credential not found'))
   })
+
+  test('GET /manage/credentials/{id} shows a "View full key" link for an active research credential', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleCredential))
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining('/manage/credentials/cred-1/view')
+    )
+  })
+
+  test('GET /manage/credentials/{id}/view shows the reason form', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleCredential))
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/view',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(
+      expect.stringContaining('Why do you need to see this?')
+    )
+  })
+
+  test('POST /manage/credentials/{id}/view without a reason re-renders with an error', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleCredential))
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/manage/credentials/cred-1/view',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, reason: '' }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toEqual(expect.stringContaining('There is a problem'))
+  })
+
+  test('POST /manage/credentials/{id}/view with a reason reveals the secret once', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ secret: 'full_mock_secret' }))
+
+    const postReveal = await server.inject({
+      method: 'POST',
+      url: '/manage/credentials/cred-1/view',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, reason: 'Debugging a failed call' }
+    })
+
+    expect(postReveal.statusCode).toBe(303)
+    expect(postReveal.headers.location).toBe(
+      '/manage/credentials/cred-1/revealed'
+    )
+
+    const redirectCookies = mergeCookies(cookies, postReveal)
+    const getRevealed = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/revealed',
+      headers: { cookie: cookieHeader(redirectCookies) }
+    })
+
+    expect(getRevealed.statusCode).toBe(statusCodes.ok)
+    expect(getRevealed.headers['cache-control']).toEqual(
+      expect.stringContaining('no-store')
+    )
+    expect(getRevealed.result).toEqual(
+      expect.stringContaining('full_mock_secret')
+    )
+
+    const cookiesAfterRevealed = mergeCookies(redirectCookies, getRevealed)
+    const getRevealedAgain = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/revealed',
+      headers: { cookie: cookieHeader(cookiesAfterRevealed) }
+    })
+
+    expect(getRevealedAgain.statusCode).toBe(303)
+    expect(getRevealedAgain.headers.location).toBe('/manage')
+  })
+
+  test('POST /manage/credentials/{id}/view shows a banner when the credential has been revoked', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'credential-revoked',
+        message: 'Credential has been revoked'
+      }),
+      { status: 409 }
+    )
+
+    const postReveal = await server.inject({
+      method: 'POST',
+      url: '/manage/credentials/cred-1/view',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, reason: 'Debugging a failed call' }
+    })
+
+    expect(postReveal.statusCode).toBe(303)
+    expect(postReveal.headers.location).toBe('/manage')
+
+    const redirectCookies = mergeCookies(cookies, postReveal)
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    const getManage = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(redirectCookies) }
+    })
+
+    expect(getManage.result).toEqual(
+      expect.stringContaining('This credential has been revoked.')
+    )
+  })
 })

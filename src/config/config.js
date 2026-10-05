@@ -221,6 +221,20 @@ export const config = convict({
     default: 'http://localhost:3001',
     env: 'API_BASE_URL'
   },
+  gateway: {
+    baseUrl: {
+      doc: 'Public base URL of the APIM gateway - not called by this frontend, only used to show the real request in code samples',
+      format: String,
+      default: 'https://deploytestdefra.azure-api.net',
+      env: 'GATEWAY_BASE_URL'
+    },
+    researchApiId: {
+      doc: 'APIM API id the research tier is scoped under (matches the backend\u2019s apim.researchApiId)',
+      format: String,
+      default: 'research',
+      env: 'GATEWAY_RESEARCH_API_ID'
+    }
+  },
   allowedEmailDomains: {
     doc: 'Comma-separated list of email domains allowed to sign in',
     format: String,

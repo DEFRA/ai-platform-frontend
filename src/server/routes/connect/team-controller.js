@@ -94,6 +94,10 @@ function errorMessageForCode(error) {
     return 'This model is not available for your team.'
   }
 
+  if (error.code === 'model-not-granted') {
+    return 'Your team does not have access to this model.'
+  }
+
   if (error.code === 'environment-not-available') {
     return 'This environment is not available yet.'
   }

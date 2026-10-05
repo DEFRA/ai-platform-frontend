@@ -39,7 +39,7 @@ const sampleModel = {
   deploymentName: 'gpt-4o',
   apiVersion: '2024-05-01-preview',
   endpoint: 'https://mock-gateway.ai-platform.defra.gov.uk/openai/gpt-4o',
-  limits: { requestsPerMinute: 60 }
+  limitsDefault: { requestsPerMinute: 60, tokensPerDay: 100000 }
 }
 
 async function signIn(server) {
@@ -215,6 +215,9 @@ describe('#connectController', () => {
     expect(getCheck.result).toEqual(
       expect.stringContaining('Evaluating for a pilot')
     )
+    expect(getCheck.result).toEqual(
+      expect.stringContaining('60 requests a minute')
+    )
 
     fetchMock.mockResponseOnce(
       JSON.stringify({
@@ -252,6 +255,23 @@ describe('#connectController', () => {
     )
     expect(getCredential.result).toEqual(
       expect.stringContaining('mock_test_secret')
+    )
+    expect(getCredential.result).toEqual(
+      expect.stringContaining(
+        '/research/openai/deployments/gpt-4o/chat/completions'
+      )
+    )
+    expect(getCredential.result).not.toEqual(
+      expect.stringContaining('mock-gateway.ai-platform.defra.gov.uk')
+    )
+    expect(getCredential.result).toEqual(
+      expect.stringContaining('api-version=2024-05-01-preview')
+    )
+    expect(getCredential.result).toEqual(
+      expect.stringContaining('60 requests a minute')
+    )
+    expect(getCredential.result).not.toEqual(
+      expect.stringContaining('undefined')
     )
 
     const getCredentialAgain = await server.inject({

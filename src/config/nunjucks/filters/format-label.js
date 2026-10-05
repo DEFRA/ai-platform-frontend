@@ -14,7 +14,10 @@ const LABELS = {
   'not-approved': 'Not approved',
   planned: 'Planned',
   research: 'Research',
-  team: 'Team'
+  team: 'Team',
+  available: 'Available',
+  deprecated: 'Being retired soon',
+  retired: 'Retired'
 }
 
 export function formatLabel(value) {

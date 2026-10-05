@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 2 Oct 2026 (live smoke test).
+Last updated: 5 Oct 2026 (Phase 5 — frontend; loading-state buttons; renew now syncs Key Vault expiry).
 
 ## Journey status at a glance
 
@@ -105,18 +105,39 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `catalogue/` now holds real content (8 Foundry-deployment models + 1 provider), tagged `v0.1.0`.
   See [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 2.
 - **Credential secrets persisted to Key Vault, with an audited reveal**: a `CredentialVault` port
-  (`issue`/`rotate` write through it, `revoke` soft-deletes) behind a `mock` adapter (default,
-  in-memory) and a real Azure Key Vault adapter (`@azure/keyvault-secrets`, `ai-platform-backend-api`),
-  selected by the same `PROVISIONING_MODE` flag as the credential issuer. A vault write failure never
-  fails the request (the user already has the secret) — it flags the credential `vaultState:
-  'unwritten'` instead, retried by the existing `reconcilePendingCredentials` maintenance job.
-  `POST /v1/credentials/{id}/reveal` lets an owner (research tier) or team admin (team tier)
-  re-view an already-issued secret, audited with a required reason, `Cache-Control: no-store`. See
+  (`issue`/`rotate` write through it, `renew` updates the existing secret version's expiry in place
+  via `updateExpiry` rather than rotating it, `revoke` soft-deletes) behind a `mock` adapter
+  (default, in-memory) and a real Azure Key Vault adapter (`@azure/keyvault-secrets`,
+  `ai-platform-backend-api`), selected by the same `PROVISIONING_MODE` flag as the credential
+  issuer. A vault write/expiry-update failure never fails the request (the user already has the
+  secret) — it flags the credential `vaultState: 'unwritten'` instead, retried by the existing
+  `reconcilePendingCredentials` maintenance job (which re-writes the secret using the already-
+  updated Mongo `expiresAt`). `POST /v1/credentials/{id}/reveal` lets an owner (research tier) or
+  team admin (team tier) re-view an already-issued secret, audited with a required reason,
+  `Cache-Control: no-store`. See
   [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 3.
+- **Loading state on backend-triggering buttons**: `.app-button--loading-on-submit` (view) +
+  `application.js` progressive enhancement disables the submit button and shows a spinner on
+  `submit`, so a slow request (renew, revoke confirm, issue a credential) can't be re-triggered by
+  repeat clicks. Applied to Renew (`/manage` list and credential detail), the revoke confirm page's
+  Continue button, and the shared-model "Confirm and get my key" button.
 - **Live-verified against real Azure sandbox resources** (not just mocked/nocked): issue, gateway
   completion, reveal and revoke all confirmed end-to-end against the real `DEPLOYTESTDEFRA` APIM and
   `kv-aip-sandbox-tenants` Key Vault. See the plan doc's dated note for the one real bug this
   surfaced and fixed (ARM `DELETE` empty-body handling).
+- **Frontend shows the real gateway, not a mock** (Phase 5): `/models/{slug}`, the research
+  connect journey's credential page, and `/manage/credentials/{id}` build the real APIM request
+  (`src/server/common/helpers/gateway-request.js`, `GATEWAY_BASE_URL` config) keyed off each
+  model's `apiProfile` — `chat-completions` gets the deployment-scoped chat completions shape,
+  `responses` gets the model-as-body-field shape, matching what the live smoke test above actually
+  verified. The catalogue pages (`/models`, `/models/{slug}`) now also show ineligible/retired
+  models greyed out with their `eligibilityReason`/`lifecycle.status` instead of hiding them
+  (backend `GET /v1/models?includeIneligible=true`, used by the catalogue browse page only — the
+  connect journeys still get eligible-only results by default). A new audited view-credential
+  journey, `/manage/credentials/{id}/view`, lets a research credential's owner or a team admin
+  re-reveal the full secret with a required reason, via the backend's
+  `POST /v1/credentials/{id}/reveal`. See
+  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 5.
 - **Security baseline**: structured JSON logging with no PII (`hapi-pino` + ECS format), CSP via
   Blankie, CSRF via `@hapi/crumb`, session cookies via `@hapi/yar` (all frontend); Joi validation
   rejecting unknown keys on every backend route.

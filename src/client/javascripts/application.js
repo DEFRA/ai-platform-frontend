@@ -43,3 +43,44 @@ if (stopRefreshButton) {
     stopRefreshButton.textContent = 'Checking stopped'
   })
 }
+
+// Progressive enhancement: disable a submit button and show a spinner while
+// its form is submitting, so a slow backend call (renew, revoke, issue a
+// credential) can't be re-triggered by repeat clicks. Marked by
+// `.app-button--loading-on-submit` in the view; a real form submission still
+// navigates away once the server responds, so there's no "stuck" state to
+// recover from - only bfcache restores (back/forward) need resetting.
+document
+  .querySelectorAll('.app-button--loading-on-submit')
+  .forEach((button) => {
+    const form = button.closest('form')
+    if (!form) {
+      return
+    }
+
+    form.addEventListener('submit', () => {
+      if (button.disabled) {
+        return
+      }
+
+      button.disabled = true
+
+      const spinner = document.createElement('span')
+      spinner.className = 'app-button__spinner'
+      spinner.setAttribute('aria-hidden', 'true')
+      button.append(spinner)
+
+      const loadingText = document.createElement('span')
+      loadingText.className = 'govuk-visually-hidden app-button__loading-text'
+      loadingText.textContent = ' Loading'
+      button.append(loadingText)
+    })
+
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) {
+        button.disabled = false
+        button.querySelector('.app-button__spinner')?.remove()
+        button.querySelector('.app-button__loading-text')?.remove()
+      }
+    })
+  })

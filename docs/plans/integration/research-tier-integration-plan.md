@@ -7,11 +7,50 @@
 > [UI flow](../../ui-flow-three-routes.md).
 >
 > **STATUS: PHASE 0 COMPLETE, PHASE 1 COMPLETE, PHASE 2 COMPLETE, PHASE 3 COMPLETE, LIVE SMOKE TEST
-> PASSED — Phase 4 and Phase 6 deliberately deferred, not removed (user decision, 2 Oct 2026); Phase
-> 5 next.** Revision 4: a **second, separate** app registration is provided for Azure ARM access
+> PASSED, PHASE 5 COMPLETE — Phase 4 and Phase 6 deliberately deferred, not removed (user decision,
+> 2 Oct 2026).** Revision 4: a **second, separate** app registration is provided for Azure ARM access
 > (client ID + secret, Contributor + User Access Administrator on the subscription) — so no service
 > principal creation and **no certificates**. CDP deployment is deferred to Phase 6; everything
 > before it runs locally against the sandbox.
+>
+> **UPDATED 5 Oct 2026 — Phase 5 (frontend) implemented.** All five items done: (1)
+> `src/server/common/helpers/gateway-request.js` (new) builds the real request shape from a model's
+> `apiProfile`/`deploymentName`/`apiVersion` - `chat-completions` gets the deployment-scoped chat
+> completions URL, anything else (including `responses`, and an unrecognised profile as a safe
+> default) falls back to that same shape except `responses`, which gets the model-as-body-field
+> shape with no deployment segment - used by `/models/{slug}`, the research connect journey's
+> credential page and `/manage/credentials/{id}`, replacing every read of the mock `endpoint`
+> catalogue field in those three places. New frontend-only config `GATEWAY_BASE_URL`/
+> `GATEWAY_RESEARCH_API_ID` (defaults: the real sandbox hostname from Phase 0, `research`) - cosmetic
+> only, this frontend never calls the gateway itself. (2) Backend gained an opt-in
+> `GET /v1/models?includeIneligible=true` (default stays eligible-only, so the connect journeys'
+> model pickers are unaffected) - the catalogue browse/detail pages pass it and now grey out
+> ineligible/retired models with `eligibilityReason`/`lifecycle.status` instead of hiding them
+> (the model-table component already supported this, unreachable until now because the backend
+> always filtered ineligible models out). Added one real ineligible seed model
+> (`text-embedding-ada-002`, `apiProfile: "embeddings"`, matching the real catalogue per the Phase 2
+> note) so this is visible in local dev without needing a second environment. (3) Code samples
+> (`code-examples` component) take an optional `requestBody` so the tabs render the right JSON body
+> per `apiProfile` instead of a hardcoded `messages` array. (4) `model-not-granted` added to the
+> `errorMessageForCode` maps in `connect/controller.js` and `team-controller.js` - still never
+> actually thrown anywhere server-side (only a gateway-level, design-pack-documented code), so this
+> is forward defensive mapping, not a new enforcement path. (5) New audited view-credential journey:
+> `GET/POST /manage/credentials/{id}/view` (reason form) -> `GET /manage/credentials/{id}/revealed`
+> (one-time secret display, `Cache-Control: no-store`, reusing the existing `setIssuedCredential`/
+> `takeIssuedCredential` one-shot session helper) - calls the already-built
+> `POST /v1/credentials/{id}/reveal` from Phase 3, no backend change needed. A "View full key" link
+> was added to `manage/credential.njk`, gated the same way as Renew/Rotate/Revoke (research owner, or
+> team admin). Backend 161/161 passing tests touched by this work (`models-service.test.js`,
+> `models.test.js` + 2 new cases each), full suite otherwise unaffected and lint clean;
+> `credential-service.test.js` fails in this environment with `ECONNREFUSED 127.0.0.1:27017`
+> regardless of these changes (confirmed via `git diff --stat` touching none of its dependencies) -
+> pre-existing local MongoDB/Docker Desktop availability issue, not a regression. Frontend 210/210
+> passing (12 new test cases across `gateway-request.test.js` (new), `code-examples`,
+> `models/controller.test.js`, `connect/controller.test.js`, `manage/controller.test.js`), lint
+> clean. Deliberately out of scope here (left for a future session): this frontend was not run
+> against the real sandbox end-to-end as part of this change - see the backend README section if
+> you want to do that; this Phase 5 work was verified with `PROVISIONING_MODE=mock` locally, which is
+> all the "run both apps and click through the UI" goal that prompted it needs.
 >
 > **UPDATED 2 Oct 2026 (later still) — live local smoke test against the real sandbox PASSED, one
 > real bug found and fixed.** Ran `ai-platform-backend-api` with `PROVISIONING_MODE=azure` against
