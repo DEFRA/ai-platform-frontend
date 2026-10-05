@@ -40,17 +40,30 @@
 > `takeIssuedCredential` one-shot session helper) - calls the already-built
 > `POST /v1/credentials/{id}/reveal` from Phase 3, no backend change needed. A "View full key" link
 > was added to `manage/credential.njk`, gated the same way as Renew/Rotate/Revoke (research owner, or
-> team admin). Backend 161/161 passing tests touched by this work (`models-service.test.js`,
-> `models.test.js` + 2 new cases each), full suite otherwise unaffected and lint clean;
-> `credential-service.test.js` fails in this environment with `ECONNREFUSED 127.0.0.1:27017`
-> regardless of these changes (confirmed via `git diff --stat` touching none of its dependencies) -
-> pre-existing local MongoDB/Docker Desktop availability issue, not a regression. Frontend 210/210
-> passing (12 new test cases across `gateway-request.test.js` (new), `code-examples`,
-> `models/controller.test.js`, `connect/controller.test.js`, `manage/controller.test.js`), lint
-> clean. Deliberately out of scope here (left for a future session): this frontend was not run
-> against the real sandbox end-to-end as part of this change - see the backend README section if
-> you want to do that; this Phase 5 work was verified with `PROVISIONING_MODE=mock` locally, which is
-> all the "run both apps and click through the UI" goal that prompted it needs.
+> team admin). Backend 192/192 passing tests, lint clean (see the dated note immediately below for
+> a fix unrelated to Phase 5 found along the way). Frontend 210/210 passing (12 new test cases
+> across `gateway-request.test.js` (new), `code-examples`, `models/controller.test.js`,
+> `connect/controller.test.js`, `manage/controller.test.js`), lint clean. Deliberately out of scope
+> here (left for a future session): this frontend was not run against the real sandbox end-to-end as
+> part of this change - see the backend README section if you want to do that; this Phase 5 work
+> was verified with `PROVISIONING_MODE=mock` locally, which is all the "run both apps and click
+> through the UI" goal that prompted it needs.
+>
+> **UPDATED 5 Oct 2026 (same day) — fixed an unrelated pre-existing bug found while verifying the
+> above: `credential-service.test.js` failed with `MongoServerSelectionError: ECONNREFUSED
+> 127.0.0.1:27017`, reproducibly, including in a clean GitHub Actions run (no Docker, no local
+> state) - an earlier draft of this note wrongly blamed local Docker Desktop availability, which was
+> wrong.** Root cause: `convict` snapshots `process.env.MONGO_URI` once, at the moment `#/config.js`
+> is first imported - the in-memory Mongo setup file sets that env var inside its own `beforeAll`,
+> so any test file must only reach `#/config.js` via a **dynamic** `import()` inside its *own*
+> `beforeAll` (registered, and so running, after the setup file's). Every passing real-server test
+> file already did this for `#/server.js`; `credential-service.test.js` broke it by statically
+> importing `#/services/credential-service.js` and `#/adapters/credential-issuer-registry.js` at
+> file top, both of which transitively import `#/config.js` - so `convict` snapshotted the stale
+> default URL during module collection, before the setup file's `beforeAll` had run. Fixed by making
+> those two imports dynamic too, loaded from inside each `describe` block's `beforeAll`
+> (`loadCredentialService()` helper). Full backend suite (`npx vitest run --coverage`, matching CI's
+> `npm test` exactly) now 192/192 green.
 >
 > **UPDATED 2 Oct 2026 (later still) — live local smoke test against the real sandbox PASSED, one
 > real bug found and fixed.** Ran `ai-platform-backend-api` with `PROVISIONING_MODE=azure` against
