@@ -4,6 +4,7 @@ import { addDays } from 'date-fns'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
   getSessionUser,
   getPendingAccess,
@@ -162,17 +163,19 @@ function buildCheckAnswersRows(model, purpose) {
     { key: { text: 'Environment' }, value: { text: 'Sandbox' } }
   ]
 
-  if (model.limits?.requestsPerMinute) {
+  if (model.limitsDefault?.requestsPerMinute) {
     rows.push({
       key: { text: 'Rate limit' },
-      value: { text: `${model.limits.requestsPerMinute} requests a minute` }
+      value: {
+        text: `${model.limitsDefault.requestsPerMinute} requests a minute`
+      }
     })
   }
 
-  if (model.limits?.dailyTokens) {
+  if (model.limitsDefault?.tokensPerDay) {
     rows.push({
       key: { text: 'Daily allowance' },
-      value: { text: `${model.limits.dailyTokens} tokens` }
+      value: { text: `${model.limitsDefault.tokensPerDay} tokens` }
     })
   }
 
@@ -471,7 +474,8 @@ export const connectController = {
           .view('connect/shared/credential', {
             pageTitle: 'Your connection details',
             heading: 'Your connection details',
-            ...issued
+            ...issued,
+            ...buildGatewayRequest(issued.model)
           })
           .header('cache-control', 'no-store')
       }
@@ -486,6 +490,10 @@ function errorMessageForCode(error) {
 
   if (error.code === 'model-not-eligible') {
     return 'This model is not available for the research tier.'
+  }
+
+  if (error.code === 'model-not-granted') {
+    return 'You do not have access to this model.'
   }
 
   if (error.code === 'upstream-unavailable') {

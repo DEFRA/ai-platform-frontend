@@ -3,6 +3,7 @@ import { differenceInCalendarDays } from 'date-fns'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
   getSessionUser,
   setAccountNotification,
@@ -21,6 +22,13 @@ const revokeConfirmSchema = Joi.object({
   confirmRevoke: Joi.string().valid('yes', 'no').required().messages({
     'any.required': 'Select yes if you want to revoke this credential',
     'any.only': 'Select yes if you want to revoke this credential'
+  })
+})
+
+const revealSchema = Joi.object({
+  reason: Joi.string().trim().min(1).max(500).required().messages({
+    'string.empty': 'Enter why you need to see this',
+    'any.required': 'Enter why you need to see this'
   })
 })
 
@@ -380,7 +388,10 @@ export const manageController = {
           pageTitle: heading,
           heading,
           credential,
-          models,
+          models: models.map((model) => ({
+            ...model,
+            gatewayEndpoint: buildGatewayRequest(model).endpoint
+          })),
           isAdmin
         })
       }
@@ -645,6 +656,120 @@ export const manageController = {
             credential: issued.credential,
             secret: issued.secret,
             modelNamesText: issued.modelNamesText
+          })
+          .header('cache-control', 'no-store')
+      }
+    }
+  },
+
+  reveal: {
+    get: {
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id } = request.params
+
+        let credential
+        try {
+          credential = await apiClient(request).get(`/v1/credentials/${id}`, {
+            userId: sessionUser.id
+          })
+        } catch (error) {
+          if (isNotFound(error)) {
+            return h.redirect('/manage').code(statusCodes.seeOther)
+          }
+          throw error
+        }
+
+        const models = await findModelsForCredential(request, credential)
+
+        return h.view('manage/reveal', {
+          pageTitle: 'View the full key',
+          heading: `View the full key for ${modelNamesText(models)}`,
+          values: { reason: '' },
+          errorSummary: null,
+          fieldErrors: {}
+        })
+      }
+    },
+
+    post: {
+      options: {
+        validate: {
+          payload: revealSchema,
+          failAction: async (request, h, error) => {
+            const sessionUser = getSessionUser(request)
+            const { id } = request.params
+            const credential = await apiClient(request).get(
+              `/v1/credentials/${id}`,
+              { userId: sessionUser.id }
+            )
+            const models = await findModelsForCredential(request, credential)
+
+            return h
+              .view('manage/reveal', {
+                pageTitle: 'Error: View the full key',
+                heading: `View the full key for ${modelNamesText(models)}`,
+                values: request.payload,
+                errorSummary: buildErrorSummary(error),
+                fieldErrors: buildFieldErrors(error)
+              })
+              .code(statusCodes.badRequest)
+              .takeover()
+          }
+        }
+      },
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id } = request.params
+
+        try {
+          const { secret } = await apiClient(request).post(
+            `/v1/credentials/${id}/reveal`,
+            { reason: request.payload.reason },
+            { userId: sessionUser.id }
+          )
+
+          setIssuedCredential(request, { secret, credentialId: id })
+
+          return h
+            .redirect(`/manage/credentials/${id}/revealed`)
+            .code(statusCodes.seeOther)
+        } catch (error) {
+          if (!(error instanceof ApiError)) {
+            throw error
+          }
+
+          setAccountNotification(request, {
+            type: 'error',
+            message:
+              error.code === 'admin-required'
+                ? 'Only a team admin can view this credential.'
+                : error.code === 'credential-revoked'
+                  ? 'This credential has been revoked.'
+                  : 'This credential could not be found.'
+          })
+
+          return h.redirect('/manage').code(statusCodes.seeOther)
+        }
+      }
+    }
+  },
+
+  revealed: {
+    get: {
+      handler(request, h) {
+        const issued = takeIssuedCredential(request)
+
+        if (!issued) {
+          return h.redirect('/manage').code(statusCodes.seeOther)
+        }
+
+        return h
+          .view('manage/revealed', {
+            pageTitle: 'Your key',
+            heading: 'Your key',
+            secret: issued.secret,
+            credentialId: issued.credentialId
           })
           .header('cache-control', 'no-store')
       }

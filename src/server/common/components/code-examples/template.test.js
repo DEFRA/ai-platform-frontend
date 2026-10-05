@@ -45,4 +45,17 @@ describe('Code examples component', () => {
       expect.stringContaining('<script>alert(1)</script>')
     )
   })
+
+  test('Should use a custom request body when given one (e.g. the responses apiProfile)', () => {
+    const $custom = renderComponent('code-examples', {
+      endpoint:
+        'https://deploytestdefra.azure-api.net/research/openai/responses',
+      secretPlaceholder: '<YOUR_SUBSCRIPTION_KEY>',
+      requestBody: { model: 'gpt-5-mini', input: 'Hello' }
+    })
+
+    const text = $custom('[data-testid="code-examples-curl"]').text()
+    expect(text).toEqual(expect.stringContaining('"model":"gpt-5-mini"'))
+    expect(text).not.toEqual(expect.stringContaining('"messages"'))
+  })
 })

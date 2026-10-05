@@ -47,7 +47,8 @@ const sampleModel = {
   deploymentName: 'gpt-4o',
   apiVersion: '2024-05-01-preview',
   endpoint: 'https://mock-gateway.ai-platform.defra.gov.uk/openai/gpt-4o',
-  limits: { requestsPerMinute: 60 }
+  limits: { requestsPerMinute: 60 },
+  limitsDefault: { requestsPerMinute: 60, tokensPerDay: 100000 }
 }
 
 describe('#modelsController', () => {
@@ -89,6 +90,40 @@ describe('#modelsController', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/v1/models?provider=openai&tier=research'),
       expect.anything()
+    )
+  })
+
+  test('GET /models asks the backend to include ineligible models, so they can be greyed out', async () => {
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    await server.inject({ method: 'GET', url: '/models' })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('includeIneligible=true'),
+      expect.anything()
+    )
+  })
+
+  test('GET /models shows a backend-ineligible model greyed out with its reason', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            ...sampleModel,
+            eligible: false,
+            eligibilityReason: 'Not yet approved for general use.'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({ method: 'GET', url: '/models' })
+
+    expect(result).toEqual(
+      expect.stringContaining('app-model-table__row--disabled')
+    )
+    expect(result).toEqual(
+      expect.stringContaining('Not yet approved for general use.')
     )
   })
 
@@ -170,6 +205,20 @@ describe('#modelsController', () => {
     expect(result).toEqual(expect.stringContaining('/connect?modelSlug=gpt-4o'))
   })
 
+  test('GET /models/{slug} shows requests per minute and tokens per day instead of context window', async () => {
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/models/gpt-4o'
+    })
+
+    expect(result).toEqual(expect.stringContaining('Requests per minute'))
+    expect(result).toEqual(expect.stringContaining('Tokens per day'))
+    expect(result).toEqual(expect.stringContaining('100000'))
+    expect(result).not.toEqual(expect.stringContaining('Context window'))
+  })
+
   test('GET /models/{slug} shows a Connect button when eligible and signed in', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
 
@@ -194,6 +243,25 @@ describe('#modelsController', () => {
     })
 
     expect(result).toEqual(expect.stringContaining('Not approved for use yet'))
+  })
+
+  test('GET /models/{slug} shows the real gateway request, not the mock endpoint field', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ ...sampleModel, apiProfile: 'chat-completions' })
+    )
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/models/gpt-4o'
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining(
+        '/research/openai/deployments/gpt-4o/chat/completions'
+      )
+    )
+    expect(result).not.toEqual(
+      expect.stringContaining('mock-gateway.ai-platform.defra.gov.uk')
+    )
   })
 
   test('GET /models/{slug} returns 404 for an unknown slug', async () => {

@@ -147,4 +147,29 @@
   }
 }
 
+// Progressive enhancement: spinner shown next to a submit button's label
+// while its form is in flight - `application.js` adds this on submit and
+// disables the button, so a slow backend call can't be re-triggered by
+// repeat clicks. Marker class is `.app-button--loading-on-submit`; `color:
+// currentColor` makes the spinner match the button's own text colour
+// whether it's a solid `govuk-button` (white text) or `.app-link-button`
+// (blue link text).
+@keyframes app-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.app-button__spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-left: 8px;
+  vertical-align: -0.15em;
+  border: 2px solid currentcolor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: app-spin 0.8s linear infinite;
+}
+
 

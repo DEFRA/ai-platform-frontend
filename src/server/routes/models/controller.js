@@ -2,6 +2,7 @@ import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
   formatLabel,
   formatLabelList
@@ -18,9 +19,6 @@ const slugParamSchema = Joi.object({
     .required()
 }).unknown(false)
 
-// The backend only ever returns eligible: true models today, but the
-// catalogue is designed to also show ineligible models (e.g. other
-// providers/tiers not yet approved) greyed out, once the seed data grows.
 // With no tier filter a model counts as eligible if it offers any tier we sell.
 const OFFERED_TIERS = ['research', 'team']
 
@@ -34,6 +32,17 @@ function isModelEligible(model, tier) {
   )
 }
 
+// The catalogue page shows ineligible/retired models greyed out rather than
+// hiding them, so it always asks the backend to include them, then explains
+// why with whatever the catalogue sync already carries.
+function statusReasonFor(model) {
+  if (model.lifecycle?.status === 'retired') {
+    return 'Retired'
+  }
+
+  return model.eligibilityReason || 'Not approved yet'
+}
+
 function buildQueryString({ provider, tier }) {
   const params = new URLSearchParams()
   if (provider) {
@@ -42,15 +51,31 @@ function buildQueryString({ provider, tier }) {
   if (tier) {
     params.set('tier', tier)
   }
-  const query = params.toString()
-  return query ? `?${query}` : ''
+  params.set('includeIneligible', 'true')
+  return `?${params.toString()}`
 }
 
 function buildModelSummaryRows(model) {
   const rows = [
     { key: { text: 'Provider' }, value: { text: formatLabel(model.provider) } },
-    { key: { text: 'Version' }, value: { text: `${model.version} (pinned)` } },
-    { key: { text: 'Context window' }, value: { text: model.contextWindow } },
+    { key: { text: 'Version' }, value: { text: `${model.version} (pinned)` } }
+  ]
+
+  if (model.limitsDefault?.requestsPerMinute) {
+    rows.push({
+      key: { text: 'Requests per minute' },
+      value: { text: `${model.limitsDefault.requestsPerMinute}` }
+    })
+  }
+
+  if (model.limitsDefault?.tokensPerDay) {
+    rows.push({
+      key: { text: 'Tokens per day' },
+      value: { text: `${model.limitsDefault.tokensPerDay}` }
+    })
+  }
+
+  rows.push(
     {
       key: { text: 'Where it runs' },
       value: {
@@ -58,21 +83,7 @@ function buildModelSummaryRows(model) {
       }
     },
     { key: { text: 'Tiers' }, value: { text: formatLabelList(model.tiers) } }
-  ]
-
-  if (model.limits?.requestsPerMinute) {
-    rows.push({
-      key: { text: 'Rate limit' },
-      value: { text: `${model.limits.requestsPerMinute} requests a minute` }
-    })
-  }
-
-  if (model.limits?.dailyTokens) {
-    rows.push({
-      key: { text: 'Daily allowance' },
-      value: { text: `${model.limits.dailyTokens} tokens` }
-    })
-  }
+  )
 
   return rows
 }
@@ -92,10 +103,14 @@ export const modelsController = {
         return h.view('models/index', {
           pageTitle: 'Models',
           heading: 'Models',
-          models: items.map((model) => ({
-            ...model,
-            eligible: isModelEligible(model, tier)
-          })),
+          models: items.map((model) => {
+            const eligible = isModelEligible(model, tier)
+            return {
+              ...model,
+              eligible,
+              statusReason: eligible ? undefined : statusReasonFor(model)
+            }
+          }),
           resultCount: items.length,
           filters: { provider: provider ?? '', tier: tier ?? '' }
         })
@@ -140,9 +155,11 @@ export const modelsController = {
           heading: model.displayName,
           model,
           eligible,
+          statusReason: eligible ? undefined : statusReasonFor(model),
           canConnect: eligible,
           modelLocationCaption: `${formatLabel(model.provider)}, hosted by Defra in ${formatLabel(model.region)}`,
-          summaryRows: buildModelSummaryRows(model)
+          summaryRows: buildModelSummaryRows(model),
+          ...buildGatewayRequest(model)
         })
       }
     }

@@ -55,6 +55,24 @@ export const manage = {
           method: 'GET',
           path: '/manage/credentials/{id}/rotated',
           handler: manageController.rotated.get.handler
+        },
+        {
+          method: 'GET',
+          path: '/manage/credentials/{id}/view',
+          handler: manageController.reveal.get.handler
+        },
+        {
+          method: 'POST',
+          path: '/manage/credentials/{id}/view',
+          options: {
+            validate: manageController.reveal.post.options.validate
+          },
+          handler: manageController.reveal.post.handler
+        },
+        {
+          method: 'GET',
+          path: '/manage/credentials/{id}/revealed',
+          handler: manageController.revealed.get.handler
         }
       ])
     }

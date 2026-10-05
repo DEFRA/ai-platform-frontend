@@ -49,6 +49,9 @@
         }) }}
       {% elif not eligible %}
         {{ govukTag({ text: "Not approved for use yet", classes: "govuk-tag--grey" }) }}
+        {% if statusReason %}
+          <p class="govuk-body">{{ statusReason }}</p>
+        {% endif %}
       {% endif %}
     </div>
   </div>
@@ -57,11 +60,12 @@
     <div class="govuk-grid-column-full">
       <h2 class="govuk-heading-m">Call it from your code</h2>
       {{ appCodeExamples({
-        endpoint: model.endpoint,
+        endpoint: endpoint,
+        requestBody: requestBody,
         secretPlaceholder: "<YOUR_SUBSCRIPTION_KEY>"
       }) }}
       {{ govukInsetText({
-        text: "This endpoint is a mock while the gateway is being built. Calls to it will not reach a model yet."
+        text: "This is the real gateway request shape for the research tier. You will still need a key from Connect to call it."
       }) }}
     </div>
   </div>

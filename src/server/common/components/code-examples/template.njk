@@ -1,16 +1,19 @@
 {% from "govuk/components/tabs/macro.njk" import govukTabs %}
 
+{% set requestBody = params.requestBody or { messages: [{ role: "user", content: "Hello" }] } %}
+{% set requestBodyJson = requestBody | dump %}
+
 {% set curlHtml %}<pre class="govuk-body app-code-examples__pre" data-testid="code-examples-curl"><code>curl {{ params.endpoint }} \
   -H "Ocp-Apim-Subscription-Key: {{ params.secretPlaceholder }}" \
   -H "Content-Type: application/json" \
-  -d '{"messages": [{"role": "user", "content": "Hello"}]}'</code></pre>{% endset %}
+  -d '{{ requestBodyJson }}'</code></pre>{% endset %}
 
 {% set pythonHtml %}<pre class="govuk-body app-code-examples__pre" data-testid="code-examples-python"><code>import requests
 
 response = requests.post(
     "{{ params.endpoint }}",
     headers={"Ocp-Apim-Subscription-Key": "{{ params.secretPlaceholder }}"},
-    json={"messages": [{"role": "user", "content": "Hello"}]},
+    json={{ requestBodyJson }},
 )</code></pre>{% endset %}
 
 {% set javascriptHtml %}<pre class="govuk-body app-code-examples__pre" data-testid="code-examples-javascript"><code>await fetch("{{ params.endpoint }}", {
@@ -19,7 +22,7 @@ response = requests.post(
     "Ocp-Apim-Subscription-Key": "{{ params.secretPlaceholder }}",
     "Content-Type": "application/json"
   },
-  body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] })
+  body: JSON.stringify({{ requestBodyJson }})
 })</code></pre>{% endset %}
 
 <div class="app-code-examples" data-testid="code-examples">

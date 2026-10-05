@@ -38,6 +38,15 @@
 No refactor of Route 1's shipped code is required by this update; it's a documentation-only
 reconciliation kept here so the next reader doesn't have to cross-reference three repos to see why.
 
+**UPDATED 5 Oct 2026 - integration plan Phase 5 (frontend) implemented.** The two mocked-seam
+follow-ups noted below are resolved: `/models`, `/connect/shared/credential` and
+`/manage/credentials/{id}` now show the real APIM gateway request (keyed off `apiProfile`) instead
+of the mock `endpoint` field, and the catalogue pages show ineligible/retired models greyed out
+instead of hiding them. A new audited `/manage/credentials/{id}/view` lets an owner/team admin
+re-reveal an already-issued secret. Full detail in
+[research-tier-integration-plan.md](integration/research-tier-integration-plan.md)'s own dated
+STATUS note, not duplicated here.
+
 **UPDATED 30 Sept 2026 - real integration planned, mocks still in place:** Route 1's two mocked
 seams (`mock-credential-issuer.js` and the `models.seed.json` catalogue) now have a plan to replace
 them - see
@@ -61,6 +70,44 @@ Also newly in scope, and absent from this route as built: credentials get persis
 `kv-aip-{env}-tenants` Key Vault with an audited `POST /v1/credentials/{id}/reveal` view/re-share
 path. Today the secret is shown once and never stored, which the design pack treats as a gap rather
 than the intended end state.
+
+**UPDATED 1 Oct 2026:** the integration plan's Phase 0 (Azure setup) is complete against the
+sandbox - APIM `research` API, Foundry backend and the tenants Key Vault all exist for real. Still
+nothing changed in this route's shipped code; Phase 1 (the backend adapter code this route's
+`CredentialIssuer` port will call) has not started. See the integration plan's own STATUS note for
+the concrete deviations its Phase 1/2 code must follow.
+
+Two further design decisions landed in the integration plan after the 30 Sept note above, and both
+change code this route owns:
+
+- **Two separate Azure app registrations.** The existing one (`azureAd.*` in the frontend's
+  `src/config/config.js`, env `AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`) is Entra
+  SSO sign-in **only**. A second, separate registration authenticates the backend to Azure ARM, and
+  is deliberately namespaced `AZURE_ARM_*` under an `armAuth.*` config section. Do not reuse the
+  SSO names for it: `AZURE_TENANT_ID` is already set environment-wide in `cdp-app-config` for SSO,
+  and `@azure/identity`'s `DefaultAzureCredential`/`EnvironmentCredential` read exactly those three
+  variables - so a later "simplification" to `DefaultAzureCredential` would silently authenticate
+  to ARM as the sign-in app.
+- **Credential issuing moves behind a provider registry.** `credential-service.js` stops taking a
+  single `issuer` default parameter and takes a registry instead, resolved by `forModel()` on issue
+  and `forCredential()` on renew/rotate/revoke/suspend. That needs a new `issuerKey` field persisted
+  on each credential document (backfilled to `'mock'`), because otherwise a non-Azure credential has
+  no way to say which provider should revoke it - today's `mock-credential-issuer.js` infers it from
+  an `apimSubscriptionId.startsWith('team-')` prefix, which is exactly the pattern being removed.
+  The port's returned `apimSubscriptionId` also becomes the provider-neutral `externalId`, though
+  the stored MongoDB field keeps its current name until a second provider forces the migration.
+
+One correction to the 30 Sept note above: the catalogue is read with a **GitHub token**, not
+necessarily a GitHub App - a fine-grained PAT with Contents:Read is enough for the first
+integration pass, with the App being the later end state.
+
+Worth knowing before writing the adapters: **only the APIM calls are ARM calls.** Key Vault secret
+reads and writes go to the vault's own data plane (`https://{vault}.vault.azure.net`, token
+audience `https://vault.azure.net/.default`), not to `management.azure.com`. Key Vault's ARM surface
+only manages the vault itself - creating it, network rules, role assignments - which is why
+Contributor can create a vault and still not read a secret out of it. A credential is therefore
+_born_ in ARM (`PUT .../subscriptions/{sid}` then `POST .../listSecrets`) and _stored_ through the
+Key Vault data plane.
 
 Scope: ONE of three routes from the finalized UI flow (see the
 [ui-flow doc](../ui-flow-three-routes.md) and build-stories
