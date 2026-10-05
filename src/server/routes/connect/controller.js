@@ -166,7 +166,9 @@ function buildCheckAnswersRows(model, purpose) {
   if (model.limitsDefault?.requestsPerMinute) {
     rows.push({
       key: { text: 'Rate limit' },
-      value: { text: `${model.limitsDefault.requestsPerMinute} requests a minute` }
+      value: {
+        text: `${model.limitsDefault.requestsPerMinute} requests a minute`
+      }
     })
   }
 

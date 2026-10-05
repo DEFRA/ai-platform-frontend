@@ -106,7 +106,7 @@ reads and writes go to the vault's own data plane (`https://{vault}.vault.azure.
 audience `https://vault.azure.net/.default`), not to `management.azure.com`. Key Vault's ARM surface
 only manages the vault itself - creating it, network rules, role assignments - which is why
 Contributor can create a vault and still not read a secret out of it. A credential is therefore
-*born* in ARM (`PUT .../subscriptions/{sid}` then `POST .../listSecrets`) and *stored* through the
+_born_ in ARM (`PUT .../subscriptions/{sid}` then `POST .../listSecrets`) and _stored_ through the
 Key Vault data plane.
 
 Scope: ONE of three routes from the finalized UI flow (see the

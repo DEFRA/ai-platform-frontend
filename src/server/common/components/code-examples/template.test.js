@@ -48,7 +48,8 @@ describe('Code examples component', () => {
 
   test('Should use a custom request body when given one (e.g. the responses apiProfile)', () => {
     const $custom = renderComponent('code-examples', {
-      endpoint: 'https://deploytestdefra.azure-api.net/research/openai/responses',
+      endpoint:
+        'https://deploytestdefra.azure-api.net/research/openai/responses',
       secretPlaceholder: '<YOUR_SUBSCRIPTION_KEY>',
       requestBody: { model: 'gpt-5-mini', input: 'Hello' }
     })

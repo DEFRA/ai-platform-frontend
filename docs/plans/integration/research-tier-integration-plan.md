@@ -84,7 +84,7 @@
 > can stay `CATALOGUE_SOURCE=file` (default) since the seed fixture already carries the real Foundry
 > model slugs from Phase 2 - no need to also exercise `CATALOGUE_SOURCE=github` for this check.
 > **Correction to this note's first draft**: the paragraph below originally claimed the gateway
-> needs a hub-connected host, by analogy with this doc's own 0.8 caution. That's wrong for *this*
+> needs a hub-connected host, by analogy with this doc's own 0.8 caution. That's wrong for _this_
 > sandbox instance - 0.8's smoke test curl was run directly from an ordinary agent terminal (no VPN,
 > Bastion or jump box), and succeeded, because `DEPLOYTESTDEFRA`'s gateway is the APIM default
 > **public** hostname `https://deploytestdefra.azure-api.net` (SKU/config has no internal VNet
@@ -104,7 +104,7 @@
 > 4 for now means Phase 5 must also **drop** item 2 and reuse catalogue-only `eligible`/
 > `eligibility.reason` (already true today, no new work) instead of a true liveness state - updated
 > below - and End-to-end-test step 9 is out of scope until Phase 4 lands. Phase 6 (CDP deployment):
-> still the correct list of steps for *if/when* this is promoted to a shared CDP environment, but
+> still the correct list of steps for _if/when_ this is promoted to a shared CDP environment, but
 > there is no deployment decision to promote it yet, so it should not be assumed to follow Phase 5
 > automatically - treat it as a separate future decision, not the next item in sequence. One factual
 > correction while reviewing it: Phase 6.2's reasoning that "the APIM gateway (private VIP) is not
@@ -147,7 +147,7 @@
 > deleted `seedModels`. Added `octokit` as an exact-pinned dependency, with its bundled retry plugin
 > disabled (`request: { retries: 0 }`) since this adapter has its own fallback-to-last-good-mirror
 > resilience. New config: `catalogue.{source,repo,ref}` and `github.{token,appId,installationId,
-> privateKey}`. One deliberate deviation from the plan's literal wording: `endpoint`/`apiVersion`
+privateKey}`. One deliberate deviation from the plan's literal wording: `endpoint`/`apiVersion`
 > were **not** dropped from the model schema (step 1 said to) - the frontend still reads
 > `model.endpoint`/`model.apiVersion` directly (credential/model detail pages), and dropping them is
 > Phase 5 work once those routes compose the gateway URL themselves; both fields are carried through
@@ -168,7 +168,7 @@
 > `main` (commit `e713b3e`) and tagged `v0.1.0`, the pinned release `CATALOGUE_REF` resolves
 > against. Version/sku/capacity values in these records are reasonable placeholders modelled on
 > public naming, not yet reconciled against the literal `az cognitiveservices account deployment
-> list` output - correct them when that's available. Phase 2 is now complete end-to-end: the
+list` output - correct them when that's available. Phase 2 is now complete end-to-end: the
 > `github` adapter has real content to read, not just a nocked test. Not yet done: an actual run of
 > `CATALOGUE_SOURCE=github` against this content (needs `GITHUB_TOKEN` in a local `.env` - not set
 > by the agent, `.env` is gitignored/copilot-ignored) and Phase 4's liveness reconcile.
@@ -254,32 +254,33 @@
 > `CredentialVault` port (`src/adapters/credential-vault.js`), `mock-credential-vault.js` (in-memory,
 > default) and `src/adapters/azure/key-vault-credential-vault.js` (real `SecretClient` from the new
 > `@azure/keyvault-secrets` dependency, reusing `azure-credential.js`'s shared `ClientSecretCredential`
+>
 > - never `arm-client.js`, since Key Vault secrets are a data-plane call on a different host/token
-> audience). Selection is a plain `provisioning.mode` lookup in the new
-> `credential-vault-registry.js` (no per-model/per-credential resolution needed, unlike the issuer
-> registry - there is only ever one active vault). New config `keyVault.vaultName`
-> (`AZURE_KEY_VAULT_NAME`), added to the existing `PROVISIONING_MODE=azure` required-keys guard.
-> Wired into `credential-service.js`: `issueCredential` and `rotateCredential` both call a shared
-> `writeSecretToVault` helper after the issuer call succeeds, which never fails the caller's request
+>   audience). Selection is a plain `provisioning.mode` lookup in the new
+>   `credential-vault-registry.js` (no per-model/per-credential resolution needed, unlike the issuer
+>   registry - there is only ever one active vault). New config `keyVault.vaultName`
+>   (`AZURE_KEY_VAULT_NAME`), added to the existing `PROVISIONING_MODE=azure` required-keys guard.
+>   Wired into `credential-service.js`: `issueCredential` and `rotateCredential` both call a shared
+>   `writeSecretToVault` helper after the issuer call succeeds, which never fails the caller's request
 > - on a vault error it flags `vaultState: 'unwritten'` on the credential document instead (the user
-> already has the secret from the issuer response); `revokeCredential` calls `vault.remove()`
-> best-effort (APIM revoke is the real access control, Key Vault cleanup is hygiene). Extended
-> `reconcilePendingCredentials` (`maintenance-service.js`) to also retry every `vaultState:
-> 'unwritten'` credential by re-calling `issuer.issue()` with the same params - safe because the ARM
-> adapter's `PUT` is an idempotent upsert and `listSecrets` rereads the existing key rather than
-> minting a new one - and reuses the exact same `writeSecretToVault` helper so the retry path can't
-> drift from the original write path. New audited `POST /v1/credentials/{id}/reveal` route (payload
-> `{reason}`, `Cache-Control: no-store`), backed by a new `revealCredential` service function;
-> `recordAuditEvent` gained an optional `reason` field (stored, never logged) for this. **One
-> deliberate scope cut**: design fact 7 says view/re-share is available to "a team admin or platform
-> operator" - only the team-admin path is implemented, since no platform-operator role/concept
-> (collection, flag, or otherwise) exists anywhere else in this codebase yet; add it here when that
-> role lands elsewhere rather than inventing one just for this route. Key Vault secret tags
-> (`aip-team`/`aip-service-code`/`aip-environment`) are best-effort - `aip-service-code` is omitted
-> rather than required when a team has none recorded, since it's operator metadata, not an access
-> control. 161/161 backend tests green, lint clean. Not yet done: running this against the real
-> sandbox Key Vault from Phase 0 (`kv-aip-sandbox-tenants`, only unit-tested with an injected fake
-> `SecretClient` so far) and Phase 5's frontend view/re-share page.
+>   already has the secret from the issuer response); `revokeCredential` calls `vault.remove()`
+>   best-effort (APIM revoke is the real access control, Key Vault cleanup is hygiene). Extended
+>   `reconcilePendingCredentials` (`maintenance-service.js`) to also retry every `vaultState:
+'unwritten'` credential by re-calling `issuer.issue()` with the same params - safe because the ARM
+>   adapter's `PUT` is an idempotent upsert and `listSecrets` rereads the existing key rather than
+>   minting a new one - and reuses the exact same `writeSecretToVault` helper so the retry path can't
+>   drift from the original write path. New audited `POST /v1/credentials/{id}/reveal` route (payload
+>   `{reason}`, `Cache-Control: no-store`), backed by a new `revealCredential` service function;
+>   `recordAuditEvent` gained an optional `reason` field (stored, never logged) for this. **One
+>   deliberate scope cut**: design fact 7 says view/re-share is available to "a team admin or platform
+>   operator" - only the team-admin path is implemented, since no platform-operator role/concept
+>   (collection, flag, or otherwise) exists anywhere else in this codebase yet; add it here when that
+>   role lands elsewhere rather than inventing one just for this route. Key Vault secret tags
+>   (`aip-team`/`aip-service-code`/`aip-environment`) are best-effort - `aip-service-code` is omitted
+>   rather than required when a team has none recorded, since it's operator metadata, not an access
+>   control. 161/161 backend tests green, lint clean. Not yet done: running this against the real
+>   sandbox Key Vault from Phase 0 (`kv-aip-sandbox-tenants`, only unit-tested with an injected fake
+>   `SecretClient` so far) and Phase 5's frontend view/re-share page.
 
 ## The goal
 
@@ -751,11 +752,11 @@ about credentials, subscriptions or models.
 
 Worth being explicit, because the two are easy to conflate:
 
-| Concern | Endpoint | Token audience | RBAC |
-|---------|----------|----------------|------|
-| APIM subscription keys | `management.azure.com/.../Microsoft.ApiManagement/service/{apim}/subscriptions/{sid}` | `https://management.azure.com/.default` | Contributor, or the custom role in 6.3, on the APIM resource |
-| Key Vault secrets (Phase 3) | `https://{vault}.vault.azure.net/secrets/{name}` | `https://vault.azure.net/.default` | **Key Vault Secrets Officer** — a data-plane role |
-| Gateway traffic | `https://{gateway}/research/...` | none; the subscription key *is* the credential | the API policy from 0.7 |
+| Concern                     | Endpoint                                                                              | Token audience                                 | RBAC                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
+| APIM subscription keys      | `management.azure.com/.../Microsoft.ApiManagement/service/{apim}/subscriptions/{sid}` | `https://management.azure.com/.default`        | Contributor, or the custom role in 6.3, on the APIM resource |
+| Key Vault secrets (Phase 3) | `https://{vault}.vault.azure.net/secrets/{name}`                                      | `https://vault.azure.net/.default`             | **Key Vault Secrets Officer** — a data-plane role            |
+| Gateway traffic             | `https://{gateway}/research/...`                                                      | none; the subscription key _is_ the credential | the API policy from 0.7                                      |
 
 Key Vault does have an ARM surface (`Microsoft.KeyVault/vaults/...`), but it only manages the vault
 itself — creation, network rules, role assignments — never the secrets inside it. That is precisely
@@ -1065,25 +1066,25 @@ Plus the negative path: a deployment outside `research-allowed-deployments` → 
 
 Backend (`ai-platform-backend-api`):
 
-| File                                                                                                       | Change                                                            |
-| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `src/adapters/credential-issuer.js`                                                                        | Port: `apimSubscriptionId` → `externalId`; methods unchanged      |
-| `src/adapters/credential-issuer-registry.js`                                                               | **New** — `forModel()` / `forCredential()`                        |
-| `src/adapters/mock-credential-issuer.js`                                                                   | Stays; must pass the contract suite                               |
+| File                                                                                                       | Change                                                             |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/adapters/credential-issuer.js`                                                                        | Port: `apimSubscriptionId` → `externalId`; methods unchanged       |
+| `src/adapters/credential-issuer-registry.js`                                                               | **New** — `forModel()` / `forCredential()`                         |
+| `src/adapters/mock-credential-issuer.js`                                                                   | Stays; must pass the contract suite                                |
 | `src/adapters/azure/azure-credential.js`                                                                   | **New** — the shared `ClientSecretCredential`, used by both planes |
-| `src/adapters/azure/{arm-client,apim-credential-issuer,foundry-deployments,key-vault-credential-vault}.js` | New                                                               |
-| `src/adapters/{catalogue-source,file-catalogue-source,credential-vault,mock-credential-vault}.js`          | New                                                               |
-| `src/adapters/github/github-catalogue-source.js`                                                           | New                                                               |
-| `src/services/credential-service.js`                                                                       | Registry injection; `issuerKey`; vault wiring; `revealCredential` |
-| `src/services/models-service.js`                                                                           | Query gains the liveness condition                                |
-| `src/services/catalogue-service.js`                                                                        | New                                                               |
-| `src/services/maintenance-service.js`                                                                      | Reconcile `vaultState: 'unwritten'`                               |
-| `src/common/seed/{seed-models.js,models.seed.json}`                                                        | Becomes the file-adapter fixture                                  |
-| `src/common/backfills/registry.js`                                                                         | `issuerKey` backfill; catalogue reshape backfill                  |
-| `src/plugins/mongodb.js`                                                                                   | Swap seed call for `syncCatalogue`; index on `lifecycle.status`   |
-| `src/routes/{credentials.js,maintenance.js}`                                                               | Reveal route; sync-catalogue route                                |
-| `src/config.js`                                                                                            | New `armAuth.*` section and the keys below                        |
-| `vitest.config.js`                                                                                         | Exclude the contract-suite helper from coverage                   |
+| `src/adapters/azure/{arm-client,apim-credential-issuer,foundry-deployments,key-vault-credential-vault}.js` | New                                                                |
+| `src/adapters/{catalogue-source,file-catalogue-source,credential-vault,mock-credential-vault}.js`          | New                                                                |
+| `src/adapters/github/github-catalogue-source.js`                                                           | New                                                                |
+| `src/services/credential-service.js`                                                                       | Registry injection; `issuerKey`; vault wiring; `revealCredential`  |
+| `src/services/models-service.js`                                                                           | Query gains the liveness condition                                 |
+| `src/services/catalogue-service.js`                                                                        | New                                                                |
+| `src/services/maintenance-service.js`                                                                      | Reconcile `vaultState: 'unwritten'`                                |
+| `src/common/seed/{seed-models.js,models.seed.json}`                                                        | Becomes the file-adapter fixture                                   |
+| `src/common/backfills/registry.js`                                                                         | `issuerKey` backfill; catalogue reshape backfill                   |
+| `src/plugins/mongodb.js`                                                                                   | Swap seed call for `syncCatalogue`; index on `lifecycle.status`    |
+| `src/routes/{credentials.js,maintenance.js}`                                                               | Reveal route; sync-catalogue route                                 |
+| `src/config.js`                                                                                            | New `armAuth.*` section and the keys below                         |
+| `vitest.config.js`                                                                                         | Exclude the contract-suite helper from coverage                    |
 
 Frontend (`ai-platform-frontend`):
 `src/server/routes/models/`, `src/server/routes/connect/shared/credential/`,
