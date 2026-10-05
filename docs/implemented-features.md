@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 5 Oct 2026 (Phase 5 — frontend; loading-state buttons; renew now syncs Key Vault expiry).
+Last updated: 5 Oct 2026 (in-process credential expiry scheduler; APIM policy expiry backstop merged into the research API policy; issue()/renew() now keep APIM's expirationDate in sync with Mongo).
 
 ## Journey status at a glance
 
@@ -79,7 +79,15 @@ These aren't tied to one route — they're shared infrastructure every route abo
 - **Credential lifecycle**: issue / renew / rotate / revoke, lazy expiry on read, plus two
   background-style maintenance operations (`expireCredentials`, `reconcilePendingCredentials`)
   exposed via a token-gated `/maintenance/expire-credentials` endpoint (see backend README's
-  "Development helpers").
+  "Development helpers") and run automatically by an in-process scheduler plugin
+  (`src/plugins/credential-expiry-scheduler.js`, `MAINTENANCE_SCHEDULER_ENABLED`/
+  `MAINTENANCE_SCHEDULER_INTERVAL_MS`, default every 5 minutes, disabled under `NODE_ENV=test`).
+  A gateway-level defence-in-depth expiry check is live on the research API's APIM policy
+  (`DEPLOYTESTDEFRA`): it blocks on `context.Subscription.EndDate` vs `DateTime.UtcNow`,
+  independent of the scheduler's suspend() call — applied directly via ARM, not tracked as a repo
+  file. `apim-credential-issuer.js`'s `issue()`/`renew()` set APIM's `expirationDate` (the same
+  value as `EndDate`) from the exact `expiresAt` Mongo stores, so the two never drift — `renew()`
+  is now always called on renewal, not only when the credential had already expired.
 - **Idempotency**: every credential/team/team-deployment creating endpoint requires an
   `Idempotency-Key` header; replays return the original result rather than creating a duplicate.
 - **Audit events**: every state-changing action records a `recordAuditEvent` entry (actor, action,
@@ -103,7 +111,14 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `catalogueSha`/`release`/`syncedAt`; models no longer present in the source are retired
   (`eligible: false`, `lifecycle.status: 'retired'`), never deleted. `ai-platform-infra`'s
   `catalogue/` now holds real content (8 Foundry-deployment models + 1 provider), tagged `v0.1.0`.
-  See [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 2.
+  Per-model `apiProfile` (`chat-completions` vs `responses`) drives both the frontend's gateway URL
+  shape (`gateway-request.js`) and the backend's `apiVersion` default: a `responses`-profile model
+  is always pinned to `2025-03-01-preview` regardless of what the catalogue source supplies for
+  that field (verified against the real sandbox gateway — `responses` 404s on the older
+  chat-completions-era default even when the source says otherwise), since `chat-completions` isn't
+  supported at all for a responses-only model. `models.seed.json` (the local `file` source) now
+  includes one `responses`-profile model (`gpt-5-3-codex`) so this path is exercised without GitHub
+  catalogue access. See [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 2.
 - **Credential secrets persisted to Key Vault, with an audited reveal**: a `CredentialVault` port
   (`issue`/`rotate` write through it, `renew` updates the existing secret version's expiry in place
   via `updateExpiry` rather than rotating it, `revoke` soft-deletes) behind a `mock` adapter
