@@ -165,27 +165,38 @@ function decorateKeyRow(
   }
 }
 
+// A credential that never finished issuing (still 'pending', or 'failed'
+// after a retry was exhausted/reconciled) was never a usable key - nothing
+// to view/renew/revoke. Surfacing it here would show, per failed attempt, a
+// permanent dead-end row (the connect journey already told the requester
+// about the failure inline when it happened).
+const UNISSUED_CREDENTIAL_STATUSES = ['pending', 'failed']
+
 // Builds the single "Keys you can use" table (page 11): personal research
 // keys and shared team keys side by side, so people can compare what they
 // hold without switching tabs.
 function buildKeyRows(credentials, teamsById, modelNames) {
-  return credentials.map((credential) => {
-    if (credential.tier === 'team') {
-      const team = teamsById.get(credential.teamId)
+  return credentials
+    .filter(
+      (credential) => !UNISSUED_CREDENTIAL_STATUSES.includes(credential.status)
+    )
+    .map((credential) => {
+      if (credential.tier === 'team') {
+        const team = teamsById.get(credential.teamId)
+
+        return decorateKeyRow(credential, modelNames, {
+          forText: `${team?.name ?? 'Unknown team'} / Team`,
+          showRenewRevoke: false,
+          isAdmin: team?.role === 'admin'
+        })
+      }
 
       return decorateKeyRow(credential, modelNames, {
-        forText: `${team?.name ?? 'Unknown team'} / Team`,
-        showRenewRevoke: false,
-        isAdmin: team?.role === 'admin'
+        forText: 'You / Research',
+        showRenewRevoke: true,
+        isAdmin: false
       })
-    }
-
-    return decorateKeyRow(credential, modelNames, {
-      forText: 'You / Research',
-      showRenewRevoke: true,
-      isAdmin: false
     })
-  })
 }
 
 // Deployment requests that haven't produced a viewable credential yet (still

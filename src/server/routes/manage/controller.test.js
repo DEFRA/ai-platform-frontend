@@ -135,6 +135,31 @@ describe('#manageController', () => {
     expect(result).toEqual(expect.stringContaining('You do not have a key yet'))
   })
 
+  test('GET /manage hides failed and pending credentials, including repeated failures for the same model, from the key list', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          { ...sampleCredential, _id: 'cred-failed-1', status: 'failed' },
+          { ...sampleCredential, _id: 'cred-failed-2', status: 'failed' },
+          { ...sampleCredential, _id: 'cred-pending-1', status: 'pending' }
+        ]
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toEqual(expect.stringContaining('You do not have a key yet'))
+  })
+
   test('GET /manage shows a "Your teams" placeholder with no team memberships', async () => {
     const cookies = await signIn(server)
 
