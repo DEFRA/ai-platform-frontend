@@ -334,7 +334,8 @@ describe('#connectController', () => {
     fetchMock.mockResponseOnce(
       JSON.stringify({
         code: 'credential-expired-use-renew',
-        message: 'Your credential for this model has expired. Renew it instead of requesting a new one.'
+        message:
+          'Your credential for this model has expired. Renew it instead of requesting a new one.'
       }),
       { status: 409 }
     )

@@ -207,7 +207,7 @@ list` output - correct them when that's available. Phase 2 is now complete end-t
 > **UPDATED 7 Oct 2026 (catalogue reconciled to Foundry)** — re-ran
 > `az cognitiveservices account deployment list` and made Foundry the source of truth for
 > `modelName`/`version`/`deploymentName`/`skus`/`apiProfile` (from `capabilities`: `chatCompletion=false`
-> + `responses=true` is `responses`). This supersedes the "placeholders" caveat above: the 1 Oct
+> and `responses=true` is `responses`). This supersedes the "placeholders" caveat above: the 1 Oct
 > `v0.1.0` values were wrong for every sku capacity, `gpt-4o`/`gpt-4o-2` version (`2024-11-20`),
 > `gpt-5.3-codex` version (`2026-02-24`) and the embeddings sku (`Standard`). The backend's
 > `models.seed.json` is now exactly the 8 Foundry deployments (the old `gpt-4-1`, `gpt-4o-mini` and
