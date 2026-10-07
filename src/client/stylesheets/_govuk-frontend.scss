@@ -20,5 +20,10 @@
     'brand': #008531,      // nav bar, buttons, focus. White on it is 4.8:1.
     'link': #1a65a6,       // 6.1:1 on white, against GOV.UK #1d70b8 at 5.2:1
     'link-hover': #0f4a7d
-  )
+  ),
+
+  // The button background defaults to GOV.UK green (#00703c), not the brand
+  // functional colour above, so set it to the Defra green explicitly. Hover
+  // and shadow shades are derived from this value.
+  $govuk-button-background-colour: #008531
 );

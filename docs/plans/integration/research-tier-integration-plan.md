@@ -186,6 +186,34 @@ list` output - correct them when that's available. Phase 2 is now complete end-t
 > `CATALOGUE_SOURCE=github` against this content (needs `GITHUB_TOKEN` in a local `.env` - not set
 > by the agent, `.env` is gitignored/copilot-ignored) and Phase 4's liveness reconcile.
 >
+> **UPDATED 7 Oct 2026 (multi-cloud catalogue shape)** — catalogue now says which cloud and
+> gateway adapter serves each model: `providers/{id}.json` is the model vendor with
+> `offerings[]` of `{id, displayName, cloud, adapter}` (e.g. `azure-openai` -> `azure` /
+> `azure-apim`; a future `bedrock-anthropic` -> `aws` / `aws-bedrock`), and each model file carries
+> `provider`, `offering`, `cloud`, `adapter`. `syncCatalogue` skips a model that contradicts its
+> offering and defaults `azure`/`azure-apim` for pre-0.1.2 releases. Credentials snapshot
+> `provider`/`offering` (research tier only), `cloud`, `adapter` and keep `issuerKey` (the issuer
+> that actually ran - `mock` in local dev). The registry picks the issuer by `adapter`, and the
+> vault is routed the same way by the credential's `issuerKey`. `PROVISIONING_MODE` is now just
+> `mock | live` (`azure` kept as a deprecated alias for the deployed CDP config) and
+> `ENABLED_ADAPTERS` (default `azure-apim`) lists the adapters a live environment can use, each with
+> its own required config; a model on a non-enabled adapter gets `501 adapter-not-enabled`. A new
+> gateway needs an issuer + vault adapter, an entry in both registries and its required config keys.
+> Backfills cover existing models and
+> credentials; new indexes: `models {provider, offering}`, `providers {id}` unique,
+> `credentials {adapter, status}`. Not handled yet: a team credential is one per team+environment,
+> so a team with models on two clouds would need one credential per adapter.
+>
+> **UPDATED 7 Oct 2026 (catalogue reconciled to Foundry)** — re-ran
+> `az cognitiveservices account deployment list` and made Foundry the source of truth for
+> `modelName`/`version`/`deploymentName`/`skus`/`apiProfile` (from `capabilities`: `chatCompletion=false`
+> + `responses=true` is `responses`). This supersedes the "placeholders" caveat above: the 1 Oct
+> `v0.1.0` values were wrong for every sku capacity, `gpt-4o`/`gpt-4o-2` version (`2024-11-20`),
+> `gpt-5.3-codex` version (`2026-02-24`) and the embeddings sku (`Standard`). The backend's
+> `models.seed.json` is now exactly the 8 Foundry deployments (the old `gpt-4-1`, `gpt-4o-mini` and
+> `gpt-3-5-turbo` entries were never deployed). `tiers`/`environments`/limits remain policy, not
+> Foundry data. The infra fix is committed on a local branch and not yet released.
+>
 > **UPDATED 1 Oct 2026** — Phase 0 run against subscription `AZR-AIE-SND1` (infradev, not SND4
 > sandbox — accepted for integration testing only), resource group `SNDAIEEXPRGP1401`, APIM
 > `DEPLOYTESTDEFRA`, Foundry account `sndaieinfst1401aiefoundry`. All exit criteria passed: 0.1
