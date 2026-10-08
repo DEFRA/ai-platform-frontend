@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 5 Oct 2026 (in-process credential expiry scheduler; APIM policy expiry backstop merged into the research API policy; issue()/renew() now keep APIM's expirationDate in sync with Mongo; re-issuing for a model with an expired credential now points the user to renew instead of silently reissuing).
+Last updated: 8 Oct 2026 (multi-cloud catalogue: models carry `cloud`/`adapter`, issuer and vault chosen per adapter via `ENABLED_ADAPTERS`; `PROVISIONING_MODE` is now `mock | live`; catalogue release v0.1.2).
 
 ## Journey status at a glance
 
@@ -97,10 +97,12 @@ These aren't tied to one route — they're shared infrastructure every route abo
 - **Audit events**: every state-changing action records a `recordAuditEvent` entry (actor, action,
   resource, outcome) in a TTL-expiring `auditEvents` collection — never a secret.
 - **`CredentialIssuer` port, now provider-extensible**: issue/renew/rotate/revoke/suspend behind a
-  `credential-issuer-registry` resolved per model (new credentials) or per already-issued credential
-  (via its persisted `issuerKey`) — a `mock` adapter (default) and a real Azure APIM adapter talking
-  to the ARM management plane (`src/adapters/azure/`, `ai-platform-backend-api`), selected by the
-  `PROVISIONING_MODE` config flag (production refuses to start on `mock`). `TenantOrchestrator`
+  `credential-issuer-registry` resolved per model's `adapter` (new credentials) or per already-issued
+  credential (via its persisted `issuerKey`) — a `mock` adapter and a real Azure APIM adapter talking
+  to the ARM management plane (`src/adapters/azure/`, `ai-platform-backend-api`). `PROVISIONING_MODE`
+  is `mock | live` (production refuses to start on `mock`; `azure` is a deprecated alias for `live`),
+  and in `live` mode `ENABLED_ADAPTERS` (default `azure-apim`) lists the adapters the environment can
+  run - a model on any other adapter gets `501 adapter-not-enabled`. `TenantOrchestrator`
   (GitOps-style team/model provisioning) is still mock-only. See
   [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1.
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
@@ -114,7 +116,9 @@ These aren't tied to one route — they're shared infrastructure every route abo
   into MongoDB on every backend start (`syncCatalogue`, `ai-platform-backend-api`) with
   `catalogueSha`/`release`/`syncedAt`; models no longer present in the source are retired
   (`eligible: false`, `lifecycle.status: 'retired'`), never deleted. `ai-platform-infra`'s
-  `catalogue/` now holds real content (8 Foundry-deployment models + 1 provider), tagged `v0.1.0`.
+  `catalogue/` now holds real content (8 Foundry-deployment models + 1 provider), tagged `v0.1.2`;
+  each model names its `provider`/`offering` and the `cloud`/`adapter` that serves it (a provider's
+  `offerings[]`), and a model contradicting or referencing an unknown offering is skipped, not synced.
   Per-model `apiProfile` (`chat-completions` vs `responses`) drives both the frontend's gateway URL
   shape (`gateway-request.js`) and the backend's `apiVersion` default: a `responses`-profile model
   is always pinned to `2025-03-01-preview` regardless of what the catalogue source supplies for
@@ -127,7 +131,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   (`issue`/`rotate` write through it, `renew` updates the existing secret version's expiry in place
   via `updateExpiry` rather than rotating it, `revoke` soft-deletes) behind a `mock` adapter
   (default, in-memory) and a real Azure Key Vault adapter (`@azure/keyvault-secrets`,
-  `ai-platform-backend-api`), selected by the same `PROVISIONING_MODE` flag as the credential
+  `ai-platform-backend-api`), routed by the credential's `issuerKey`, the same as the credential
   issuer. A vault write/expiry-update failure never fails the request (the user already has the
   secret) — it flags the credential `vaultState: 'unwritten'` instead, retried by the existing
   `reconcilePendingCredentials` maintenance job (which re-writes the secret using the already-
