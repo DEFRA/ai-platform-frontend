@@ -38,15 +38,15 @@ Three-legged OAuth is a later question.
 from that commit — PR #14 added `ms.date` frontmatter to every content page, which shifted every
 earlier citation by one line.
 
-| Reference | What it mandates |
-|---|---|
-| [design-orchestration.md](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md) L162-191 `{#catalogue-schema}` | The provider/offering field table. L185: "Model files do not repeat `cloud` or `adapter`; the backend derives both from the offering". L187 PR checks, L189 extension rules |
-| Same file L191 | **The backend must read both shapes.** "`ai-platform-infra` `v0.1.2` ships one provider file in the earlier flat shape … and backend `0.24.0` reads that shape. The shape above replaces it without changing the fields mirrored onto models and credentials, so the backend reads both until a catalogue release adopts it" |
-| Same file L193-208 `{#catalogue-flow}` | "Credential issuer and vault registries keyed by the offering's `gateway`, never by cloud or platform" |
-| Same file L382 | Constraint 10: confirm how APIM authenticates to Amazon Bedrock before any `bedrock` offering ships |
-| [catalogue.md](../../../../ai-platform-discovery-docs/src/content/catalogue.md) `{#availability}` | Added by PR #14. The same direction in user-facing terms: "The catalogue lists model providers such as OpenAI, Anthropic or Meta; each provider's offerings are its hosting routes… A hosting route is never a separate gateway, and team credentials are always gateway credentials" |
-| [decision-history.md](../../../../ai-platform-discovery-docs/docs/decision-history.md) 8 Oct 2026 entry | "Adopting the new shape is application and catalogue work outside this site" — i.e. this plan. Its **Open** section now adds: "Move `ai-platform-infra`'s catalogue and the backend sync to the `hosting` and `gateway` shape **together**, and add `catalogue/schema/`" |
-| [cloud-designs.json](../../../../ai-platform-discovery-docs/src/data/cloud-designs.json) AR03 v0.6.0 | "Bedrock and direct provider APIs are hosting platforms behind API Management, never separate gateways or credential issuers", and the control "team credentials stay gateway credentials" |
+| Reference                                                                                                                            | What it mandates                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [design-orchestration.md](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md) L162-191 `{#catalogue-schema}` | The provider/offering field table. L185: "Model files do not repeat `cloud` or `adapter`; the backend derives both from the offering". L187 PR checks, L189 extension rules                                                                                                                                                  |
+| Same file L191                                                                                                                       | **The backend must read both shapes.** "`ai-platform-infra` `v0.1.2` ships one provider file in the earlier flat shape … and backend `0.24.0` reads that shape. The shape above replaces it without changing the fields mirrored onto models and credentials, so the backend reads both until a catalogue release adopts it" |
+| Same file L193-208 `{#catalogue-flow}`                                                                                               | "Credential issuer and vault registries keyed by the offering's `gateway`, never by cloud or platform"                                                                                                                                                                                                                       |
+| Same file L382                                                                                                                       | Constraint 10: confirm how APIM authenticates to Amazon Bedrock before any `bedrock` offering ships                                                                                                                                                                                                                          |
+| [catalogue.md](../../../../ai-platform-discovery-docs/src/content/catalogue.md) `{#availability}`                                    | Added by PR #14. The same direction in user-facing terms: "The catalogue lists model providers such as OpenAI, Anthropic or Meta; each provider's offerings are its hosting routes… A hosting route is never a separate gateway, and team credentials are always gateway credentials"                                        |
+| [decision-history.md](../../../../ai-platform-discovery-docs/docs/decision-history.md) 8 Oct 2026 entry                              | "Adopting the new shape is application and catalogue work outside this site" — i.e. this plan. Its **Open** section now adds: "Move `ai-platform-infra`'s catalogue and the backend sync to the `hosting` and `gateway` shape **together**, and add `catalogue/schema/`"                                                     |
+| [cloud-designs.json](../../../../ai-platform-discovery-docs/src/data/cloud-designs.json) AR03 v0.6.0                                 | "Bedrock and direct provider APIs are hosting platforms behind API Management, never separate gateways or credential issuers", and the control "team credentials stay gateway credentials"                                                                                                                                   |
 
 The design pack matches [new-shape.md](new-shape.md) on every field name and enum. It ships neither
 the JSON Schema nor any example provider JSON; those exist only in `new-shape.md`.
@@ -59,7 +59,7 @@ Two constraints follow from the table above and shape the sequencing:
    `CATALOGUE_REF` is per environment.
 2. **The backend reads both shapes, permanently enough to matter.** Not every environment moves its
    pin at once, so B1 and B3 must keep accepting a flat `v0.1.x` offering indefinitely rather than
-   as a short-lived migration courtesy. This is about catalogue *input* only; the Mongo documents it
+   as a short-lived migration courtesy. This is about catalogue _input_ only; the Mongo documents it
    writes are nested-only (decision 2).
 
 ## Target shape
@@ -83,14 +83,14 @@ Provider file, `catalogue/providers/{id}.json`:
 }
 ```
 
-| Offering field | Rule |
-|---|---|
+| Offering field      | Rule                                                                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`, `displayName` | `id` unique within the provider; what a model's `offering` names. Existing ids such as `azure-openai` stay, because issued credentials record them |
-| `hosting.platform` | `foundry`, `bedrock` or `direct` |
-| `hosting.cloud` | `azure` for `foundry`, `aws` for `bedrock`; absent for `direct` |
-| `hosting.provider` | Who runs a `direct` API; absent on cloud platforms, where the cloud names the host |
-| `gateway` | Required. `azure-apim` is the only value. Selects the credential issuer and vault |
-| `terms` | Optional link, per offering because terms differ by hosting route |
+| `hosting.platform`  | `foundry`, `bedrock` or `direct`                                                                                                                   |
+| `hosting.cloud`     | `azure` for `foundry`, `aws` for `bedrock`; absent for `direct`                                                                                    |
+| `hosting.provider`  | Who runs a `direct` API; absent on cloud platforms, where the cloud names the host                                                                 |
+| `gateway`           | Required. `azure-apim` is the only value. Selects the credential issuer and vault                                                                  |
+| `terms`             | Optional link, per offering because terms differ by hosting route                                                                                  |
 
 Persisted model document (Mongo) — **nested only, no flat `cloud`/`adapter`**:
 
@@ -117,7 +117,7 @@ than a description of what a gateway is.
 ## Confirmed decisions
 
 1. **Scope**: `ai-platform-backend-api` + `DEFRA/ai-platform-infra` + `ai-platform-frontend` (docs
-   *and* the model-page caption) + a separate discovery-docs PR for build story B04.
+   _and_ the model-page caption) + a separate discovery-docs PR for build story B04.
 2. **Model documents carry the nested object only.** The legacy flat `cloud`/`adapter` are removed,
    not kept as a fallback. Safe to contract in one step because `azure-apim` is the only gateway
    that exists, so a pre-backfill document resolves to the value it already had.
@@ -217,18 +217,18 @@ permanent code, not scaffolding to delete later.
 
 - **B1.** `indexOfferings` (L18-33): the indexed value becomes the offering object. Legacy string
   offerings synthesise `{ id, hosting: { platform: 'foundry', cloud: LEGACY_CLOUD, provider: null },
-  gateway: DEFAULT_GATEWAY }`; a legacy flat `{ id, cloud, adapter }` offering from a
+gateway: DEFAULT_GATEWAY }`; a legacy flat `{ id, cloud, adapter }` offering from a
   v0.1.x release is lifted into the same nested shape.
 - **B2.** A duplicate offering id within a provider logs an error and **skips the whole sync**
   (`{ synced: 0, retired: 0, skipped: true }`), mirroring the zero-models guard at L85-91.
-  *Deliberate deviation* from new-shape.md's "fail the sync": throwing would propagate into
+  _Deliberate deviation_ from new-shape.md's "fail the sync": throwing would propagate into
   `mongodb.js` startup, whereas skipping keeps the last good copy — the philosophy this file
   already follows everywhere else.
 - **B3.** `normalizeModel` (L43-55): the **offering now wins over the model**. Emits
   `hosting: { platform, cloud, provider }` and `gateway`. Falls back to a raw model's own flat
-  `cloud`/`adapter` only as catalogue-*input* tolerance for a stale v0.1.x release, then to
+  `cloud`/`adapter` only as catalogue-_input_ tolerance for a stale v0.1.x release, then to
   `LEGACY_CLOUD` / `DEFAULT_GATEWAY`. Never emits flat fields.
-- **B4.** The mismatch check at L113-123 now only fires when the raw model still *declares* flat
+- **B4.** The mismatch check at L113-123 now only fires when the raw model still _declares_ flat
   `cloud`/`adapter`, compared against `offering.hosting.cloud` / `offering.gateway`.
 - **B5.** The model upsert (L125-137) gains `$unset: { cloud: '', adapter: '' }` alongside its
   `$set`. Without this, `$set: { ...model }` leaves the old flat values on an already-synced
@@ -287,7 +287,7 @@ Follows [`schema-changes.instructions.md`](../../../../ai-platform-backend-api/.
   sync; a `direct` offering yields `hosting.provider` set and `hosting.cloud` null; a
   previously-synced document with flat fields has them removed after a re-sync (B5).
 - **E4.** `credential-issuer-registry.test.js` / `credential-vault-registry.test.js`: replace the
-  `aws-bedrock` fixtures with a plausible second *gateway* id (not a cloud), e.g.
+  `aws-bedrock` fixtures with a plausible second _gateway_ id (not a cloud), e.g.
   `aws-apigw`, and switch model fixtures from `adapter:` to `gateway:`.
 - **E5.** `src/config.test.js` L48-65: the same id swap, on top of R8's rename.
 - **E6.** `src/services/credential-service.test.js` L123-151: the model fixture uses
@@ -368,7 +368,7 @@ because every remaining item reports built state and must be read from the merge
 - ~~Drop the `GET /v1/providers` claim.~~ Done — B04's Repositories row no longer lists it.
 - ~~Leave `cloud-designs.json` alone.~~ Superseded. AR03 was advanced to **v0.6.0** with the 8 Oct
   direction and a reworded control ("team credentials stay gateway credentials"). Nothing further
-  is needed there unless a *later* decision changes it.
+  is needed there unless a _later_ decision changes it.
 - ~~`docs/mvp-portal-ui-api-scope.md`.~~ Deleted by PR #14; no longer a consideration.
 
 **Still outstanding — all of it is "report the built state once this plan ships":**
@@ -378,7 +378,7 @@ because every remaining item reports built state and must be read from the merge
   `gateway`". Once A and B land, that caveat is resolved and the row should say so.
 - **I2.** `build-stories.md` B05 state row names **`ENABLED_ADAPTERS`**, and gap 4 names
   `MOCK_TIERS`. Phase R renames the first to `ENABLED_GATEWAYS`, so B05 goes stale the moment R
-  merges. This is the one item that is *caused by* this plan rather than fixed by it.
+  merges. This is the one item that is _caused by_ this plan rather than fixed by it.
 - **I3.** `design-orchestration.md` L191's "Built by 8 October 2026" note says `v0.1.2` ships the
   flat shape with no `catalogue/schema/`, and that backend `0.24.0` reads it. After A and B this
   needs a fresh dated read: the new tag, the schema folder, and the backend reading both shapes.
@@ -420,7 +420,7 @@ because every remaining item reports built state and must be read from the merge
    `{ adapter: 1, status: 1 }`.
 8. Real GitHub source: `CATALOGUE_SOURCE=github CATALOGUE_REF=v0.2.0 GITHUB_TOKEN=…` — the user runs
    this, since the agent cannot see their `.env`. Confirm 8 models synced, 0 skipped.
-8b. **Dual-shape proof** (required by design C L191): re-run step 8 against the *old* tag,
+   8b. **Dual-shape proof** (required by design C L191): re-run step 8 against the _old_ tag,
    `CATALOGUE_REF=v0.1.2`, and confirm it also syncs 8 models with 0 skipped, writing the same
    nested documents from the flat offering. An environment that has not moved its pin must keep
    working.
@@ -466,21 +466,21 @@ provider/offering field table, the `hosting`/`gateway`/`terms` rules, "Model fil
 `{#catalogue-flow}`'s "registries keyed by the offering's `gateway`, never by cloud or platform",
 and constraint 10. Phases R, A, B, C, D, E, F, G and H are unaffected.
 
-| What changed | Effect on this plan |
-|---|---|
-| `ms.date` frontmatter added to every content page | Every line citation shifted by one. The Authoritative source table has been re-read against `7a60b71` |
-| L191's build-status note rewritten, adding "the backend reads both until a catalogue release adopts it" | **New requirement.** B1/B3's legacy branches are permanent, not migration scaffolding. New verification step 8b proves `v0.1.2` still syncs |
-| Decision history's Open section gained "Move `ai-platform-infra`'s catalogue and the backend sync … **together**, and add `catalogue/schema/`" | **New sequencing constraint**, now in A6: merge B, then tag, then move pins per environment |
-| New `catalogue.md#availability` section carrying the direction in user-facing terms | Added to the Authoritative source table. No new work — it agrees with design C |
-| B04 rewritten: provider is the model maker, hosting routes are not providers, no approval `status`, `CatalogueSource` replaces the versioned seed | **Phase I1/I2 as originally written are done.** Struck through |
-| `GET /v1/providers` removed from B04's Repositories row | Old I2 done |
-| AR03 advanced to v0.6.0: "Bedrock and direct provider APIs are hosting platforms behind API Management, never separate gateways or credential issuers" | **Old I3 was wrong** — it said leave `cloud-designs.json` alone. Upstream changed it deliberately. Struck through |
-| `docs/mvp-portal-ui-api-scope.md` and `docs/stakeholder-source-evidence.md` deleted | Old I4 removed — the file no longer exists |
-| B05 state row now names `ENABLED_ADAPTERS`; gap 4 names `MOCK_TIERS` | **New work, caused by this plan**: Phase R's rename makes B05 stale. Now I2 |
-| New `.github/copilot-instructions.md` in that repo, with an eight-step "propagate, date and record" rule | Phase I5 rewritten to follow it — it is stricter than the `design-pack.instructions.md` pointer cited before |
-| Build status re-read at backend `0.24.0`, frontend `0.19.0`, infra `v0.1.2` | Phase I is now entirely "report the built state once this ships", so it must be raised **after** R-G, not in parallel |
+| What changed                                                                                                                                           | Effect on this plan                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ms.date` frontmatter added to every content page                                                                                                      | Every line citation shifted by one. The Authoritative source table has been re-read against `7a60b71`                                       |
+| L191's build-status note rewritten, adding "the backend reads both until a catalogue release adopts it"                                                | **New requirement.** B1/B3's legacy branches are permanent, not migration scaffolding. New verification step 8b proves `v0.1.2` still syncs |
+| Decision history's Open section gained "Move `ai-platform-infra`'s catalogue and the backend sync … **together**, and add `catalogue/schema/`"         | **New sequencing constraint**, now in A6: merge B, then tag, then move pins per environment                                                 |
+| New `catalogue.md#availability` section carrying the direction in user-facing terms                                                                    | Added to the Authoritative source table. No new work — it agrees with design C                                                              |
+| B04 rewritten: provider is the model maker, hosting routes are not providers, no approval `status`, `CatalogueSource` replaces the versioned seed      | **Phase I1/I2 as originally written are done.** Struck through                                                                              |
+| `GET /v1/providers` removed from B04's Repositories row                                                                                                | Old I2 done                                                                                                                                 |
+| AR03 advanced to v0.6.0: "Bedrock and direct provider APIs are hosting platforms behind API Management, never separate gateways or credential issuers" | **Old I3 was wrong** — it said leave `cloud-designs.json` alone. Upstream changed it deliberately. Struck through                           |
+| `docs/mvp-portal-ui-api-scope.md` and `docs/stakeholder-source-evidence.md` deleted                                                                    | Old I4 removed — the file no longer exists                                                                                                  |
+| B05 state row now names `ENABLED_ADAPTERS`; gap 4 names `MOCK_TIERS`                                                                                   | **New work, caused by this plan**: Phase R's rename makes B05 stale. Now I2                                                                 |
+| New `.github/copilot-instructions.md` in that repo, with an eight-step "propagate, date and record" rule                                               | Phase I5 rewritten to follow it — it is stricter than the `design-pack.instructions.md` pointer cited before                                |
+| Build status re-read at backend `0.24.0`, frontend `0.19.0`, infra `v0.1.2`                                                                            | Phase I is now entirely "report the built state once this ships", so it must be raised **after** R-G, not in parallel                       |
 
-Net effect: Phase I shrank from five items to five *different* items, all of them post-implementation
+Net effect: Phase I shrank from five items to five _different_ items, all of them post-implementation
 reporting rather than correcting a wrong model. Everything else gained two constraints and better
 citations.
 
@@ -491,7 +491,7 @@ citations.
 Differences from the plan text:
 
 - **Model documents and catalogue offerings still carry `adapter`.** Phase R renames the
-  *credential* field and every config/code identifier, but `model.adapter` (read by
+  _credential_ field and every config/code identifier, but `model.adapter` (read by
   `credential-issuer-registry.js`, `credential-service.js` and `catalogue-service.js`) stays until
   Phases B/C/D replace it with `gateway`. The credential write is therefore
   `gateway: model.adapter ?? null` for now.
@@ -502,7 +502,7 @@ Differences from the plan text:
   `adapter_1_status_1` with the existing `dropIndexIfExists` helper.
 - **R2 re-check**: `cdp-app-config/.../dev/ai-platform-backend-api.env` still does not set
   `ENABLED_ADAPTERS` (only a comment mentions "adapters"). Re-check before merging.
-- Test wording that describes the *model* field (fixtures such as `adapter: 'aws-bedrock'`) was
+- Test wording that describes the _model_ field (fixtures such as `adapter: 'aws-bedrock'`) was
   left as is; it changes with Phase B/C.
 
 ## Phases B-H implementation notes (9 October 2026)
