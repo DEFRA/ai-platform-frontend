@@ -120,7 +120,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   (`eligible: false`, `lifecycle.status: 'retired'`), never deleted. `ai-platform-infra`'s
   `catalogue/` holds 8 Foundry-deployment models + 1 provider: `v0.1.2` is the flat
   `cloud`/`adapter` shape and `v0.2.0` (tagged, merged) adds `hosting`/`gateway` offerings and
-  `catalogue/schema/`. The backend reads either shape and stores models with a nested `hosting`
+  `catalogue/schema/`. The backend reads only the new shape and stores models with a nested `hosting`
   object and `gateway`; see the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
   A model contradicting or referencing an unknown offering is skipped, not synced.
   Per-model `apiProfile` (`chat-completions` vs `responses`) drives both the frontend's gateway URL

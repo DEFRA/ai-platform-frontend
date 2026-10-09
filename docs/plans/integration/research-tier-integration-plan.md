@@ -192,7 +192,7 @@ list` output - correct them when that's available. Phase 2 is now complete end-t
 > `bedrock` or `direct`, plus `cloud` or `provider`) and `gateway` (`azure-apim`), models are stored
 > with a nested `hosting` object and `gateway` (no flat `cloud`/`adapter`), the issuer registry is
 > keyed by the model's `gateway`, `ENABLED_ADAPTERS` is `ENABLED_GATEWAYS`, and the error is
-> `501 gateway-not-enabled`. The backend reads both the new and the flat offering shape. Full
+> `501 gateway-not-enabled`. The backend reads only the new offering shape. Full
 > detail: [centralised-gateway-plan.md](../centralised-gateway/centralised-gateway-plan.md).
 >
 > **UPDATED 7 Oct 2026 (multi-cloud catalogue shape; superseded 9 Oct, see above)** — catalogue now says which cloud and

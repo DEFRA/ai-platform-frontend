@@ -16,6 +16,12 @@
 > phase lands (`Phase A complete`, etc.) and add a dated note at the bottom recording what actually
 > happened versus what is written here.
 >
+> **UPDATED 9 Oct 2026 — no legacy support, by direction:** the site is not live, so the backend reads
+> only the `hosting`/`gateway` shape and keeps no legacy fallback (`LEGACY_CLOUD`, `legacyHosting`,
+> flat or plain-string offerings, model `cloud`/`adapter` input, `model-hosting.js`). This supersedes
+> constraint 2, B1, B3-B5, C1 and verification step 8b below. An offering without `hosting`/`gateway`
+> skips the sync; `v0.1.x` can no longer be pinned.
+>
 > **RECHECKED 9 Oct 2026 against `ai-platform-discovery-docs` PR #14** (`7a60b71`, the
 > `docs/repo-drift-cleanup` branch). The schema mandate is unchanged, but Phase I shrank sharply —
 > that PR already did most of it — and two new constraints landed. See "Drift check, 9 Oct 2026" at
@@ -527,12 +533,10 @@ Differences from the plan text:
 - **`$schema` is stripped from providers on sync.** The new provider file carries `"$schema"`, which
   the github source passes through; a `$`-prefixed key in the providers `$set` would be rejected by
   Mongo. `syncCatalogue` drops it before the upsert (new test).
-- **Model documents also tolerate their own nested `hosting`/`gateway`** in `normalizeModel`
-  (offering, then the model's own nested fields, then flat input, then the Azure default), so a model
-  re-synced from its stored document keeps its values when no offering resolves.
-- **A flat v0.1.x offering with `cloud: aws` lifts to `platform: bedrock`**, any other cloud to
-  `foundry`; a plain-string offering lifts to `foundry`/`azure`.
-- **B4's mismatch check** only fires when the raw model still declares flat `cloud`/`adapter`.
+- **No legacy fallbacks (9 Oct, by direction).** `normalizeModel` takes `hosting`/`gateway` only from
+  the offering; a model whose offering is unknown or missing is skipped, and an offering without
+  `hosting.platform` and `gateway` skips the sync. `model-hosting.js` was removed: the issuer registry
+  reads `model.gateway` (a model without one throws `gateway-not-enabled`).
 - **D1** registered as `2026-10-08-models-hosting-gateway`, last in the registry, with a test that
   pins the order after `2026-10-08-credentials-gateway`.
 - **E4-E6** use `aws-apigw` as the second gateway id. The two 2026-10-07 backfill tests keep their
