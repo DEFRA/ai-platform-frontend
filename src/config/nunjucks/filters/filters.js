@@ -1,6 +1,6 @@
 import { formatDate } from './format-date.js'
 import { formatCurrency } from './format-currency.js'
-import { formatLabel, formatLabelList } from './format-label.js'
+import { formatLabel, formatLabelList, formatDataZone } from './format-label.js'
 
 function assign(object, ...sources) {
   for (const source of sources) {
@@ -26,4 +26,11 @@ function assign(object, ...sources) {
   return object
 }
 
-export { assign, formatDate, formatCurrency, formatLabel, formatLabelList }
+export {
+  assign,
+  formatDate,
+  formatCurrency,
+  formatLabel,
+  formatLabelList,
+  formatDataZone
+}

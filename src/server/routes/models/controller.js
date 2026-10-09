@@ -5,7 +5,8 @@ import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
   formatLabel,
-  formatLabelList
+  formatLabelList,
+  formatDataZone
 } from '#/config/nunjucks/filters/format-label.js'
 
 const listQuerySchema = Joi.object({
@@ -68,7 +69,7 @@ function hostingCaptionFor(model) {
 }
 
 function whereItRunsFor(model) {
-  const dataZone = `${formatLabel(model.dataZone)} data zone`
+  const dataZone = `${formatDataZone(model.dataZone)} data zone`
 
   // A direct offering declares a data zone but has no regions[] to name.
   return isDirectlyHosted(model)

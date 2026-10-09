@@ -5,7 +5,6 @@ const LABELS = {
   anthropic: 'Anthropic',
   meta: 'Meta',
   uksouth: 'UK South',
-  uk: 'UK South',
   active: 'Active',
   pending: 'Setting up',
   revoked: 'Revoked',
@@ -31,4 +30,14 @@ export function formatLabel(value) {
 
 export function formatLabelList(values) {
   return (values ?? []).map(formatLabel).join(', ')
+}
+
+const DATA_ZONE_LABELS = { uk: 'UK', eu: 'EU' }
+
+export function formatDataZone(value) {
+  if (value == null) {
+    return value
+  }
+
+  return DATA_ZONE_LABELS[value] ?? value
 }

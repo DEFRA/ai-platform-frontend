@@ -8,9 +8,10 @@
 >
 > Source proposal: [new-shape.md](new-shape.md).
 >
-> **STATUS: Phases R, B, C, D, E, F, G and H complete (9 Oct 2026); Phase A pushed and tagged
-> `v0.2.0` on `ai-platform-infra` (branch not yet merged, no environment pin moved); Phase I not
-> started (waits for the merged code).** Update this line as each
+> **STATUS: Phases R, B, C, D, E, F, G and H complete (9 Oct 2026), pending merge and release of
+> the backend and frontend pull requests; Phase A tagged `v0.2.0` and merged into
+> `ai-platform-infra` `main`, with no environment pin moved; Phase I not started (waits for the
+> backend and frontend releases).** Update this line as each
 > phase lands (`Phase A complete`, etc.) and add a dated note at the bottom recording what actually
 > happened versus what is written here.
 >
@@ -170,8 +171,10 @@ than about naming. The suite must pass with only renamed identifiers.
   `{ adapter: 1, status: 1 }` → `{ gateway: 1, status: 1 }` at `src/plugins/mongodb.js` L174
   (dropping the superseded index, as this repo already does elsewhere) plus its L173 comment.
 - **R7.** New backfill `2026-10-08-credentials-gateway`: pipeline `updateMany` on the
-  **credentials** collection, `{ gateway: { $exists: false } }`, `$set: { gateway: '$adapter' }`
-  then `$unset: 'adapter'`. Append **after** the two shipped `2026-10-07-*` entries (they query
+  **credentials** collection, `{ gateway: { $exists: false } }`, `$set: { gateway: '$adapter' }`.
+  Expand step only: `adapter` is **not** unset, because an older instance still serving during a
+  rolling deploy keeps writing `adapter`; the later contract migration re-copies any document still
+  missing `gateway`, then unsets `adapter`. Append **after** the two shipped `2026-10-07-*` entries (they query
   `{ adapter: { $exists: false } }` and would re-create the old field if they ran later) and
   **before** D1. Note D2 uses the same `{ gateway: { $exists: false } }` filter on the **models**
   collection — different collections, so the two do not interact.
@@ -201,10 +204,6 @@ Not in this workspace; clone it. Current pinned release `v0.1.2` → new release
   — the decision history asks for the catalogue and the backend sync to move **together**, and the
   pin is per environment, so a new-shape release read by an old backend breaks that environment.
   Sequence: merge B → tag `v0.2.0` → move pins one environment at a time.
-
-> The anthropic example in [new-shape.md](new-shape.md) L150 is malformed
-> (`cloud: "null"`, unquoted key) and violates its own `oneOf`. Do not copy it. No anthropic or meta
-> provider file is created by this plan.
 
 ### B. Backend sync — `src/services/catalogue-service.js`
 
@@ -544,10 +543,13 @@ Differences from the plan text:
   `$schema` on the provider. This is not the live GitHub source, so a run with
   `CATALOGUE_SOURCE=github` is still the user's.
 - **Not yet done:** verification steps 5-7 against a real local Mongo; re-checking the CDP env file
-  before merging R2; the backend and frontend changes are still uncommitted (`main` is at backend
-  `0.24.0` / frontend `0.19.0`), so no environment can read `v0.2.0` yet and
+  before merging R2; merging and releasing the backend and frontend pull requests (`main` is at
+  backend `0.24.0` / frontend `0.19.0`), so no environment can read `v0.2.0` yet and
   `cdp-app-config/.../dev/ai-platform-backend-api.env` still pins `CATALOGUE_REF=v0.1.2`; and
   Phase I, which reports built state and waits for the backend and frontend releases.
+- **R7 changed after review (9 Oct 2026).** The credentials backfill is expand-only (copies
+  `adapter` into `gateway`, keeps `adapter`), so a rolling deploy cannot leave documents from an
+  older instance without either field. The models backfill still unsets `cloud`/`adapter`.
 
 ## Keeping this plan current
 

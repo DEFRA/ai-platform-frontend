@@ -280,7 +280,8 @@ describe('#modelsController', () => {
 
     expect(result).toEqual(expect.stringContaining('Meta, hosted by Meta'))
     expect(result).not.toEqual(expect.stringContaining('hosted by Defra'))
-    expect(result).toEqual(expect.stringContaining('UK South data zone'))
+    expect(result).toEqual(expect.stringContaining('UK data zone'))
+    expect(result).not.toEqual(expect.stringContaining('UK South data zone'))
     expect(result).not.toEqual(expect.stringContaining('undefined'))
   })
 
@@ -299,6 +300,7 @@ describe('#modelsController', () => {
     expect(result).toEqual(
       expect.stringContaining('OpenAI, hosted by Defra in UK South')
     )
+    expect(result).toEqual(expect.stringContaining('UK South, UK data zone'))
   })
 
   test('GET /models/{slug} returns 404 for an unknown slug', async () => {

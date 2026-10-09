@@ -50,10 +50,10 @@ describe('Model table component', () => {
 
   test('Should fall back to the data zone for a model with no region', () => {
     const $table = renderComponent('model-table', {
-      models: [{ ...eligibleModel, tiers: ['research'], dataZone: 'eu' }]
+      models: [{ ...eligibleModel, tiers: ['research'], dataZone: 'uk' }]
     })
 
-    expect($table('td').eq(3).text().trim()).toBe('eu')
+    expect($table('td').eq(3).text().trim()).toBe('UK')
   })
 
   test('Should show an empty state when there are no models', () => {

@@ -2,8 +2,10 @@
 > [centralised-gateway-plan.md](centralised-gateway-plan.md) next to this file — read that first.
 > Kept here for the reasoning behind the change.
 
-Important NOTE:
-read these notes in this file but aftar that mainly see this commit already merged in ai-platform-discovery-docs repo which is in the workspace for the real new change needed for the centralised Gateway : https://github.com/DEFRA/ai-platform-discovery-docs/commit/e85485eab0bf9c3449c7a01bb5b65ab694320ec2
+Important note: this file is the original proposal and its reasoning. For the agreed shape, read
+[centralised-gateway-plan.md](centralised-gateway-plan.md); for the design that was adopted, see the
+commit already merged in the `ai-platform-discovery-docs` repo (in the workspace):
+https://github.com/DEFRA/ai-platform-discovery-docs/commit/e85485eab0bf9c3449c7a01bb5b65ab694320ec2
 
 I've reviewed the draft openai.json against the current backend (sync, credential issuer and vault registries, config, seed data). Below is a proposed shape for the provider files and the backend changes that go with it.
 
@@ -53,7 +55,7 @@ GitHub source: reads each file under catalogue/providers/ as one provider object
 Don't split offerings into separate files or subfolders. The source would read each file as a provider.
 Local seed: providers.seed.json stays an array of the same objects.
 
-Exampkes:
+Examples:
 
 {
 "$schema": "../schema/provider.schema.json",
@@ -185,6 +187,6 @@ Big Example:
 ]
 }
 
-so it's more specific on hosting, platform, and whether direct or not. this provides the right level of flexibility, i think, whilst being clear/discinct on what it Cloud, What is director, and what Platform its served from, but importantly, we don't need to tell the users all of this, but it provides us with what we need for orchestraion, but it also provides enough for visibility/monitoring and SRE - as users during audit would need to know What Model, What Cloud, What Provider, what API and what Endpoint in Which region.
+so it's more specific on hosting, platform, and whether direct or not. This provides the right level of flexibility, I think, whilst being clear and distinct about what is the cloud, who runs a direct API, and which platform it is served from. We don't need to tell users all of this, but it provides what we need for orchestration, and enough for visibility, monitoring and SRE - as users during an audit would need to know what model, what cloud, what provider, what API and what endpoint in which region.
 
 Key thing is - it's one Credential journey to the Gateway - the gateway manages behind scenes credentials, and we look at 3 legged oauth later
