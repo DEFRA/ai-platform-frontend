@@ -264,6 +264,45 @@ describe('#modelsController', () => {
     )
   })
 
+  test('GET /models/{slug} names the provider as host for a direct offering and shows only its data zone', async () => {
+    const { region, ...regionless } = sampleModel
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...regionless,
+        provider: 'meta',
+        hosting: { platform: 'direct', cloud: null, provider: 'meta' }
+      })
+    )
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/models/gpt-4o'
+    })
+
+    expect(result).toEqual(expect.stringContaining('Meta, hosted by Meta'))
+    expect(result).not.toEqual(expect.stringContaining('hosted by Defra'))
+    expect(result).toEqual(expect.stringContaining('UK data zone'))
+    expect(result).not.toEqual(expect.stringContaining('UK South data zone'))
+    expect(result).not.toEqual(expect.stringContaining('undefined'))
+  })
+
+  test('GET /models/{slug} keeps the "hosted by Defra in {region}" caption for a foundry model', async () => {
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleModel,
+        hosting: { platform: 'foundry', cloud: 'azure', provider: null }
+      })
+    )
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/models/gpt-4o'
+    })
+
+    expect(result).toEqual(
+      expect.stringContaining('OpenAI, hosted by Defra in UK South')
+    )
+    expect(result).toEqual(expect.stringContaining('UK South, UK data zone'))
+  })
+
   test('GET /models/{slug} returns 404 for an unknown slug', async () => {
     fetchMock.mockResponseOnce(
       JSON.stringify({

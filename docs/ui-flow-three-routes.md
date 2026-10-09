@@ -98,8 +98,9 @@ decision.
 
 Known gaps flagged on the diagram itself: two stories disagreed (B04 showed the connect button only
 when signed in; B06 sent signed-out people to sign in — resolved by the Route 1 follow-up plan
-making browsing and `GET /connect` public); provisioning is a mock (`CredentialIssuer` port, APIM
-adapter blocked on D01); the backend trusts `x-user-id` (any caller on the internal network can
+making browsing and `GET /connect` public); provisioning was a mock when the diagram was drawn (the
+`CredentialIssuer` port now has a real Azure APIM issuer, see
+[implemented-features.md](implemented-features.md)); the backend trusts `x-user-id` (any caller on the internal network can
 assert a person); nothing after handover (no diagnostics if the first call fails, no warning before
 day-7 expiry); upgrade to a funded team is named on `/manage` but wasn't designed.
 

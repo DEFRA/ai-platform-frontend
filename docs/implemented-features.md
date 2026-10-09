@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 8 Oct 2026 (multi-cloud catalogue: models carry `cloud`/`adapter`, issuer and vault chosen per adapter via `ENABLED_ADAPTERS`; `PROVISIONING_MODE` is now `mock | live`; catalogue release v0.1.2).
+Last updated: 9 Oct 2026 (centralised gateway: every model is reached through APIM; `ai-platform-infra` `v0.2.0` is tagged and merged, but no environment's `CATALOGUE_REF` has moved from `v0.1.2`; see the [plan](plans/centralised-gateway/centralised-gateway-plan.md)).
 
 ## Journey status at a glance
 
@@ -97,14 +97,16 @@ These aren't tied to one route — they're shared infrastructure every route abo
 - **Audit events**: every state-changing action records a `recordAuditEvent` entry (actor, action,
   resource, outcome) in a TTL-expiring `auditEvents` collection — never a secret.
 - **`CredentialIssuer` port, now provider-extensible**: issue/renew/rotate/revoke/suspend behind a
-  `credential-issuer-registry` resolved per model's `adapter` (new credentials) or per already-issued
-  credential (via its persisted `issuerKey`) — a `mock` adapter and a real Azure APIM adapter talking
+  `credential-issuer-registry` resolved per model's `gateway` (new credentials) or per already-issued
+  credential (via its persisted `issuerKey`) — a `mock` issuer and a real Azure APIM issuer talking
   to the ARM management plane (`src/adapters/azure/`, `ai-platform-backend-api`). `PROVISIONING_MODE`
   is `mock | live` (production refuses to start on `mock`; `azure` is a deprecated alias for `live`),
-  and in `live` mode `ENABLED_ADAPTERS` (default `azure-apim`) lists the adapters the environment can
-  run - a model on any other adapter gets `501 adapter-not-enabled`. `TenantOrchestrator`
+  and in `live` mode `ENABLED_GATEWAYS` (default `azure-apim`, renamed from `ENABLED_ADAPTERS`)
+  lists the gateways the environment can run - a model on any other gateway gets
+  `501 gateway-not-enabled`. `TenantOrchestrator`
   (GitOps-style team/model provisioning) is still mock-only. See
-  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1.
+  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1
+  and the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
   multi-step write (team creation, credential issuance, deployment status transitions).
 - **Schema backfills**: a self-applying, one-off data migration mechanism
@@ -116,9 +118,11 @@ These aren't tied to one route — they're shared infrastructure every route abo
   into MongoDB on every backend start (`syncCatalogue`, `ai-platform-backend-api`) with
   `catalogueSha`/`release`/`syncedAt`; models no longer present in the source are retired
   (`eligible: false`, `lifecycle.status: 'retired'`), never deleted. `ai-platform-infra`'s
-  `catalogue/` now holds real content (8 Foundry-deployment models + 1 provider), tagged `v0.1.2`;
-  each model names its `provider`/`offering` and the `cloud`/`adapter` that serves it (a provider's
-  `offerings[]`), and a model contradicting or referencing an unknown offering is skipped, not synced.
+  `catalogue/` holds 8 Foundry-deployment models + 1 provider: `v0.1.2` is the flat
+  `cloud`/`adapter` shape and `v0.2.0` (tagged, merged) adds `hosting`/`gateway` offerings and
+  `catalogue/schema/`. The backend reads only the new shape and stores models with a nested `hosting`
+  object and `gateway`; see the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
+  A model contradicting or referencing an unknown offering is skipped, not synced.
   Per-model `apiProfile` (`chat-completions` vs `responses`) drives both the frontend's gateway URL
   shape (`gateway-request.js`) and the backend's `apiVersion` default: a `responses`-profile model
   is always pinned to `2025-03-01-preview` regardless of what the catalogue source supplies for

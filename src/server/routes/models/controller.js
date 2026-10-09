@@ -5,7 +5,8 @@ import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
   formatLabel,
-  formatLabelList
+  formatLabelList,
+  formatDataZone
 } from '#/config/nunjucks/filters/format-label.js'
 
 const listQuerySchema = Joi.object({
@@ -55,6 +56,27 @@ function buildQueryString({ provider, tier }) {
   return `?${params.toString()}`
 }
 
+function isDirectlyHosted(model) {
+  return model.hosting?.platform === 'direct'
+}
+
+function hostingCaptionFor(model) {
+  const provider = formatLabel(model.provider)
+
+  return isDirectlyHosted(model)
+    ? `${provider}, hosted by ${formatLabel(model.hosting.provider)}`
+    : `${provider}, hosted by Defra in ${formatLabel(model.region)}`
+}
+
+function whereItRunsFor(model) {
+  const dataZone = `${formatDataZone(model.dataZone)} data zone`
+
+  // A direct offering declares a data zone but has no regions[] to name.
+  return isDirectlyHosted(model)
+    ? dataZone
+    : `${formatLabel(model.region)}, ${dataZone}`
+}
+
 function buildModelSummaryRows(model) {
   const rows = [
     { key: { text: 'Provider' }, value: { text: formatLabel(model.provider) } },
@@ -78,9 +100,7 @@ function buildModelSummaryRows(model) {
   rows.push(
     {
       key: { text: 'Where it runs' },
-      value: {
-        text: `${formatLabel(model.region)}, ${formatLabel(model.dataZone)} data zone`
-      }
+      value: { text: whereItRunsFor(model) }
     },
     { key: { text: 'Tiers' }, value: { text: formatLabelList(model.tiers) } }
   )
@@ -157,7 +177,7 @@ export const modelsController = {
           eligible,
           statusReason: eligible ? undefined : statusReasonFor(model),
           canConnect: eligible,
-          modelLocationCaption: `${formatLabel(model.provider)}, hosted by Defra in ${formatLabel(model.region)}`,
+          modelLocationCaption: hostingCaptionFor(model),
           summaryRows: buildModelSummaryRows(model),
           ...buildGatewayRequest(model)
         })

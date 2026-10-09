@@ -1,8 +1,21 @@
-import { formatLabel, formatLabelList } from './format-label.js'
+import { formatLabel, formatLabelList, formatDataZone } from './format-label.js'
+
+describe('#formatDataZone', () => {
+  test('Maps a data-zone code to its own label, not a region label', () => {
+    expect(formatDataZone('uk')).toBe('UK')
+    expect(formatDataZone('eu')).toBe('EU')
+  })
+
+  test('Returns an unknown or missing value unchanged', () => {
+    expect(formatDataZone('us')).toBe('us')
+    expect(formatDataZone(undefined)).toBe(undefined)
+  })
+})
 
 describe('#formatLabel', () => {
   test('Maps a known raw value to its display label', () => {
     expect(formatLabel('openai')).toBe('OpenAI')
+    expect(formatLabel('meta')).toBe('Meta')
     expect(formatLabel('pending')).toBe('Setting up')
     expect(formatLabel('not-approved')).toBe('Not approved')
     expect(formatLabel('uksouth')).toBe('UK South')
