@@ -8,10 +8,11 @@
 >
 > Source proposal: [new-shape.md](new-shape.md).
 >
-> **STATUS: Phases R, B, C, D, E, F, G and H complete (9 Oct 2026), pending merge and release of
-> the backend and frontend pull requests; Phase A tagged `v0.2.0` and merged into
-> `ai-platform-infra` `main`, with no environment pin moved; Phase I not started (waits for the
-> backend and frontend releases).** Update this line as each
+> **STATUS: COMPLETE (9 Oct 2026).** Phases R, A, B, C, D, E, F, G, H and I are all done. What
+> remains is rollout, not plan work: merge and release the backend (18), frontend (17) and
+> discovery-docs (15) pull requests, deploy the backend to `dev`, then merge the draft
+> `cdp-app-config` pull request (4820) that moves the dev `CATALOGUE_REF` to `v0.2.0`. Until then
+> no environment pin has moved from `v0.1.2`. Update this line as each
 > phase lands (`Phase A complete`, etc.) and add a dated note at the bottom recording what actually
 > happened versus what is written here.
 >
@@ -356,6 +357,8 @@ Can run in parallel with B-F; only needs B3's field names.
 
 ### I. Discovery docs
 
+**COMPLETE 9 Oct 2026** — see "Phase I and rollout notes" at the bottom.
+
 A separate, doc-only pull request in `ai-platform-discovery-docs`, raised **after** R-G land,
 because every remaining item reports built state and must be read from the merged code.
 
@@ -413,8 +416,8 @@ because every remaining item reports built state and must be read from the merge
    **no** top-level `cloud` or `adapter`.
 6. Backfill proof: insert a legacy-shaped model document (`cloud: 'azure'`,
    `adapter: 'azure-apim'`, no `gateway`) and a legacy-shaped credential document
-   (`adapter: 'azure-apim'`, no `gateway`) into a local Mongo, restart, and confirm both
-   convert and the old fields are gone.
+   (`adapter: 'azure-apim'`, no `gateway`) into a local Mongo, restart, and confirm both gain
+   `gateway`; the model loses `cloud`/`adapter`, the credential keeps `adapter` (expand step).
 7. Index proof: `db.credentials.getIndexes()` shows `{ gateway: 1, status: 1 }` and no
    `{ adapter: 1, status: 1 }`.
 8. Real GitHub source: `CATALOGUE_SOURCE=github CATALOGUE_REF=v0.2.0 GITHUB_TOKEN=…` — the user runs
@@ -534,22 +537,40 @@ Differences from the plan text:
   pins the order after `2026-10-08-credentials-gateway`.
 - **E4-E6** use `aws-apigw` as the second gateway id. The two 2026-10-07 backfill tests keep their
   `aws-bedrock` data deliberately.
-- **G4** added only `meta` to `format-label.js`. G2 reuses `formatLabel('uk')`, which reads "UK South",
-  so a direct model with `dataZone: 'uk'` shows "UK South data zone" - an existing quirk of that label.
+- **G4** added only `meta` to `format-label.js`. G2 originally reused `formatLabel('uk')`, which read
+  "UK South"; after review a separate `formatDataZone` filter (`uk` is "UK", `eu` is "EU") is used
+  for data zones and the region-only `uk` label was removed.
 - **Verification steps 8 and 8b done offline (9 Oct 2026).** A temporary test (since deleted) fed the
   real `v0.1.2` and `v0.2.0` catalogue files, read with `git show` from the merged
   `ai-platform-infra`, through `syncCatalogue`: each release synced 8 models with no warnings and
   wrote the same nested `hosting`/`gateway` documents, with no flat `cloud`/`adapter` and no
   `$schema` on the provider. This is not the live GitHub source, so a run with
   `CATALOGUE_SOURCE=github` is still the user's.
-- **Not yet done:** verification steps 5-7 against a real local Mongo; re-checking the CDP env file
-  before merging R2; merging and releasing the backend and frontend pull requests (`main` is at
-  backend `0.24.0` / frontend `0.19.0`), so no environment can read `v0.2.0` yet and
-  `cdp-app-config/.../dev/ai-platform-backend-api.env` still pins `CATALOGUE_REF=v0.1.2`; and
-  Phase I, which reports built state and waits for the backend and frontend releases.
+- **Not yet done:** verification steps 5-7 against a real local Mongo; and the rollout in the
+  "Phase I and rollout notes" below.
 - **R7 changed after review (9 Oct 2026).** The credentials backfill is expand-only (copies
   `adapter` into `gateway`, keeps `adapter`), so a rolling deploy cannot leave documents from an
   older instance without either field. The models backfill still unsets `cloud`/`adapter`.
+
+## Phase I and rollout notes (9 October 2026)
+
+**COMPLETE.** Phase I is raised as `ai-platform-discovery-docs` pull request 15 (branch
+`docs/gateway-catalogue-built-state`): `build-stories.md#status` (dated 9 October; B04, B05 and the
+source sentence), `design-orchestration.md#catalogue-schema` and `#catalogue-flow`,
+`design-repositories-pipelines.md`, a decision-history entry, a design pack plan delivered section
+and `site.test.js`. By request it reports the hosting and gateway shape as built while the backend
+and frontend pull requests are still open, and says so in the copy: the deployed backend `0.24.0`
+reads only the flat shape and no pin has moved. `npm run lint` is clean and the site tests pass
+except a Windows-only symlink test (EPERM); the browser tests were not run (no Playwright
+browsers installed).
+
+The dev pin is a draft `cdp-app-config` pull request (4820) from `feature/ai-platform-backend-catalogue-v0.2.0`:
+`CATALOGUE_REF=v0.2.0`, `ENABLED_GATEWAYS=azure-apim` and `PROVISIONING_MODE=live`. The dev env file
+no longer sets `ENABLED_ADAPTERS` (R2 re-check done). **Do not merge it until the new backend is
+deployed to dev**, or the deployed `0.24.0` skips every model from `v0.2.0`.
+
+Once the three code and docs pull requests are released, re-read `build-stories.md#status` for the
+released versions.
 
 ## Keeping this plan current
 
