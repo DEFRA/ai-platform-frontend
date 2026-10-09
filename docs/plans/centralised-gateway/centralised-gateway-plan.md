@@ -8,11 +8,10 @@
 >
 > Source proposal: [new-shape.md](new-shape.md).
 >
-> **STATUS: COMPLETE (9 Oct 2026).** Phases R, A, B, C, D, E, F, G, H and I are all done. What
-> remains is rollout, not plan work: merge and release the backend (18), frontend (17) and
-> discovery-docs (15) pull requests, deploy the backend to `dev`, then merge the draft
-> `cdp-app-config` pull request (4820) that moves the dev `CATALOGUE_REF` to `v0.2.0`. Until then
-> no environment pin has moved from `v0.1.2`. Update this line as each
+> **STATUS: COMPLETE (9 Oct 2026).** All phases are done and merged: backend 18, frontend 17,
+> discovery-docs 15, `ai-platform-infra` `v0.2.0` and `cdp-app-config` 4820 (dev
+> `CATALOGUE_REF=v0.2.0`). What remains is rollout: release and deploy the backend to `dev`. Until
+> then the deployed `0.24.0` cannot read `v0.2.0` and keeps its last synced catalogue. Update this line as each
 > phase lands (`Phase A complete`, etc.) and add a dated note at the bottom recording what actually
 > happened versus what is written here.
 >
@@ -558,23 +557,19 @@ Differences from the plan text:
 
 ## Phase I and rollout notes (9 October 2026)
 
-**COMPLETE.** Phase I is raised as `ai-platform-discovery-docs` pull request 15 (branch
-`docs/gateway-catalogue-built-state`): `build-stories.md#status` (dated 9 October; B04, B05 and the
-source sentence), `design-orchestration.md#catalogue-schema` and `#catalogue-flow`,
-`design-repositories-pipelines.md`, a decision-history entry, a design pack plan delivered section
-and `site.test.js`. By request it reports the hosting and gateway shape as built while the backend
-and frontend pull requests are still open, and says so in the copy: the deployed backend `0.24.0`
-reads only the flat shape and no pin has moved. `npm run lint` is clean and the site tests pass
-except a Windows-only symlink test (EPERM); the browser tests were not run (no Playwright
-browsers installed).
+**COMPLETE.** Phase I is `ai-platform-discovery-docs` pull request 15 (merged): `build-stories.md#status`
+(B04, B05 and the source sentence), `design-orchestration.md#catalogue-schema` and `#catalogue-flow`,
+`design-repositories-pipelines.md`, a decision-history entry, a design pack plan section and
+`site.test.js`. `npm run lint` is clean and the site tests pass except a Windows-only symlink test
+(EPERM); browser tests were not run (no Playwright browsers).
 
-The dev pin is a draft `cdp-app-config` pull request (4820) from `feature/ai-platform-backend-catalogue-v0.2.0`:
-`CATALOGUE_REF=v0.2.0`, `ENABLED_GATEWAYS=azure-apim` and `PROVISIONING_MODE=live`. The dev env file
-no longer sets `ENABLED_ADAPTERS` (R2 re-check done). **Do not merge it until the new backend is
-deployed to dev**, or the deployed `0.24.0` skips every model from `v0.2.0`.
+The dev pin is `cdp-app-config` pull request 4820 (merged 9 Oct): `CATALOGUE_REF=v0.2.0`,
+`ENABLED_GATEWAYS=azure-apim`, `PROVISIONING_MODE=live`; the dev env file no longer sets
+`ENABLED_ADAPTERS`. **Deploy the new backend to dev promptly**: the deployed `0.24.0` reads only the
+flat shape, so its startup sync skips the new catalogue and keeps the last synced one.
 
-Once the three code and docs pull requests are released, re-read `build-stories.md#status` for the
-released versions.
+Once the backend and frontend are released, re-read `build-stories.md#status` for the released
+versions.
 
 ## Keeping this plan current
 
