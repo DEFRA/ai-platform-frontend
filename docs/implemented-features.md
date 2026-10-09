@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 9 Oct 2026 (centralised gateway: every model is reached through APIM; `ai-platform-infra` `v0.2.0` is tagged and merged, but no environment's `CATALOGUE_REF` has moved from `v0.1.2`; see the [plan](plans/centralised-gateway/centralised-gateway-plan.md)).
+Last updated: 9 Oct 2026 (centralised gateway: every model is reached through APIM; `ai-platform-infra` `v0.2.0` is tagged and merged, and the dev `CATALOGUE_REF` pins it ahead of the backend release; see the [plan](plans/centralised-gateway/centralised-gateway-plan.md)).
 
 ## Journey status at a glance
 
