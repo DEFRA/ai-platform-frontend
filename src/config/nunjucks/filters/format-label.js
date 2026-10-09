@@ -3,6 +3,7 @@
 const LABELS = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
+  meta: 'Meta',
   uksouth: 'UK South',
   uk: 'UK South',
   active: 'Active',

@@ -27,7 +27,7 @@
         <td class="govuk-table__cell">{{ model.provider | formatLabel }}</td>
         {% if model.eligible %}
           <td class="govuk-table__cell">{{ model.tiers | formatLabelList }}</td>
-          <td class="govuk-table__cell">{{ model.region | formatLabel }}</td>
+          <td class="govuk-table__cell">{{ (model.region or model.dataZone) | formatLabel }}</td>
           <td class="govuk-table__cell govuk-table__cell--numeric">{{ model.contextWindow }}</td>
         {% else %}
           <td class="govuk-table__cell" colspan="3">{{ model.statusReason or "Not approved" }}</td>

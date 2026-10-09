@@ -186,7 +186,16 @@ list` output - correct them when that's available. Phase 2 is now complete end-t
 > `CATALOGUE_SOURCE=github` against this content (needs `GITHUB_TOKEN` in a local `.env` - not set
 > by the agent, `.env` is gitignored/copilot-ignored) and Phase 4's liveness reconcile.
 >
-> **UPDATED 7 Oct 2026 (multi-cloud catalogue shape)** — catalogue now says which cloud and
+> **UPDATED 9 Oct 2026 (centralised gateway) - supersedes the 7 Oct multi-cloud note below.** Every
+> model is exposed through APIM; Bedrock and direct provider APIs are hosting platforms behind it,
+> not gateways. A provider's `offerings[]` entries now carry `hosting` (`platform`: `foundry`,
+> `bedrock` or `direct`, plus `cloud` or `provider`) and `gateway` (`azure-apim`), models are stored
+> with a nested `hosting` object and `gateway` (no flat `cloud`/`adapter`), the issuer registry is
+> keyed by the model's `gateway`, `ENABLED_ADAPTERS` is `ENABLED_GATEWAYS`, and the error is
+> `501 gateway-not-enabled`. The backend reads both the new and the flat offering shape. Full
+> detail: [centralised-gateway-plan.md](../centralised-gateway/centralised-gateway-plan.md).
+>
+> **UPDATED 7 Oct 2026 (multi-cloud catalogue shape; superseded 9 Oct, see above)** — catalogue now says which cloud and
 > gateway adapter serves each model: `providers/{id}.json` is the model vendor with
 > `offerings[]` of `{id, displayName, cloud, adapter}` (e.g. `azure-openai` -> `azure` /
 > `azure-apim`; a future `bedrock-anthropic` -> `aws` / `aws-bedrock`), and each model file carries
@@ -351,7 +360,7 @@ persistence the design pack requires, and restructures issuing so it is not Azur
 | Seam               | Today                                                                                                                                  | After this plan                                                                                                       |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Credential issuing | [`mock-credential-issuer.js`](../../../../ai-platform-backend-api/src/adapters/mock-credential-issuer.js) generates a fake key locally | Azure **ARM management-plane** adapter behind the same `CredentialIssuer` port                                        |
-| Provider choice    | Hardcoded default parameter                                                                                                            | Registry keyed by provider; adding AWS Bedrock is a new adapter plus one registry entry                               |
+| Provider choice    | Hardcoded default parameter                                                                                                            | Registry keyed by the model's gateway (`azure-apim`); a new gateway is a new adapter plus one registry entry          |
 | Model catalogue    | [`models.seed.json`](../../../../ai-platform-backend-api/src/common/seed/models.seed.json) re-seeded on every start                    | Derived from real Foundry deployments, held in `ai-platform-infra/catalogue/`, read via Octokit and synced to MongoDB |
 | Credential storage | Secret returned once, never persisted anywhere                                                                                         | Written to `kv-aip-{env}-tenants` Key Vault, with an audited view/re-share path                                       |
 

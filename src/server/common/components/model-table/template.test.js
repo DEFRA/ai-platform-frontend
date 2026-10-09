@@ -48,6 +48,14 @@ describe('Model table component', () => {
     expect($table.text()).toEqual(expect.stringContaining('Not approved'))
   })
 
+  test('Should fall back to the data zone for a model with no region', () => {
+    const $table = renderComponent('model-table', {
+      models: [{ ...eligibleModel, tiers: ['research'], dataZone: 'eu' }]
+    })
+
+    expect($table('td').eq(3).text().trim()).toBe('eu')
+  })
+
   test('Should show an empty state when there are no models', () => {
     const $table = renderComponent('model-table', { models: [] })
 
