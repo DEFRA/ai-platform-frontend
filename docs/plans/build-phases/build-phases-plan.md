@@ -1,4 +1,4 @@
-# Build stories B01–B19: phased delivery
+# Build stories B01–B22: phased delivery
 
 > Cross-cutting plan, not a journey route. See also the
 > ["three routes to a credential"](../../ui-flow-three-routes.md) journey
@@ -13,21 +13,27 @@
 
 ## Authoritative source
 
-`ai-platform-discovery-docs` at `main` = `76a4e1a`, the **PR #18 merge commit**
-(`docs/iac-baseline-direction`, merged 13 Oct 2026). Verified by `git log`: HEAD is that commit,
-working tree clean, nothing merged after it. Every line number below is the post-#18 state.
+`ai-platform-discovery-docs` at `main` = `2c0db5c`, the **PR #19 merge commit**
+(`feature/observability`, merged 13 Oct 2026), itself on top of the PR #18 merge commit `76a4e1a`
+(`docs/iac-baseline-direction`, also merged 13 Oct 2026). Verified by `git log`: HEAD is that
+commit, working tree clean, nothing merged after it. Every line number below is the post-#19
+state unless marked post-#18.
 
-PR #18 changed 62 files (+3531/−1465). Note `42daba9` removed the HLD and AR pages and `243b60c`
-restored them rebuilt, so `hld-designs.md` and `cloud-designs.md`/`.json` are new content.
+PR #18 changed 62 files (+3531/−1465); note `42daba9` removed the HLD and AR pages and `243b60c`
+restored them rebuilt, so `hld-designs.md` and `cloud-designs.md`/`.json` were new content then.
+PR #19 changed 30 files (+1281/−199): design G written in full, diagram G1, the AR06 reference
+view and build stories B20–B22 added; designs A, C and D, the HLD views, controls, F17, D08, the
+decision history, the design-pack plan, the IaC baseline plan and the README aligned to it.
 
-| Reference                                                                                           | What it mandates                                                                                                                                                                                   |
-| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [design-teams.md](../../../../ai-platform-discovery-docs/src/content/design-teams.md)               | Design F, new in PR #18. AI Platform teams separate from CDP teams; Admin and Member; creator is first Admin; a team always keeps an Admin; several teams per person; three-character service code |
-| [docs/iac-baseline-plan.md](../../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md)       | New in PR #18. D1–D16, workstreams WS0–WS7, milestones M1–M7, robustness controls R1–R12, the team-file schema and the `submit` contract. Phases 3 and 4 follow it rather than re-deriving it      |
-| [docs/decision-history.md](../../../../ai-platform-discovery-docs/docs/decision-history.md)         | The two 12 October entries: IaC baseline direction, and teams and gateway tier                                                                                                                     |
-| [design-identity.md](../../../../ai-platform-discovery-docs/src/content/design-identity.md)         | Credential rules and lifetimes, CDP Web Identity trust, caller identities                                                                                                                          |
-| [design-environments.md](../../../../ai-platform-discovery-docs/src/content/design-environments.md) | Environment names and the Phase 1 progression through `SND1` then `SND4`                                                                                                                           |
-| [build-stories.md](../../../../ai-platform-discovery-docs/src/content/build-stories.md)             | The nineteen stories themselves, with flows and acceptance criteria                                                                                                                                |
+| Reference                                                                                             | What it mandates                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [design-teams.md](../../../../ai-platform-discovery-docs/src/content/design-teams.md)                 | Design F, PR #18. AI Platform teams separate from CDP teams; Admin and Member; creator is first Admin; a team always keeps an Admin; several teams per person; three-character service code                                                                                                                                |
+| [design-observability.md](../../../../ai-platform-discovery-docs/src/content/design-observability.md) | Design G, new in PR #19. OpenTelemetry and a W3C trace beside CDP's `x-cdp-request-id` on every hop; Log Analytics backs every signal per environment; no collector in the first build; Azure Managed Grafana in SSV3/SSV5 with dashboards and alerts as code; `audit.capturePrompts` off by default, on only after a DPIA |
+| [docs/iac-baseline-plan.md](../../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md)         | D1–D16, workstreams WS0–WS7, milestones M1–M7, robustness controls R1–R12, the team-file schema and the `submit` contract (PR #18). PR #19 adds Application Insights and diagnostic settings to the `log-analytics` module and defers the rest of observability to B20–B22, required at the gate before DEV                |
+| [docs/decision-history.md](../../../../ai-platform-discovery-docs/docs/decision-history.md)           | Three entries: the two 12 October entries (IaC baseline direction, teams and gateway tier) and the 13 October 2026 observability direction                                                                                                                                                                                 |
+| [design-identity.md](../../../../ai-platform-discovery-docs/src/content/design-identity.md)           | Credential rules and lifetimes, CDP Web Identity trust, caller identities                                                                                                                                                                                                                                                  |
+| [design-environments.md](../../../../ai-platform-discovery-docs/src/content/design-environments.md)   | Environment names and the Phase 1 progression through `SND1` then `SND4`                                                                                                                                                                                                                                                   |
+| [build-stories.md](../../../../ai-platform-discovery-docs/src/content/build-stories.md)               | Now twenty-two stories (B01–B22) — B20–B22 (observability) added in PR #19 — with flows and acceptance criteria                                                                                                                                                                                                            |
 
 ## Status vocabulary
 
@@ -70,10 +76,11 @@ accepted, not deployed. All of P01–P13 remain unexecuted.
    each gap first — gap 1 claims it was fixed from `0.22.0`; gap 2 is Phase 3; gap 3
    (`id-aip-backend-{env}`) is iac plan D5, so it is Phase 3; gap 4 is Phase 4; gap 5 is Phase 5.
 3. Delete `## Build status on 9 October 2026 {#status}`.
-4. Each `## B01 … ## B19` keeps `Present: skip` and gains one dated line:
+4. Each `## B01 … ## B22` keeps `Present: skip` and gains one dated line:
    `Built state on 13 October 2026: built | partial | not started.` — sourced from the
    "Differs from the story" column being removed. Partial stories use `Status: proposal`, since
-   the vocabulary has no `partial`.
+   the vocabulary has no `partial`. B20–B22 (PR #19) have no "Differs" entry yet — mark them
+   `not started` until Phase 7 lands.
 5. Update the `build-stories.md` frontmatter `description`, which promises a build-status section
    that will no longer exist.
 
@@ -182,8 +189,10 @@ do not re-derive it.
   schemas, the checks CLI; `ai-platform-environments` with `registry.json`,
   `environments/infradev/platform.tfvars.json` and CODEOWNERS. D13: public code, private config.
 - **WS2** `v0.4.0` — state storage, deploy-identity federated credentials, platform modules
-  (`naming`, `log-analytics`, `key-vault`, `apim`, `foundry-account`, `entra-api-audience`) and
-  team modules (`foundry-project`, `foundry-deployment`, `apim-team-api`, `entra-team-app`).
+  (`naming`, `log-analytics` (with Application Insights, local authentication off, and diagnostic
+  settings for APIM, Foundry and both vaults; LLM message logging off — the rest of observability,
+  Grafana and alerts, is Phase 7), `key-vault`, `apim`, `foundry-account`, `entra-api-audience`)
+  and team modules (`foundry-project`, `foundry-deployment`, `apim-team-api`, `entra-team-app`).
   Root modules are `platform/` and `tenants/` (D12 renames design B's `team/`).
 - **WS3** workflows `v1.0.0` and a moving `v1` — `submit-desired-state`, `validate-*`,
   `apply-platform`, `apply-tenants`, `infra-checks`, `release`, `workflow-checks`,
@@ -318,6 +327,65 @@ refused, with a test at each layer.
 
 ---
 
+## Phase 7 — Observability: telemetry, dashboards and alerts
+
+**Status: not started.** Stories B20, B21, B22 (added by `ai-platform-discovery-docs` PR #19, 13
+Oct 2026). Repositories: frontend and backend (OpenTelemetry SDK, correlation, dimensions),
+`ai-platform-workflows` (dispatch inputs, span export), `ai-platform-infra` (Grafana, dashboards,
+alert rules, runbooks). Depends on Phase 3 (B15); the `submit` dispatch inputs need Phase 4
+(B16). B21 depends on B20; B22 depends on B21. **B20 and B22 must both pass in Infradev before
+DEV is created** (design G `#stages`) — follow design G and the decision history's 13 October
+2026 entry rather than re-deriving them.
+
+### B20 telemetry and tracing foundation
+
+1. Instrument frontend and backend with the OpenTelemetry SDK; carry a W3C `traceparent` on
+   every hop **beside** CDP's existing `x-cdp-request-id` — do not replace it, CDP OpenSearch
+   search still keys off `trace.id` from that header. Add team, application, flow, API, model and
+   environment as span dimensions.
+2. The Portal API passes `trace_parent` and `operation_id` to the `submit` dispatch inputs
+   (workflows repo); the apply workflow exports its own spans and the run report as the deploy
+   identity.
+3. APIM's diagnostic settings (the Phase 3 `log-analytics` module) use the W3C correlation
+   protocol; the gateway and LLM logs carry team, application, model and deployment.
+4. **New persisted field:** `audit.capturePrompts` (boolean, default `false`) on the team
+   document — follow
+   [schema-changes.instructions.md](../../../../ai-platform-backend-api/.github/instructions/schema-changes.instructions.md):
+   a dated backfill so an existing team gets the default rather than `undefined`. Pull request
+   checks refuse `true` without a DPIA reference.
+5. Local runs export to `appi-aip-infradev`. Confirm Entra authentication for the Azure Monitor
+   exporter from CDP and GitHub first; until the CDP export route is agreed, verify only the
+   portal's own spans in local runs.
+
+### B21 dashboards and search
+
+1. `ai-platform-infra` Terraform creates `amg-aip-nonprod` (SSV3), its managed identity reading
+   Infradev's Log Analytics workspace and Application Insights only; `amg-aip-prod` (SSV5)
+   follows later, scoped the same way to production.
+2. Dashboards are JSON in the infra repo, applied by Terraform; a playground folder in the
+   non-production instance allows hand experiments outside Git, but anything changed by hand
+   outside it is reverted by the next apply.
+3. Team-facing portal views are **TBC** (design G `#open`) — do not build ahead of agreement.
+
+### B22 alerts and runbooks
+
+1. Alert rules (gateway errors, latency, model capacity, stuck GitOps operations, credential
+   expiry, missing telemetry, missing audit capture) as Grafana JSON beside the dashboards, each
+   linking an existing runbook in the infra repo.
+2. `ag-aip-{env}` action group receives Service Health and Resource Health alerts for the
+   environment's resources.
+3. Notification channels are **TBC** — alerts show in Grafana meanwhile.
+4. This story, with B20, gates DEV creation — treat it as a Phase 1 blocker, not optional polish.
+
+**Verify:** one trace follows a team's portal creation through `submit` and apply to the applied
+resources; a team call's gateway and Foundry spans share the caller's trace ID; a forced burst of
+gateway 5xx responses and a failed apply in Infradev each raise an alert within the rule's
+period; stopping the gateway logs raises the telemetry-missing alert; no span, log, dispatch
+input or dashboard holds a secret, token or prompt content; `capturePrompts: true` without a DPIA
+reference fails the checks, with a regression test.
+
+---
+
 ## Cross-phase rules
 
 1. One branch per story, `feature/<brief-description>`; conventional commits; reviewed PR.
@@ -348,6 +416,9 @@ refused, with a test at each layer.
 - Design F's four open questions: personal access, cross-cloud federation, agents, and Entra
   security groups as the membership source.
 - The private-topology rebuild of Infradev, including Azure Managed Redis as APIM's external and
-  semantic cache — that is the gate before DEV, after B15.
+  semantic cache — that is the gate before DEV, after B15, alongside B20 and B22 (Phase 7)
+  passing.
+- The OpenTelemetry Collector service, and portal team-facing observability views — both TBC,
+  added once their trigger or agreement lands (design G `#collector`, `#open`).
 - Migrating the stored `admin` and `user` role values.
 - Rewriting dated `decision-history.md` or `design-pack-plan.md` entries.
