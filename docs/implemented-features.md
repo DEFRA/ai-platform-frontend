@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 9 Oct 2026 (centralised gateway: every model is reached through APIM; `ai-platform-infra` `v0.2.0` is tagged and merged, and the dev `CATALOGUE_REF` pins it ahead of the backend release; see the [plan](plans/centralised-gateway/centralised-gateway-plan.md)).
+Last updated: 12 Oct 2026 (backend-to-Azure auth: deployed CDP environments now authenticate to the ARM app registration via a federated AWS STS web identity token rather than a client secret; see below).
 
 ## Journey status at a glance
 
@@ -109,6 +109,12 @@ These aren't tied to one route — they're shared infrastructure every route abo
   and the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
   multi-step write (team creation, credential issuance, deployment status transitions).
+- **Federated backend-to-Azure auth**: `armAuth.authMethod` (`AZURE_ARM_AUTH_METHOD`) picks how
+  `ai-platform-backend-api` authenticates as the ARM app registration shared by the credential
+  issuer and Key Vault adapter - `client-secret` (local dev only, no AWS STS to federate from) or
+  `federated` (every deployed CDP environment: a `ClientAssertionCredential` backed by
+  `@defra/hapi-auth-oidc`'s `WebIdentityTokenProvider`, no client secret involved). See backend
+  README's "Testing against live Azure resources" section and `src/adapters/azure/azure-credential.js`.
 - **Schema backfills**: a self-applying, one-off data migration mechanism
   (`src/common/backfills/`) added 25 Sept 2026 — see backend README's "Schema backfills" section.
 - **Model catalogue synced from a `CatalogueSource` port**: a `file` adapter (default - reads
