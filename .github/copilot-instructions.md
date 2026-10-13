@@ -112,6 +112,7 @@ This repo already complies with Defra's dependency guidance — keep it that way
 - For any form or reusable UI pattern, propose or extend a Nunjucks macro/component using GOV.UK components.
 - After implementing any plan or feature, update `docs/implemented-features.md` and then check `ai-platform-discovery-docs` `build-stories.md#status` for built state that is missing or stale, adding it in a separate pull request there. Follow [implemented-features.instructions.md](instructions/implemented-features.instructions.md); do not wait to be asked.
 - Keep solutions DRY: before adding new utilities, search `src/server/common/` and existing routes for similar code.
+- Any bug fix — from a code review comment, a deployed defect, or a failing test — must ship with a regression test (unit, integration, or journey, whichever fits) that fails without the fix and passes with it; a fix with no new/updated test is incomplete, not just unpolished.
 - If a request conflicts with these instructions, or would use a discouraged library, skip tests, hardcode a secret, or break a quality gate — flag it explicitly and do not proceed silently.
 
 ## Licence
