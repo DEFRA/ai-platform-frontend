@@ -75,38 +75,38 @@ Schema:
 
 {
 "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "provider.schema.json",
+"$id": "provider.schema.json",
 "type": "object",
 "additionalProperties": false,
 "required": ["id", "displayName", "offerings"],
 "properties": {
 "$schema": { "type": "string" },
-    "id": { "$ref": "#/$defs/id" },
-    "displayName": { "type": "string", "minLength": 1 },
-    "offerings": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/offering" } }
-  },
-  "$defs": {
+"id": { "$ref": "#/$defs/id" },
+"displayName": { "type": "string", "minLength": 1 },
+"offerings": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/offering" } }
+},
+"$defs": {
 "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-    "offering": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "displayName", "hosting", "gateway"],
-      "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "displayName": { "type": "string", "minLength": 1 },
-        "hosting": { "$ref": "#/$defs/hosting" },
-        "gateway": { "enum": ["azure-apim"] },
-        "terms": { "type": "string", "pattern": "^https://" }
-      }
-    },
-    "hosting": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["platform"],
-      "properties": {
-        "platform": { "enum": ["foundry", "bedrock", "direct"] },
-        "cloud": { "enum": ["azure", "aws"] },
-        "provider": { "$ref": "#/$defs/id" }
+"offering": {
+"type": "object",
+"additionalProperties": false,
+"required": ["id", "displayName", "hosting", "gateway"],
+"properties": {
+"id": { "$ref": "#/$defs/id" },
+"displayName": { "type": "string", "minLength": 1 },
+"hosting": { "$ref": "#/$defs/hosting" },
+"gateway": { "enum": ["azure-apim"] },
+"terms": { "type": "string", "pattern": "^https://" }
+}
+},
+"hosting": {
+"type": "object",
+"additionalProperties": false,
+"required": ["platform"],
+"properties": {
+"platform": { "enum": ["foundry", "bedrock", "direct"] },
+"cloud": { "enum": ["azure", "aws"] },
+"provider": { "$ref": "#/$defs/id" }
 },
 "oneOf": [
 { "properties": { "platform": { "const": "foundry" }, "cloud": { "const": "azure" } }, "required": ["cloud"], "not": { "required": ["provider"] } },
