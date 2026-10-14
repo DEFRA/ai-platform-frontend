@@ -41,6 +41,9 @@ The core product journey is "three routes to a credential" — see
 - Each team has an immutable `slug`, derived from its name when the team is created and shown on
   the team page as "Team ID". It names the team's GitOps file, its gateway API path and its model
   deployments, so it never changes — including on a rename.
+- Each team also has a three-character service code, required when the team is created and
+  changeable by an admin on the team page. It is checked through a `ServiceCodeVerifier` port whose
+  only adapter is a mock, so teams show "To be verified" until an authoritative source is agreed.
 - Request a dedicated model deployment for the team: `/connect/team/*`.
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
   (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per

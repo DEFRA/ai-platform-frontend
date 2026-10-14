@@ -106,11 +106,25 @@ describe('#teamsController', () => {
       method: 'POST',
       url: '/teams/new',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'ab' }
+      payload: { crumb: cookies.crumb, name: 'ab', serviceCode: 'ABC' }
     })
 
     expect(statusCode).toBe(statusCodes.badRequest)
     expect(result).toEqual(expect.stringContaining('There is a problem'))
+  })
+
+  test('POST /teams/new asks for a service code of three letters or numbers', async () => {
+    const cookies = await signIn(server)
+
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/teams/new',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, name: 'No Code Team', serviceCode: '' }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toContain('Enter your service code')
   })
 
   test('POST /teams/new -> GET check -> POST check creates the team', async () => {
@@ -120,7 +134,11 @@ describe('#teamsController', () => {
       method: 'POST',
       url: '/teams/new',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'Flood Risk Team' }
+      payload: {
+        crumb: cookies.crumb,
+        name: 'Flood Risk Team',
+        serviceCode: 'aip'
+      }
     })
     cookies = mergeCookies(cookies, postNew)
     expect(postNew.statusCode).toBe(statusCodes.seeOther)
@@ -133,6 +151,7 @@ describe('#teamsController', () => {
     })
     cookies = mergeCookies(cookies, getCheck)
     expect(getCheck.result).toEqual(expect.stringContaining('Flood Risk Team'))
+    expect(getCheck.result).toContain('aip')
 
     fetchMock.mockResponseOnce(JSON.stringify({ team: sampleTeam }))
 
@@ -154,7 +173,11 @@ describe('#teamsController', () => {
       method: 'POST',
       url: '/teams/new',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'Duplicate Team' }
+      payload: {
+        crumb: cookies.crumb,
+        name: 'Duplicate Team',
+        serviceCode: 'ABC'
+      }
     })
     cookies = mergeCookies(cookies, postNew)
 
@@ -224,6 +247,53 @@ describe('#teamsController', () => {
     expect(result).toContain('Team ID')
     expect(result).toContain('flood-risk-team')
     expect(result).toContain('cannot be changed')
+  })
+
+  test('POST /teams/{id}/service-code saves a new code and returns to the team', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ team: { ...sampleTeam, serviceCode: 'XYZ' } })
+    )
+
+    const { statusCode, headers } = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/service-code',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, serviceCode: 'xyz' }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/teams/team-1')
+
+    const [url, options] = fetchMock.mock.calls.at(-1)
+
+    expect(url).toContain('/v1/teams/team-1')
+    expect(options).toMatchObject({ method: 'PATCH' })
+    expect(JSON.parse(options.body)).toEqual({ serviceCode: 'xyz' })
+  })
+
+  test('POST /teams/{id}/service-code re-renders the team page for an invalid code', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
+      })
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/service-code',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, serviceCode: 'TOO-LONG' }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toContain(
+      'Service code must be 3 letters or numbers, for example AIP'
+    )
   })
 
   test('GET /teams/{id} hides the add member form from a non-admin', async () => {

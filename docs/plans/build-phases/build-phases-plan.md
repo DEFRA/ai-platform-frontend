@@ -84,16 +84,16 @@ and `identities.portal_api_principal_object_id`), and `azure.existing_resource_g
 
 ## Built versus remaining, at a glance
 
-| Phase | Built (on the branches above)                                                                                                                             | Remaining                                                                                              |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 0     | —                                                                                                                                                         | All of it: restructure `build-stories.md`                                                              |
-| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                        | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal  |
-| 2     | **Team `slug`** (derived, immutable, backfilled, shown as "Team ID"), `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | `serviceCode` format, demotion guard, `currentTeamId`, environment list                                |
-| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                     | Merge in order, run `bootstrap`, then prove M2–M5 in Infradev                                          |
-| 4     | WS5 and WS6 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, the desired-state builder, run links in the portal | Prove M6 against Infradev once Phase 3 is applied; the environment list                                |
-| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                            | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry |
-| 6     | —                                                                                                                                                         | All of it                                                                                              |
-| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                   | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks              |
+| Phase | Built (on the branches above)                                                                                                                                                                                                                 | Remaining                                                                                              |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 0     | —                                                                                                                                                                                                                                             | All of it: restructure `build-stories.md`                                                              |
+| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                                                                                                            | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal  |
+| 2     | **Team `slug`** (derived, immutable, backfilled, shown as "Team ID") and **`serviceCode`** (required, three characters, admin-changeable, verifier port), `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | Demotion guard, `currentTeamId`, the environment list, a real service code verifier                    |
+| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                                                                                                         | Merge in order, run `bootstrap`, then prove M2–M5 in Infradev                                          |
+| 4     | WS5 and WS6 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, the desired-state builder, run links in the portal                                                                                     | Prove M6 against Infradev once Phase 3 is applied; the environment list                                |
+| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                                                                                                                | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry |
+| 6     | —                                                                                                                                                                                                                                             | All of it                                                                                              |
+| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                                                                                                       | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks              |
 
 ## Direction that changed on 13 and 14 October 2026
 
@@ -252,15 +252,15 @@ must repeat it.
 Mostly refactor. Design F contradicts parts of what is built, and more is already built than the
 9 October table says — `last-admin`, member removal and multi-team membership all exist.
 
-|     | Design requires                                                               | Built today                                                                                                                                                      | Action                                                                                                                                                   |
-| --- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Immutable unique team `slug`, `^[a-z][a-z0-9-]{1,22}[a-z0-9]$` (iac plan WS6) | **Done on the branches**: derived from the name in `createTeam`, numbered on a clash, unique index, `2026-10-14-add-team-slug` backfill, shown as "Team ID"      | Nothing — Phase 4's builder can use `team.slug`                                                                                                          |
-| 2   | `serviceCode` three characters, required, verified (design F, R01)            | Optional, `max 20` (`routes/teams.js:37`); `verified:false` never set                                                                                            | Narrow the format, require before provisioning, implement `verified` behind a `ServiceCodeVerifier` port with a mock — the CDP/CCoE source is not agreed |
-| 3   | Interface says Admin and Member; stored values stay `admin`/`user`            | Stored correctly; check frontend copy for "User"                                                                                                                 | Copy change only — do not migrate stored values                                                                                                          |
-| 4   | Last Admin can never be demoted **or** removed                                | Removal guard exists — `last-admin` 409 at `team-service.js:349-360`                                                                                             | Add `PATCH /v1/teams/{id}/members/{memberId}`; extend the existing guard to demotion                                                                     |
-| 5   | A person acts in one team at a time                                           | Multi-team membership built; session holds only `pendingTeam`/`pendingAccess`                                                                                    | Add `currentTeamId` to the `@hapi/yar` session and a switcher                                                                                            |
-| 6   | SND1 is `infradev`; configurable `AIP_ENVIRONMENTS` (iac plan D1)             | `AIP_ENVIRONMENTS` exists for ARM verification (backend PR #35), but `const TEAM_FACING_ENVIRONMENT = 'sandbox'` still stands at `team-deployment-service.js:40` | Drive the team-facing list from the same config; the frontend option comes from the backend                                                              |
-| 7   | Every change attributable to one principal (14 Oct)                           | **Done in backend PR #35**: `entra:{oid}` on every GitOps change, a unique `oid`+`tid` index, and a deliberately non-unique email index                          | Nothing to build — keep the "never look a person up by email" rule when touching `user-service.js`                                                       |
+|     | Design requires                                                               | Built today                                                                                                                                                      | Action                                                                                             |
+| --- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1   | Immutable unique team `slug`, `^[a-z][a-z0-9-]{1,22}[a-z0-9]$` (iac plan WS6) | **Done on the branches**: derived from the name in `createTeam`, numbered on a clash, unique index, `2026-10-14-add-team-slug` backfill, shown as "Team ID"      | Nothing — Phase 4's builder can use `team.slug`                                                    |
+| 2   | `serviceCode` three characters, required, verified (design F, R01)            | **Done on the branches**: required and `^[A-Z0-9]{3}$` on create, `PATCH /v1/teams/{id}` for an admin, and a `ServiceCodeVerifier` port with a mock              | Replace the mock when a CDP/CCoE source is agreed, and add the prod mock-refusal guard then        |
+| 3   | Interface says Admin and Member; stored values stay `admin`/`user`            | Stored correctly; check frontend copy for "User"                                                                                                                 | Copy change only — do not migrate stored values                                                    |
+| 4   | Last Admin can never be demoted **or** removed                                | Removal guard exists — `last-admin` 409 at `team-service.js:349-360`                                                                                             | Add `PATCH /v1/teams/{id}/members/{memberId}`; extend the existing guard to demotion               |
+| 5   | A person acts in one team at a time                                           | Multi-team membership built; session holds only `pendingTeam`/`pendingAccess`                                                                                    | Add `currentTeamId` to the `@hapi/yar` session and a switcher                                      |
+| 6   | SND1 is `infradev`; configurable `AIP_ENVIRONMENTS` (iac plan D1)             | `AIP_ENVIRONMENTS` exists for ARM verification (backend PR #35), but `const TEAM_FACING_ENVIRONMENT = 'sandbox'` still stands at `team-deployment-service.js:40` | Drive the team-facing list from the same config; the frontend option comes from the backend        |
+| 7   | Every change attributable to one principal (14 Oct)                           | **Done in backend PR #35**: `entra:{oid}` on every GitOps change, a unique `oid`+`tid` index, and a deliberately non-unique email index                          | Nothing to build — keep the "never look a person up by email" rule when touching `user-service.js` |
 
 Keep `sandbox` in the list rather than migrating existing `teamDeployments` — design A runs
 Phase 1 in `SND1` **then** `SND4`, so both stay live.
@@ -415,10 +415,7 @@ Still to do:
 3. Legacy people have no Entra `oid` until their next sign-in, and `requireUserPrincipal` refuses
    them with `403 entra-identity-required`. Check this is acceptable for invited members who have
    never signed in, and cover it in a journey test.
-4. A team with no three-character `serviceCode` now gets `409 service-code-required` from the
-   builder, and there is no screen to set one after creation — Phase 2 row 2 closes that, and
-   should be done before anyone uses the GitHub orchestrator in anger.
-5. Prove it end to end once Phase 3 is applied: M6 locally with `TENANT_ORCHESTRATOR=github`.
+4. Prove it end to end once Phase 3 is applied: M6 locally with `TENANT_ORCHESTRATOR=github`.
 
 Keep the mock for local runs and journey tests.
 
@@ -622,7 +619,8 @@ Discovery-docs PR #21 can merge whenever; it records direction, not built state.
 3. Before each PR run `npm run format`, then `format:check`, `lint` and `test` must pass.
    Never `--no-verify`.
 4. Every external system sits behind a port with a configuration-selected mock; production
-   refuses to start with a mock selected.
+   refuses to start with a mock selected. The one exception is `ServiceCodeVerifier`, which has
+   no real adapter to select yet — add the guard with the adapter.
 5. Any new or renamed persisted field follows
    [schema-changes.instructions.md](../../../../ai-platform-backend-api/.github/instructions/schema-changes.instructions.md)
    — a dated backfill using an aggregation-pipeline `updateMany`, so a document without the field
@@ -674,7 +672,15 @@ GitHub configuration, not code \u2014 see the prerequisite table and "Order of w
 `2026-10-14-add-team-slug` backfill, and shown on the team page as "Team ID" with a line saying
 it cannot change. Phase 4's WS6 builder now has the identifier it was waiting for.
 
-**14 Oct 2026 — WS6 desired-state builder built** (Phase 4), on
+**14 Oct 2026 — service code required and verifiable** (Phase 2 row 2), on both portal branches.
+Three characters (`^[A-Z0-9]{3}$`), required when a team is created, changed by an admin through
+`PATCH /v1/teams/{id}` and a form on the team page, and checked through a `ServiceCodeVerifier`
+port whose only adapter is the mock — so `verified` stays false and the team page keeps saying
+"To be verified" until CDP or CCoE publishes a source. **Knowingly incomplete**: cross-phase rule
+4 wants production to refuse a mock adapter, and that guard belongs with the real verifier rather
+than now, when it would stop production starting at all. The journey is complete: a team can be
+created, given a code, and provisioned end to end against the mock orchestrator.
+
 `feature/github-tenant-orchestrator`. `team-desired-state.js` builds the whole team file from
 what `main` holds now, read through a new `getCurrentDocument` on the orchestrator port, so an
 engineer's edit, a D14 revert and the team's federations and agreed limits all survive a later

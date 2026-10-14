@@ -19,13 +19,24 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 
+const serviceCodeField = Joi.string()
+  .trim()
+  .pattern(/^[A-Za-z0-9]{3}$/)
+  .required()
+  .messages({
+    'string.pattern.base':
+      'Service code must be 3 letters or numbers, for example AIP',
+    'string.empty': 'Enter your service code',
+    'any.required': 'Enter your service code'
+  })
+
 const newTeamSchema = Joi.object({
   name: Joi.string().trim().min(3).max(60).required().messages({
     'string.min': 'Team name must be 3 characters or more',
     'string.max': 'Team name must be 60 characters or fewer',
     'any.required': 'Enter a team name'
   }),
-  serviceCode: Joi.string().trim().max(20).allow('').optional(),
+  serviceCode: serviceCodeField,
   description: Joi.string().trim().max(500).allow('').optional(),
   // Same-origin paths only - this value is redirected to after team creation.
   returnTo: Joi.string()
@@ -33,6 +44,8 @@ const newTeamSchema = Joi.object({
     .allow('')
     .optional()
 })
+
+const serviceCodeSchema = Joi.object({ serviceCode: serviceCodeField })
 
 const addMemberSchema = Joi.object({
   email: Joi.string().email().required().messages({
@@ -164,7 +177,7 @@ export const teamsController = {
 
         setPendingTeam(request, {
           name,
-          serviceCode: serviceCode || undefined,
+          serviceCode,
           description: description || undefined,
           returnTo: returnTo || undefined
         })
@@ -325,6 +338,56 @@ export const teamsController = {
             { email: request.payload.email },
             { userId: sessionUser.id, idempotencyKey: randomUUID() }
           )
+        } catch (error) {
+          if (!(error instanceof ApiError) || !isForbidden(error)) {
+            throw error
+          }
+        }
+
+        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+      }
+    }
+  },
+
+  setServiceCode: {
+    post: {
+      options: {
+        validate: {
+          payload: serviceCodeSchema,
+          failAction: async (request, h, error) => {
+            const { id } = request.params
+            const result = await loadTeamForView(request, id)
+
+            return h
+              .view('teams/team', {
+                pageTitle: result.team.name,
+                heading: result.team.name,
+                team: result.team,
+                members: result.members,
+                isAdmin: result.isAdmin,
+                notification: null,
+                errorSummary: buildErrorSummary(error),
+                fieldErrors: buildFieldErrors(error)
+              })
+              .code(statusCodes.badRequest)
+              .takeover()
+          }
+        }
+      },
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id } = request.params
+
+        try {
+          await apiClient(request).patch(
+            `/v1/teams/${id}`,
+            { serviceCode: request.payload.serviceCode },
+            { userId: sessionUser.id }
+          )
+          setAccountNotification(request, {
+            type: 'success',
+            message: 'Service code updated.'
+          })
         } catch (error) {
           if (!(error instanceof ApiError) || !isForbidden(error)) {
             throw error

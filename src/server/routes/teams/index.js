@@ -45,6 +45,14 @@ export const teams = {
         },
         {
           method: 'POST',
+          path: '/teams/{id}/service-code',
+          options: {
+            validate: teamsController.setServiceCode.post.options.validate
+          },
+          handler: teamsController.setServiceCode.post.handler
+        },
+        {
+          method: 'POST',
           path: '/teams/{id}/members',
           options: {
             validate: teamsController.addMember.post.options.validate
