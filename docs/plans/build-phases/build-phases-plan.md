@@ -7,33 +7,98 @@
 > [centralised-gateway-plan.md](../centralised-gateway/centralised-gateway-plan.md) and
 > [research-tier-integration-plan.md](../integration/research-tier-integration-plan.md).
 >
-> **STATUS: NOT STARTED (13 Oct 2026).** Phase 0 is next. Update the `Status` line on each phase
-> as it lands and add a dated note at the bottom recording what actually happened versus what is
+> **STATUS: IN PROGRESS (14 Oct 2026).** Phase 3 and the backend half of Phase 4 exist as code on
+> the ten open pull requests listed below. Nothing is merged, released or applied, so no story's
+> built state has changed and Phase 0 is still next. Update the `Status` line on each phase as it
+> lands and add a dated note at the bottom recording what actually happened versus what is
 > written here.
 
 ## Authoritative source
 
-`ai-platform-discovery-docs` at `main` = `2c0db5c`, the **PR #19 merge commit**
-(`feature/observability`, merged 13 Oct 2026), itself on top of the PR #18 merge commit `76a4e1a`
-(`docs/iac-baseline-direction`, also merged 13 Oct 2026). Verified by `git log`: HEAD is that
-commit, working tree clean, nothing merged after it. Every line number below is the post-#19
-state unless marked post-#18.
+`ai-platform-discovery-docs` at `main` = `4d007d7`, the **PR #20 merge commit**
+(`docs/naming-and-full-spec`, merged 13 Oct 2026), on top of the PR #19 merge commit `2c0db5c`
+(`feature/observability`) and the PR #18 merge commit `76a4e1a` (`docs/iac-baseline-direction`),
+both also merged 13 Oct 2026.
 
-PR #18 changed 62 files (+3531/−1465); note `42daba9` removed the HLD and AR pages and `243b60c`
-restored them rebuilt, so `hld-designs.md` and `cloud-designs.md`/`.json` were new content then.
-PR #19 changed 30 files (+1281/−199): design G written in full, diagram G1, the AR06 reference
-view and build stories B20–B22 added; designs A, C and D, the HLD views, controls, F17, D08, the
-decision history, the design-pack plan, the IaC baseline plan and the README aligned to it.
+PR #19 added design G, diagram G1, AR06 and stories B20–B22. PR #20 then overrode any earlier
+wording that left names or public access open: Azure and AWS names come strictly from CCoE's
+naming policy (`apim-aip-{env}` and the rest are **logical labels only**), every component in a
+live consumer environment and in SSV3/SSV5 is private and fully secured from its first resource,
+public access is allowed only in the Phase 1 Infradev and Sandbox proof and ends at the gate
+before DEV, and three named exceptions carry owners and end dates — **X1** CDP egress through the
+tenants vault firewall, **X2** public apply endpoints until private runners exist, **X3** public
+Application Insights ingestion from CDP and GitHub.
 
-| Reference                                                                                             | What it mandates                                                                                                                                                                                                                                                                                                           |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [design-teams.md](../../../../ai-platform-discovery-docs/src/content/design-teams.md)                 | Design F, PR #18. AI Platform teams separate from CDP teams; Admin and Member; creator is first Admin; a team always keeps an Admin; several teams per person; three-character service code                                                                                                                                |
-| [design-observability.md](../../../../ai-platform-discovery-docs/src/content/design-observability.md) | Design G, new in PR #19. OpenTelemetry and a W3C trace beside CDP's `x-cdp-request-id` on every hop; Log Analytics backs every signal per environment; no collector in the first build; Azure Managed Grafana in SSV3/SSV5 with dashboards and alerts as code; `audit.capturePrompts` off by default, on only after a DPIA |
-| [docs/iac-baseline-plan.md](../../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md)         | D1–D16, workstreams WS0–WS7, milestones M1–M7, robustness controls R1–R12, the team-file schema and the `submit` contract (PR #18). PR #19 adds Application Insights and diagnostic settings to the `log-analytics` module and defers the rest of observability to B20–B22, required at the gate before DEV                |
-| [docs/decision-history.md](../../../../ai-platform-discovery-docs/docs/decision-history.md)           | Three entries: the two 12 October entries (IaC baseline direction, teams and gateway tier) and the 13 October 2026 observability direction                                                                                                                                                                                 |
-| [design-identity.md](../../../../ai-platform-discovery-docs/src/content/design-identity.md)           | Credential rules and lifetimes, CDP Web Identity trust, caller identities                                                                                                                                                                                                                                                  |
-| [design-environments.md](../../../../ai-platform-discovery-docs/src/content/design-environments.md)   | Environment names and the Phase 1 progression through `SND1` then `SND4`                                                                                                                                                                                                                                                   |
-| [build-stories.md](../../../../ai-platform-discovery-docs/src/content/build-stories.md)               | Now twenty-two stories (B01–B22) — B20–B22 (observability) added in PR #19 — with flows and acceptance criteria                                                                                                                                                                                                            |
+Open PR [#21](https://github.com/DEFRA/ai-platform-discovery-docs/pull/21)
+(`docs/iac-baseline-decisions`) adds four dated 14 Oct 2026 entries — the workflow review, audit
+identity and submit findings, the identity and credential answers, and the team tier, parameters
+and first proof. **This plan already follows them**; re-check them when that PR merges. Line
+numbers quoted in Phase 0 were taken on the post-#19 tree and PR #20 moved some of them — verify
+each before editing.
+
+| Reference                                                                                                               | What it mandates                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [design-teams.md](../../../../ai-platform-discovery-docs/src/content/design-teams.md)                                   | Design F, PR #18. AI Platform teams separate from CDP teams; Admin and Member; creator is first Admin; a team always keeps an Admin; several teams per person; three-character service code                                                                                                                                |
+| [design-observability.md](../../../../ai-platform-discovery-docs/src/content/design-observability.md)                   | Design G, new in PR #19. OpenTelemetry and a W3C trace beside CDP's `x-cdp-request-id` on every hop; Log Analytics backs every signal per environment; no collector in the first build; Azure Managed Grafana in SSV3/SSV5 with dashboards and alerts as code; `audit.capturePrompts` off by default, on only after a DPIA |
+| [docs/iac-baseline-plan.md](../../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md)                           | D1–D16, workstreams WS0–WS7, milestones M1–M7, robustness controls R1–R12, the team-file schema and the `submit` contract (PR #18). PR #19 adds Application Insights and diagnostic settings to the `log-analytics` module and defers the rest of observability to B20–B22, required at the gate before DEV                |
+| [docs/decision-history.md](../../../../ai-platform-discovery-docs/docs/decision-history.md)                             | The two 12 October entries (IaC baseline direction, teams and gateway tier), the 13 October observability and CCoE naming/full-specification entries, and the four 14 October entries on open PR #21                                                                                                                       |
+| [design-repositories-pipelines.md](../../../../ai-platform-discovery-docs/src/content/design-repositories-pipelines.md) | Design B. The five repositories, the registry and layered parameters, the workflows and their rulesets, the GitHub Environments and the release mechanics                                                                                                                                                                  |
+| [design-identity.md](../../../../ai-platform-discovery-docs/src/content/design-identity.md)                             | Credential rules and lifetimes, CDP Web Identity trust, caller identities                                                                                                                                                                                                                                                  |
+| [design-environments.md](../../../../ai-platform-discovery-docs/src/content/design-environments.md)                     | Environment names and the Phase 1 progression through `SND1` then `SND4`                                                                                                                                                                                                                                                   |
+| [build-stories.md](../../../../ai-platform-discovery-docs/src/content/build-stories.md)                                 | Now twenty-two stories (B01–B22) — B20–B22 (observability) added in PR #19 — with flows and acceptance criteria                                                                                                                                                                                                            |
+
+## Open pull requests (14 Oct 2026)
+
+Ten pull requests carry Phase 3 and the backend half of Phase 4. **None is merged**, so built
+state is unchanged everywhere. The infra three and the two state-repository callers are stacked
+and must merge in order.
+
+| Pull request                                                                              | Carries                                                                                                                     | Phase, milestone             |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| [infra #5](https://github.com/DEFRA/ai-platform-infra/pull/5) `feature/gitops-contract`   | WS1 `v0.3.0` — four schemas, `aip-checks`, `examples/`, team tier catalogue, `docs/gitops-contract.md`                      | Phase 3, M1                  |
+| [infra #6](https://github.com/DEFRA/ai-platform-infra/pull/6) `feature/platform-baseline` | WS2 `v0.4.0` — `naming`, `roles`, platform modules, `platform/`, `names/`, `bootstrap/`                                     | Phase 3, M2                  |
+| [infra #7](https://github.com/DEFRA/ai-platform-infra/pull/7) `feature/tenant-modules`    | WS2 `v0.5.0` — `modules/team`, `apim-team-api`, `entra-team-app`, `tenants/`                                                | Phase 3, M3 and M4           |
+| [workflows #1](https://github.com/DEFRA/ai-platform-workflows/pull/1)                     | WS3 `v1.0.0` and `v1` — nine reusable workflows, `setup` and `gitops` actions, Octokit modules and scripts, 145 tests       | Phase 3, all                 |
+| [environments #1](https://github.com/DEFRA/ai-platform-environments/pull/1)               | WS1 config — `registry.json`, `global.tfvars.json`, `environments/infradev/platform.tfvars.json`                            | Phase 3, M1                  |
+| [tenants #1](https://github.com/DEFRA/ai-platform-tenants/pull/1)                         | WS4 callers — `submit`, `validate`, `apply` (`state: tenants`), `prune`                                                     | Phase 3, M3–M5               |
+| [deployments #1](https://github.com/DEFRA/ai-platform-deployments/pull/1)                 | WS4 callers — `submit`, `validate`, `apply` (`state: platform`), `prune`                                                    | Phase 3, M2                  |
+| [backend #35](https://github.com/DEFRA/ai-platform-backend-api/pull/35)                   | WS5 — GitHub App client, `TenantOrchestrator`, `TenantResourceVerifier`, D14 policy, R11 polling, `entra:{oid}` attribution | Phase 4, M6 (blocked on WS6) |
+| [frontend #35](https://github.com/DEFRA/ai-platform-frontend/pull/35)                     | Phase 4 item 8 — submit run, pull request and apply run links on the team request page                                      | Phase 4                      |
+| [discovery-docs #21](https://github.com/DEFRA/ai-platform-discovery-docs/pull/21)         | The four 14 Oct direction entries this plan now follows                                                                     | Direction only               |
+
+**Blocking prerequisites, none yet held** (WS0, and the open questions after the 14 Oct entries):
+User Access Administrator on the resource group the proof uses; Entra admin consent for
+`Application.ReadWrite.OwnedBy` on the deploy and backend identities, without which no team proof
+can run now the team tier is OAuth only; a shared mailbox for the API Management publisher; and
+the placeholders `entra.tenantId`, `apim_publisher.email` and
+`identities.portal_api_principal_object_id`, which `validate-environments` fails on by design.
+
+## Direction that changed on 13 and 14 October 2026
+
+Each item below reshapes a phase; the phase text carries the detail.
+
+1. **Team tier is OAuth only.** `gateway.credentialType` allows only `oauth`; every team that is
+   not `removed` has a registration and its API takes a token, never a subscription key.
+   Subscription keys remain research-tier only. Design C's per-team choice is withdrawn. This
+   moves work from Phase 5 (B18) into Phases 3 and 4 — a team cannot get a working credential
+   without it.
+2. **No resource names in a team file.** `project.name` and `deployments[].deploymentName` are
+   gone; `gateway.allowedDeployments` lists catalogue slugs, which the gateway policy maps to the
+   derived `{slug}-{model}`. Phase 4's desired-state builder emits this shape.
+3. **One principal per change.** `Requested-By`, `updatedBy` and `requestedBy` hold
+   `entra:{oid}`, `github:{user id}` or `app:{name}`, checked by the schemas; `submit` refuses a
+   document whose attribution differs from the requester.
+4. **One required check, one apply workflow.** `validate-desired-state / validate` replaces
+   `validate / {env}`; `apply-state.yml` with a `state` input replaces the two apply workflows;
+   actions are referenced by major tag, not SHA; the App has no ruleset bypass.
+5. **Layered parameters.** `global.tfvars.json` plus `environments/{env}/platform.tfvars.json`,
+   shared codes at the top level and everything Azure under `azure`; `aip-checks params`
+   deep-merges and validates the result.
+6. **CCoE naming and full specification** (PR #20) — names in this plan are logical labels;
+   public access is a time-boxed Phase 1 proof concession with exceptions X1–X3.
+7. **New Azure limits to design within**: 32 model deployments per Foundry account, and about 250
+   Entra objects per creating principal, so each environment's deploy identity permanently
+   deletes the registrations it removes.
 
 ## Status vocabulary
 
@@ -76,17 +141,19 @@ accepted, not deployed. All of P01–P13 remain unexecuted.
    each gap first — gap 1 claims it was fixed from `0.22.0`; gap 2 is Phase 3; gap 3
    (`id-aip-backend-{env}`) is iac plan D5, so it is Phase 3; gap 4 is Phase 4; gap 5 is Phase 5.
 3. Delete `## Build status on 9 October 2026 {#status}`.
-4. Each `## B01 … ## B22` keeps `Present: skip` and gains one dated line:
-   `Built state on 13 October 2026: built | partial | not started.` — sourced from the
+4. Each `## B01 … ## B22` keeps `Present: skip` and gains one line dated the day Phase 0 lands:
+   `Built state on {date}: built | partial | not started.` — sourced from the
    "Differs from the story" column being removed. Partial stories use `Status: proposal`, since
    the vocabulary has no `partial`. B20–B22 (PR #19) have no "Differs" entry yet — mark them
-   `not started` until Phase 7 lands.
+   `not started` until Phase 7 lands. Re-read B07, B09, B15 and B16 at the time: all four change
+   the moment the prepared pull requests merge, and until then none of them has.
 5. Update the `build-stories.md` frontmatter `description`, which promises a build-status section
    that will no longer exist.
 
 ### Repoint the inbound links
 
-**17 live locations across 13 files**, verified by grep on the post-#18 tree:
+**17 live locations across 13 files**, verified by grep on the post-#18 tree and **to be
+re-verified**: PR #20 rewrote several of these pages on 13 October.
 `build-stories.md` 11, 846 · `architecture.md` 263 · `backlog.md` 13, 478, 533 ·
 `design-environments.md` 127 · `design-identity.md` 62 · `design-infrastructure.md` 49 ·
 `design-orchestration.md` 210 · `hld-designs.md` 24 · `scope.md` 39 · `README.md` 23 ·
@@ -105,10 +172,10 @@ Leave the 11 dated locations: `decision-history.md` 495, 528, 544, 545, 547, 563
   override map with every implemented story.
 - `test/site.test.js:2008-2031` — replace the thirteen `#status` assertions (2022 pins exactly 13
   table rows) with `#story-map` ones: the Status column header, one Implemented, one Partial and
-  one Proposal row, a 19-row count, built-state `assertCopy` on B01/B09/B15, and
+  one Proposal row, a 22-row count, built-state `assertCopy` on B01/B09/B15, and
   `assert.doesNotMatch(/Build status on 9 October 2026|Differs from the story/)` page-wide.
-  Read the whole block first — PR #18 added 796 lines to this file.
-- `ms.date: "2026-10-13"` on every Markdown file touched.
+  Read the whole block first — PR #18 added 796 lines to this file and PR #20 added more.
+- `ms.date` set to the day Phase 0 lands on every Markdown file touched.
 - Append a dated `decision-history.md` entry with a `Topic | Direction | Site consequence` table,
   update the "Direction in force" built-state row, and add `Delivered on 13 October 2026` to
   `design-pack-plan.md`.
@@ -127,7 +194,11 @@ No dependencies — runs in parallel with Phases 2 and 3.
 2. Coverage thresholds in both `vitest.config.js` — neither has any today. Use the
    working-agreements figures: 95% statements, lines and functions, 90% branches. Raise to actual
    if already higher; never decrease.
-3. Confirm the SonarCloud quality gate blocks rather than advises.
+3. Confirm the SonarCloud quality gate blocks rather than advises. The GitOps repositories set
+   their own bar in Phase 3 — CodeQL default setup on both public repositories and a checkov
+   `security` job reporting to code scanning, soft-failing only until the Phase 1 baseline
+   findings are triaged. Triaging them and removing the soft-fail belongs here, after Phase 3
+   merges.
 4. **Refactor:** remove the deprecated `azure` alias for `provisioning.mode` —
    `config.js:194`, the branch at `:380`, and `config.test.js:40`.
 5. Journey tests: axe scan at WCAG 2.2 AA on every page a journey visits, failing on any
@@ -145,20 +216,23 @@ axe violation fails a journey; the production guard has a unit test.
 
 ## Phase 2 — Complete and correct the team model
 
-**Status: not started.** Stories B13, B14. Repositories: backend, frontend.
-Depends on B08 (built). Parallel with Phases 1 and 3.
+**Status: not started, and now on the critical path.** Stories B13, B14. Repositories: backend,
+frontend. Depends on B08 (built). Parallel with Phases 1 and 3, but **row 1 blocks Phase 4**: the
+WS6 desired-state builder needs an immutable `team.slug` for the file name, and without it the
+backend's `github` orchestrator answers `501 desired-state-unavailable`. Do row 1 first.
 
 Mostly refactor. Design F contradicts parts of what is built, and more is already built than the
 9 October table says — `last-admin`, member removal and multi-team membership all exist.
 
-|     | Design requires                                                               | Built today                                                                              | Action                                                                                                                                                   |
-| --- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Immutable unique team `slug`, `^[a-z][a-z0-9-]{1,22}[a-z0-9]$` (iac plan WS6) | No slug — `_id` and `normalisedName` only (`team-service.js:36`, index `mongodb.js:113`) | Add field, unique index and a backfill per `schema-changes.instructions.md`                                                                              |
-| 2   | `serviceCode` three characters, required, verified (design F, R01)            | Optional, `max 20` (`routes/teams.js:37`); `verified:false` never set                    | Narrow the format, require before provisioning, implement `verified` behind a `ServiceCodeVerifier` port with a mock — the CDP/CCoE source is not agreed |
-| 3   | Interface says Admin and Member; stored values stay `admin`/`user`            | Stored correctly; check frontend copy for "User"                                         | Copy change only — do not migrate stored values                                                                                                          |
-| 4   | Last Admin can never be demoted **or** removed                                | Removal guard exists — `last-admin` 409 at `team-service.js:349-360`                     | Add `PATCH /v1/teams/{id}/members/{memberId}`; extend the existing guard to demotion                                                                     |
-| 5   | A person acts in one team at a time                                           | Multi-team membership built; session holds only `pendingTeam`/`pendingAccess`            | Add `currentTeamId` to the `@hapi/yar` session and a switcher                                                                                            |
-| 6   | SND1 is `infradev`; configurable `AIP_ENVIRONMENTS` (iac plan D1)             | `const TEAM_FACING_ENVIRONMENT = 'sandbox'` at `team-deployment-service.js:14`           | Replace with a config-driven list; the frontend option comes from the backend                                                                            |
+|     | Design requires                                                               | Built today                                                                                                                                                      | Action                                                                                                                                                   |
+| --- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Immutable unique team `slug`, `^[a-z][a-z0-9-]{1,22}[a-z0-9]$` (iac plan WS6) | No slug — `_id` and `normalisedName` only (`team-service.js:36`, index `mongodb.js:113`)                                                                         | Add field, unique index and a backfill per `schema-changes.instructions.md`. **Phase 4 waits on this**                                                   |
+| 2   | `serviceCode` three characters, required, verified (design F, R01)            | Optional, `max 20` (`routes/teams.js:37`); `verified:false` never set                                                                                            | Narrow the format, require before provisioning, implement `verified` behind a `ServiceCodeVerifier` port with a mock — the CDP/CCoE source is not agreed |
+| 3   | Interface says Admin and Member; stored values stay `admin`/`user`            | Stored correctly; check frontend copy for "User"                                                                                                                 | Copy change only — do not migrate stored values                                                                                                          |
+| 4   | Last Admin can never be demoted **or** removed                                | Removal guard exists — `last-admin` 409 at `team-service.js:349-360`                                                                                             | Add `PATCH /v1/teams/{id}/members/{memberId}`; extend the existing guard to demotion                                                                     |
+| 5   | A person acts in one team at a time                                           | Multi-team membership built; session holds only `pendingTeam`/`pendingAccess`                                                                                    | Add `currentTeamId` to the `@hapi/yar` session and a switcher                                                                                            |
+| 6   | SND1 is `infradev`; configurable `AIP_ENVIRONMENTS` (iac plan D1)             | `AIP_ENVIRONMENTS` exists for ARM verification (backend PR #35), but `const TEAM_FACING_ENVIRONMENT = 'sandbox'` still stands at `team-deployment-service.js:40` | Drive the team-facing list from the same config; the frontend option comes from the backend                                                              |
+| 7   | Every change attributable to one principal (14 Oct)                           | **Done in backend PR #35**: `entra:{oid}` on every GitOps change, a unique `oid`+`tid` index, and a deliberately non-unique email index                          | Nothing to build — keep the "never look a person up by email" rule when touching `user-service.js`                                                       |
 
 Keep `sandbox` in the list rather than migrating existing `teamDeployments` — design A runs
 Phase 1 in `SND1` **then** `SND4`, so both stay live.
@@ -174,89 +248,132 @@ regression test; a backfill test proving a slugless legacy team is handled; upda
 
 ## Phase 3 — IaC baseline, GitOps path in Infradev
 
-**Status: not started.** Story B15. Repositories: `ai-platform-infra` and
-`ai-platform-workflows` (public), `ai-platform-environments` (internal, **to be created**),
+**Status: in progress — code prepared, nothing merged or applied.** Story B15. Repositories:
+`ai-platform-infra` and `ai-platform-workflows` (public), `ai-platform-environments`,
 `ai-platform-tenants` and `ai-platform-deployments` (internal). No dependencies.
 
-**Start this first.** It is the longest phase and Phases 4 to 6 queue behind it. Follow
+WS1 to WS4 all exist on the seven open pull requests listed above; what remains is the WS0
+prerequisites, merging in order (infra #5 → #6 → #7, then workflows #1, then the three config and
+state repositories), and running M2 to M5 in Infradev. Follow
 [docs/iac-baseline-plan.md](../../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md) —
 do not re-derive it.
 
-- **WS0** prerequisites: policy allows the names, public network access, Developer APIM and UK
-  South; quota for the team model SKU; `azurerm` or `azapi` for Foundry projects; OIDC token
-  refresh during the long APIM create.
-- **WS1** infra `v0.3.0` — scaffold, release-please, the `team`/`pin`/`registry`/`environment`
-  schemas, the checks CLI; `ai-platform-environments` with `registry.json`,
-  `environments/infradev/platform.tfvars.json` and CODEOWNERS. D13: public code, private config.
-- **WS2** `v0.4.0` — state storage, deploy-identity federated credentials, platform modules
-  (`naming`, `log-analytics` (with Application Insights, local authentication off, and diagnostic
-  settings for APIM, Foundry and both vaults; LLM message logging off — the rest of observability,
-  Grafana and alerts, is Phase 7), `key-vault`, `apim`, `foundry-account`, `entra-api-audience`)
-  and team modules (`foundry-project`, `foundry-deployment`, `apim-team-api`, `entra-team-app`).
-  Root modules are `platform/` and `tenants/` (D12 renames design B's `team/`).
-- **WS3** workflows `v1.0.0` and a moving `v1` — `submit-desired-state`, `validate-desired-state`,
-  `validate-environments`, `apply-state` (`state: platform` or `tenants`), `infra-checks`, `release`,
-  `release-merge`, `workflow-checks`, `prune-op-branches`. D11: exact-pinned Terraform with committed
-  lock files, checks in Node 24 ESM, actions referenced by major version tag, `X-GitHub-Api-Version`
-  pinned.
-- **WS4** state repositories — thin callers, rulesets (PR required, 0 approvals, required
-  `validate-desired-state / validate`, no App bypass, App limited to `environments/infradev/**`), two
-  Environments.
+- **WS0** prerequisites, **the real blocker**: Defra Policy allows the names, public network
+  access, Developer APIM, UK South and Sweden Central; quota for the team model SKU; User Access
+  Administrator on the proof's resource group for bootstrap's role assignments; Entra admin
+  consent for `Application.ReadWrite.OwnedBy` on the deploy identity (and the backend identity for
+  secrets), without which no team proof can run; a shared mailbox for the API Management
+  publisher; the GitHub App key in the `gitops-writer`, `gitops-reader`, `gitops-dispatch` and
+  `release` Environments; OIDC token refresh during the long APIM create.
+- **WS1** infra `v0.3.0` (PR #5) — `team`, `pin`, `registry` and `environment` schemas, the
+  `aip-checks` CLI, `examples/`, `docs/gitops-contract.md`, and the `team` tier on `gpt-4-1-nano`
+  and `gpt-5-nano` as `DataZoneStandard` in Sweden Central (neither is offered as Standard in UK
+  South), with `capacityPolicy.environments.{env}.quota` capping the sum across teams.
+  `ai-platform-environments` (PR #1) holds `registry.json`, `global.tfvars.json` and
+  `environments/infradev/platform.tfvars.json` — shared codes at the top level, everything Azure
+  under `azure`, deep-merged and validated by `aip-checks params`. D13: public code, private
+  config.
+- **WS2** `v0.4.0` (PR #6) and `v0.5.0` (PR #7) — `naming` (CCoE's pattern, service code `AIP`),
+  `roles` (the only place a built-in role GUID appears), `log-analytics` (with Application
+  Insights, local authentication off, and diagnostic settings for APIM, Foundry and both vaults;
+  LLM message logging off — the rest of observability, Grafana and alerts, is Phase 7),
+  `key-vault`, `apim`, `foundry-account` (**one per region**, UK South primary and Sweden Central
+  for EU Data Zone team models), `entra-api-audience`, the team modules (`foundry-project`,
+  `foundry-deployment`, `apim-team-api`, `entra-team-app`) and `modules/team`. Root modules are
+  `platform/` and `tenants/` (D12 renames design B's `team/`), plus `names/` and `bootstrap/`.
+  The tenants root refuses a release the platform has not applied (R5) and validates `teams`
+  against the schema (R9); `prevent_destroy` on core resources.
+- **WS3** workflows `v1.0.0` and a moving `v1` (PR #1) — `submit-desired-state`,
+  `validate-desired-state`, `validate-environments`, `apply-state` (`state: platform` or
+  `tenants`), `infra-checks` (with a soft-failing checkov `security` job into code scanning),
+  `release`, `release-merge`, `workflow-checks`, `prune-op-branches`; two composite actions,
+  `setup` and `gitops`; GitOps logic in tested Octokit modules and shell scripts, never inline.
+  D11: exact-pinned Terraform 1.16.5 with committed lock files, checks in Node 24 ESM, actions
+  referenced by major version tag, `X-GitHub-Api-Version: 2026-03-10` pinned; the major tag moves
+  through the Git refs API, because the App holds no Workflows permission.
+- **WS4** state repositories (tenants #1, deployments #1) — thin `submit`, `validate`, `apply` and
+  `prune` callers, rulesets (PR required, 0 approvals, required `validate-desired-state /
+validate`, no App bypass — the App reaches `main` only through auto-merge — App limited to
+  `environments/infradev/**`), the GitHub Environments and a README break-glass. `ai-dev-team`
+  stands in for `aice-platform-engineers` and `aice-platform-admins` until they exist.
 - **D2 public minimal platform** in SND1: `rg-aip-infradev-platform`, `apim-aip-infradev`
   (**Developer tier** for the proof, SKU from `platform.tfvars.json` — data, not code),
   `aif-aip-infradev`, `kv-aip-infradev-platform`, `kv-aip-infradev-tenants`, `law-aip-infradev`,
-  `appi-aip-infradev`. No VNet, Redis, private endpoints or policy assignments. D15: Premium v2
-  with virtual network injection is the target for live consumer environments, not this proof.
+  `appi-aip-infradev` — **logical labels; the real names come from CCoE's policy through the
+  `naming` module** (PR #20). No VNet, Redis, private endpoints or policy assignments. D15:
+  Premium v2 with virtual network injection is the target for live consumer environments, not this
+  proof. The first proof runs inside the **existing** resource group `SNDAIEAIPRGP1401` in
+  `AZR-AIE-SND1` through `azure.existing_resource_group` (allowed only for the platform-test and
+  sandbox classes), with the subscription activity log off and bootstrap's role administration
+  scoped to that group.
 - **D5 identities**: GitHub App `ai-platform-orchestrator` (GitHub only),
-  `id-aip-deploy-infradev` (federated only, no secret), `id-aip-backend-infradev` federated from
-  the CDP `dev` backend role. The sandbox pair federates from the CDP `test` role.
-  **Closes deployment gap 3.**
+  `id-aip-deploy-infradev` (federated only, no secret, on GitHub's **immutable** OIDC subjects
+  `repo:DEFRA@{org-id}/{repository}@{repo-id}:environment:infradev`),
+  `id-aip-backend-infradev` federated from the CDP `dev` backend role. The sandbox pair federates
+  from the CDP `test` role. **Closes deployment gap 3.**
 - **Closes deployment gap 2** — the hand-configured `research` API and its end-date policy move
   into the `platform` module.
+- **Team tier is OAuth only** (14 Oct): `apim-team-api` runs `aip-authorise` for every team,
+  `tenants/` refuses any `credentialType` but `oauth`, and callers name a catalogue slug that the
+  policy rewrites to the derived `{slug}-{model}`. No team subscription keys anywhere.
 
-**Verify:** M2 an infra merge reaches SND1 through release-please and pin with no manual step;
-M3 a synthetic team's key calls its granted model and a non-granted model returns 403; M4 an
-OAuth team's registration and federated credential arrive through GitOps and a foreign token is
-refused; M5 proves robustness controls R1–R4 and R6.
+**Verify:** M2 an infra merge reaches SND1 through release-please and pin with no manual step,
+the App merging the green release pull request; M3 a synthetic OAuth team using a client secret
+calls its granted model and a non-granted model returns 403; M4 a federated OAuth team's
+registration and credential arrive through GitOps and a foreign token is refused; M5 proves
+robustness controls R1–R4 and R6.
 
 ---
 
 ## Phase 4 — Team provisioning through GitOps
 
-**Status: not started.** Story B16; closes B09 and deployment gap 4. Repositories: backend,
-frontend. Depends on Phases 2 and 3. Blocks Phases 5 and 6. Follows iac plan WS5 and WS6,
+**Status: in progress — WS5 prepared in backend PR #35 and frontend PR #35; WS6 outstanding.**
+Story B16; closes B09 and deployment gap 4. Repositories: backend, frontend. Depends on Phase 2
+row 1 (the team `slug`) and Phase 3. Blocks Phases 5 and 6. Follows iac plan WS5 and WS6,
 M6 and M7, D3, D6 and D14.
 
-The async lifecycle already exists end-to-end against the mock — `requested → pr-raised →
-merged → deploying → deployed → verified → active` plus terminal `checks-failed` and
-`deploy-failed`, with `operationId` polling and `gateway.allowedDeployments` updated on
-activation (`team-deployment-service.js:28-34, 191-230, 509-511`). **This phase is a port
-reshape and a real adapter, not a lifecycle build.**
+The async lifecycle already existed against the mock, and backend PR #35 now reshapes it onto the
+GitOps contract. **What is left is WS6 — the desired-state builder and the team `slug`** — until
+which `TENANT_ORCHESTRATOR=github` answers a new request with `501 desired-state-unavailable`.
 
-1. Extract a shared GitHub App client from `github-catalogue-source.js`; reuse the existing
-   `github.appId/clientId/installationId/privateKey` config.
-2. Reshape the port. Today it is per-deployment: `requestDeployment` and `getDeploymentStatus`
-   (`adapters/tenant-orchestrator.js:1-11`). It must become `submitDesiredState`, dispatching
-   `submit.yml` with the **whole** document, refusing documents over 60 KB, and storing run,
-   branch, PR, merge SHA and apply run. Add a separate `TenantResourceVerifier` port with an ARM
-   adapter and a mock, and a `tenant-orchestrator-registry.js` with
-   `TENANT_ORCHESTRATOR=mock|github`; production refuses `mock`. Run the existing shared contract
-   suite against both so the mock stays substitutable.
-3. New config: `GITOPS_TENANTS_REPO`, `GITOPS_DEPLOYMENTS_REPO`, `GITOPS_POLL_MIN_INTERVAL_MS`,
-   `AIP_ENVIRONMENTS`, `TENANT_ORCHESTRATOR`.
-4. Status poller honours R11 — conditional requests, a minimum interval, backoff, non-terminal
-   only. Sweep from the maintenance scheduler; audit every transition. Map onto the existing
-   lifecycle states rather than inventing new ones.
-5. D14 failure policy: re-dispatch once on `deploy-failed`; if it fails again and the run report
-   attributes it to a team, submit a revert as a system operation; alert on unattributed
-   failures; `abandon` on `checks-failed`. Retries and reconciles are **fresh dispatches on
-   `main`, never re-runs**. One team's failure must not block other teams.
-6. WS6 desired-state builder producing schema-valid documents, tested against the pinned
-   release's `examples/` as fixtures.
-7. Scope team credentials to `/apis/{slug}` on the environment's APIM — **closes gap 4**,
-   removing the `MOCK_TIERS=team` workaround.
-8. The frontend shows request status honestly with run links. Keep the mock for local runs and
-   journey tests.
+Built in the open pull requests:
+
+1. A shared GitHub App client minting a down-scoped installation token per use, with
+   `X-GitHub-Api-Version: 2026-03-10`.
+2. The reshaped port: `requestDeployment` dispatches `submit.yml` with the whole canonical
+   document (byte-identical to `ai-platform-infra`'s serialisation, refused at 60 KB);
+   `getDeploymentStatus` walks the contract's state table through the pull request, the required
+   check `validate-desired-state / validate`, the GitHub Deployment and the run report, then ARM
+   verification through a separate `TenantResourceVerifier` port.
+   `TENANT_ORCHESTRATOR=mock|github` with production refusing `mock`, and one contract suite run
+   against both adapters.
+3. Config: `TENANT_ORCHESTRATOR`, `GITOPS_TENANTS_REPO`, `GITOPS_DEPLOYMENTS_REPO`,
+   `GITOPS_POLL_MIN_INTERVAL_MS`, `GITOPS_CLAIM_LEASE_MS` and `AIP_ENVIRONMENTS` (the
+   subscription, resource group, APIM, Foundry accounts and tenants vault ARM verification will
+   accept per environment).
+4. R11 polling — conditional ETag requests, a minimum interval, backoff, non-terminal operations
+   only, a maintenance sweep for operations nobody is watching, and an audit event per transition.
+5. The D14 failure policy — one fresh apply dispatch, then an attributed revert or an engineer
+   alert; `abandon` on `checks-failed`; a failed revert is audited and alerted, never retried, and
+   its pull request stays open, keeping the file locked, until an engineer acts.
+6. One operation in flight per team file (`file-locked`): a later request is stored as `queued`
+   and builds its document when it is dispatched, and the frontend says so.
+7. `entra:{oid}` attribution on every submission, and Platform Admin `retry`/`reconcile` routes.
+8. The frontend shows the submit run, pull request and apply run under "Details for the AI
+   Platform team", https only, keeping the safe failure message.
+
+Still to do:
+
+1. **WS6 desired-state builder** producing schema-valid documents — no resource names,
+   `gateway.allowedDeployments` as catalogue slugs, `credentialType: 'oauth'` — tested against the
+   pinned release's `examples/` as fixtures. It needs the Phase 2 `slug`.
+2. Drive the team-facing environment from `AIP_ENVIRONMENTS` rather than the `sandbox` constant.
+3. **Gap 4** is now closed differently: with an OAuth-only team tier there is no team subscription
+   key to scope, so the `MOCK_TIERS=team` workaround ends when a gateway issues team OAuth client
+   secrets — that is M7 and Phase 5's B18, not this phase. Until then `live` mode answers
+   `501 gateway-not-enabled` and the wait page explains it.
+
+Keep the mock for local runs and journey tests.
 
 **Verify:** M6 a local backend with `TENANT_ORCHESTRATOR=github` reaches `active`, failures show
 links, retry, reconcile and revert all work; M7 a team created in the portal gets a working
@@ -267,11 +384,15 @@ dedicated model credential in Infradev; the production mock-refusal guard has a 
 ## Phase 5 — Limits and secretless production credentials
 
 **Status: not started.** Stories B17 and B18. Repositories: backend, frontend. Depends on
-Phase 4. The two stories are independent of each other — run them in parallel.
+Phase 4. The two stories are independent of each other — run them in parallel. **B18 is no longer
+optional polish**: since the team tier is OAuth only (14 Oct), no team gets a working credential
+until it lands, so it completes M7 and retires `MOCK_TIERS=team`.
 
 ### B17 quotas, rate limits and increase requests
 
-No quota, rate-limit or `llm-token-limit` code exists in either repository today.
+Phase 3 applies the enforcement: `apim-team-api` already carries request and token limits per
+team and the model allow-list, and `capacityPolicy.environments.{env}.quota` caps the sum across
+teams. What is missing is the portal half.
 
 1. `llm-token-limit` values in the team file within the catalogue's `capacityPolicy`; the gateway
    enforces them per team through the team's API policy.
@@ -281,30 +402,43 @@ No quota, rate-limit or `llm-token-limit` code exists in either repository today
 3. A caller over its limit receives 429 with a retry hint.
 4. Agree the per-environment bounds and how the review is recorded before coding.
 
-### B18 federated credentials for team applications
+### B18 OAuth credentials for team applications
 
-1. Prove the CDP Web Identity exchange end to end first. Issuer, subject and audience must match
-   the federated credential **exactly** — no wildcard or flexible matching.
-2. One app registration per team per environment, `app-aip-{env}-{team}`, shared by all that
-   team's applications, up to **20** federated credentials. An Azure-hosted application uses its
-   user-assigned managed identity as one of them; the managed identity never holds the team's
-   access itself.
-3. `oauth.federations[]` in the team file. A Member enters only the CDP service name, at creation
-   or later; any Member may add one, only an Admin changes or removes one; applied through GitOps
-   and pending until verified.
-4. Replace the fake mock oauth secret at `mock-credential-issuer.js:38-39` and the unused
-   `oauthClient:{enabled,appRoles:[]}` placeholder — **closes deployment gap 5**.
+Terraform creates `app-aip-{env}-{slug}` and its federated credentials (infra PR #7), owned by
+the deploy and Portal API identities; **passwords and `account_enabled` are left to the Portal
+API**, which is the work below. It needs Entra admin consent for
+`Application.ReadWrite.OwnedBy` on the backend identity.
+
+1. Issue and rotate a real client secret on the team's registration through Graph, replacing the
+   mock issuer's stand-in secret and the `501 gateway-not-enabled` refusal in `live` mode —
+   **this is what closes deployment gaps 4 and 5 and removes `MOCK_TIERS=team`**.
+2. Prove the CDP Web Identity exchange end to end. Issuer, subject and audience must match the
+   federated credential **exactly** — no wildcard or flexible matching.
+3. One app registration per team per environment, shared by all that team's applications, up to
+   **20** federated credentials. An Azure-hosted application uses its user-assigned managed
+   identity as one of them; the managed identity never holds the team's access itself.
+4. `oauth.federations[]` in the team file. A Member enters only the CDP service name — Terraform
+   derives the issuer, the subject `arn:aws:iam::{account}:role/{service}` and the audience from
+   the environment's registry entry, so the file promotes unchanged. Any Member may add one, only
+   an Admin changes or removes one; applied through GitOps and pending until verified.
 5. Enforce the credential rules: federation required in PREPROD and PROD where the host can
    federate; a client secret at most three months and three at once in DEV and QA, at most a year
-   in PREPROD and PROD and only where federation is impossible; subscription keys for research,
+   in PREPROD and PROD and only where federation is impossible; subscription keys stay research,
    development and testing only, Research keys at most a week (built as the 7-day TTL).
-   **Never fall back to a key after an OAuth denial.**
+   **Never fall back to a key after an OAuth denial.** An Entra application management policy may
+   back the secret rules later, if Defra's licensing allows.
 6. Suspension disables the registration in Entra and blocks it at the gateway; renewal re-enables
    both.
+7. Environment isolation and the Entra object limit: a registration, its federations, secrets and
+   access window serve one environment only; each tenants apply **permanently deletes** the
+   registrations it removed from Entra's deleted items, and the checks refuse OAuth teams past
+   the registry entry's `entra.createdObjectLimit` (250 by default). Confirm with Defra's Entra
+   team whether the limit can be raised before the estate nears 100 teams per environment.
 
 **Verify:** a federated token calls the team's API and a token from another issuer or account is
-refused; a suspended registration is refused within the token lifetime; a team over its limit is
-throttled and other teams are not; PREPROD and PROD refuse a key where federation is possible.
+refused; a client secret issued by the portal works and a suspended registration is refused
+within the token lifetime; a team over its limit is throttled and other teams are not; PREPROD
+and PROD refuse a key where federation is possible.
 
 ---
 
@@ -347,9 +481,12 @@ DEV is created** (design G `#stages`) — follow design G and the decision histo
    environment as span dimensions.
 2. The Portal API passes `trace_parent` and `operation_id` to the `submit` dispatch inputs
    (workflows repo); the apply workflow exports its own spans and the run report as the deploy
-   identity.
-3. APIM's diagnostic settings (the Phase 3 `log-analytics` module) use the W3C correlation
-   protocol; the gateway and LLM logs carry team, application, model and deployment.
+   identity. The contract already takes an optional `trace_parent` and writes a `Traceparent`
+   commit trailer — the backend does not send one yet, so this is the portal half only.
+3. APIM's diagnostic settings (the Phase 3 `log-analytics` module, already W3C with no bodies and
+   an Entra-authenticated Application Insights logger) carry team, application, model and
+   deployment on the gateway and LLM logs. Public Application Insights ingestion from CDP and
+   GitHub is the named exception **X3**, whose end date is set at the gate before DEV.
 4. **New persisted field:** `audit.capturePrompts` (boolean, default `false`) on the team
    document — follow
    [schema-changes.instructions.md](../../../../ai-platform-backend-api/.github/instructions/schema-changes.instructions.md):
@@ -361,9 +498,9 @@ DEV is created** (design G `#stages`) — follow design G and the decision histo
 
 ### B21 dashboards and search
 
-1. `ai-platform-infra` Terraform creates `amg-aip-nonprod` (SSV3), its managed identity reading
-   Infradev's Log Analytics workspace and Application Insights only; `amg-aip-prod` (SSV5)
-   follows later, scoped the same way to production.
+1. `ai-platform-infra` Terraform creates `amg-aip-nonprod` (SSV3, behind private endpoints per
+   PR #20), its managed identity reading Infradev's Log Analytics workspace and Application
+   Insights only; `amg-aip-prod` (SSV5) follows later, scoped the same way to production.
 2. Dashboards are JSON in the infra repo, applied by Terraform; a playground folder in the
    non-production instance allows hand experiments outside Git, but anything changed by hand
    outside it is reverted by the next apply.
@@ -418,9 +555,28 @@ reference fails the checks, with a regression test.
 - Design F's four open questions: personal access, cross-cloud federation, agents, and Entra
   security groups as the membership source.
 - The private-topology rebuild of Infradev, including Azure Managed Redis as APIM's external and
-  semantic cache — that is the gate before DEV, after B15, alongside B20 and B22 (Phase 7)
-  passing.
+  semantic cache, and the end dates for exceptions X1–X3 — that is the gate before DEV, after
+  B15, alongside B20 and B22 (Phase 7) passing. Every live consumer environment and SSV3/SSV5 is
+  private and fully specified from its first resource (PR #20); only the Phase 1 Infradev and
+  Sandbox proof may be public.
 - The OpenTelemetry Collector service, and portal team-facing observability views — both TBC,
   added once their trigger or agreement lands (design G `#collector`, `#open`).
 - Migrating the stored `admin` and `user` role values.
+- The questions left open by the 14 October entries, each to be answered before the phase that
+  needs it: how a region passes 32 model deployments per Foundry account; whether Defra's Entra
+  team can raise the 250 created-object limit; whether a CDP federation in a team file holds only
+  the service name; whether an Entra application management policy backs the client-secret rules;
+  and the CCoE type codes still to be confirmed.
 - Rewriting dated `decision-history.md` or `design-pack-plan.md` entries.
+
+## Dated notes
+
+**14 Oct 2026 — revised against ten open pull requests.** Phase 3 (WS1–WS4) and the WS5 half of
+Phase 4 are written as code but nothing is merged, released or applied, so every story's built
+state is unchanged. Phase 3 and Phase 4 were rewritten to describe what the prepared code does;
+Phase 2 row 1 (the team `slug`) became the blocker for Phase 4's WS6 builder; Phase 5's B18 moved
+onto the critical path because the team tier is now OAuth only; Phase 1 gained the checkov and
+CodeQL gates; Phase 7 noted that the `submit` contract already carries `trace_parent`. The real
+hold-ups are WS0 prerequisites, not code: Entra admin consent for `Application.ReadWrite.OwnedBy`,
+User Access Administrator on the proof's resource group, a publisher mailbox, and the three
+placeholders `validate-environments` fails on by design.
