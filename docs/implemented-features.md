@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 14 Oct 2026 (team slug; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
+Last updated: 14 Oct 2026 (team slug; the WS6 desired-state builder, so GitOps requests build a real team document; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -113,14 +113,16 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `501 gateway-not-enabled`. See
   [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1
   and the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
-- **GitOps `TenantOrchestrator` (WS5, 13 Oct 2026, not yet merged)**: `TENANT_ORCHESTRATOR=github`
+- **GitOps `TenantOrchestrator` (WS5 and WS6, 14 Oct 2026, not yet merged)**: `TENANT_ORCHESTRATOR=github`
   dispatches `submit.yml` with the whole team document and tracks it to `active` (pull request,
   merge, GitHub Deployment, run report, ARM check), with the D14 retry-then-revert policy, a
   scheduler sweep and Platform Admin retry/reconcile; one change per team file at a time, so a later
-  request waits as `queued` ("Waiting for another change to this team to finish"); it answers `501 desired-state-unavailable`
-  until WS6's builder lands, and the `/connect/team/request` page shows its links under "Details for
-  the AI Platform team". See the backend README's "GitOps tenant orchestrator" section and the
-  [IaC baseline plan](../../ai-platform-discovery-docs/docs/iac-baseline-plan.md).
+  request waits as `queued` ("Waiting for another change to this team to finish"). The document is
+  built from the file `main` holds now, so an engineer's edit, a revert, and the team's federations
+  and agreed limits all survive a later request; the `/connect/team/request` page shows its links
+  under "Details for the AI Platform team". A team needs a three-character service code before its
+  first request (`409 service-code-required`). See the backend README's "GitOps tenant orchestrator"
+  section and the [IaC baseline plan](../../ai-platform-discovery-docs/docs/iac-baseline-plan.md).
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
   multi-step write (team creation, credential issuance, deployment status transitions).
 - **Federated backend-to-Azure auth**: `armAuth.authMethod` (`AZURE_ARM_AUTH_METHOD`) picks how

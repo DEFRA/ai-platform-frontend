@@ -90,7 +90,7 @@ and `identities.portal_api_principal_object_id`), and `azure.existing_resource_g
 | 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                        | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal  |
 | 2     | **Team `slug`** (derived, immutable, backfilled, shown as "Team ID"), `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | `serviceCode` format, demotion guard, `currentTeamId`, environment list                                |
 | 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                     | Merge in order, run `bootstrap`, then prove M2–M5 in Infradev                                          |
-| 4     | WS5 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, run links in the portal                                    | **WS6 desired-state builder** (needs the Phase 2 slug), the environment list                           |
+| 4     | WS5 and WS6 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, the desired-state builder, run links in the portal | Prove M6 against Infradev once Phase 3 is applied; the environment list                                |
 | 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                            | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry |
 | 6     | —                                                                                                                                                         | All of it                                                                                              |
 | 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                   | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks              |
@@ -366,14 +366,13 @@ robustness controls R1–R4 and R6.
 
 ## Phase 4 — Team provisioning through GitOps
 
-**Status: in progress — WS5 prepared in backend PR #35 and frontend PR #35; WS6 outstanding.**
-Story B16; closes B09 and deployment gap 4. Repositories: backend, frontend. Depends on Phase 3;
-Phase 2 row 1, the team `slug`, is built. Blocks Phases 5 and 6. Follows iac plan WS5 and WS6,
-M6 and M7, D3, D6 and D14.
+**Status: in progress — WS5 and WS6 prepared in backend PR #35 and frontend PR #35.**
+Story B16; closes B09 and deployment gap 4. Repositories: backend, frontend. Depends on Phase 3.
+Blocks Phases 5 and 6. Follows iac plan WS5 and WS6, M6 and M7, D3, D6 and D14.
 
-The async lifecycle already existed against the mock, and backend PR #35 now reshapes it onto the
-GitOps contract. **What is left is WS6, the desired-state builder** — until it exists
-`TENANT_ORCHESTRATOR=github` answers a new request with `501 desired-state-unavailable`.
+The async lifecycle already existed against the mock, and backend PR #35 reshapes it onto the
+GitOps contract and builds the document the contract wants. **What is left is running M6 against
+Infradev**, which needs Phase 3 merged and applied.
 
 Built in the open pull requests:
 
@@ -400,27 +399,26 @@ Built in the open pull requests:
 7. `entra:{oid}` attribution on every submission, and Platform Admin `retry`/`reconcile` routes.
 8. The frontend shows the submit run, pull request and apply run under "Details for the AI
    Platform team", https only, keeping the safe failure message.
+9. **WS6**: `team-desired-state.js` builds the whole team file from what `main` holds now — the
+   model added to `deployments[]` (catalogue team SKU, that environment's default capacity) and to
+   `gateway.allowedDeployments`, `revision` incremented, and the team's federations, external
+   clients and agreed limits carried over untouched. `getCurrentDocument` on the orchestrator port
+   reads the file; a team with no file starts at revision 1 with the configured default limits.
 
 Still to do:
 
-1. **WS6 desired-state builder.** `team-deployment-submission.js` calls an injected
-   `buildDesiredState(db, {teamId, environment, modelSlug, operationId, requestedBy})` and expects
-   `{document, expectedRevision}`; it throws `501 desired-state-unavailable` when that function is
-   absent, returns `null`, or returns a document without `team.slug`. The builder must emit a
-   schema-valid document: `schemaVersion: 1`, an incremented `revision`, `environment`, `status`,
-   `team: {slug, serviceCode}`, `deployments[]` of `{slug, sku, capacity, status}` with no
-   resource names, `gateway: {credentialType: 'oauth', allowedDeployments: [catalogue slugs],
-limits}`, `oauth`, `operationId` and `updatedBy`. Test it against the pinned release's
-   `examples/alpha.json` and `beta.json` as fixtures, and against `aip-checks tenants` if it can
-   be run locally. The team `slug` it needs is now on the team document.
-2. Drive the team-facing environment from `AIP_ENVIRONMENTS` rather than the `sandbox` constant.
-3. **Gap 4** is now closed differently: with an OAuth-only team tier there is no team subscription
+1. Drive the team-facing environment from `AIP_ENVIRONMENTS` rather than the `sandbox` constant.
+2. **Gap 4** is now closed differently: with an OAuth-only team tier there is no team subscription
    key to scope, so the `MOCK_TIERS=team` workaround ends when a gateway issues team OAuth client
    secrets — that is M7 and Phase 5's B18, not this phase. Until then `live` mode answers
    `501 gateway-not-enabled` and the wait page explains it.
-4. Legacy people have no Entra `oid` until their next sign-in, and `requireUserPrincipal` refuses
+3. Legacy people have no Entra `oid` until their next sign-in, and `requireUserPrincipal` refuses
    them with `403 entra-identity-required`. Check this is acceptable for invited members who have
    never signed in, and cover it in a journey test.
+4. A team with no three-character `serviceCode` now gets `409 service-code-required` from the
+   builder, and there is no screen to set one after creation — Phase 2 row 2 closes that, and
+   should be done before anyone uses the GitHub orchestrator in anger.
+5. Prove it end to end once Phase 3 is applied: M6 locally with `TENANT_ORCHESTRATOR=github`.
 
 Keep the mock for local runs and journey tests.
 
@@ -598,9 +596,9 @@ pole; step 1 unblocks it and needs other people, so raise those requests today.
 3. ~~**Phase 2 row 1 — the team `slug`**~~ — **done on 14 Oct 2026**, on the two portal branches:
    derived in `createTeam`, numbered on a clash, unique index, dated backfill, and shown on the
    team page as "Team ID".
-4. **Then WS6, the desired-state builder** (Phase 4), against the pinned release's `examples/`.
-   When it lands, merge backend #35 and frontend #35 if they are not merged already, and run M6
-   locally with `TENANT_ORCHESTRATOR=github` against Infradev.
+4. ~~**Then WS6, the desired-state builder**~~ — **done on 14 Oct 2026**. Merge backend #35 and
+   frontend #35, then run M6 locally with `TENANT_ORCHESTRATOR=github` against Infradev as soon as
+   step 2 has applied the platform.
 5. **Then B18's Graph client-secret issuer** (Phase 5), which is what finally gives a team a
    working credential and completes M7. Only after M7 does a team journey work end to end in a
    real environment.
@@ -675,3 +673,11 @@ GitHub configuration, not code \u2014 see the prerequisite table and "Order of w
 `feature/gitops-run-links`. Derived from the team name, numbered on a clash, unique index,
 `2026-10-14-add-team-slug` backfill, and shown on the team page as "Team ID" with a line saying
 it cannot change. Phase 4's WS6 builder now has the identifier it was waiting for.
+
+**14 Oct 2026 — WS6 desired-state builder built** (Phase 4), on
+`feature/github-tenant-orchestrator`. `team-desired-state.js` builds the whole team file from
+what `main` holds now, read through a new `getCurrentDocument` on the orchestrator port, so an
+engineer's edit, a D14 revert and the team's federations and agreed limits all survive a later
+request. `501 desired-state-unavailable` now means only that the team has no slug. The gap it
+leaves behind is Phase 2 row 2: a team with no three-character service code is refused with
+`409 service-code-required` and has no screen to set one.
