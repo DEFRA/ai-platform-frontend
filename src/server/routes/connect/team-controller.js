@@ -45,7 +45,10 @@ const PIPELINE_LINK_LABELS = {
 
 function buildPipelineLinks(links = {}) {
   return Object.entries(PIPELINE_LINK_LABELS)
-    .filter(([key]) => /^https:\/\//.test(links[key] ?? ''))
+    .filter(
+      ([key]) =>
+        typeof links[key] === 'string' && links[key].startsWith('https://')
+    )
     .map(([key, text]) => ({ href: links[key], text }))
 }
 
