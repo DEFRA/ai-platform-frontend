@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 14 Oct 2026 (team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
+Last updated: 14 Oct 2026 (team slug; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -38,6 +38,9 @@ The core product journey is "three routes to a credential" — see
 ## Route 2 — Team tier, first person in a team
 
 - Create or select a team: `/teams/new`, `/teams/{id}`.
+- Each team has an immutable `slug`, derived from its name when the team is created and shown on
+  the team page as "Team ID". It names the team's GitOps file, its gateway API path and its model
+  deployments, so it never changes — including on a rename.
 - Request a dedicated model deployment for the team: `/connect/team/*`.
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
   (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per

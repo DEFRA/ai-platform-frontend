@@ -31,7 +31,12 @@ vi.mock('openid-client', () => ({
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
-const sampleTeam = { _id: 'team-1', name: 'Flood Risk Team', verified: false }
+const sampleTeam = {
+  _id: 'team-1',
+  name: 'Flood Risk Team',
+  slug: 'flood-risk-team',
+  verified: false
+}
 
 async function signIn(server) {
   return signInViaOidc(server, fetchMock)
@@ -198,6 +203,27 @@ describe('#teamsController', () => {
       'Removing someone does not change the team client secret.'
     )
     expect(result).not.toContain('team key')
+  })
+
+  test('GET /teams/{id} shows the team ID and says it cannot be changed', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Team ID')
+    expect(result).toContain('flood-risk-team')
+    expect(result).toContain('cannot be changed')
   })
 
   test('GET /teams/{id} hides the add member form from a non-admin', async () => {

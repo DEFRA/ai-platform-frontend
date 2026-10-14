@@ -84,16 +84,16 @@ and `identities.portal_api_principal_object_id`), and `azure.existing_resource_g
 
 ## Built versus remaining, at a glance
 
-| Phase | Built (on the branches above)                                                                                           | Remaining                                                                                                 |
-| ----- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 0     | —                                                                                                                       | All of it: restructure `build-stories.md`                                                                 |
-| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds      | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal     |
-| 2     | `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index                                     | **Team `slug`** (blocks Phase 4), `serviceCode` format, demotion guard, `currentTeamId`, environment list |
-| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters   | Merge in order, run `bootstrap`, then prove M2–M5 in Infradev                                             |
-| 4     | WS5 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, run links in the portal  | **WS6 desired-state builder** (needs the Phase 2 slug), the environment list                              |
-| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                          | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry    |
-| 6     | —                                                                                                                       | All of it                                                                                                 |
-| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks                 |
+| Phase | Built (on the branches above)                                                                                                                             | Remaining                                                                                              |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 0     | —                                                                                                                                                         | All of it: restructure `build-stories.md`                                                              |
+| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                        | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal  |
+| 2     | **Team `slug`** (derived, immutable, backfilled, shown as "Team ID"), `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | `serviceCode` format, demotion guard, `currentTeamId`, environment list                                |
+| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                     | Merge in order, run `bootstrap`, then prove M2–M5 in Infradev                                          |
+| 4     | WS5 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, run links in the portal                                    | **WS6 desired-state builder** (needs the Phase 2 slug), the environment list                           |
+| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                            | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry |
+| 6     | —                                                                                                                                                         | All of it                                                                                              |
+| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                   | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks              |
 
 ## Direction that changed on 13 and 14 October 2026
 
@@ -239,16 +239,22 @@ axe violation fails a journey; the production guard has a unit test.
 ## Phase 2 — Complete and correct the team model
 
 **Status: not started, and now on the critical path.** Stories B13, B14. Repositories: backend,
-frontend. Depends on B08 (built). Parallel with Phases 1 and 3, but **row 1 blocks Phase 4**: the
-WS6 desired-state builder needs an immutable `team.slug` for the file name, and without it the
-backend's `github` orchestrator answers `501 desired-state-unavailable`. Do row 1 first.
+frontend. Depends on B08 (built). Parallel with Phases 1 and 3. Row 1, the team `slug` Phase 4
+needs, is **done on the two portal branches**; the rest is unstarted.
+
+Two decisions settled on 14 Oct 2026 and built that way: the slug is **derived from the team
+name**, not typed by an Admin — GOV.UK guidance is not to ask for what can be derived, and a
+permanent public identifier someone typed in a hurry is a support burden; a clash takes a
+numbered suffix. And a **rename never changes the slug**, because it names the team's GitOps
+file, its gateway path and its deployments; the team page says so, and any future rename screen
+must repeat it.
 
 Mostly refactor. Design F contradicts parts of what is built, and more is already built than the
 9 October table says — `last-admin`, member removal and multi-team membership all exist.
 
 |     | Design requires                                                               | Built today                                                                                                                                                      | Action                                                                                                                                                   |
 | --- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Immutable unique team `slug`, `^[a-z][a-z0-9-]{1,22}[a-z0-9]$` (iac plan WS6) | No slug — `_id` and `normalisedName` only (`team-service.js:36`, index `mongodb.js:113`)                                                                         | Add field, unique index and a backfill per `schema-changes.instructions.md`. **Phase 4 waits on this**                                                   |
+| 1   | Immutable unique team `slug`, `^[a-z][a-z0-9-]{1,22}[a-z0-9]$` (iac plan WS6) | **Done on the branches**: derived from the name in `createTeam`, numbered on a clash, unique index, `2026-10-14-add-team-slug` backfill, shown as "Team ID"      | Nothing — Phase 4's builder can use `team.slug`                                                                                                          |
 | 2   | `serviceCode` three characters, required, verified (design F, R01)            | Optional, `max 20` (`routes/teams.js:37`); `verified:false` never set                                                                                            | Narrow the format, require before provisioning, implement `verified` behind a `ServiceCodeVerifier` port with a mock — the CDP/CCoE source is not agreed |
 | 3   | Interface says Admin and Member; stored values stay `admin`/`user`            | Stored correctly; check frontend copy for "User"                                                                                                                 | Copy change only — do not migrate stored values                                                                                                          |
 | 4   | Last Admin can never be demoted **or** removed                                | Removal guard exists — `last-admin` 409 at `team-service.js:349-360`                                                                                             | Add `PATCH /v1/teams/{id}/members/{memberId}`; extend the existing guard to demotion                                                                     |
@@ -361,13 +367,13 @@ robustness controls R1–R4 and R6.
 ## Phase 4 — Team provisioning through GitOps
 
 **Status: in progress — WS5 prepared in backend PR #35 and frontend PR #35; WS6 outstanding.**
-Story B16; closes B09 and deployment gap 4. Repositories: backend, frontend. Depends on Phase 2
-row 1 (the team `slug`) and Phase 3. Blocks Phases 5 and 6. Follows iac plan WS5 and WS6,
+Story B16; closes B09 and deployment gap 4. Repositories: backend, frontend. Depends on Phase 3;
+Phase 2 row 1, the team `slug`, is built. Blocks Phases 5 and 6. Follows iac plan WS5 and WS6,
 M6 and M7, D3, D6 and D14.
 
 The async lifecycle already existed against the mock, and backend PR #35 now reshapes it onto the
-GitOps contract. **What is left is WS6 — the desired-state builder and the team `slug`** — until
-which `TENANT_ORCHESTRATOR=github` answers a new request with `501 desired-state-unavailable`.
+GitOps contract. **What is left is WS6, the desired-state builder** — until it exists
+`TENANT_ORCHESTRATOR=github` answers a new request with `501 desired-state-unavailable`.
 
 Built in the open pull requests:
 
@@ -406,7 +412,7 @@ Still to do:
    resource names, `gateway: {credentialType: 'oauth', allowedDeployments: [catalogue slugs],
 limits}`, `oauth`, `operationId` and `updatedBy`. Test it against the pinned release's
    `examples/alpha.json` and `beta.json` as fixtures, and against `aip-checks tenants` if it can
-   be run locally. It needs the Phase 2 `slug`.
+   be run locally. The team `slug` it needs is now on the team document.
 2. Drive the team-facing environment from `AIP_ENVIRONMENTS` rather than the `sandbox` constant.
 3. **Gap 4** is now closed differently: with an OAuth-only team tier there is no team subscription
    key to scope, so the `MOCK_TIERS=team` workaround ends when a gateway issues team OAuth client
@@ -589,9 +595,9 @@ pole; step 1 unblocks it and needs other people, so raise those requests today.
    hand once, then M2 (platform through release and pin), M3 and M4 (an OAuth team by scripted
    dispatch, client secret then federated), M5 (R1–R4 and R6). Expect to iterate on Azure policy
    and quota here, not on the code.
-3. **In parallel, do Phase 2 row 1 — the team `slug`** — in the backend: field, unique index,
-   dated backfill, and the frontend showing it. It is small, it is independent of Azure, and
-   Phase 4 cannot finish without it.
+3. ~~**Phase 2 row 1 — the team `slug`**~~ — **done on 14 Oct 2026**, on the two portal branches:
+   derived in `createTeam`, numbered on a clash, unique index, dated backfill, and shown on the
+   team page as "Team ID".
 4. **Then WS6, the desired-state builder** (Phase 4), against the pinned release's `examples/`.
    When it lands, merge backend #35 and frontend #35 if they are not merged already, and run M6
    locally with `TENANT_ORCHESTRATOR=github` against Infradev.
@@ -665,3 +671,7 @@ team `slug`) became the blocker for Phase 4's WS6 builder; Phase 5's B18 moved o
 path because the team tier is now OAuth only; Phase 1 gained the checkov and CodeQL gates; Phase
 7 noted that the `submit` contract already carries `trace_parent`. The hold-ups are consent and
 GitHub configuration, not code \u2014 see the prerequisite table and "Order of work from here".
+**14 Oct 2026 — team `slug` built** (Phase 2 row 1), on `feature/github-tenant-orchestrator` and
+`feature/gitops-run-links`. Derived from the team name, numbered on a clash, unique index,
+`2026-10-14-add-team-slug` backfill, and shown on the team page as "Team ID" with a line saying
+it cannot change. Phase 4's WS6 builder now has the identifier it was waiting for.
