@@ -29,12 +29,12 @@
 
         {% if teamAccess %}
           {{ govukInsetText({
-            html: teamAccess.teamName + ' already has a key for ' + teamAccess.modelsText + '. Anyone in the team can use it, so you may not need your own.<br><a class="govuk-link" href="' + teamAccess.credentialUrl + '">View the ' + teamAccess.teamName + ' key</a>'
+            html: teamAccess.teamName + ' already has an OAuth client secret for ' + teamAccess.modelsText + '. Anyone in the team can use it, so you may not need your own.<br><a class="govuk-link" href="' + teamAccess.credentialUrl + '">View the ' + teamAccess.teamName + ' client secret</a>'
           }) }}
         {% endif %}
 
         <p class="govuk-body">
-          <a class="govuk-link" href="/manage">See every key you and your teams hold</a>
+          <a class="govuk-link" href="/manage">See every key and client secret you and your teams hold</a>
         </p>
       {% else %}
         {{ govukButton({ text: "Start now", href: "/models", isStartButton: true }) }}

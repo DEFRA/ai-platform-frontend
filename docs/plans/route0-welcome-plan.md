@@ -8,7 +8,7 @@ replaced the `.defra-hero` + `.defra-tile-grid` three-card shape below with a si
 start-page pattern: `h1` + lead + `govukButton isStartButton`, then plain `h2`/body/list sections
 ("Who it is for", "How it works", "What you get") for signed-out visitors, and a "Your access"
 section (renewal `govukNotificationBanner` if a research key expires within 3 days, `govukInsetText`
-if a team key already exists) for signed-in visitors. Implemented in
+if a team credential already exists) for signed-in visitors. Implemented in
 `src/server/routes/home/{controller.js,index.njk,controller.test.js}`. The three-tile-card content
 and "which door" decisions recorded below are now superseded - kept for history, not current
 behaviour. No dedicated tile links to `/connect` or `/teams/new` from home any more; the single

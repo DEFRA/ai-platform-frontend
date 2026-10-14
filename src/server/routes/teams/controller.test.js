@@ -194,6 +194,10 @@ describe('#teamsController', () => {
 
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(expect.stringContaining('Add a member'))
+    expect(result).toContain(
+      'Removing someone does not change the team client secret.'
+    )
+    expect(result).not.toContain('team key')
   })
 
   test('GET /teams/{id} hides the add member form from a non-admin', async () => {

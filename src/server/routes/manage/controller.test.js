@@ -176,6 +176,10 @@ describe('#manageController', () => {
     expect(result).toEqual(
       expect.stringContaining('You are not a member of a team yet')
     )
+    expect(result).toContain(
+      'Teams share an OAuth client secret that lasts longer and can be rotated.'
+    )
+    expect(result).not.toContain('Team keys')
   })
 
   test('GET /manage lists a shared team credential under the team section', async () => {
@@ -203,6 +207,8 @@ describe('#manageController', () => {
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
     expect(result).toEqual(expect.stringContaining('ab12'))
+    expect(result).toContain('Keys and client secrets you can use')
+    expect(result).not.toContain('Keys you can use')
     expect(result).not.toEqual(
       expect.stringContaining('You do not have a key yet')
     )
@@ -685,7 +691,7 @@ describe('#manageController', () => {
         ...sampleCredential,
         teamId: 'team-1',
         tier: 'team',
-        credentialType: 'subscription-key',
+        credentialType: 'oauth',
         allowedDeployments: ['gpt-4o']
       })
     )
@@ -704,6 +710,8 @@ describe('#manageController', () => {
 
     expect(result).toEqual(expect.stringContaining('Rotate this credential'))
     expect(result).toEqual(expect.stringContaining('Revoke this credential'))
+    expect(result).toContain('View full client secret')
+    expect(result).not.toContain('View full key')
   })
 
   test('GET /manage/credentials/{id} looks up each model individually and shows one row per model for a multi-model team credential', async () => {
@@ -719,7 +727,7 @@ describe('#manageController', () => {
         ...sampleCredential,
         teamId: 'team-1',
         tier: 'team',
-        credentialType: 'subscription-key',
+        credentialType: 'oauth',
         allowedDeployments: ['gpt-4o', 'claude-3-opus']
       })
     )
@@ -777,8 +785,76 @@ describe('#manageController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Client secret'))
+    expect(result).toContain('Client secret (OAuth)')
+    expect(result).not.toContain('Subscription key')
     expect(result).not.toEqual(expect.stringContaining('…undefined'))
+  })
+
+  test('GET /manage/credentials/{id} never shows a team credential as a subscription key', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        credentialType: 'subscription-key',
+        allowedDeployments: ['gpt-4o']
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ _id: 'team-1', name: 'Flood Risk', role: 'user' }]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Client secret (OAuth)')
+    expect(result).not.toContain('Subscription key')
+  })
+
+  test('GET /manage/credentials/{id}/rotate asks to rotate the team client secret', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        credentialType: 'oauth',
+        allowedDeployments: ['gpt-4o']
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ _id: 'team-1', name: 'Flood Risk', role: 'admin' }]
+      })
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/rotate',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toContain(
+      'Are you sure you want to rotate the Flood Risk client secret?'
+    )
+    expect(result).toContain(
+      'Anything using the old client secret stops working straight away.'
+    )
+    expect(result).toContain('Yes, rotate the client secret')
+    expect(result).not.toContain('Flood Risk key')
+    expect(result).not.toContain('old key')
+    expect(result).not.toContain('rotate the key')
   })
 
   test('rotating a team credential (no fixed expiry) does not 500 on the rotated page', async () => {
@@ -818,6 +894,8 @@ describe('#manageController', () => {
 
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(expect.stringContaining('Does not expire'))
+    expect(result).toContain('Client secret')
+    expect(result).not.toContain('Subscription key')
   })
 
   test('GET /manage/credentials/{id} shows a red tag for a revoked credential', async () => {
@@ -874,6 +952,8 @@ describe('#manageController', () => {
     expect(result).toEqual(
       expect.stringContaining('/manage/credentials/cred-1/view')
     )
+    expect(result).toContain('View full key')
+    expect(result).not.toContain('View full client secret')
   })
 
   test('GET /manage/credentials/{id}/view shows the reason form', async () => {
@@ -892,6 +972,59 @@ describe('#manageController', () => {
     expect(result).toEqual(
       expect.stringContaining('Why do you need to see this?')
     )
+    expect(result).toContain('View the full key for GPT-4o')
+    expect(result).not.toContain('client secret')
+  })
+
+  test('the team reveal journey names the secret a client secret, not a key', async () => {
+    const cookies = await signIn(server)
+    const teamCredential = {
+      ...sampleCredential,
+      teamId: 'team-1',
+      tier: 'team',
+      credentialType: 'oauth',
+      allowedDeployments: ['gpt-4o']
+    }
+
+    fetchMock.mockResponseOnce(JSON.stringify(teamCredential))
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getReveal = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/view',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(getReveal.result).toContain('View the full client secret for GPT-4o')
+    expect(getReveal.result).toContain('This will show the full client secret.')
+    expect(getReveal.result).toContain('View client secret')
+    expect(getReveal.result).not.toContain('full key')
+
+    fetchMock.mockResponseOnce(JSON.stringify(teamCredential))
+    fetchMock.mockResponseOnce(JSON.stringify({ secret: 'team_mock_secret' }))
+    const postReveal = await server.inject({
+      method: 'POST',
+      url: '/manage/credentials/cred-1/view',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, reason: 'Moving it to a new store' }
+    })
+
+    expect(postReveal.headers.location).toBe(
+      '/manage/credentials/cred-1/revealed'
+    )
+
+    const getRevealed = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/revealed',
+      headers: { cookie: cookieHeader(mergeCookies(cookies, postReveal)) }
+    })
+
+    expect(getRevealed.result).toContain('team_mock_secret')
+    expect(getRevealed.result).toContain(
+      'This client secret is shown once. Copy it now and store it safely.'
+    )
+    expect(getRevealed.result).toContain('Copy client secret')
+    expect(getRevealed.result).not.toContain('Your key')
+    expect(getRevealed.result).not.toContain('Copy key')
   })
 
   test('POST /manage/credentials/{id}/view without a reason re-renders with an error', async () => {
@@ -914,6 +1047,7 @@ describe('#manageController', () => {
   test('POST /manage/credentials/{id}/view with a reason reveals the secret once', async () => {
     const cookies = await signIn(server)
 
+    fetchMock.mockResponseOnce(JSON.stringify(sampleCredential))
     fetchMock.mockResponseOnce(JSON.stringify({ secret: 'full_mock_secret' }))
 
     const postReveal = await server.inject({
@@ -942,6 +1076,8 @@ describe('#manageController', () => {
     expect(getRevealed.result).toEqual(
       expect.stringContaining('full_mock_secret')
     )
+    expect(getRevealed.result).toContain('Copy key')
+    expect(getRevealed.result).not.toContain('client secret')
 
     const cookiesAfterRevealed = mergeCookies(redirectCookies, getRevealed)
     const getRevealedAgain = await server.inject({
@@ -957,6 +1093,9 @@ describe('#manageController', () => {
   test('POST /manage/credentials/{id}/view shows a banner when the credential has been revoked', async () => {
     const cookies = await signIn(server)
 
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ ...sampleCredential, status: 'revoked' })
+    )
     fetchMock.mockResponseOnce(
       JSON.stringify({
         code: 'credential-revoked',

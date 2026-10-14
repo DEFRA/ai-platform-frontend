@@ -86,7 +86,7 @@ describe('#homeController', () => {
     expect(result).toEqual(expect.stringContaining('Browse models'))
   })
 
-  test('Should show team access when signed in with an active team key', async () => {
+  test('Should show team access as an OAuth client secret when signed in with an active team credential', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
 
     fetchMock.mockResponseOnce(
@@ -118,7 +118,14 @@ describe('#homeController', () => {
     })
 
     expect(result).toEqual(
-      expect.stringContaining('Flood Risk Team already has a key for GPT-4o')
+      expect.stringContaining(
+        'Flood Risk Team already has an OAuth client secret for GPT-4o'
+      )
     )
+    expect(result).toContain('View the Flood Risk Team client secret')
+    expect(result).toContain(
+      'See every key and client secret you and your teams hold'
+    )
+    expect(result).not.toContain('already has a key')
   })
 })

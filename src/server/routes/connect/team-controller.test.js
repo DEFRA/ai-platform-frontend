@@ -280,6 +280,8 @@ describe('#teamConnectController', () => {
     expect(getRequest.statusCode).toBe(statusCodes.ok)
     expect(getRequest.result).toEqual(expect.stringContaining('meta'))
     expect(getRequest.result).toEqual(expect.stringContaining('refresh'))
+    expect(getRequest.result).toContain('Setting up your team client secret')
+    expect(getRequest.result).not.toContain('team key')
     expect(getRequest.result).toEqual(
       expect.stringContaining('Setting up access in Azure')
     )
@@ -339,7 +341,7 @@ describe('#teamConnectController', () => {
     expect(result).not.toContain('javascript:alert')
   })
 
-  test('request wait page issues the credential once active and redirects to the credential page', async () => {
+  test('request wait page issues an OAuth client secret once active and redirects to the credential page', async () => {
     let cookies = await signIn(server)
     cookies = await reachCheckStep(server, cookies)
 
@@ -395,6 +397,18 @@ describe('#teamConnectController', () => {
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
     expect(getRequest.headers.location).toBe('/connect/team/credential')
 
+    const [, issueRequest] = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        url.endsWith('/v1/credentials') && options.method === 'POST'
+    )
+    expect(JSON.parse(issueRequest.body)).toEqual({
+      modelSlug: 'gpt-4o',
+      tier: 'team',
+      teamId: 'team-1',
+      environment: 'sandbox',
+      credentialType: 'oauth'
+    })
+
     const getCredential = await server.inject({
       method: 'GET',
       url: '/connect/team/credential',
@@ -405,6 +419,13 @@ describe('#teamConnectController', () => {
     expect(getCredential.result).toEqual(
       expect.stringContaining('mock_team_secret')
     )
+    expect(getCredential.result).toContain('Your client secret is ready')
+    expect(getCredential.result).toContain('Copy client secret')
+    expect(getCredential.result).toContain(
+      'See this client secret and your other access'
+    )
+    expect(getCredential.result).not.toContain('Your key')
+    expect(getCredential.result).not.toContain('Ocp-Apim-Subscription-Key')
     expect(getCredential.result).toEqual(
       expect.stringContaining('Does not expire')
     )

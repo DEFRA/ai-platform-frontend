@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 14 Oct 2026 (IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
+Last updated: 14 Oct 2026 (team credentials are OAuth client secrets; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -42,8 +42,10 @@ The core product journey is "three routes to a credential" — see
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
   (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per
   environment** (not per model) once the deployment reaches `active`, covering every requested
-  model via `allowedDeployments[]`; credential type (`oauth` or `subscription-key`) is fixed on
-  first use per team per environment (`credential-type-fixed`).
+  model via `allowedDeployments[]`; credential type is fixed on first use per team per environment
+  (`credential-type-fixed`).
+- Team credentials are OAuth client secrets (decision of 14 Oct 2026): `/connect/team/*` requests
+  `credentialType: 'oauth'` and the team pages say "client secret", never "key". Research keeps keys.
 - Team-facing environment today is `sandbox` only (Phase 1 — see
   [design-environments.md#phase-1](../../ai-platform-discovery-docs/src/content/design-environments.md)).
 

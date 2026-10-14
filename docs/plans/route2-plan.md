@@ -356,6 +356,8 @@ credential-type-fixed` on a later mismatch. `POST /v1/credentials` accepts an op
   environment radios/schema default to `sandbox`.
 - **Decided with the user:** no UI lets a team pick `oauth` vs `subscription-key` - out of scope,
   no build-story asks for it; the connect journey always requests the default `subscription-key`.
+  **UPDATED 14 Oct 2026:** team credentials are OAuth client secrets only, so the connect journey
+  now sends `credentialType: 'oauth'`; Research keeps subscription keys.
 - Backend `listTeamsForUser()` now embeds each team's `role` for the caller directly, so `/manage`
   and the single-credential view page can role-gate actions with no extra per-team API call - this
   became the actual mechanism Route 3's admin-gating below relies on.

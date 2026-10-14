@@ -23,7 +23,7 @@
         {{ govukNotificationBanner(notificationBanner) }}
       {% endif %}
 
-      <h2 class="govuk-heading-m">Keys you can use</h2>
+      <h2 class="govuk-heading-m">Keys and client secrets you can use</h2>
 
       {% if keyRows.length == 0 %}
         <p class="govuk-body">You do not have a key yet.</p>
@@ -31,7 +31,7 @@
         {{ govukButton({ text: "Browse models", href: "/models" }) }}
       {% else %}
         <table class="govuk-table app-credentials-table" data-testid="keys-table">
-          <caption class="govuk-table__caption govuk-visually-hidden">Keys you can use</caption>
+          <caption class="govuk-table__caption govuk-visually-hidden">Keys and client secrets you can use</caption>
           <thead class="govuk-table__head">
             <tr class="govuk-table__row">
               <th class="govuk-table__header" scope="col">For</th>
@@ -105,7 +105,7 @@
       {% if teams.length == 0 %}
         <p class="govuk-body" data-testid="manage-teams-placeholder">You are not a member of a team yet.</p>
         <p class="govuk-body">
-          Team keys are shared, last longer and can be rotated. If your team already has one, ask an admin to add you.
+          Teams share an OAuth client secret that lasts longer and can be rotated. If your team already has one, ask an admin to add you.
         </p>
         <p class="govuk-body">
           <a class="govuk-link" href="/teams/new">Create a team</a>

@@ -429,8 +429,8 @@ export const teamConnectController = {
 
         if (IN_PROGRESS_STATUSES.includes(deployment.status)) {
           return h.view('connect/team/request', {
-            pageTitle: 'Setting up your team key',
-            heading: 'Setting up your team key',
+            pageTitle: 'Setting up your team client secret',
+            heading: 'Setting up your team client secret',
             refreshSeconds: 3,
             lastCheckedAt: formatDate(new Date(), 'HH:mm'),
             failed: false,
@@ -493,14 +493,16 @@ export const teamConnectController = {
         // status is 'active': issue (or reuse) the shared team credential.
         // Deployment fields (not session) are the source of truth here, so
         // this page works even after the session's pendingAccess is gone -
-        // e.g. reached via a "check progress" link from /manage.
+        // e.g. reached via a "check progress" link from /manage. Team
+        // credentials are OAuth client secrets, never subscription keys.
         const { credential, secret } = await apiClient(request).post(
           '/v1/credentials',
           {
             modelSlug: deployment.modelSlug,
             tier: 'team',
             teamId,
-            environment: deployment.environment
+            environment: deployment.environment,
+            credentialType: 'oauth'
           },
           { userId: sessionUser.id, idempotencyKey: randomUUID() }
         )
