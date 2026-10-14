@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 14 Oct 2026 (team credentials are OAuth client secrets; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
+Last updated: 14 Oct 2026 (team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -42,10 +42,10 @@ The core product journey is "three routes to a credential" — see
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
   (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per
   environment** (not per model) once the deployment reaches `active`, covering every requested
-  model via `allowedDeployments[]`; credential type is fixed on first use per team per environment
-  (`credential-type-fixed`).
+  model via `allowedDeployments[]`.
 - Team credentials are OAuth client secrets (decision of 14 Oct 2026): `/connect/team/*` requests
   `credentialType: 'oauth'` and the team pages say "client secret", never "key". Research keeps keys.
+  Until the real OAuth issuer (M7), live mode answers `501 gateway-not-enabled`, which the wait page explains.
 - Team-facing environment today is `sandbox` only (Phase 1 — see
   [design-environments.md#phase-1](../../ai-platform-discovery-docs/src/content/design-environments.md)).
 
@@ -113,7 +113,8 @@ These aren't tied to one route — they're shared infrastructure every route abo
 - **GitOps `TenantOrchestrator` (WS5, 13 Oct 2026, not yet merged)**: `TENANT_ORCHESTRATOR=github`
   dispatches `submit.yml` with the whole team document and tracks it to `active` (pull request,
   merge, GitHub Deployment, run report, ARM check), with the D14 retry-then-revert policy, a
-  scheduler sweep and Platform Admin retry/reconcile; it answers `501 desired-state-unavailable`
+  scheduler sweep and Platform Admin retry/reconcile; one change per team file at a time, so a later
+  request waits as `queued` ("Waiting for another change to this team to finish"); it answers `501 desired-state-unavailable`
   until WS6's builder lands, and the `/connect/team/request` page shows its links under "Details for
   the AI Platform team". See the backend README's "GitOps tenant orchestrator" section and the
   [IaC baseline plan](../../ai-platform-discovery-docs/docs/iac-baseline-plan.md).

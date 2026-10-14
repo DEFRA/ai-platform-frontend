@@ -315,6 +315,41 @@ describe('#manageController', () => {
     )
   })
 
+  test('GET /manage shows a queued team request as waiting for another change and keeps refreshing', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-q',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'queued'
+          }
+        ]
+      })
+    )
+
+    const { result, statusCode } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toContain('Waiting for another change')
+    expect(result).toContain('govuk-tag--grey')
+    expect(result).not.toContain('Setting up')
+    expect(result).toContain('/connect/team/request/team-1/deployment-q')
+    expect(result).toContain('http-equiv="refresh"')
+  })
+
   test('GET /manage shows a "setup failed" status for a failed team deployment', async () => {
     const cookies = await signIn(server)
 

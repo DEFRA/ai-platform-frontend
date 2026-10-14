@@ -213,9 +213,17 @@ function buildKeyRows(credentials, teamsById, modelNames) {
 // resurrect its request row and let "check progress" issue a brand new one.
 const DEPLOYMENT_FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
 
+// GitOps applies one change per team file at a time, so a later request
+// waits as `queued` until the one before it finishes.
+const DEPLOYMENT_QUEUED_STATUS = 'queued'
+
 function deploymentStatusText(status) {
   if (status === 'active') {
     return 'Ready to view'
+  }
+
+  if (status === DEPLOYMENT_QUEUED_STATUS) {
+    return 'Waiting for another change'
   }
 
   if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
@@ -228,6 +236,10 @@ function deploymentStatusText(status) {
 function deploymentTagClass(status) {
   if (status === 'active') {
     return 'govuk-tag--green'
+  }
+
+  if (status === DEPLOYMENT_QUEUED_STATUS) {
+    return 'govuk-tag--grey'
   }
 
   if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {

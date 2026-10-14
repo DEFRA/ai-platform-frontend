@@ -288,6 +288,60 @@ describe('#teamConnectController', () => {
     expect(getRequest.result).not.toContain('Details for the AI Platform team')
   })
 
+  test('request wait page shows a queued request as waiting for another change, keeps checking and issues nothing', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-7', status: 'queued' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-7',
+          status: 'queued',
+          modelSlug: 'gpt-4o',
+          environment: 'sandbox',
+          requestedBy: 'user-1',
+          progressSteps: [
+            { label: 'Request recorded', state: 'current' },
+            { label: 'Team checked', state: 'pending' },
+            { label: 'Setting up access in Azure', state: 'pending' },
+            { label: 'Creating your client secret', state: 'pending' }
+          ]
+        }
+      })
+    )
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-7',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toContain(
+      'Waiting for another change to this team to finish'
+    )
+    expect(result).toContain('Changes to a team are made one at a time.')
+    expect(result).toContain('http-equiv="refresh"')
+    expect(result).not.toContain('Setting up your team client secret')
+    expect(result).not.toContain('This usually takes about 2 minutes')
+    // Queued is not active, so the requester is never issued a credential.
+    expect(
+      fetchMock.mock.calls.some(([url]) => url.endsWith('/v1/credentials'))
+    ).toBe(false)
+  })
+
   test('request wait page links to the pull request and workflow runs the backend reports', async () => {
     let cookies = await signIn(server)
     cookies = await reachCheckStep(server, cookies)
@@ -432,6 +486,61 @@ describe('#teamConnectController', () => {
     expect(getCredential.headers['cache-control']).toEqual(
       expect.stringContaining('no-store')
     )
+  })
+
+  test('request wait page says team client secrets are not available yet when no gateway issues them (501 gateway-not-enabled)', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-8', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-8',
+          status: 'active',
+          modelSlug: 'gpt-4o',
+          environment: 'sandbox',
+          requestedBy: 'user-1'
+        }
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        statusCode: statusCodes.notImplemented,
+        error: 'Not Implemented',
+        message: 'No gateway issues team OAuth credentials yet',
+        code: 'gateway-not-enabled'
+      }),
+      { status: statusCodes.notImplemented }
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-8',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.notImplemented)
+    expect(result).toContain('We cannot create your team client secret yet')
+    expect(result).toContain(
+      'Team client secrets are not available in this environment yet.'
+    )
+    expect(result).toContain('Go to your access')
+    expect(result).not.toContain('No gateway issues team OAuth credentials yet')
+    expect(result).not.toContain('Something went wrong')
   })
 
   test('request wait page redirects to /manage with a banner when the credential was already revealed to someone else', async () => {

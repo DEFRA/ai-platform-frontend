@@ -25,7 +25,11 @@ const ENVIRONMENT_ITEMS = [{ value: 'sandbox', text: 'Sandbox', checked: true }]
 
 // The wait page groups every intermediate GitOps state into one friendly
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
+// GitOps applies one change per team file at a time, so a request made while
+// another is in flight waits as `queued`, which gets its own wording.
+const QUEUED_STATUS = 'queued'
 const IN_PROGRESS_STATUSES = [
+  QUEUED_STATUS,
   'requested',
   'pr-raised',
   'merged',
@@ -34,6 +38,12 @@ const IN_PROGRESS_STATUSES = [
   'verified'
 ]
 const FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
+
+function waitPageHeading(status) {
+  return status === QUEUED_STATUS
+    ? 'Waiting for another change to this team to finish'
+    : 'Setting up your team client secret'
+}
 
 // Support links to the GitOps runs and pull request behind a team request,
 // when the backend has them. Labelled here, and only https links are shown.
@@ -117,6 +127,12 @@ function errorMessageForCode(error) {
 
   if (error.code === 'environment-not-available') {
     return 'This environment is not available yet.'
+  }
+
+  // In live mode no gateway issues team OAuth client secrets until the real
+  // OAuth issuer exists (M7), so the backend refuses with 501.
+  if (error.code === 'gateway-not-enabled') {
+    return 'Team client secrets are not available in this environment yet.'
   }
 
   return error.message
@@ -428,9 +444,12 @@ export const teamConnectController = {
         }
 
         if (IN_PROGRESS_STATUSES.includes(deployment.status)) {
+          const heading = waitPageHeading(deployment.status)
+
           return h.view('connect/team/request', {
-            pageTitle: 'Setting up your team client secret',
-            heading: 'Setting up your team client secret',
+            pageTitle: heading,
+            heading,
+            queued: deployment.status === QUEUED_STATUS,
             refreshSeconds: 3,
             lastCheckedAt: formatDate(new Date(), 'HH:mm'),
             failed: false,
@@ -495,17 +514,38 @@ export const teamConnectController = {
         // this page works even after the session's pendingAccess is gone -
         // e.g. reached via a "check progress" link from /manage. Team
         // credentials are OAuth client secrets, never subscription keys.
-        const { credential, secret } = await apiClient(request).post(
-          '/v1/credentials',
-          {
-            modelSlug: deployment.modelSlug,
-            tier: 'team',
-            teamId,
-            environment: deployment.environment,
-            credentialType: 'oauth'
-          },
-          { userId: sessionUser.id, idempotencyKey: randomUUID() }
-        )
+        let credential
+        let secret
+        try {
+          ;({ credential, secret } = await apiClient(request).post(
+            '/v1/credentials',
+            {
+              modelSlug: deployment.modelSlug,
+              tier: 'team',
+              teamId,
+              environment: deployment.environment,
+              credentialType: 'oauth'
+            },
+            { userId: sessionUser.id, idempotencyKey: randomUUID() }
+          ))
+        } catch (error) {
+          if (
+            error instanceof ApiError &&
+            error.code === 'gateway-not-enabled'
+          ) {
+            return h
+              .view('error/index', {
+                pageTitle: 'We cannot create your team client secret yet',
+                heading: 'We cannot create your team client secret yet',
+                message: errorMessageForCode(error),
+                actionHref: '/manage',
+                actionText: 'Go to your access'
+              })
+              .code(error.statusCode)
+          }
+
+          throw error
+        }
 
         if (!secret) {
           // Already issued and shown once to whoever triggered it originally -
