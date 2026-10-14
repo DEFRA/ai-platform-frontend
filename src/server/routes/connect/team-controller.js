@@ -35,6 +35,20 @@ const IN_PROGRESS_STATUSES = [
 ]
 const FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
 
+// Support links to the GitOps runs and pull request behind a team request,
+// when the backend has them. Labelled here, and only https links are shown.
+const PIPELINE_LINK_LABELS = {
+  submitRun: 'Submit workflow run',
+  pullRequest: 'Pull request',
+  applyRun: 'Apply workflow run'
+}
+
+function buildPipelineLinks(links = {}) {
+  return Object.entries(PIPELINE_LINK_LABELS)
+    .filter(([key]) => /^https:\/\//.test(links[key] ?? ''))
+    .map(([key, text]) => ({ href: links[key], text }))
+}
+
 // The team journey needs both a chosen team and a chosen model. Without the
 // teamId a shared-flow session would fall through to /v1/teams/undefined/....
 function hasTeamJourneyState(pendingAccess) {
@@ -417,7 +431,8 @@ export const teamConnectController = {
             refreshSeconds: 3,
             lastCheckedAt: formatDate(new Date(), 'HH:mm'),
             failed: false,
-            stages: deployment.progressSteps
+            stages: deployment.progressSteps,
+            pipelineLinks: buildPipelineLinks(deployment.links)
           })
         }
 
@@ -427,7 +442,9 @@ export const teamConnectController = {
             heading: "We could not set up your team's access",
             refreshSeconds: null,
             failed: true,
-            stages: []
+            stages: [],
+            failureReason: deployment.failureReason ?? null,
+            pipelineLinks: buildPipelineLinks(deployment.links)
           })
         }
 

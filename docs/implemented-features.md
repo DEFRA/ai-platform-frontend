@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 12 Oct 2026 (backend-to-Azure auth: deployed CDP environments now authenticate to the ARM app registration via a federated AWS STS web identity token rather than a client secret; see below).
+Last updated: 13 Oct 2026 (IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`, waiting on the WS6 desired-state builder; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -38,7 +38,7 @@ The core product journey is "three routes to a credential" — see
 - Create or select a team: `/teams/new`, `/teams/{id}`.
 - Request a dedicated model deployment for the team: `/connect/team/*`.
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
-  (mocked) drives the slow "provision the team's stack" path; one **shared credential per team per
+  (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per
   environment** (not per model) once the deployment reaches `active`, covering every requested
   model via `allowedDeployments[]`; credential type (`oauth` or `subscription-key`) is fixed on
   first use per team per environment (`credential-type-fixed`).
@@ -103,10 +103,16 @@ These aren't tied to one route — they're shared infrastructure every route abo
   is `mock | live` (production refuses to start on `mock`; `azure` is a deprecated alias for `live`),
   and in `live` mode `ENABLED_GATEWAYS` (default `azure-apim`, renamed from `ENABLED_ADAPTERS`)
   lists the gateways the environment can run - a model on any other gateway gets
-  `501 gateway-not-enabled`. `TenantOrchestrator`
-  (GitOps-style team/model provisioning) is still mock-only. See
+  `501 gateway-not-enabled`. See
   [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1
   and the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
+- **GitOps `TenantOrchestrator` (WS5, 13 Oct 2026, not yet merged)**: `TENANT_ORCHESTRATOR=github`
+  dispatches `submit.yml` with the whole team document and tracks it to `active` (pull request,
+  merge, GitHub Deployment, run report, ARM check), with the D14 retry-then-revert policy, a
+  scheduler sweep and Platform Admin retry/reconcile; it answers `501 desired-state-unavailable`
+  until WS6's builder lands, and the `/connect/team/request` page shows its links under "Details for
+  the AI Platform team". See the backend README's "GitOps tenant orchestrator" section and the
+  [IaC baseline plan](../../ai-platform-discovery-docs/docs/iac-baseline-plan.md).
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
   multi-step write (team creation, credential issuance, deployment status transitions).
 - **Federated backend-to-Azure auth**: `armAuth.authMethod` (`AZURE_ARM_AUTH_METHOD`) picks how

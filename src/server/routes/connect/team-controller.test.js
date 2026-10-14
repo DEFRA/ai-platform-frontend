@@ -283,6 +283,60 @@ describe('#teamConnectController', () => {
     expect(getRequest.result).toEqual(
       expect.stringContaining('Setting up access in Azure')
     )
+    expect(getRequest.result).not.toContain('Details for the AI Platform team')
+  })
+
+  test('request wait page links to the pull request and workflow runs the backend reports', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-5', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-5',
+          status: 'pr-raised',
+          progressSteps: [
+            { label: 'Request recorded', state: 'done' },
+            { label: 'Team checked', state: 'current' }
+          ],
+          links: {
+            submitRun:
+              'https://github.com/DEFRA/ai-platform-tenants/actions/runs/1001',
+            pullRequest: 'https://github.com/DEFRA/ai-platform-tenants/pull/7',
+            applyRun: 'javascript:alert(1)'
+          }
+        }
+      })
+    )
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-5',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Details for the AI Platform team')
+    expect(result).toContain(
+      '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/pull/7">Pull request</a>'
+    )
+    expect(result).toContain(
+      '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/actions/runs/1001">Submit workflow run</a>'
+    )
+    // Only https links are rendered, whatever the backend sends.
+    expect(result).not.toContain('Apply workflow run')
+    expect(result).not.toContain('javascript:alert')
   })
 
   test('request wait page issues the credential once active and redirects to the credential page', async () => {
@@ -569,5 +623,52 @@ describe('#teamConnectController', () => {
     expect(getRequest.result).toEqual(
       expect.stringContaining('Something went wrong')
     )
+    expect(getRequest.result).toContain('Automated checks failed (mock)')
+  })
+
+  test('request wait page shows the failure reason and the failed apply run for support', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-6', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-6',
+          status: 'deploy-failed',
+          failureReason:
+            'The apply failed again after a fresh retry, so the change is being reverted',
+          links: {
+            pullRequest: 'https://github.com/DEFRA/ai-platform-tenants/pull/7',
+            applyRun:
+              'https://github.com/DEFRA/ai-platform-tenants/actions/runs/2002'
+          }
+        }
+      })
+    )
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-6',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Something went wrong')
+    expect(result).toContain('the change is being reverted')
+    expect(result).toContain(
+      '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/actions/runs/2002">Apply workflow run</a>'
+    )
+    expect(result).not.toContain('Submit workflow run')
   })
 })

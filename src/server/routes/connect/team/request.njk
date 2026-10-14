@@ -1,6 +1,7 @@
 {% extends 'layouts/page.njk' %}
 
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% block head %}
@@ -68,6 +69,25 @@
           <a class="govuk-link" href="">Check now</a> ·
           <a class="govuk-link" href="/manage">Go to your access</a>
         </p>
+      {% endif %}
+
+      {% if pipelineLinks.length or failureReason %}
+        {% set supportDetailsHtml %}
+          {% if failureReason %}
+            <p class="govuk-body">{{ failureReason }}</p>
+          {% endif %}
+          {% if pipelineLinks.length %}
+            <ul class="govuk-list">
+              {% for link in pipelineLinks %}
+                <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endset %}
+        {{ govukDetails({
+          summaryText: "Details for the AI Platform team",
+          html: supportDetailsHtml
+        }) }}
       {% endif %}
     </div>
   </div>

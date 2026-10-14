@@ -194,12 +194,14 @@ do not re-derive it.
   Grafana and alerts, is Phase 7), `key-vault`, `apim`, `foundry-account`, `entra-api-audience`)
   and team modules (`foundry-project`, `foundry-deployment`, `apim-team-api`, `entra-team-app`).
   Root modules are `platform/` and `tenants/` (D12 renames design B's `team/`).
-- **WS3** workflows `v1.0.0` and a moving `v1` — `submit-desired-state`, `validate-*`,
-  `apply-platform`, `apply-tenants`, `infra-checks`, `release`, `workflow-checks`,
-  `prune-op-branches`. D11: exact-pinned Terraform with committed lock files, checks in Node 24
-  ESM, third-party actions pinned by SHA, `X-GitHub-Api-Version` pinned.
+- **WS3** workflows `v1.0.0` and a moving `v1` — `submit-desired-state`, `validate-desired-state`,
+  `validate-environments`, `apply-state` (`state: platform` or `tenants`), `infra-checks`, `release`,
+  `release-merge`, `workflow-checks`, `prune-op-branches`. D11: exact-pinned Terraform with committed
+  lock files, checks in Node 24 ESM, actions referenced by major version tag, `X-GitHub-Api-Version`
+  pinned.
 - **WS4** state repositories — thin callers, rulesets (PR required, 0 approvals, required
-  `validate/{env}`, App bypass, App limited to `environments/infradev/**`), two Environments.
+  `validate-desired-state / validate`, no App bypass, App limited to `environments/infradev/**`), two
+  Environments.
 - **D2 public minimal platform** in SND1: `rg-aip-infradev-platform`, `apim-aip-infradev`
   (**Developer tier** for the proof, SKU from `platform.tfvars.json` — data, not code),
   `aif-aip-infradev`, `kv-aip-infradev-platform`, `kv-aip-infradev-tenants`, `law-aip-infradev`,
