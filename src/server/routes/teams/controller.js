@@ -11,6 +11,8 @@ import {
   getPendingTeam,
   setPendingTeam,
   clearPendingTeam,
+  getCurrentTeamId,
+  setCurrentTeamId,
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
@@ -46,6 +48,10 @@ const newTeamSchema = Joi.object({
 })
 
 const serviceCodeSchema = Joi.object({ serviceCode: serviceCodeField })
+
+const memberRoleSchema = Joi.object({
+  role: Joi.string().valid('admin', 'user').required()
+})
 
 const addMemberSchema = Joi.object({
   email: Joi.string().email().required().messages({
@@ -108,7 +114,12 @@ async function loadTeamForView(request, id) {
         member.email && !isAdmin && member.userId !== sessionUser.id
           ? maskEmail(member.email)
           : member.email,
-      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1)
+      // The team's last admin can be neither removed nor demoted; promote
+      // someone else first.
+      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
+      canChangeRole:
+        isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
+      nextRole: member.role === 'admin' ? 'user' : 'admin'
     }))
 
   return { ...result, members, isAdmin }
@@ -122,11 +133,15 @@ export const teamsController = {
         const { items } = await apiClient(request).get('/v1/teams', {
           userId: sessionUser.id
         })
+        const currentTeamId = getCurrentTeamId(request)
 
         return h.view('teams/index', {
           pageTitle: 'Your teams',
           heading: 'Your teams',
-          teams: items
+          teams: items.map((team) => ({
+            ...team,
+            isCurrent: team._id === currentTeamId
+          }))
         })
       }
     }
@@ -290,6 +305,9 @@ export const teamsController = {
           throw error
         }
 
+        // Opening a team is what makes it the one you are acting in.
+        setCurrentTeamId(request, id)
+
         return h.view('teams/team', {
           pageTitle: result.team.name,
           heading: result.team.name,
@@ -300,6 +318,48 @@ export const teamsController = {
           errorSummary: null,
           fieldErrors: {}
         })
+      }
+    }
+  },
+
+  setMemberRole: {
+    post: {
+      options: {
+        validate: {
+          payload: memberRoleSchema,
+          failAction: (request, h) =>
+            h
+              .redirect(`/teams/${request.params.id}`)
+              .code(statusCodes.seeOther)
+              .takeover()
+        }
+      },
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id, memberId } = request.params
+
+        try {
+          await apiClient(request).patch(
+            `/v1/teams/${id}/members/${memberId}`,
+            { role: request.payload.role },
+            { userId: sessionUser.id }
+          )
+        } catch (error) {
+          if (!(error instanceof ApiError)) {
+            throw error
+          }
+
+          if (error.code === 'last-admin') {
+            setAccountNotification(request, {
+              type: 'error',
+              message: 'A team must keep at least one admin.'
+            })
+          } else if (!isForbidden(error) && !isNotFound(error)) {
+            throw error
+          }
+        }
+
+        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
       }
     }
   },

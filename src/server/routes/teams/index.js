@@ -61,6 +61,14 @@ export const teams = {
         },
         {
           method: 'POST',
+          path: '/teams/{id}/members/{memberId}/role',
+          options: {
+            validate: teamsController.setMemberRole.post.options.validate
+          },
+          handler: teamsController.setMemberRole.post.handler
+        },
+        {
+          method: 'POST',
           path: '/teams/{id}/members/{memberId}/remove',
           handler: teamsController.removeMember.post.handler
         }

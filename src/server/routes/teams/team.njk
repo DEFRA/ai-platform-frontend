@@ -93,6 +93,15 @@
                 }) }}
               </td>
               <td class="govuk-table__cell">
+                {% if member.canChangeRole %}
+                  <form method="post" action="/teams/{{ team._id }}/members/{{ member._id }}/role" novalidate>
+                    <input type="hidden" name="crumb" value="{{ crumb }}">
+                    <input type="hidden" name="role" value="{{ member.nextRole }}">
+                    <button type="submit" class="govuk-link app-link-button" data-testid="member-role">
+                      {{ "Make a member" if member.role == "admin" else "Make an admin" }}
+                    </button>
+                  </form>
+                {% endif %}
                 {% if member.canRemove %}
                   <form method="post" action="/teams/{{ team._id }}/members/{{ member._id }}/remove" novalidate>
                     <input type="hidden" name="crumb" value="{{ crumb }}">

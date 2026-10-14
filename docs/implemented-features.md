@@ -41,6 +41,12 @@ The core product journey is "three routes to a credential" — see
 - Each team has an immutable `slug`, derived from its name when the team is created and shown on
   the team page as "Team ID". It names the team's GitOps file, its gateway API path and its model
   deployments, so it never changes — including on a rename.
+- Team membership: an admin invites by Defra email, changes a member's role with
+  `PATCH /v1/teams/{id}/members/{memberId}`, or removes them. A team always keeps an admin, so the
+  last one can be neither removed nor demoted — promote someone else first; both changes are
+  serialised behind a team lock so two admins cannot demote each other into an admin-less team.
+- A person belongs to several teams but acts in one at a time (design F): opening a team's page
+  makes it the current team, held in the session as `currentTeamId` and marked on `/teams`.
 - Each team also has a three-character service code, required when the team is created and
   changeable by an admin on the team page. It is checked through a `ServiceCodeVerifier` port whose
   only adapter is a mock, so teams show "To be verified" until an authoritative source is agreed.
