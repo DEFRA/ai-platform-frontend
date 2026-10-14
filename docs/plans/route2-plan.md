@@ -116,10 +116,10 @@ See the end of this file for the specific refactor steps this implies.
   case for any team member, not just the second one.
 - `teamDeployments` status only advances when polled (`GET .../deployments/{id}` calls
   `getDeploymentStatus` and persists the result) - no background timer/interval anywhere.
-- Mock orchestrator failure simulation: reserved `requestedBy` (userId) prefixes
-  `test-checks-fail-` / `test-deploy-fail-`, tracked in an in-process Map keyed by `operationId` (set
-  in `requestDeployment`, read in `getDeploymentStatus`) - mirrors mock-credential-issuer's
-  `test-fail-` prefix pattern.
+- Mock orchestrator failure simulation: reserved `requestedBy` principal prefixes
+  `entra:00000000-0000-0000-0001-` (checks failed) / `entra:00000000-0000-0000-0002-` (deploy
+  failed), which no real, random Entra object ID matches, tracked in an in-process Map keyed by
+  `operationId` (set in `requestDeployment`, read in `getDeploymentStatus`).
 
 **Follow-up for Route 3:** re-validate [route3-plan.md](route3-plan.md) against the current
 `team-service.js` shape before starting - some details (e.g. a `getMemberRole` helper) assume a
