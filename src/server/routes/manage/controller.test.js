@@ -857,6 +857,67 @@ describe('#manageController', () => {
     expect(result).not.toContain('rotate the key')
   })
 
+  test('GET /manage/credentials/{id}/rotate falls back to "the team client secret" when the team name is unknown', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        credentialType: 'oauth',
+        allowedDeployments: ['gpt-4o']
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/rotate',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain(
+      'Are you sure you want to rotate the team client secret?'
+    )
+    expect(result).not.toContain('team key')
+  })
+
+  test('POST /manage/credentials/{id}/rotate without a choice re-renders the client secret confirm page with an error', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        credentialType: 'oauth',
+        allowedDeployments: ['gpt-4o']
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ _id: 'team-1', name: 'Flood Risk', role: 'admin' }]
+      })
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/manage/credentials/cred-1/rotate',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toContain('There is a problem')
+    expect(result).toContain(
+      'Are you sure you want to rotate the Flood Risk client secret?'
+    )
+    expect(result).not.toContain('Flood Risk key')
+  })
+
   test('rotating a team credential (no fixed expiry) does not 500 on the rotated page', async () => {
     const cookies = await signIn(server)
 
