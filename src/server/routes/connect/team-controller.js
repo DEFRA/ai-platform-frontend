@@ -156,6 +156,83 @@ function clientSecretUnavailableOrThrow(h, error) {
     .code(error.statusCode)
 }
 
+// The deployment is active and the signed-in member requested it: issue (or
+// reuse) the team's shared credential and reveal its secret once.
+async function issueTeamClientSecret(
+  request,
+  h,
+  { sessionUser, teamId, deployment }
+) {
+  // Defense in depth for /manage already hiding this deployment's request row
+  // once its credential is revoked: a stale/bookmarked link could still reach
+  // the request page directly, so re-check here too before issuing anything.
+  // A revoked team credential is a deliberate, final action - it must not be
+  // silently resurrected.
+  const { items: existingCredentials } = await apiClient(request).get(
+    '/v1/credentials',
+    { userId: sessionUser.id }
+  )
+  const wasRevoked = existingCredentials.some(
+    (existing) =>
+      existing.teamId === teamId &&
+      existing.tier === 'team' &&
+      existing.status === 'revoked' &&
+      (existing.allowedDeployments ?? []).includes(deployment.modelSlug)
+  )
+
+  if (wasRevoked) {
+    setAccountNotification(request, {
+      type: 'success',
+      message:
+        'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
+    })
+
+    return h.redirect('/manage').code(statusCodes.seeOther)
+  }
+
+  // Deployment fields (not session) are the source of truth here, so this
+  // works even after the session's pendingAccess is gone - e.g. reached via a
+  // "check progress" link from /manage. Team credentials are OAuth client
+  // secrets, never subscription keys.
+  let credential
+  let secret
+  try {
+    ;({ credential, secret } = await apiClient(request).post(
+      '/v1/credentials',
+      {
+        modelSlug: deployment.modelSlug,
+        tier: 'team',
+        teamId,
+        environment: deployment.environment,
+        credentialType: 'oauth'
+      },
+      { userId: sessionUser.id, idempotencyKey: randomUUID() }
+    ))
+  } catch (error) {
+    return clientSecretUnavailableOrThrow(h, error)
+  }
+
+  if (!secret) {
+    // Already issued and shown once to whoever triggered it originally -
+    // nothing new to reveal. /manage always lists the team's credential
+    // (key hint only).
+    setAccountNotification(request, {
+      type: 'success',
+      message: "Your team's model is ready to use - see it below."
+    })
+
+    return h.redirect('/manage').code(statusCodes.seeOther)
+  }
+
+  const model = await apiClient(request).get(
+    `/v1/models/${deployment.modelSlug}`
+  )
+
+  setIssuedCredential(request, { credential, secret, model })
+
+  return h.redirect('/connect/team/credential').code(statusCodes.seeOther)
+}
+
 export const teamConnectController = {
   selectTeam: {
     get: {
@@ -500,75 +577,11 @@ export const teamConnectController = {
           return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
-        // Defense in depth for /manage already hiding this deployment's
-        // request row once its credential is revoked: a stale/bookmarked
-        // link could still reach this handler directly, so re-check here
-        // too before issuing anything. A revoked team credential is a
-        // deliberate, final action - it must not be silently resurrected.
-        const { items: existingCredentials } = await apiClient(request).get(
-          '/v1/credentials',
-          { userId: sessionUser.id }
-        )
-        const wasRevoked = existingCredentials.some(
-          (existing) =>
-            existing.teamId === teamId &&
-            existing.tier === 'team' &&
-            existing.status === 'revoked' &&
-            (existing.allowedDeployments ?? []).includes(deployment.modelSlug)
-        )
-
-        if (wasRevoked) {
-          setAccountNotification(request, {
-            type: 'success',
-            message:
-              'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
-          })
-
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        // status is 'active': issue (or reuse) the shared team credential.
-        // Deployment fields (not session) are the source of truth here, so
-        // this page works even after the session's pendingAccess is gone -
-        // e.g. reached via a "check progress" link from /manage. Team
-        // credentials are OAuth client secrets, never subscription keys.
-        let credential
-        let secret
-        try {
-          ;({ credential, secret } = await apiClient(request).post(
-            '/v1/credentials',
-            {
-              modelSlug: deployment.modelSlug,
-              tier: 'team',
-              teamId,
-              environment: deployment.environment,
-              credentialType: 'oauth'
-            },
-            { userId: sessionUser.id, idempotencyKey: randomUUID() }
-          ))
-        } catch (error) {
-          return clientSecretUnavailableOrThrow(h, error)
-        }
-
-        if (!secret) {
-          // Already issued and shown once to whoever triggered it originally -
-          // nothing new to reveal. /manage always lists the team's credential
-          // (key hint only).
-          setAccountNotification(request, {
-            type: 'success',
-            message: "Your team's model is ready to use - see it below."
-          })
-
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        const model = await apiClient(request).get(
-          `/v1/models/${deployment.modelSlug}`
-        )
-
-        setIssuedCredential(request, { credential, secret, model })
-
-        return h.redirect('/connect/team/credential').code(statusCodes.seeOther)
+        return issueTeamClientSecret(request, h, {
+          sessionUser,
+          teamId,
+          deployment
+        })
       }
     }
   },
