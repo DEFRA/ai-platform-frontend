@@ -138,6 +138,24 @@ function errorMessageForCode(error) {
   return error.message
 }
 
+// Explains a team credential that cannot be issued in this environment (see
+// errorMessageForCode); any other error is unexpected here, so it rethrows.
+function clientSecretUnavailableOrThrow(h, error) {
+  if (!(error instanceof ApiError) || error.code !== 'gateway-not-enabled') {
+    throw error
+  }
+
+  return h
+    .view('error/index', {
+      pageTitle: 'We cannot create your team client secret yet',
+      heading: 'We cannot create your team client secret yet',
+      message: errorMessageForCode(error),
+      actionHref: '/manage',
+      actionText: 'Go to your access'
+    })
+    .code(error.statusCode)
+}
+
 export const teamConnectController = {
   selectTeam: {
     get: {
@@ -529,22 +547,7 @@ export const teamConnectController = {
             { userId: sessionUser.id, idempotencyKey: randomUUID() }
           ))
         } catch (error) {
-          if (
-            error instanceof ApiError &&
-            error.code === 'gateway-not-enabled'
-          ) {
-            return h
-              .view('error/index', {
-                pageTitle: 'We cannot create your team client secret yet',
-                heading: 'We cannot create your team client secret yet',
-                message: errorMessageForCode(error),
-                actionHref: '/manage',
-                actionText: 'Go to your access'
-              })
-              .code(error.statusCode)
-          }
-
-          throw error
+          return clientSecretUnavailableOrThrow(h, error)
         }
 
         if (!secret) {

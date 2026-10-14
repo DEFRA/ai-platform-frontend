@@ -543,6 +543,56 @@ describe('#teamConnectController', () => {
     expect(result).not.toContain('Something went wrong')
   })
 
+  test('request wait page leaves any other issuing error to the generic error page', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-9', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-9',
+          status: 'active',
+          modelSlug: 'gpt-4o',
+          environment: 'sandbox',
+          requestedBy: 'user-1'
+        }
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        message: 'The issuer did not answer',
+        code: 'upstream-unavailable'
+      }),
+      { status: 502 }
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-9',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.internalServerError)
+    expect(result).toContain('Something went wrong')
+    expect(result).not.toContain(
+      'Team client secrets are not available in this environment yet.'
+    )
+  })
+
   test('request wait page redirects to /manage with a banner when the credential was already revealed to someone else', async () => {
     let cookies = await signIn(server)
     cookies = await reachCheckStep(server, cookies)
