@@ -66,12 +66,34 @@ and must merge in order.
 | [frontend #35](https://github.com/DEFRA/ai-platform-frontend/pull/35)                     | Phase 4 item 8 — submit run, pull request and apply run links on the team request page                                      | Phase 4                      |
 | [discovery-docs #21](https://github.com/DEFRA/ai-platform-discovery-docs/pull/21)         | The four 14 Oct direction entries this plan now follows                                                                     | Direction only               |
 
-**Blocking prerequisites, none yet held** (WS0, and the open questions after the 14 Oct entries):
-User Access Administrator on the resource group the proof uses; Entra admin consent for
-`Application.ReadWrite.OwnedBy` on the deploy and backend identities, without which no team proof
-can run now the team tier is OAuth only; a shared mailbox for the API Management publisher; and
-the placeholders `entra.tenantId`, `apim_publisher.email` and
-`identities.portal_api_principal_object_id`, which `validate-environments` fails on by design.
+**What is left is configuration and consent, not code.** Reviewed against the branches on
+14 Oct 2026, the prepared repositories hold no TODOs, no skipped tests and no unimplemented
+workflow steps; the placeholders in `ai-platform-environments` have all been filled
+(`entra.tenantId`, the publisher email — still a person's address rather than a shared mailbox —
+and `identities.portal_api_principal_object_id`), and `azure.existing_resource_group` is set to
+`SNDAIEAIPRGP1401`. The outstanding prerequisites are:
+
+| #   | Prerequisite                                                                                                                        | Blocks                         |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 1   | User Access Administrator (or RBAC Administrator) on `SNDAIEAIPRGP1401`                                                             | `bootstrap`, so M2 onwards     |
+| 2   | Entra admin consent for `Application.ReadWrite.OwnedBy` on the deploy identity, and on the backend identity for secrets             | M3, M4, M7 — every team proof  |
+| 3   | GitHub Environments `infradev`, `gitops-writer`, `gitops-reader`, `gitops-dispatch` and `release`, with the App key and OIDC values | Every workflow run             |
+| 4   | Repository variables `GITOPS_APP_CLIENT_ID` and `AZURE_TENANT_ID` in both state repositories                                        | Every workflow run             |
+| 5   | Branch rulesets requiring `validate-desired-state / validate`, no App bypass, App limited to `environments/infradev/**`             | WS4 proofs M2–M5               |
+| 6   | A shared mailbox for the API Management publisher                                                                                   | Nothing today; tidy before DEV |
+
+## Built versus remaining, at a glance
+
+| Phase | Built (on the branches above)                                                                                           | Remaining                                                                                                 |
+| ----- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 0     | —                                                                                                                       | All of it: restructure `build-stories.md`                                                                 |
+| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds      | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal     |
+| 2     | `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index                                     | **Team `slug`** (blocks Phase 4), `serviceCode` format, demotion guard, `currentTeamId`, environment list |
+| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters   | Merge in order, run `bootstrap`, then prove M2–M5 in Infradev                                             |
+| 4     | WS5 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, run links in the portal  | **WS6 desired-state builder** (needs the Phase 2 slug), the environment list                              |
+| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                          | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry    |
+| 6     | —                                                                                                                       | All of it                                                                                                 |
+| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks                 |
 
 ## Direction that changed on 13 and 14 October 2026
 
@@ -258,17 +280,18 @@ state repositories), and running M2 to M5 in Infradev. Follow
 [docs/iac-baseline-plan.md](../../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md) —
 do not re-derive it.
 
-- **WS0** prerequisites, **the real blocker**: Defra Policy allows the names, public network
-  access, Developer APIM, UK South and Sweden Central; quota for the team model SKU; User Access
-  Administrator on the proof's resource group for bootstrap's role assignments; Entra admin
-  consent for `Application.ReadWrite.OwnedBy` on the deploy identity (and the backend identity for
-  secrets), without which no team proof can run; a shared mailbox for the API Management
-  publisher; the GitHub App key in the `gitops-writer`, `gitops-reader`, `gitops-dispatch` and
-  `release` Environments; OIDC token refresh during the long APIM create.
+- **WS0** prerequisites, **the real blocker** — the six rows in the prerequisite table above,
+  plus confirming Defra Policy allows the names, public network access, Developer APIM, UK South
+  and Sweden Central, quota for the team model SKU, and OIDC token refresh during the long APIM
+  create.
 - **WS1** infra `v0.3.0` (PR #5) — `team`, `pin`, `registry` and `environment` schemas, the
-  `aip-checks` CLI, `examples/`, `docs/gitops-contract.md`, and the `team` tier on `gpt-4-1-nano`
-  and `gpt-5-nano` as `DataZoneStandard` in Sweden Central (neither is offered as Standard in UK
-  South), with `capacityPolicy.environments.{env}.quota` capping the sum across teams.
+  `aip-checks` CLI (`catalogue`, `tenants`, `tenants-on-main`, `pins`, `pin-on-main`,
+  `environments`, `params`, `plan-guard`, `run-report`, `teams-variables`, `canonical`),
+  `examples/`, `docs/gitops-contract.md`, and the `team` tier on **`gpt-5-nano`** as
+  `DataZoneStandard` in Sweden Central (it is not offered as Standard in UK South), with
+  `capacityPolicy.environments.infradev.quota` of 10 capping the sum across teams. The schemas
+  enforce the OAuth-only `credentialType`, the slug pattern, the principal pattern and
+  `entra.createdObjectLimit`; `team-rules.js` enforces 32 deployments per Foundry account.
   `ai-platform-environments` (PR #1) holds `registry.json`, `global.tfvars.json` and
   `environments/infradev/platform.tfvars.json` — shared codes at the top level, everything Azure
   under `azure`, deep-merged and validated by `aip-checks params`. D13: public code, private
@@ -317,6 +340,16 @@ validate`, no App bypass — the App reaches `main` only through auto-merge — 
   `tenants/` refuses any `credentialType` but `oauth`, and callers name a catalogue slug that the
   policy rewrites to the derived `{slug}-{model}`. No team subscription keys anywhere.
 
+Three gaps are deliberate in the prepared code, and each belongs to a later gate rather than to
+this phase: the private topology is accepted by the schema but **not implemented** by the
+`platform` root (`environment-rules.js` warns, and the rebuild is the gate before DEV); the
+checkov `security` job soft-fails until the Phase 1 baseline findings are triaged (Phase 1); and
+`team-rules.js` refuses a shared Research deployment in `allowedDeployments`, so a team's grant
+of a shared research model is not built yet.
+
+The GitHub side of WS4 \u2014 Environments, repository variables and the branch rulesets \u2014 is
+described in the READMEs but must be configured by hand before any workflow run; that is rows 3\u20135\nof the prerequisite table.
+
 **Verify:** M2 an infra merge reaches SND1 through release-please and pin with no manual step,
 the App merging the green release pull request; M3 a synthetic OAuth team using a client secret
 calls its granted model and a non-granted model returns 403; M4 a federated OAuth team's
@@ -364,14 +397,24 @@ Built in the open pull requests:
 
 Still to do:
 
-1. **WS6 desired-state builder** producing schema-valid documents — no resource names,
-   `gateway.allowedDeployments` as catalogue slugs, `credentialType: 'oauth'` — tested against the
-   pinned release's `examples/` as fixtures. It needs the Phase 2 `slug`.
+1. **WS6 desired-state builder.** `team-deployment-submission.js` calls an injected
+   `buildDesiredState(db, {teamId, environment, modelSlug, operationId, requestedBy})` and expects
+   `{document, expectedRevision}`; it throws `501 desired-state-unavailable` when that function is
+   absent, returns `null`, or returns a document without `team.slug`. The builder must emit a
+   schema-valid document: `schemaVersion: 1`, an incremented `revision`, `environment`, `status`,
+   `team: {slug, serviceCode}`, `deployments[]` of `{slug, sku, capacity, status}` with no
+   resource names, `gateway: {credentialType: 'oauth', allowedDeployments: [catalogue slugs],
+limits}`, `oauth`, `operationId` and `updatedBy`. Test it against the pinned release's
+   `examples/alpha.json` and `beta.json` as fixtures, and against `aip-checks tenants` if it can
+   be run locally. It needs the Phase 2 `slug`.
 2. Drive the team-facing environment from `AIP_ENVIRONMENTS` rather than the `sandbox` constant.
 3. **Gap 4** is now closed differently: with an OAuth-only team tier there is no team subscription
    key to scope, so the `MOCK_TIERS=team` workaround ends when a gateway issues team OAuth client
    secrets — that is M7 and Phase 5's B18, not this phase. Until then `live` mode answers
    `501 gateway-not-enabled` and the wait page explains it.
+4. Legacy people have no Entra `oid` until their next sign-in, and `requireUserPrincipal` refuses
+   them with `403 entra-identity-required`. Check this is acceptable for invited members who have
+   never signed in, and cover it in a journey test.
 
 Keep the mock for local runs and journey tests.
 
@@ -391,8 +434,10 @@ until it lands, so it completes M7 and retires `MOCK_TIERS=team`.
 ### B17 quotas, rate limits and increase requests
 
 Phase 3 applies the enforcement: `apim-team-api` already carries request and token limits per
-team and the model allow-list, and `capacityPolicy.environments.{env}.quota` caps the sum across
-teams. What is missing is the portal half.
+team and the model allow-list, the team file requires `gateway.limits.tokensPerMinute` and
+`requestsPerMinute`, and `capacityPolicy.environments.{env}.quota` caps the sum across teams.
+What is missing is the portal half — and note the WS6 builder must emit sensible defaults for
+those limits before this story starts.
 
 1. `llm-token-limit` values in the team file within the catalogue's `capacityPolicy`; the gateway
    enforces them per team through the team's API policy.
@@ -404,23 +449,29 @@ teams. What is missing is the portal half.
 
 ### B18 OAuth credentials for team applications
 
-Terraform creates `app-aip-{env}-{slug}` and its federated credentials (infra PR #7), owned by
-the deploy and Portal API identities; **passwords and `account_enabled` are left to the Portal
-API**, which is the work below. It needs Entra admin consent for
-`Application.ReadWrite.OwnedBy` on the backend identity.
+Terraform creates `app-aip-{env}-{slug}`, its service principal and its federated credentials
+(infra PR #7), owned by the deploy and Portal API identities, and **deliberately ignores the
+`password` and the service principal's `account_enabled`**, and sets the team API's access-window
+named value to `none` and never touches it again. Those three are the Portal API's, and they are
+the work below. It needs Entra admin consent for `Application.ReadWrite.OwnedBy` on the backend
+identity.
 
 1. Issue and rotate a real client secret on the team's registration through Graph, replacing the
    mock issuer's stand-in secret and the `501 gateway-not-enabled` refusal in `live` mode —
-   **this is what closes deployment gaps 4 and 5 and removes `MOCK_TIERS=team`**.
+   **this is what closes deployment gaps 4 and 5 and removes `MOCK_TIERS=team`**. Enabling,
+   suspending and expiring a team's access means writing the APIM access-window named value and
+   flipping `account_enabled`, not editing Terraform's resources.
 2. Prove the CDP Web Identity exchange end to end. Issuer, subject and audience must match the
    federated credential **exactly** — no wildcard or flexible matching.
 3. One app registration per team per environment, shared by all that team's applications, up to
-   **20** federated credentials. An Azure-hosted application uses its user-assigned managed
-   identity as one of them; the managed identity never holds the team's access itself.
-4. `oauth.federations[]` in the team file. A Member enters only the CDP service name — Terraform
-   derives the issuer, the subject `arn:aws:iam::{account}:role/{service}` and the audience from
-   the environment's registry entry, so the file promotes unchanged. Any Member may add one, only
-   an Admin changes or removes one; applied through GitOps and pending until verified.
+   **20** federated credentials and 39 external clients in the schema. An Azure-hosted
+   application uses its user-assigned managed identity as one of them; the managed identity never
+   holds the team's access itself.
+4. `oauth.federations[]`, `oauth.externalClients[]` and `oauth.secretsAllowed` in the team file,
+   written through the WS6 builder. A Member enters only the CDP service name — Terraform derives
+   the issuer, the subject `arn:aws:iam::{account}:role/{service}` and the audience from the
+   environment's registry entry, so the file promotes unchanged. Any Member may add one, only an
+   Admin changes or removes one; applied through GitOps and pending until verified.
 5. Enforce the credential rules: federation required in PREPROD and PROD where the host can
    federate; a client secret at most three months and three at once in DEV and QA, at most a year
    in PREPROD and PROD and only where federation is impossible; subscription keys stay research,
@@ -525,6 +576,39 @@ reference fails the checks, with a regression test.
 
 ---
 
+## Order of work from here (14 Oct 2026)
+
+The phases are not strictly sequential, and three strands can run at once. Step 2 is the long
+pole; step 1 unblocks it and needs other people, so raise those requests today.
+
+1. **Request the consents and configure GitHub** (prerequisite rows 1–5). None of it is code and
+   all of it blocks a proof: role assignment on the resource group, Entra admin consent, the five
+   GitHub Environments, the two repository variables, the two rulesets.
+2. **Merge Phase 3 and prove it** — infra #5, #6, #7 in order, then workflows #1 (which releases
+   `v1.0.0` and `v1`), then environments #1, deployments #1 and tenants #1. Run `bootstrap` by
+   hand once, then M2 (platform through release and pin), M3 and M4 (an OAuth team by scripted
+   dispatch, client secret then federated), M5 (R1–R4 and R6). Expect to iterate on Azure policy
+   and quota here, not on the code.
+3. **In parallel, do Phase 2 row 1 — the team `slug`** — in the backend: field, unique index,
+   dated backfill, and the frontend showing it. It is small, it is independent of Azure, and
+   Phase 4 cannot finish without it.
+4. **Then WS6, the desired-state builder** (Phase 4), against the pinned release's `examples/`.
+   When it lands, merge backend #35 and frontend #35 if they are not merged already, and run M6
+   locally with `TENANT_ORCHESTRATOR=github` against Infradev.
+5. **Then B18's Graph client-secret issuer** (Phase 5), which is what finally gives a team a
+   working credential and completes M7. Only after M7 does a team journey work end to end in a
+   real environment.
+6. **Phase 1 and the rest of Phase 2** can be picked up by anyone not on the critical path at any
+   point; Phase 0 is a documentation-only afternoon in `ai-platform-discovery-docs` and is worth
+   doing while step 1 is waiting on other people.
+7. **Phases 6 and 7** follow, except that B20 and B22 gate DEV creation, so start Phase 7's
+   telemetry work as soon as Phase 4 is proven rather than leaving it to the end.
+
+Discovery-docs PR #21 can merge whenever; it records direction, not built state. Flip each
+`Status` line here as a phase lands, then follow cross-phase rule 7.
+
+---
+
 ## Cross-phase rules
 
 1. One branch per story, `feature/<brief-description>`; conventional commits; reviewed PR.
@@ -571,12 +655,13 @@ reference fails the checks, with a regression test.
 
 ## Dated notes
 
-**14 Oct 2026 — revised against ten open pull requests.** Phase 3 (WS1–WS4) and the WS5 half of
-Phase 4 are written as code but nothing is merged, released or applied, so every story's built
-state is unchanged. Phase 3 and Phase 4 were rewritten to describe what the prepared code does;
-Phase 2 row 1 (the team `slug`) became the blocker for Phase 4's WS6 builder; Phase 5's B18 moved
-onto the critical path because the team tier is now OAuth only; Phase 1 gained the checkov and
-CodeQL gates; Phase 7 noted that the `submit` contract already carries `trace_parent`. The real
-hold-ups are WS0 prerequisites, not code: Entra admin consent for `Application.ReadWrite.OwnedBy`,
-User Access Administrator on the proof's resource group, a publisher mailbox, and the three
-placeholders `validate-environments` fails on by design.
+**14 Oct 2026 — revised against ten open pull requests, then reviewed branch by branch.** Phase 3
+(WS1–WS4) and the WS5 half of Phase 4 are written as code but nothing is merged, released or
+applied, so every story's built state is unchanged. The review found no TODOs, no skipped tests
+and no unimplemented workflow steps in the prepared repositories; the three deliberate gaps are
+the unimplemented private topology, the soft-failing checkov job and the unbuilt shared-Research
+grant. Phases 3 and 4 were rewritten to describe what the prepared code does; Phase 2 row 1 (the
+team `slug`) became the blocker for Phase 4's WS6 builder; Phase 5's B18 moved onto the critical
+path because the team tier is now OAuth only; Phase 1 gained the checkov and CodeQL gates; Phase
+7 noted that the `submit` contract already carries `trace_parent`. The hold-ups are consent and
+GitHub configuration, not code \u2014 see the prerequisite table and "Order of work from here".
