@@ -54,6 +54,11 @@ function modelNamesText(models) {
   return models.map((model) => model.displayName).join(', ') || 'this model'
 }
 
+// Team credentials are OAuth client secrets; research credentials are keys.
+function secretNameFor(credential) {
+  return credential.tier === 'team' ? 'client secret' : 'key'
+}
+
 // The signed-in user's role for one team credential - looked up from the
 // same `GET /v1/teams` list `/manage` already uses, so a single-credential
 // page (not already holding the team list) can still role-gate its actions.
@@ -172,9 +177,9 @@ function decorateKeyRow(
 // about the failure inline when it happened).
 const UNISSUED_CREDENTIAL_STATUSES = ['pending', 'failed']
 
-// Builds the single "Keys you can use" table (page 11): personal research
-// keys and shared team keys side by side, so people can compare what they
-// hold without switching tabs.
+// Builds the single "Keys and client secrets you can use" table (page 11):
+// personal research keys and shared team client secrets side by side, so
+// people can compare what they hold without switching tabs.
 function buildKeyRows(credentials, teamsById, modelNames) {
   return credentials
     .filter(
@@ -208,9 +213,17 @@ function buildKeyRows(credentials, teamsById, modelNames) {
 // resurrect its request row and let "check progress" issue a brand new one.
 const DEPLOYMENT_FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
 
+// GitOps applies one change per team file at a time, so a later request
+// waits as `queued` until the one before it finishes.
+const DEPLOYMENT_QUEUED_STATUS = 'queued'
+
 function deploymentStatusText(status) {
   if (status === 'active') {
     return 'Ready to view'
+  }
+
+  if (status === DEPLOYMENT_QUEUED_STATUS) {
+    return 'Waiting for another change'
   }
 
   if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
@@ -223,6 +236,10 @@ function deploymentStatusText(status) {
 function deploymentTagClass(status) {
   if (status === 'active') {
     return 'govuk-tag--green'
+  }
+
+  if (status === DEPLOYMENT_QUEUED_STATUS) {
+    return 'govuk-tag--grey'
   }
 
   if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
@@ -564,7 +581,7 @@ export const manageController = {
 
         return h.view('manage/rotate', {
           pageTitle: 'Confirm rotate',
-          heading: `Are you sure you want to rotate the ${teamName ?? 'team'} key?`,
+          heading: `Are you sure you want to rotate the ${teamName ?? 'team'} client secret?`,
           credential,
           modelNamesText: modelNamesText(models),
           errorSummary: null,
@@ -594,7 +611,7 @@ export const manageController = {
             return h
               .view('manage/rotate', {
                 pageTitle: 'Error: Confirm rotate',
-                heading: `Are you sure you want to rotate the ${teamName ?? 'team'} key?`,
+                heading: `Are you sure you want to rotate the ${teamName ?? 'team'} client secret?`,
                 credential,
                 modelNamesText: modelNamesText(models),
                 errorSummary: buildErrorSummary(error),
@@ -692,10 +709,12 @@ export const manageController = {
         }
 
         const models = await findModelsForCredential(request, credential)
+        const secretName = secretNameFor(credential)
 
         return h.view('manage/reveal', {
-          pageTitle: 'View the full key',
-          heading: `View the full key for ${modelNamesText(models)}`,
+          pageTitle: `View the full ${secretName}`,
+          heading: `View the full ${secretName} for ${modelNamesText(models)}`,
+          secretName,
           values: { reason: '' },
           errorSummary: null,
           fieldErrors: {}
@@ -715,11 +734,13 @@ export const manageController = {
               { userId: sessionUser.id }
             )
             const models = await findModelsForCredential(request, credential)
+            const secretName = secretNameFor(credential)
 
             return h
               .view('manage/reveal', {
-                pageTitle: 'Error: View the full key',
-                heading: `View the full key for ${modelNamesText(models)}`,
+                pageTitle: `Error: View the full ${secretName}`,
+                heading: `View the full ${secretName} for ${modelNamesText(models)}`,
+                secretName,
                 values: request.payload,
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
@@ -734,13 +755,23 @@ export const manageController = {
         const { id } = request.params
 
         try {
+          // The reveal response holds only the secret, so read the
+          // credential first to name it on the next page.
+          const credential = await apiClient(request).get(
+            `/v1/credentials/${id}`,
+            { userId: sessionUser.id }
+          )
           const { secret } = await apiClient(request).post(
             `/v1/credentials/${id}/reveal`,
             { reason: request.payload.reason },
             { userId: sessionUser.id }
           )
 
-          setIssuedCredential(request, { secret, credentialId: id })
+          setIssuedCredential(request, {
+            secret,
+            credentialId: id,
+            secretName: secretNameFor(credential)
+          })
 
           return h
             .redirect(`/manage/credentials/${id}/revealed`)
@@ -777,8 +808,9 @@ export const manageController = {
 
         return h
           .view('manage/revealed', {
-            pageTitle: 'Your key',
-            heading: 'Your key',
+            pageTitle: `Your ${issued.secretName}`,
+            heading: `Your ${issued.secretName}`,
+            secretName: issued.secretName,
             secret: issued.secret,
             credentialId: issued.credentialId
           })

@@ -92,7 +92,7 @@ function buildAccessTypeItems(selectedAccessType) {
       value: 'team',
       text: 'For my team',
       hint: {
-        text: 'A key the whole team shares. Admins can rotate or revoke it. Takes a few minutes to set up.'
+        text: 'An OAuth client secret the whole team shares. Admins can rotate or revoke it. Takes a few minutes to set up.'
       },
       checked: selectedAccessType === 'team'
     }

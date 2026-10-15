@@ -42,8 +42,17 @@
         {% endif %}
       {% endset %}
 
+      {% set teamIdHtml %}
+        {{ team.slug }}
+        <p class="govuk-hint govuk-!-margin-bottom-0">Used in your team's address on the AI gateway. It is set from the team name and cannot be changed.</p>
+      {% endset %}
+
       {{ govukSummaryList({
         rows: [
+          {
+            key: { text: "Team ID" },
+            value: { html: teamIdHtml }
+          },
           {
             key: { text: "Service code" },
             value: { html: serviceCodeHtml }
@@ -84,6 +93,15 @@
                 }) }}
               </td>
               <td class="govuk-table__cell">
+                {% if member.canChangeRole %}
+                  <form method="post" action="/teams/{{ team._id }}/members/{{ member._id }}/role" novalidate>
+                    <input type="hidden" name="crumb" value="{{ crumb }}">
+                    <input type="hidden" name="role" value="{{ member.nextRole }}">
+                    <button type="submit" class="govuk-link app-link-button" data-testid="member-role">
+                      {{ "Make a member" if member.role == "admin" else "Make an admin" }}
+                    </button>
+                  </form>
+                {% endif %}
                 {% if member.canRemove %}
                   <form method="post" action="/teams/{{ team._id }}/members/{{ member._id }}/remove" novalidate>
                     <input type="hidden" name="crumb" value="{{ crumb }}">
@@ -97,6 +115,24 @@
       </table>
 
       {% if isAdmin %}
+        <h2 class="govuk-heading-m">Change the service code</h2>
+
+        <form method="post" action="/teams/{{ team._id }}/service-code" novalidate>
+          <input type="hidden" name="crumb" value="{{ crumb }}">
+
+          {{ govukInput({
+            id: "serviceCode",
+            name: "serviceCode",
+            value: team.serviceCode,
+            classes: "govuk-input--width-3",
+            label: { text: "Service code" },
+            hint: { text: "Three letters or numbers. Your team's AI use is charged to this service." },
+            errorMessage: fieldErrors.serviceCode
+          }) }}
+
+          {{ govukButton({ text: "Save service code", classes: "govuk-button--secondary" }) }}
+        </form>
+
         <h2 class="govuk-heading-m">Add a member</h2>
 
         <form method="post" action="/teams/{{ team._id }}/members" novalidate>
@@ -114,7 +150,7 @@
         </form>
 
         {{ govukWarningText({
-          text: "Removing someone does not change the team key. Rotate it if they had a copy.",
+          text: "Removing someone does not change the team client secret. Rotate it if they had a copy.",
           iconFallbackText: "Warning"
         }) }}
       {% endif %}

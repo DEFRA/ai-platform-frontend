@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 12 Oct 2026 (backend-to-Azure auth: deployed CDP environments now authenticate to the ARM app registration via a federated AWS STS web identity token rather than a client secret; see below).
+Last updated: 15 Oct 2026 (the IaC GitOps pipeline applied in Infradev, with a team applied end to end from the portal; the catalogue's team tier; and, from 14 Oct 2026, team slug; the WS6 desired-state builder, so GitOps requests build a real team document; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -15,16 +15,18 @@ The core product journey is "three routes to a credential" — see
 [docs/ui-flow-three-routes.md](ui-flow-three-routes.md) for the full flow and
 [docs/plans/](plans/) for the build plan behind each route.
 
-| Route                                   | Covers                                                                                                 | Status                                                                                          |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| [Route 0](plans/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three                                           | **Implemented** (29 Sept 2026, flat design build spec)                                          |
-| [Route 1](plans/route1-plan.md)         | Research tier: browse the model catalogue, request a personal shared-model credential, manage it       | **Implemented** (22 Sept 2026)                                                                  |
-| [Route 2](plans/route2-plan.md)         | Team tier: create/select a team, request a dedicated model deployment for it                           | **Implemented** (23 Sept 2026, refactored 25 Sept 2026 to match the discovery-docs design pack) |
-| [Route 3](plans/route3-plan.md)         | Team tier: joining a team that already has access, admin-vs-user role enforcement, credential rotation | **Implemented** (25 Sept 2026)                                                                  |
+| Route                                               | Covers                                                                                                 | Status                                                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| [Route 0](plans/implemented/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three                                           | **Implemented** (29 Sept 2026, flat design build spec)                                          |
+| [Route 1](plans/implemented/route1-plan.md)         | Research tier: browse the model catalogue, request a personal shared-model credential, manage it       | **Implemented** (22 Sept 2026)                                                                  |
+| [Route 2](plans/implemented/route2-plan.md)         | Team tier: create/select a team, request a dedicated model deployment for it                           | **Implemented** (23 Sept 2026, refactored 25 Sept 2026 to match the discovery-docs design pack) |
+| [Route 3](plans/implemented/route3-plan.md)         | Team tier: joining a team that already has access, admin-vs-user role enforcement, credential rotation | **Implemented** (25 Sept 2026)                                                                  |
 
 ## Route 1 — Research tier shared model access
 
-- Sign in with Defra Entra ID (OIDC), session-backed.
+- Sign in with Defra Entra ID (OIDC), session-backed; the person is keyed on the immutable Entra
+  `oid` and `tid`, so every GitOps change is attributed to `entra:{oid}`. Email is display only and
+  **not unique**: two people records can share one, so never look a person up by email.
 - Browse the model catalogue: `/models` (list) and `/models/{slug}` (detail) — backend `GET /v1/models`.
 - Request a credential for a shared model: `/connect/shared/*` (model choice, purpose + terms step,
   one-time secret reveal) — backend `POST /v1/credentials` (`tier: 'research'`).
@@ -36,12 +38,26 @@ The core product journey is "three routes to a credential" — see
 ## Route 2 — Team tier, first person in a team
 
 - Create or select a team: `/teams/new`, `/teams/{id}`.
+- Each team has an immutable `slug`, derived from its name when the team is created and shown on
+  the team page as "Team ID". It names the team's GitOps file, its gateway API path and its model
+  deployments, so it never changes — including on a rename.
+- Team membership: an admin invites by Defra email, changes a member's role with
+  `PATCH /v1/teams/{id}/members/{memberId}`, or removes them. A team always keeps an admin, so the
+  last one can be neither removed nor demoted — promote someone else first; both changes are
+  serialised behind a team lock so two admins cannot demote each other into an admin-less team.
+- A person belongs to several teams but acts in one at a time (design F): opening a team's page
+  makes it the current team, held in the session as `currentTeamId` and marked on `/teams`.
+- Each team also has a three-character service code, required when the team is created and
+  changeable by an admin on the team page. It is checked through a `ServiceCodeVerifier` port whose
+  only adapter is a mock, so teams show "To be verified" until an authoritative source is agreed.
 - Request a dedicated model deployment for the team: `/connect/team/*`.
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
-  (mocked) drives the slow "provision the team's stack" path; one **shared credential per team per
+  (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per
   environment** (not per model) once the deployment reaches `active`, covering every requested
-  model via `allowedDeployments[]`; credential type (`oauth` or `subscription-key`) is fixed on
-  first use per team per environment (`credential-type-fixed`).
+  model via `allowedDeployments[]`.
+- Team credentials are OAuth client secrets (decision of 14 Oct 2026): `/connect/team/*` requests
+  `credentialType: 'oauth'` and the team pages say "client secret", never "key". Research keeps keys.
+  Until the real OAuth issuer (M7), live mode answers `501 gateway-not-enabled`, which the wait page explains.
 - Team-facing environment today is `sandbox` only (Phase 1 — see
   [design-environments.md#phase-1](../../ai-platform-discovery-docs/src/content/design-environments.md)).
 
@@ -103,10 +119,30 @@ These aren't tied to one route — they're shared infrastructure every route abo
   is `mock | live` (production refuses to start on `mock`; `azure` is a deprecated alias for `live`),
   and in `live` mode `ENABLED_GATEWAYS` (default `azure-apim`, renamed from `ENABLED_ADAPTERS`)
   lists the gateways the environment can run - a model on any other gateway gets
-  `501 gateway-not-enabled`. `TenantOrchestrator`
-  (GitOps-style team/model provisioning) is still mock-only. See
-  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1
-  and the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
+  `501 gateway-not-enabled`. See
+  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 1
+  and the [centralised gateway plan](plans/implemented/centralised-gateway/centralised-gateway-plan.md).
+- **GitOps `TenantOrchestrator` (WS5 and WS6, 14 Oct 2026, not yet merged)**: `TENANT_ORCHESTRATOR=github`
+  dispatches `submit.yml` with the whole team document and tracks it to `active` (pull request,
+  merge, GitHub Deployment, run report, ARM check), with the D14 retry-then-revert policy, a
+  scheduler sweep and Platform Admin retry/reconcile; one change per team file at a time, so a later
+  request waits as `queued` ("Waiting for another change to this team to finish"). The document is
+  built from the file `main` holds now, so an engineer's edit, a revert, and the team's federations
+  and agreed limits all survive a later request; the `/connect/team/request` page shows its links
+  under "Details for the AI Platform team". A team needs a three-character service code before its
+  first request (`409 service-code-required`). See the backend README's "GitOps tenant orchestrator"
+  section and the [IaC baseline plan](../../ai-platform-discovery-docs/docs/iac-baseline-plan.md).
+- **IaC GitOps pipeline, applied in Infradev (15 Oct 2026)**: the platform and teams are created by
+  GitHub Actions, not by hand. `ai-platform-infra` (`v0.7.0`) holds the modules, schemas and
+  `aip-checks`; `ai-platform-workflows` (`v1.1.0`) the reusable workflows; `ai-platform-environments`
+  the registry; `ai-platform-deployments` the platform pin, whose merge applies the platform; and
+  `ai-platform-tenants` one file per team, whose merge applies the team. A request made in the
+  portal reached a real team (Foundry project, `gpt-4o` deployment, APIM API) with no manual step
+  except merging the pull request. Entra is off for `infradev` (the deploy identity cannot create
+  app registrations yet), and `entra.teamRegistrations` skips only the team's registration. The
+  catalogue has a team tier: `gpt-4o` through a UK South `Standard` SKU, `gpt-4-1-nano` and
+  `gpt-5-nano` through Sweden Central, which Defra policy blocks for now. What is done and what is
+  left: [iac-rollout-state.md](plans/in-progress/iac-rollout-state.md).
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
   multi-step write (team creation, credential issuance, deployment status transitions).
 - **Federated backend-to-Azure auth**: `armAuth.authMethod` (`AZURE_ARM_AUTH_METHOD`) picks how
@@ -115,7 +151,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `federated` (every deployed CDP environment: a `ClientAssertionCredential` backed by
   `@defra/hapi-auth-oidc`'s `WebIdentityTokenProvider`, no client secret involved). See backend
   README's "Testing against live Azure resources" section and `src/adapters/azure/azure-credential.js`.
-- **Schema backfills**: a self-applying, one-off data migration mechanism
+- _*Schema backfills*; `v0.7.0` adds the team tier (see the IaC pipeline above)_: a self-applying, one-off data migration mechanism
   (`src/common/backfills/`) added 25 Sept 2026 — see backend README's "Schema backfills" section.
 - **Model catalogue synced from a `CatalogueSource` port**: a `file` adapter (default - reads
   `src/common/seed/{models,providers}.seed.json`, so tests/compose need no network) and a `github`
@@ -127,7 +163,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `catalogue/` holds 8 Foundry-deployment models + 1 provider: `v0.1.2` is the flat
   `cloud`/`adapter` shape and `v0.2.0` (tagged, merged) adds `hosting`/`gateway` offerings and
   `catalogue/schema/`. The backend reads only the new shape and stores models with a nested `hosting`
-  object and `gateway`; see the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
+  object and `gateway`; see the [centralised gateway plan](plans/implemented/centralised-gateway/centralised-gateway-plan.md).
   A model contradicting or referencing an unknown offering is skipped, not synced.
   Per-model `apiProfile` (`chat-completions` vs `responses`) drives both the frontend's gateway URL
   shape (`gateway-request.js`) and the backend's `apiVersion` default: a `responses`-profile model
@@ -136,7 +172,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   chat-completions-era default even when the source says otherwise), since `chat-completions` isn't
   supported at all for a responses-only model. `models.seed.json` (the local `file` source) now
   includes one `responses`-profile model (`gpt-5-3-codex`) so this path is exercised without GitHub
-  catalogue access. See [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 2.
+  catalogue access. See [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 2.
 - **Credential secrets persisted to Key Vault, with an audited reveal**: a `CredentialVault` port
   (`issue`/`rotate` write through it, `renew` updates the existing secret version's expiry in place
   via `updateExpiry` rather than rotating it, `revoke` soft-deletes) behind a `mock` adapter
@@ -148,7 +184,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   updated Mongo `expiresAt`). `POST /v1/credentials/{id}/reveal` lets an owner (research tier) or
   team admin (team tier) re-view an already-issued secret, audited with a required reason,
   `Cache-Control: no-store`. See
-  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 3.
+  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 3.
 - **Loading state on backend-triggering buttons**: `.app-button--loading-on-submit` (view) +
   `application.js` progressive enhancement disables the submit button and shows a spinner on
   `submit`, so a slow request (renew, revoke confirm, issue a credential) can't be re-triggered by
@@ -170,7 +206,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   journey, `/manage/credentials/{id}/view`, lets a research credential's owner or a team admin
   re-reveal the full secret with a required reason, via the backend's
   `POST /v1/credentials/{id}/reveal`. See
-  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 5.
+  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 5.
 - **Security baseline**: structured JSON logging with no PII (`hapi-pino` + ECS format), CSP via
   Blankie, CSRF via `@hapi/crumb`, session cookies via `@hapi/yar` (all frontend); Joi validation
   rejecting unknown keys on every backend route.

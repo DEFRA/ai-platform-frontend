@@ -144,6 +144,8 @@ export const authController = {
         return failedView(h)
       }
 
+      // The immutable Entra object ID and tenant ID key the person (design F);
+      // the email address and name are mutable and for display only.
       const claims = tokens.claims()
       const email = claims.email ?? claims.preferred_username
       const displayName = claims.name ?? claims.email
@@ -151,6 +153,8 @@ export const authController = {
       let user
       try {
         ;({ user } = await apiClient(request).post('/v1/users', {
+          oid: claims.oid,
+          tid: claims.tid,
           email,
           displayName
         }))

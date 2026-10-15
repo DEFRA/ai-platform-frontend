@@ -86,7 +86,7 @@ describe('#homeController', () => {
     expect(result).toEqual(expect.stringContaining('Browse models'))
   })
 
-  test('Should show team access when signed in with an active team key', async () => {
+  test('Should show team access as an OAuth client secret when signed in with an active team credential', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
 
     fetchMock.mockResponseOnce(
@@ -118,7 +118,56 @@ describe('#homeController', () => {
     })
 
     expect(result).toEqual(
-      expect.stringContaining('Flood Risk Team already has a key for GPT-4o')
+      expect.stringContaining(
+        'Flood Risk Team already has an OAuth client secret for GPT-4o'
+      )
+    )
+    expect(result).toContain('View the Flood Risk Team client secret')
+    expect(result).toContain(
+      'See every key and client secret you and your teams hold'
+    )
+    expect(result).not.toContain('already has a key')
+  })
+
+  test('Should escape the team and model names in the team access banner', async () => {
+    const cookies = await signInViaOidc(server, fetchMock)
+    const teamName = '<img src=x onerror=alert(1)>'
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'cred-team-1',
+            tier: 'team',
+            teamId: 'team-1',
+            status: 'active',
+            allowedDeployments: ['gpt-4o']
+          }
+        ]
+      })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: teamName }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [{ slug: 'gpt-4o', displayName: '<b>GPT-4o</b>' }]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).not.toContain(teamName)
+    expect(result).not.toContain('<b>GPT-4o</b>')
+    expect(result).toContain(
+      '&lt;img src=x onerror=alert(1)&gt; already has an OAuth client secret for &lt;b&gt;GPT-4o&lt;/b&gt;'
+    )
+    expect(result).toContain(
+      '<a class="govuk-link" href="/manage/credentials/cred-team-1">View the &lt;img src=x onerror=alert(1)&gt; client secret</a>'
     )
   })
 })

@@ -280,12 +280,122 @@ describe('#teamConnectController', () => {
     expect(getRequest.statusCode).toBe(statusCodes.ok)
     expect(getRequest.result).toEqual(expect.stringContaining('meta'))
     expect(getRequest.result).toEqual(expect.stringContaining('refresh'))
+    expect(getRequest.result).toContain('Setting up your team client secret')
+    expect(getRequest.result).not.toContain('team key')
     expect(getRequest.result).toEqual(
       expect.stringContaining('Setting up access in Azure')
     )
+    expect(getRequest.result).not.toContain('Details for the AI Platform team')
   })
 
-  test('request wait page issues the credential once active and redirects to the credential page', async () => {
+  test('request wait page shows a queued request as waiting for another change, keeps checking and issues nothing', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-7', status: 'queued' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-7',
+          status: 'queued',
+          modelSlug: 'gpt-4o',
+          environment: 'sandbox',
+          requestedBy: 'user-1',
+          progressSteps: [
+            { label: 'Request recorded', state: 'current' },
+            { label: 'Team checked', state: 'pending' },
+            { label: 'Setting up access in Azure', state: 'pending' },
+            { label: 'Creating your client secret', state: 'pending' }
+          ]
+        }
+      })
+    )
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-7',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toContain(
+      'Waiting for another change to this team to finish'
+    )
+    expect(result).toContain('Changes to a team are made one at a time.')
+    expect(result).toContain('http-equiv="refresh"')
+    expect(result).not.toContain('Setting up your team client secret')
+    expect(result).not.toContain('This usually takes about 2 minutes')
+    // Queued is not active, so the requester is never issued a credential.
+    expect(
+      fetchMock.mock.calls.some(([url]) => url.endsWith('/v1/credentials'))
+    ).toBe(false)
+  })
+
+  test('request wait page links to the pull request and workflow runs the backend reports', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-5', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-5',
+          status: 'pr-raised',
+          progressSteps: [
+            { label: 'Request recorded', state: 'done' },
+            { label: 'Team checked', state: 'current' }
+          ],
+          links: {
+            submitRun:
+              'https://github.com/DEFRA/ai-platform-tenants/actions/runs/1001',
+            pullRequest: 'https://github.com/DEFRA/ai-platform-tenants/pull/7',
+            applyRun: 'javascript:alert(1)'
+          }
+        }
+      })
+    )
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-5',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Details for the AI Platform team')
+    expect(result).toContain(
+      '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/pull/7">Pull request</a>'
+    )
+    expect(result).toContain(
+      '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/actions/runs/1001">Submit workflow run</a>'
+    )
+    // Only https links are rendered, whatever the backend sends.
+    expect(result).not.toContain('Apply workflow run')
+    expect(result).not.toContain('javascript:alert')
+  })
+
+  test('request wait page issues an OAuth client secret once active and redirects to the credential page', async () => {
     let cookies = await signIn(server)
     cookies = await reachCheckStep(server, cookies)
 
@@ -341,6 +451,18 @@ describe('#teamConnectController', () => {
     expect(getRequest.statusCode).toBe(statusCodes.seeOther)
     expect(getRequest.headers.location).toBe('/connect/team/credential')
 
+    const [, issueRequest] = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        url.endsWith('/v1/credentials') && options.method === 'POST'
+    )
+    expect(JSON.parse(issueRequest.body)).toEqual({
+      modelSlug: 'gpt-4o',
+      tier: 'team',
+      teamId: 'team-1',
+      environment: 'sandbox',
+      credentialType: 'oauth'
+    })
+
     const getCredential = await server.inject({
       method: 'GET',
       url: '/connect/team/credential',
@@ -351,11 +473,123 @@ describe('#teamConnectController', () => {
     expect(getCredential.result).toEqual(
       expect.stringContaining('mock_team_secret')
     )
+    expect(getCredential.result).toContain('Your client secret is ready')
+    expect(getCredential.result).toContain('Copy client secret')
+    expect(getCredential.result).toContain(
+      'See this client secret and your other access'
+    )
+    expect(getCredential.result).not.toContain('Your key')
+    expect(getCredential.result).not.toContain('Ocp-Apim-Subscription-Key')
     expect(getCredential.result).toEqual(
       expect.stringContaining('Does not expire')
     )
     expect(getCredential.headers['cache-control']).toEqual(
       expect.stringContaining('no-store')
+    )
+  })
+
+  test('request wait page says team client secrets are not available yet when no gateway issues them (501 gateway-not-enabled)', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-8', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-8',
+          status: 'active',
+          modelSlug: 'gpt-4o',
+          environment: 'sandbox',
+          requestedBy: 'user-1'
+        }
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        statusCode: statusCodes.notImplemented,
+        error: 'Not Implemented',
+        message: 'No gateway issues team OAuth credentials yet',
+        code: 'gateway-not-enabled'
+      }),
+      { status: statusCodes.notImplemented }
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-8',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.notImplemented)
+    expect(result).toContain('We cannot create your team client secret yet')
+    expect(result).toContain(
+      'Team client secrets are not available in this environment yet.'
+    )
+    expect(result).toContain('Go to your access')
+    expect(result).not.toContain('No gateway issues team OAuth credentials yet')
+    expect(result).not.toContain('Something went wrong')
+  })
+
+  test('request wait page leaves any other issuing error to the generic error page', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-9', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-9',
+          status: 'active',
+          modelSlug: 'gpt-4o',
+          environment: 'sandbox',
+          requestedBy: 'user-1'
+        }
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        message: 'The issuer did not answer',
+        code: 'upstream-unavailable'
+      }),
+      { status: 502 }
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-9',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.internalServerError)
+    expect(result).toContain('Something went wrong')
+    expect(result).not.toContain(
+      'Team client secrets are not available in this environment yet.'
     )
   })
 
@@ -569,5 +803,52 @@ describe('#teamConnectController', () => {
     expect(getRequest.result).toEqual(
       expect.stringContaining('Something went wrong')
     )
+    expect(getRequest.result).toContain('Automated checks failed (mock)')
+  })
+
+  test('request wait page shows the failure reason and the failed apply run for support', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: { _id: 'deployment-6', status: 'requested' }
+      })
+    )
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/team/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+    cookies = mergeCookies(cookies, postCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        deployment: {
+          _id: 'deployment-6',
+          status: 'deploy-failed',
+          failureReason:
+            'The apply failed again after a fresh retry, so the change is being reverted',
+          links: {
+            pullRequest: 'https://github.com/DEFRA/ai-platform-tenants/pull/7',
+            applyRun:
+              'https://github.com/DEFRA/ai-platform-tenants/actions/runs/2002'
+          }
+        }
+      })
+    )
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/connect/team/request/team-1/deployment-6',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Something went wrong')
+    expect(result).toContain('the change is being reverted')
+    expect(result).toContain(
+      '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/actions/runs/2002">Apply workflow run</a>'
+    )
+    expect(result).not.toContain('Submit workflow run')
   })
 })

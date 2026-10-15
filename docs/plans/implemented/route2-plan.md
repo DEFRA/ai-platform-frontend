@@ -1,6 +1,6 @@
 # Route 2: Team tier, the first person in a team (B08, B09)
 
-> Part of the ["three routes to a credential"](../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 1](route1-plan.md), [Route 3](route3-plan.md).
+> Part of the ["three routes to a credential"](../../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 1](route1-plan.md), [Route 3](route3-plan.md).
 >
 > **STATUS: IMPLEMENTED 23 Sept 2026.** Backend 68/68 tests pass, frontend 136/136 tests pass, both
 > repos lint clean. `npm run format:check` fails in both repos on the same pre-existing, repo-wide
@@ -20,16 +20,16 @@ re-derived in the frontend.
 ## Design pack alignment (25 Sept 2026)
 
 `ai-platform-discovery-docs` merged a design pack after this route shipped (21-25 Sept 2026):
-[design-orchestration.md#model-access](../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
-("Model access enforcement", area C, 23 Sept), [design-environments.md#phase-1](../../../ai-platform-discovery-docs/src/content/design-environments.md)
-(the Phase 1 SND1/SND4 proof, 24-25 Sept) and [design-repositories-pipelines.md](../../../ai-platform-discovery-docs/src/content/design-repositories-pipelines.md).
+[design-orchestration.md#model-access](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+("Model access enforcement", area C, 23 Sept), [design-environments.md#phase-1](../../../../ai-platform-discovery-docs/src/content/design-environments.md)
+(the Phase 1 SND1/SND4 proof, 24-25 Sept) and [design-repositories-pipelines.md](../../../../ai-platform-discovery-docs/src/content/design-repositories-pipelines.md).
 Unlike Route 1, this is **not** a documentation-only reconciliation - the design pack fixes several
 things this route built ahead of the design, in a materially different shape. Flagged here for the
 refactor that follows this file's update (see chat/PR description) - see "Refactor plan" below,
 **implemented the same day** (25 Sept 2026).
 
 1. **One credential per team per environment, not one per team+model.** [Model access
-   enforcement](../../../ai-platform-discovery-docs/src/content/design-orchestration.md) is explicit: a team gets a single API at path
+   enforcement](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md) is explicit: a team gets a single API at path
    `/{team}` in each environment, gated by one `gateway.credentialType` and one
    `gateway.allowedDeployments[]` allow-list; requesting a second dedicated model for a team already
    using the platform **adds an entry to that same allow-list**, it does not mint a second
@@ -116,10 +116,10 @@ See the end of this file for the specific refactor steps this implies.
   case for any team member, not just the second one.
 - `teamDeployments` status only advances when polled (`GET .../deployments/{id}` calls
   `getDeploymentStatus` and persists the result) - no background timer/interval anywhere.
-- Mock orchestrator failure simulation: reserved `requestedBy` (userId) prefixes
-  `test-checks-fail-` / `test-deploy-fail-`, tracked in an in-process Map keyed by `operationId` (set
-  in `requestDeployment`, read in `getDeploymentStatus`) - mirrors mock-credential-issuer's
-  `test-fail-` prefix pattern.
+- Mock orchestrator failure simulation: reserved `requestedBy` principal prefixes
+  `entra:00000000-0000-0000-0001-` (checks failed) / `entra:00000000-0000-0000-0002-` (deploy
+  failed), which no real, random Entra object ID matches, tracked in an in-process Map keyed by
+  `operationId` (set in `requestDeployment`, read in `getDeploymentStatus`).
 
 **Follow-up for Route 3:** re-validate [route3-plan.md](route3-plan.md) against the current
 `team-service.js` shape before starting - some details (e.g. a `getMemberRole` helper) assume a
@@ -159,7 +159,7 @@ chooser (enables the "Dedicated model for your team" radio), reuses `/manage` (a
 "Your teams" section that Route 1 leaves as a placeholder).
 
 **REWORKED 21 Sept 2026** to align with design C ("self-service orchestration", `ai-platform-discovery-docs`
-PR #6 - see [design-orchestration.md](../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+PR #6 - see [design-orchestration.md](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
 for the full detail). The old approach (a single mocked `CredentialIssuer.issue()` call held
 `pending` for a delay) was DISCARDED. Design C makes clear that "connect to a dedicated team model"
 is two distinct backend concepts, and the route plan follows that split:
@@ -356,6 +356,8 @@ credential-type-fixed` on a later mismatch. `POST /v1/credentials` accepts an op
   environment radios/schema default to `sandbox`.
 - **Decided with the user:** no UI lets a team pick `oauth` vs `subscription-key` - out of scope,
   no build-story asks for it; the connect journey always requests the default `subscription-key`.
+  **UPDATED 14 Oct 2026:** team credentials are OAuth client secrets only, so the connect journey
+  now sends `credentialType: 'oauth'`; Research keeps subscription keys.
 - Backend `listTeamsForUser()` now embeds each team's `role` for the caller directly, so `/manage`
   and the single-credential view page can role-gate actions with no extra per-team API call - this
   became the actual mechanism Route 3's admin-gating below relies on.

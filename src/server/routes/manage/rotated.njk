@@ -20,7 +20,7 @@
       {{ govukSummaryList({
         rows: [
           {
-            key: { text: credential.credentialType == "oauth" and "Client secret" or "Subscription key" },
+            key: { text: "Client secret" if credential.tier == "team" else "Subscription key" },
             value: { text: secret }
           },
           {

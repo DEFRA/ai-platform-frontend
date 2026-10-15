@@ -14,9 +14,14 @@
           {% for team in teams %}
             <li>
               <a class="govuk-link" href="/teams/{{ team._id }}">{{ team.name }}</a>
+              {% if team.isCurrent %}
+                <strong class="govuk-tag govuk-tag--blue">Acting in this team</strong>
+              {% endif %}
             </li>
           {% endfor %}
         </ul>
+
+        <p class="govuk-hint">You act in one team at a time. Open a team to act in it.</p>
       {% endif %}
 
       <p class="govuk-body">

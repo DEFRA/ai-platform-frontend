@@ -21,11 +21,17 @@ import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 // the Sandbox (SND4) - every design C environment is shown so the option
 // isn't a surprise later, but only `sandbox` is enabled, matching the
 // backend's `environment-not-available` policy for anything else.
-const ENVIRONMENT_ITEMS = [{ value: 'sandbox', text: 'Sandbox', checked: true }]
+const ENVIRONMENT_ITEMS = [
+  { value: 'infradev', text: 'Infradev', checked: true }
+]
 
 // The wait page groups every intermediate GitOps state into one friendly
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
+// GitOps applies one change per team file at a time, so a request made while
+// another is in flight waits as `queued`, which gets its own wording.
+const QUEUED_STATUS = 'queued'
 const IN_PROGRESS_STATUSES = [
+  QUEUED_STATUS,
   'requested',
   'pr-raised',
   'merged',
@@ -34,6 +40,29 @@ const IN_PROGRESS_STATUSES = [
   'verified'
 ]
 const FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
+
+function waitPageHeading(status) {
+  return status === QUEUED_STATUS
+    ? 'Waiting for another change to this team to finish'
+    : 'Setting up your team client secret'
+}
+
+// Support links to the GitOps runs and pull request behind a team request,
+// when the backend has them. Labelled here, and only https links are shown.
+const PIPELINE_LINK_LABELS = {
+  submitRun: 'Submit workflow run',
+  pullRequest: 'Pull request',
+  applyRun: 'Apply workflow run'
+}
+
+function buildPipelineLinks(links = {}) {
+  return Object.entries(PIPELINE_LINK_LABELS)
+    .filter(
+      ([key]) =>
+        typeof links[key] === 'string' && links[key].startsWith('https://')
+    )
+    .map(([key, text]) => ({ href: links[key], text }))
+}
 
 // The team journey needs both a chosen team and a chosen model. Without the
 // teamId a shared-flow session would fall through to /v1/teams/undefined/....
@@ -61,7 +90,7 @@ const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
-  environment: Joi.string().valid('sandbox').default('sandbox')
+  environment: Joi.string().valid('infradev').default('infradev')
 })
 
 function redirectToStart(h) {
@@ -102,7 +131,108 @@ function errorMessageForCode(error) {
     return 'This environment is not available yet.'
   }
 
+  // In live mode no gateway issues team OAuth client secrets until the real
+  // OAuth issuer exists (M7), so the backend refuses with 501.
+  if (error.code === 'gateway-not-enabled') {
+    return 'Team client secrets are not available in this environment yet.'
+  }
+
   return error.message
+}
+
+// Explains a team credential that cannot be issued in this environment (see
+// errorMessageForCode); any other error is unexpected here, so it rethrows.
+function clientSecretUnavailableOrThrow(h, error) {
+  if (!(error instanceof ApiError) || error.code !== 'gateway-not-enabled') {
+    throw error
+  }
+
+  return h
+    .view('error/index', {
+      pageTitle: 'We cannot create your team client secret yet',
+      heading: 'We cannot create your team client secret yet',
+      message: errorMessageForCode(error),
+      actionHref: '/manage',
+      actionText: 'Go to your access'
+    })
+    .code(error.statusCode)
+}
+
+// The deployment is active and the signed-in member requested it: issue (or
+// reuse) the team's shared credential and reveal its secret once.
+async function issueTeamClientSecret(
+  request,
+  h,
+  { sessionUser, teamId, deployment }
+) {
+  // Defense in depth for /manage already hiding this deployment's request row
+  // once its credential is revoked: a stale/bookmarked link could still reach
+  // the request page directly, so re-check here too before issuing anything.
+  // A revoked team credential is a deliberate, final action - it must not be
+  // silently resurrected.
+  const { items: existingCredentials } = await apiClient(request).get(
+    '/v1/credentials',
+    { userId: sessionUser.id }
+  )
+  const wasRevoked = existingCredentials.some(
+    (existing) =>
+      existing.teamId === teamId &&
+      existing.tier === 'team' &&
+      existing.status === 'revoked' &&
+      (existing.allowedDeployments ?? []).includes(deployment.modelSlug)
+  )
+
+  if (wasRevoked) {
+    setAccountNotification(request, {
+      type: 'success',
+      message:
+        'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
+    })
+
+    return h.redirect('/manage').code(statusCodes.seeOther)
+  }
+
+  // Deployment fields (not session) are the source of truth here, so this
+  // works even after the session's pendingAccess is gone - e.g. reached via a
+  // "check progress" link from /manage. Team credentials are OAuth client
+  // secrets, never subscription keys.
+  let credential
+  let secret
+  try {
+    ;({ credential, secret } = await apiClient(request).post(
+      '/v1/credentials',
+      {
+        modelSlug: deployment.modelSlug,
+        tier: 'team',
+        teamId,
+        environment: deployment.environment,
+        credentialType: 'oauth'
+      },
+      { userId: sessionUser.id, idempotencyKey: randomUUID() }
+    ))
+  } catch (error) {
+    return clientSecretUnavailableOrThrow(h, error)
+  }
+
+  if (!secret) {
+    // Already issued and shown once to whoever triggered it originally -
+    // nothing new to reveal. /manage always lists the team's credential
+    // (key hint only).
+    setAccountNotification(request, {
+      type: 'success',
+      message: "Your team's model is ready to use - see it below."
+    })
+
+    return h.redirect('/manage').code(statusCodes.seeOther)
+  }
+
+  const model = await apiClient(request).get(
+    `/v1/models/${deployment.modelSlug}`
+  )
+
+  setIssuedCredential(request, { credential, secret, model })
+
+  return h.redirect('/connect/team/credential').code(statusCodes.seeOther)
 }
 
 export const teamConnectController = {
@@ -281,7 +411,7 @@ export const teamConnectController = {
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: 'sandbox'
+          environment: 'infradev'
         })
 
         return h.redirect('/connect/team/check').code(statusCodes.seeOther)
@@ -411,13 +541,17 @@ export const teamConnectController = {
         }
 
         if (IN_PROGRESS_STATUSES.includes(deployment.status)) {
+          const heading = waitPageHeading(deployment.status)
+
           return h.view('connect/team/request', {
-            pageTitle: 'Setting up your team key',
-            heading: 'Setting up your team key',
+            pageTitle: heading,
+            heading,
+            queued: deployment.status === QUEUED_STATUS,
             refreshSeconds: 3,
             lastCheckedAt: formatDate(new Date(), 'HH:mm'),
             failed: false,
-            stages: deployment.progressSteps
+            stages: deployment.progressSteps,
+            pipelineLinks: buildPipelineLinks(deployment.links)
           })
         }
 
@@ -427,7 +561,9 @@ export const teamConnectController = {
             heading: "We could not set up your team's access",
             refreshSeconds: null,
             failed: true,
-            stages: []
+            stages: [],
+            failureReason: deployment.failureReason ?? null,
+            pipelineLinks: buildPipelineLinks(deployment.links)
           })
         }
 
@@ -443,67 +579,11 @@ export const teamConnectController = {
           return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
-        // Defense in depth for /manage already hiding this deployment's
-        // request row once its credential is revoked: a stale/bookmarked
-        // link could still reach this handler directly, so re-check here
-        // too before issuing anything. A revoked team credential is a
-        // deliberate, final action - it must not be silently resurrected.
-        const { items: existingCredentials } = await apiClient(request).get(
-          '/v1/credentials',
-          { userId: sessionUser.id }
-        )
-        const wasRevoked = existingCredentials.some(
-          (existing) =>
-            existing.teamId === teamId &&
-            existing.tier === 'team' &&
-            existing.status === 'revoked' &&
-            (existing.allowedDeployments ?? []).includes(deployment.modelSlug)
-        )
-
-        if (wasRevoked) {
-          setAccountNotification(request, {
-            type: 'success',
-            message:
-              'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
-          })
-
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        // status is 'active': issue (or reuse) the shared team credential.
-        // Deployment fields (not session) are the source of truth here, so
-        // this page works even after the session's pendingAccess is gone -
-        // e.g. reached via a "check progress" link from /manage.
-        const { credential, secret } = await apiClient(request).post(
-          '/v1/credentials',
-          {
-            modelSlug: deployment.modelSlug,
-            tier: 'team',
-            teamId,
-            environment: deployment.environment
-          },
-          { userId: sessionUser.id, idempotencyKey: randomUUID() }
-        )
-
-        if (!secret) {
-          // Already issued and shown once to whoever triggered it originally -
-          // nothing new to reveal. /manage always lists the team's credential
-          // (key hint only).
-          setAccountNotification(request, {
-            type: 'success',
-            message: "Your team's model is ready to use - see it below."
-          })
-
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        const model = await apiClient(request).get(
-          `/v1/models/${deployment.modelSlug}`
-        )
-
-        setIssuedCredential(request, { credential, secret, model })
-
-        return h.redirect('/connect/team/credential').code(statusCodes.seeOther)
+        return issueTeamClientSecret(request, h, {
+          sessionUser,
+          teamId,
+          deployment
+        })
       }
     }
   },

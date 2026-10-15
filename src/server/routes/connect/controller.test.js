@@ -137,6 +137,20 @@ describe('#connectController', () => {
     )
   })
 
+  test('GET /connect offers team access as an OAuth client secret and research access as a key', async () => {
+    const { result } = await server.inject({ method: 'GET', url: '/connect' })
+
+    expect(result).toContain(
+      'An OAuth client secret the whole team shares. Admins can rotate or revoke it.'
+    )
+    expect(result).toContain(
+      'You can move to a team client secret later and keep the same sign-in.'
+    )
+    expect(result).toContain('A key that lasts 7 days in Sandbox.')
+    expect(result).not.toContain('A key the whole team shares')
+    expect(result).not.toContain('team key')
+  })
+
   test('POST /connect redirects to /sign-in when signed out', async () => {
     const homeResponse = await server.inject({ method: 'GET', url: '/' })
     const cookies = mergeCookies({}, homeResponse)
@@ -178,6 +192,25 @@ describe('#connectController', () => {
 
     expect(statusCode).toBe(statusCodes.seeOther)
     expect(headers.location).toBe('/connect/team/select')
+  })
+
+  test('GET /connect/shared/details says a team client secret follows the last research renewal', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachDetailsStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/details',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toContain('A research key comes with limits:')
+    expect(result).toContain(
+      'you can renew it 3 times, then you need a team client secret'
+    )
+    expect(result).not.toContain('team key')
   })
 
   test('POST /connect/shared/details without accepting terms re-renders with an error and makes no API call', async () => {

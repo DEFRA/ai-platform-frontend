@@ -1,6 +1,6 @@
 # Route 3: Team tier, joining a team that has access (B07 cont., B09 reuse, B10)
 
-> Part of the ["three routes to a credential"](../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 1](route1-plan.md), [Route 2](route2-plan.md).
+> Part of the ["three routes to a credential"](../../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 1](route1-plan.md), [Route 2](route2-plan.md).
 >
 > **STATUS: IMPLEMENTED 25 Sept 2026**, built directly on Route 2's design-pack refactor (same day)
 > rather than the original per-model credential shape - see notes below. Backend 92/92 tests pass,
@@ -30,7 +30,7 @@ B10). Depends on [Route 2's plan](route2-plan.md) being implemented first: reuse
 "Your teams" section on `/manage` and the `/connect/team/model` flow it builds.
 
 Aligned with design C (see
-[design-orchestration.md](../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+[design-orchestration.md](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
 and Route 2's reworked plan): "reuse the credential" is precisely explained rather than just
 observed. Route 2's `TenantOrchestrator` (GitOps-shaped) provisions team+model access ONCE; the
 one shared team credential is auto-issued via the existing `CredentialIssuer` (Direct) the moment

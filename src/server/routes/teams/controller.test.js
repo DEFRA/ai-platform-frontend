@@ -31,7 +31,12 @@ vi.mock('openid-client', () => ({
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
-const sampleTeam = { _id: 'team-1', name: 'Flood Risk Team', verified: false }
+const sampleTeam = {
+  _id: 'team-1',
+  name: 'Flood Risk Team',
+  slug: 'flood-risk-team',
+  verified: false
+}
 
 async function signIn(server) {
   return signInViaOidc(server, fetchMock)
@@ -101,11 +106,25 @@ describe('#teamsController', () => {
       method: 'POST',
       url: '/teams/new',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'ab' }
+      payload: { crumb: cookies.crumb, name: 'ab', serviceCode: 'ABC' }
     })
 
     expect(statusCode).toBe(statusCodes.badRequest)
     expect(result).toEqual(expect.stringContaining('There is a problem'))
+  })
+
+  test('POST /teams/new asks for a service code of three letters or numbers', async () => {
+    const cookies = await signIn(server)
+
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/teams/new',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, name: 'No Code Team', serviceCode: '' }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toContain('Enter your service code')
   })
 
   test('POST /teams/new -> GET check -> POST check creates the team', async () => {
@@ -115,7 +134,11 @@ describe('#teamsController', () => {
       method: 'POST',
       url: '/teams/new',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'Flood Risk Team' }
+      payload: {
+        crumb: cookies.crumb,
+        name: 'Flood Risk Team',
+        serviceCode: 'aip'
+      }
     })
     cookies = mergeCookies(cookies, postNew)
     expect(postNew.statusCode).toBe(statusCodes.seeOther)
@@ -128,6 +151,7 @@ describe('#teamsController', () => {
     })
     cookies = mergeCookies(cookies, getCheck)
     expect(getCheck.result).toEqual(expect.stringContaining('Flood Risk Team'))
+    expect(getCheck.result).toContain('aip')
 
     fetchMock.mockResponseOnce(JSON.stringify({ team: sampleTeam }))
 
@@ -149,7 +173,11 @@ describe('#teamsController', () => {
       method: 'POST',
       url: '/teams/new',
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'Duplicate Team' }
+      payload: {
+        crumb: cookies.crumb,
+        name: 'Duplicate Team',
+        serviceCode: 'ABC'
+      }
     })
     cookies = mergeCookies(cookies, postNew)
 
@@ -194,6 +222,78 @@ describe('#teamsController', () => {
 
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(expect.stringContaining('Add a member'))
+    expect(result).toContain(
+      'Removing someone does not change the team client secret.'
+    )
+    expect(result).not.toContain('team key')
+  })
+
+  test('GET /teams/{id} shows the team ID and says it cannot be changed', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Team ID')
+    expect(result).toContain('flood-risk-team')
+    expect(result).toContain('cannot be changed')
+  })
+
+  test('POST /teams/{id}/service-code saves a new code and returns to the team', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ team: { ...sampleTeam, serviceCode: 'XYZ' } })
+    )
+
+    const { statusCode, headers } = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/service-code',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, serviceCode: 'xyz' }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/teams/team-1')
+
+    const [url, options] = fetchMock.mock.calls.at(-1)
+
+    expect(url).toContain('/v1/teams/team-1')
+    expect(options).toMatchObject({ method: 'PATCH' })
+    expect(JSON.parse(options.body)).toEqual({ serviceCode: 'xyz' })
+  })
+
+  test('POST /teams/{id}/service-code re-renders the team page for an invalid code', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
+      })
+    )
+
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/service-code',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, serviceCode: 'TOO-LONG' }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toContain(
+      'Service code must be 3 letters or numbers, for example AIP'
+    )
   })
 
   test('GET /teams/{id} hides the add member form from a non-admin', async () => {
@@ -345,6 +445,140 @@ describe('#teamsController', () => {
     )
     expect(result).not.toEqual(
       expect.stringContaining('/teams/team-1/members/member-1/remove')
+    )
+  })
+
+  test('GET /teams/{id} offers a role change for a member, but not for the sole admin', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [
+          {
+            _id: 'member-1',
+            userId: 'user-1',
+            role: 'admin',
+            status: 'active'
+          },
+          {
+            _id: 'member-2',
+            userId: 'user-2',
+            email: 'colleague@defra.gov.uk',
+            role: 'user',
+            status: 'active'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('/teams/team-1/members/member-2/role')
+    expect(result).toContain('Make an admin')
+    expect(result).not.toContain('/teams/team-1/members/member-1/role')
+  })
+
+  test('POST /teams/{id}/members/{memberId}/role sends the new role and returns to the team', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ member: { _id: 'member-2', role: 'admin' } })
+    )
+
+    const { statusCode, headers } = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/members/member-2/role',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, role: 'admin' }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(headers.location).toBe('/teams/team-1')
+
+    const [url, options] = fetchMock.mock.calls.at(-1)
+
+    expect(url).toContain('/v1/teams/team-1/members/member-2')
+    expect(options).toMatchObject({ method: 'PATCH' })
+    expect(JSON.parse(options.body)).toEqual({ role: 'admin' })
+  })
+
+  test('POST /teams/{id}/members/{memberId}/role shows a banner when the last admin cannot be demoted', async () => {
+    let cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'A team must keep at least one admin',
+        code: 'last-admin'
+      }),
+      { status: 409 }
+    )
+
+    const demote = await server.inject({
+      method: 'POST',
+      url: '/teams/team-1/members/member-1/role',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb, role: 'user' }
+    })
+    cookies = mergeCookies(cookies, demote)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('A team must keep at least one admin.')
+  })
+
+  test('GET /teams marks the team the person is acting in after they open it', async () => {
+    let cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
+      })
+    )
+
+    const openTeam = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, openTeam)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          { _id: 'team-1', name: 'Flood Risk Team' },
+          { _id: 'team-2', name: 'Coastal Team' }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Acting in this team')
+    expect(result.indexOf('Flood Risk Team')).toBeLessThan(
+      result.indexOf('Acting in this team')
     )
   })
 

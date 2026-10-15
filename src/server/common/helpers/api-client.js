@@ -84,6 +84,8 @@ export function apiClient(hapiRequest) {
       callApi(hapiRequest, path, { ...options, method: 'GET' }),
     post: (path, payload, options) =>
       callApi(hapiRequest, path, { ...options, method: 'POST', payload }),
+    patch: (path, payload, options) =>
+      callApi(hapiRequest, path, { ...options, method: 'PATCH', payload }),
     del: (path, options) =>
       callApi(hapiRequest, path, { ...options, method: 'DELETE' })
   }

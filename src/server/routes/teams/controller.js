@@ -11,6 +11,8 @@ import {
   getPendingTeam,
   setPendingTeam,
   clearPendingTeam,
+  getCurrentTeamId,
+  setCurrentTeamId,
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
@@ -19,19 +21,36 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 
+const serviceCodeField = Joi.string()
+  .trim()
+  .pattern(/^[A-Za-z0-9]{3}$/)
+  .required()
+  .messages({
+    'string.pattern.base':
+      'Service code must be 3 letters or numbers, for example AIP',
+    'string.empty': 'Enter your service code',
+    'any.required': 'Enter your service code'
+  })
+
 const newTeamSchema = Joi.object({
   name: Joi.string().trim().min(3).max(60).required().messages({
     'string.min': 'Team name must be 3 characters or more',
     'string.max': 'Team name must be 60 characters or fewer',
     'any.required': 'Enter a team name'
   }),
-  serviceCode: Joi.string().trim().max(20).allow('').optional(),
+  serviceCode: serviceCodeField,
   description: Joi.string().trim().max(500).allow('').optional(),
   // Same-origin paths only - this value is redirected to after team creation.
   returnTo: Joi.string()
     .pattern(/^\/(?![/\\])[\w\-/%?=&.#]*$/)
     .allow('')
     .optional()
+})
+
+const serviceCodeSchema = Joi.object({ serviceCode: serviceCodeField })
+
+const memberRoleSchema = Joi.object({
+  role: Joi.string().valid('admin', 'user').required()
 })
 
 const addMemberSchema = Joi.object({
@@ -95,7 +114,12 @@ async function loadTeamForView(request, id) {
         member.email && !isAdmin && member.userId !== sessionUser.id
           ? maskEmail(member.email)
           : member.email,
-      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1)
+      // The team's last admin can be neither removed nor demoted; promote
+      // someone else first.
+      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
+      canChangeRole:
+        isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
+      nextRole: member.role === 'admin' ? 'user' : 'admin'
     }))
 
   return { ...result, members, isAdmin }
@@ -109,11 +133,15 @@ export const teamsController = {
         const { items } = await apiClient(request).get('/v1/teams', {
           userId: sessionUser.id
         })
+        const currentTeamId = getCurrentTeamId(request)
 
         return h.view('teams/index', {
           pageTitle: 'Your teams',
           heading: 'Your teams',
-          teams: items
+          teams: items.map((team) => ({
+            ...team,
+            isCurrent: team._id === currentTeamId
+          }))
         })
       }
     }
@@ -164,7 +192,7 @@ export const teamsController = {
 
         setPendingTeam(request, {
           name,
-          serviceCode: serviceCode || undefined,
+          serviceCode,
           description: description || undefined,
           returnTo: returnTo || undefined
         })
@@ -277,6 +305,9 @@ export const teamsController = {
           throw error
         }
 
+        // Opening a team is what makes it the one you are acting in.
+        setCurrentTeamId(request, id)
+
         return h.view('teams/team', {
           pageTitle: result.team.name,
           heading: result.team.name,
@@ -287,6 +318,48 @@ export const teamsController = {
           errorSummary: null,
           fieldErrors: {}
         })
+      }
+    }
+  },
+
+  setMemberRole: {
+    post: {
+      options: {
+        validate: {
+          payload: memberRoleSchema,
+          failAction: (request, h) =>
+            h
+              .redirect(`/teams/${request.params.id}`)
+              .code(statusCodes.seeOther)
+              .takeover()
+        }
+      },
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id, memberId } = request.params
+
+        try {
+          await apiClient(request).patch(
+            `/v1/teams/${id}/members/${memberId}`,
+            { role: request.payload.role },
+            { userId: sessionUser.id }
+          )
+        } catch (error) {
+          if (!(error instanceof ApiError)) {
+            throw error
+          }
+
+          if (error.code === 'last-admin') {
+            setAccountNotification(request, {
+              type: 'error',
+              message: 'A team must keep at least one admin.'
+            })
+          } else if (!isForbidden(error) && !isNotFound(error)) {
+            throw error
+          }
+        }
+
+        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
       }
     }
   },
@@ -325,6 +398,56 @@ export const teamsController = {
             { email: request.payload.email },
             { userId: sessionUser.id, idempotencyKey: randomUUID() }
           )
+        } catch (error) {
+          if (!(error instanceof ApiError) || !isForbidden(error)) {
+            throw error
+          }
+        }
+
+        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+      }
+    }
+  },
+
+  setServiceCode: {
+    post: {
+      options: {
+        validate: {
+          payload: serviceCodeSchema,
+          failAction: async (request, h, error) => {
+            const { id } = request.params
+            const result = await loadTeamForView(request, id)
+
+            return h
+              .view('teams/team', {
+                pageTitle: result.team.name,
+                heading: result.team.name,
+                team: result.team,
+                members: result.members,
+                isAdmin: result.isAdmin,
+                notification: null,
+                errorSummary: buildErrorSummary(error),
+                fieldErrors: buildFieldErrors(error)
+              })
+              .code(statusCodes.badRequest)
+              .takeover()
+          }
+        }
+      },
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id } = request.params
+
+        try {
+          await apiClient(request).patch(
+            `/v1/teams/${id}`,
+            { serviceCode: request.payload.serviceCode },
+            { userId: sessionUser.id }
+          )
+          setAccountNotification(request, {
+            type: 'success',
+            message: 'Service code updated.'
+          })
         } catch (error) {
           if (!(error instanceof ApiError) || !isForbidden(error)) {
             throw error

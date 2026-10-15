@@ -26,24 +26,24 @@
       {% endif %}
 
       {{ govukWarningText({
-        text: "Anything using the old key stops working straight away.",
+        text: "Anything using the old client secret stops working straight away.",
         iconFallbackText: "Warning"
       }) }}
 
       <p class="govuk-body">
-        You get a new key on the next page. It is shown once, so have somewhere ready to paste it.
+        You get a new client secret on the next page. It is shown once, so have somewhere ready to paste it.
       </p>
 
       <h3 class="govuk-heading-s">Before you rotate</h3>
       <ul class="govuk-list govuk-list--bullet">
-        <li>Tell anyone using this key that it is changing.</li>
+        <li>Tell anyone using this client secret that it is changing.</li>
         <li>Have your deployment pipeline or secret store open.</li>
       </ul>
 
       {{ govukSummaryList({
         rows: [
           {
-            key: { text: "Key" },
+            key: { text: "Client secret" },
             value: { text: "ends " + credential.keyHint }
           },
           {
@@ -61,11 +61,11 @@
         <input type="hidden" name="crumb" value="{{ crumb }}">
         <input type="hidden" name="confirmRevoke" value="yes">
 
-        {{ govukButton({ text: "Yes, rotate the key", classes: "govuk-button--warning" }) }}
+        {{ govukButton({ text: "Yes, rotate the client secret", classes: "govuk-button--warning" }) }}
       </form>
 
       <p class="govuk-body">
-        <a class="govuk-link" href="/manage">No, keep the key I have</a>
+        <a class="govuk-link" href="/manage">No, keep the client secret I have</a>
       </p>
     </div>
   </div>

@@ -1,6 +1,7 @@
 {% extends 'layouts/page.njk' %}
 
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% block head %}
@@ -38,10 +39,17 @@
           <a class="govuk-link" href="/manage">Go to your access</a>
         </p>
       {% else %}
-        {{ govukNotificationBanner({
-          text: "This usually takes about 2 minutes. You can leave this page and come back.",
-          titleText: "In progress"
-        }) }}
+        {% if queued %}
+          {{ govukNotificationBanner({
+            text: "Changes to a team are made one at a time. Yours starts when the one before it finishes. You can leave this page and come back.",
+            titleText: "Waiting"
+          }) }}
+        {% else %}
+          {{ govukNotificationBanner({
+            text: "This usually takes about 2 minutes. You can leave this page and come back.",
+            titleText: "In progress"
+          }) }}
+        {% endif %}
 
         <h2 class="govuk-heading-m">Progress</h2>
         <ol class="govuk-list govuk-list--spaced" aria-live="polite">
@@ -68,6 +76,25 @@
           <a class="govuk-link" href="">Check now</a> ·
           <a class="govuk-link" href="/manage">Go to your access</a>
         </p>
+      {% endif %}
+
+      {% if pipelineLinks.length or failureReason %}
+        {% set supportDetailsHtml %}
+          {% if failureReason %}
+            <p class="govuk-body">{{ failureReason }}</p>
+          {% endif %}
+          {% if pipelineLinks.length %}
+            <ul class="govuk-list">
+              {% for link in pipelineLinks %}
+                <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endset %}
+        {{ govukDetails({
+          summaryText: "Details for the AI Platform team",
+          html: supportDetailsHtml
+        }) }}
       {% endif %}
     </div>
   </div>
