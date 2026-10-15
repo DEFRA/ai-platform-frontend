@@ -52,3 +52,26 @@ repoint its links, when its `STATUS` changes. When a design change lands:
    [docs/ui-flow-three-routes.md](../../docs/ui-flow-three-routes.md) too so the two stay consistent.
 3. If the change originates from a design-pack update in `ai-platform-discovery-docs` (e.g. a new
    orchestration decision), re-check the cross-repo context links above still describe it correctly.
+
+### Whenever you touch a plan, keep the folders and the README in sync
+
+Do all of this in the same change, without being asked. A plan edit is not finished until the
+layout agrees with it.
+
+1. **Folder matches status.** A plan lives in `docs/plans/implemented/` only when every phase it
+   plans to build is built (a phase that is deliberately deferred must say so at the top of the
+   plan); otherwise it lives in `docs/plans/in-progress/`. When a `STATUS` changes, `git mv` the
+   plan (and its folder, if it has one) across, and keep `in-progress/` flat: one file per plan.
+2. **README matches the folders.** Update [docs/plans/README.md](../../docs/plans/README.md) in
+   the same change: one row per plan, in the table for the folder it is in, with its current state
+   or built date. Add a row for a new plan; remove the row when a plan is deleted.
+3. **Links follow the move.** Repoint every inbound link and mention (other plans, both repos'
+   `route-plans.instructions.md` and `implemented-features.instructions.md`,
+   `docs/implemented-features.md`, `docs/ui-flow-three-routes.md`, READMEs, code comments), and
+   fix the moved plan's own relative links. Search the workspace for the old path, then check that
+   every relative link under `docs/` still resolves.
+4. **Status lines agree.** The plan's `STATUS` line, its row in `docs/plans/README.md`, and
+   `docs/implemented-features.md` (when something became built) must say the same thing; update
+   the dated note at the bottom of the plan too.
+5. **Format.** Run `npx prettier --write docs/plans` and confirm the files are not empty before
+   finishing; stage a new plan file with `git add` so an editor cannot lose it.

@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 14 Oct 2026 (team slug; the WS6 desired-state builder, so GitOps requests build a real team document; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
+Last updated: 15 Oct 2026 (the IaC GitOps pipeline applied in Infradev, with a team applied end to end from the portal; the catalogue's team tier; and, from 14 Oct 2026, team slug; the WS6 desired-state builder, so GitOps requests build a real team document; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -132,6 +132,17 @@ These aren't tied to one route — they're shared infrastructure every route abo
   under "Details for the AI Platform team". A team needs a three-character service code before its
   first request (`409 service-code-required`). See the backend README's "GitOps tenant orchestrator"
   section and the [IaC baseline plan](../../ai-platform-discovery-docs/docs/iac-baseline-plan.md).
+- **IaC GitOps pipeline, applied in Infradev (15 Oct 2026)**: the platform and teams are created by
+  GitHub Actions, not by hand. `ai-platform-infra` (`v0.7.0`) holds the modules, schemas and
+  `aip-checks`; `ai-platform-workflows` (`v1.1.0`) the reusable workflows; `ai-platform-environments`
+  the registry; `ai-platform-deployments` the platform pin, whose merge applies the platform; and
+  `ai-platform-tenants` one file per team, whose merge applies the team. A request made in the
+  portal reached a real team (Foundry project, `gpt-4o` deployment, APIM API) with no manual step
+  except merging the pull request. Entra is off for `infradev` (the deploy identity cannot create
+  app registrations yet), and `entra.teamRegistrations` skips only the team's registration. The
+  catalogue has a team tier: `gpt-4o` through a UK South `Standard` SKU, `gpt-4-1-nano` and
+  `gpt-5-nano` through Sweden Central, which Defra policy blocks for now. What is done and what is
+  left: [iac-rollout-state.md](plans/in-progress/iac-rollout-state.md).
 - **MongoDB write locks** (`mongo-locks`, `server.locker`/`request.locker`) guard every non-atomic
   multi-step write (team creation, credential issuance, deployment status transitions).
 - **Federated backend-to-Azure auth**: `armAuth.authMethod` (`AZURE_ARM_AUTH_METHOD`) picks how
@@ -140,7 +151,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `federated` (every deployed CDP environment: a `ClientAssertionCredential` backed by
   `@defra/hapi-auth-oidc`'s `WebIdentityTokenProvider`, no client secret involved). See backend
   README's "Testing against live Azure resources" section and `src/adapters/azure/azure-credential.js`.
-- **Schema backfills**: a self-applying, one-off data migration mechanism
+- _*Schema backfills*; `v0.7.0` adds the team tier (see the IaC pipeline above)_: a self-applying, one-off data migration mechanism
   (`src/common/backfills/`) added 25 Sept 2026 — see backend README's "Schema backfills" section.
 - **Model catalogue synced from a `CatalogueSource` port**: a `file` adapter (default - reads
   `src/common/seed/{models,providers}.seed.json`, so tests/compose need no network) and a `github`

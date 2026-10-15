@@ -53,18 +53,19 @@ each before editing.
 The IaC repositories are merged and released; the two portal pull requests and the docs pull
 requests are not.
 
-| Repository and pull request                                                            | Carries                                                                      | State on 15 Oct 2026                    |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------- |
-| infra #5, #6, #7                                                                       | WS1 and WS2: schemas, `aip-checks`, platform and tenant modules, `bootstrap` | Merged; `v0.3.0` to `v0.5.0`            |
-| infra #12                                                                              | `entra.teamRegistrations` flag, `team_registrations` Terraform variable      | Merged; `v0.6.0`                        |
-| infra #14                                                                              | `gpt-4o` UK South team SKU (`Standard`), `team` tier, `infradev` environment | Merged; `v0.7.0` (latest)               |
-| workflows #1, #8                                                                       | WS3 reusable workflows; `team_registrations` pass-through                    | Merged; `v1.0.0`, `v1.1.0` (`v1` moved) |
-| environments #1, #2                                                                    | Registry and parameters; `infradev` `entra.enabled: false`                   | Merged                                  |
-| tenants #1, deployments #1                                                             | WS4 callers                                                                  | Merged by hand; no rulesets yet         |
-| tenants #2                                                                             | First team file written by the portal (`cool-team`, `gpt-4o`)                | Merged by hand; tenants apply, 9 added  |
-| [backend #35](https://github.com/DEFRA/ai-platform-backend-api/pull/35)                | WS5 and WS6: orchestrator, verifier, D14 policy, R11 polling, `entra:{oid}`  | Open, review required; 478 tests pass   |
-| [frontend #35](https://github.com/DEFRA/ai-platform-frontend/pull/35)                  | Phase 4 item 8: run links on the team request page                           | Open; 238 tests pass                    |
-| discovery-docs [#21](https://github.com/DEFRA/ai-platform-discovery-docs/pull/21), #22 | 14 Oct direction entries; only real environments are GitHub Environments     | Open                                    |
+| Repository and pull request                                                       | Carries                                                                      | State on 15 Oct 2026                    |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------- |
+| infra #5, #6, #7                                                                  | WS1 and WS2: schemas, `aip-checks`, platform and tenant modules, `bootstrap` | Merged; `v0.3.0` to `v0.5.0`            |
+| infra #12                                                                         | `entra.teamRegistrations` flag, `team_registrations` Terraform variable      | Merged; `v0.6.0`                        |
+| infra #14                                                                         | `gpt-4o` UK South team SKU (`Standard`), `team` tier, `infradev` environment | Merged; `v0.7.0` (latest)               |
+| workflows #1, #8                                                                  | WS3 reusable workflows; `team_registrations` pass-through                    | Merged; `v1.0.0`, `v1.1.0` (`v1` moved) |
+| environments #1, #2                                                               | Registry and parameters; `infradev` `entra.enabled: false`                   | Merged                                  |
+| tenants #1, deployments #1                                                        | WS4 callers                                                                  | Merged by hand; no rulesets yet         |
+| tenants #2                                                                        | First team file written by the portal (`cool-team`, `gpt-4o`)                | Merged by hand; tenants apply, 9 added  |
+| [backend #35](https://github.com/DEFRA/ai-platform-backend-api/pull/35)           | WS5 and WS6: orchestrator, verifier, D14 policy, R11 polling, `entra:{oid}`  | Open, review required; 478 tests pass   |
+| [frontend #35](https://github.com/DEFRA/ai-platform-frontend/pull/35)             | Phase 4 item 8: run links on the team request page                           | Open; 238 tests pass                    |
+| discovery-docs [#21](https://github.com/DEFRA/ai-platform-discovery-docs/pull/21) | 14 Oct direction entries                                                     | Open                                    |
+| discovery-docs #22                                                                | Only real environments are GitHub Environments                               | Merged                                  |
 
 The platform is applied through the pipeline (pins `v0.5.0` to `v0.7.0`, the first with a
 break-glass `allow_destroy` for one Key Vault role replacement) and a team applies end to end
@@ -622,7 +623,7 @@ other people, so raise it first.
 8. **Phases 6 and 7** follow, except that B20 and B22 gate DEV creation, so start Phase 7's
    telemetry work as soon as Phase 4 is proven rather than leaving it to the end.
 
-Discovery-docs PRs #21 and #22 can merge whenever; they record direction, not built state.
+Discovery-docs PR #21 can merge whenever; it records direction, not built state.
 Built state (the interim flag, the `gpt-4o` team SKU, the proven team apply) goes in a separate
 discovery-docs PR. Flip each `Status` line here as a phase lands, then follow cross-phase rule 7.
 

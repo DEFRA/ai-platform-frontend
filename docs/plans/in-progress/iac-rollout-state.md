@@ -33,8 +33,14 @@ Never apply without owner confirmation; only resource group `SNDAIEAIPRGP1401`.
 **Open pull requests**
 
 - Backend #35 and frontend #35 (orchestrator, run links): review and merge. Their tests pass (478 and 238) and the builder output validates against `schemas/team.schema.json`.
-- `ai-platform-discovery-docs` #21 and #22: merge; then record built state there (build-stories status, decision history for the interim flag and the `gpt-4o` decision).
-- Dependabot eslint bumps: infra #9, workflows #2 (approved).
+- `ai-platform-discovery-docs` #21 (#22 merged): merge #21; then record built state there (build-stories status, decision history for the interim flag and the `gpt-4o` decision).
+- Dependabot bumps: infra #9, workflows #2 (approved), frontend #36 to #42, backend #36 and #37.
+
+**State of the workspace (15 Oct 2026)**
+
+- infra, workflows, tenants, deployments, environments, discovery-docs and journey-tests are on `main`, up to date, with merged local branches deleted. Frontend and backend are on their PR branches (`feature/gitops-run-links`, `feature/github-tenant-orchestrator`) with uncommitted work: the `docs/plans` reorganisation (`implemented/`, `in-progress/`, `README.md`; this file is untracked, `git add` it) and the local `infradev` edits below. Their old local branches are not cleaned up.
+- Local dev servers may still be running (backend 3001, frontend 3000, Mongo and Redis in Docker). The backend `.env` has `TENANT_ORCHESTRATOR=github`, `AIP_ENVIRONMENTS` and `CATALOGUE_REF=v0.7.0`.
+- A test team `cool-team` (`gpt-4o`) exists in Infradev and in `ai-platform-tenants`; a second request for the same team, for another model, is the next thing to try.
 
 **Local edits to revert before committing**
 
