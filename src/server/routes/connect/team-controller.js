@@ -21,7 +21,9 @@ import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 // the Sandbox (SND4) - every design C environment is shown so the option
 // isn't a surprise later, but only `sandbox` is enabled, matching the
 // backend's `environment-not-available` policy for anything else.
-const ENVIRONMENT_ITEMS = [{ value: 'sandbox', text: 'Sandbox', checked: true }]
+const ENVIRONMENT_ITEMS = [
+  { value: 'infradev', text: 'Infradev', checked: true }
+]
 
 // The wait page groups every intermediate GitOps state into one friendly
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
@@ -88,7 +90,7 @@ const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
-  environment: Joi.string().valid('sandbox').default('sandbox')
+  environment: Joi.string().valid('infradev').default('infradev')
 })
 
 function redirectToStart(h) {
@@ -409,7 +411,7 @@ export const teamConnectController = {
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: 'sandbox'
+          environment: 'infradev'
         })
 
         return h.redirect('/connect/team/check').code(statusCodes.seeOther)

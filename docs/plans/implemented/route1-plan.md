@@ -1,6 +1,6 @@
 # Route 1: Research tier shared model access (B04, B06, B07)
 
-> Part of the ["three routes to a credential"](../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 2](route2-plan.md), [Route 3](route3-plan.md).
+> Part of the ["three routes to a credential"](../../ui-flow-three-routes.md) journey. See also [Route 0](route0-welcome-plan.md), [Route 2](route2-plan.md), [Route 3](route3-plan.md).
 >
 > **STATUS: IMPLEMENTED 22 Sept 2026.** Backend 42/42 tests pass, frontend 110/110 tests pass, both
 > repos lint clean. `npm run format:check` failed in both repos on a pre-existing, unrelated baseline
@@ -16,9 +16,9 @@ offering names its host and shows only the data zone). See
 [centralised-gateway-plan.md](centralised-gateway/centralised-gateway-plan.md).
 
 **UPDATED 25 Sept 2026 - discovery-docs design pack alignment:** `ai-platform-discovery-docs` added
-[design-orchestration.md#model-access](../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+[design-orchestration.md#model-access](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
 ("Model access enforcement", 23 Sept) and
-[design-environments.md#phase-1](../../../ai-platform-discovery-docs/src/content/design-environments.md)
+[design-environments.md#phase-1](../../../../ai-platform-discovery-docs/src/content/design-environments.md)
 (the Phase 1 SND1/SND4 proof, 24-25 Sept) after this route shipped. Re-read against what's built:
 
 - The Research tier shape already matches the design pack closely and needs **no functional
@@ -117,7 +117,7 @@ _born_ in ARM (`PUT .../subscriptions/{sid}` then `POST .../listSecrets`) and _s
 Key Vault data plane.
 
 Scope: ONE of three routes from the finalized UI flow (see the
-[ui-flow doc](../ui-flow-three-routes.md) and build-stories
+[ui-flow doc](../../ui-flow-three-routes.md) and build-stories
 B01-B10). Route 2 (team creation, B08/B09) and Route 3 (joining a team, B07-continued/B09/B10) are
 separate plans, not covered here.
 

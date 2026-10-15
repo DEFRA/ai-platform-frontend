@@ -2,16 +2,17 @@
 
 > Cross-cutting plan, not a journey route. See also the
 > ["three routes to a credential"](../../ui-flow-three-routes.md) journey
-> ([Route 0](../route0-welcome-plan.md), [Route 1](../route1-plan.md), [Route 2](../route2-plan.md),
-> [Route 3](../route3-plan.md)) and the other cross-cutting plans,
-> [centralised-gateway-plan.md](../centralised-gateway/centralised-gateway-plan.md) and
-> [research-tier-integration-plan.md](../integration/research-tier-integration-plan.md).
+> ([Route 0](../implemented/route0-welcome-plan.md), [Route 1](../implemented/route1-plan.md), [Route 2](../implemented/route2-plan.md),
+> [Route 3](../implemented/route3-plan.md)) and the other cross-cutting plans,
+> [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md) and
+> [research-tier-integration-plan.md](../implemented/integration/research-tier-integration-plan.md).
 >
-> **STATUS: IN PROGRESS (14 Oct 2026).** Phase 3 and the backend half of Phase 4 exist as code on
-> the ten open pull requests listed below. Nothing is merged, released or applied, so no story's
-> built state has changed and Phase 0 is still next. Update the `Status` line on each phase as it
-> lands and add a dated note at the bottom recording what actually happened versus what is
-> written here.
+> **STATUS: IN PROGRESS (15 Oct 2026).** Phase 3 (IaC baseline) is merged, released and applied in
+> Infradev, and the portal-to-team-apply path is proven locally (M6 in part). Backend and
+> frontend PR #35 and the discovery-docs PRs are still open, Entra consent is outstanding, and
+> Phase 0 is still next. Update the `Status` line on each phase as it lands and add a dated note
+> at the bottom recording what actually happened versus what is written here. The rollout detail
+> and open actions live in [iac-rollout-state.md](iac-rollout-state.md).
 
 ## Authoritative source
 
@@ -47,53 +48,52 @@ each before editing.
 | [design-environments.md](../../../../ai-platform-discovery-docs/src/content/design-environments.md)                     | Environment names and the Phase 1 progression through `SND1` then `SND4`                                                                                                                                                                                                                                                   |
 | [build-stories.md](../../../../ai-platform-discovery-docs/src/content/build-stories.md)                                 | Now twenty-two stories (B01–B22) — B20–B22 (observability) added in PR #19 — with flows and acceptance criteria                                                                                                                                                                                                            |
 
-## Open pull requests (14 Oct 2026)
+## Pull requests and releases (state on 15 Oct 2026)
 
-Ten pull requests carry Phase 3 and the backend half of Phase 4. **None is merged**, so built
-state is unchanged everywhere. The infra three and the two state-repository callers are stacked
-and must merge in order.
+The IaC repositories are merged and released; the two portal pull requests and the docs pull
+requests are not.
 
-| Pull request                                                                              | Carries                                                                                                                     | Phase, milestone             |
-| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| [infra #5](https://github.com/DEFRA/ai-platform-infra/pull/5) `feature/gitops-contract`   | WS1 `v0.3.0` — four schemas, `aip-checks`, `examples/`, team tier catalogue, `docs/gitops-contract.md`                      | Phase 3, M1                  |
-| [infra #6](https://github.com/DEFRA/ai-platform-infra/pull/6) `feature/platform-baseline` | WS2 `v0.4.0` — `naming`, `roles`, platform modules, `platform/`, `names/`, `bootstrap/`                                     | Phase 3, M2                  |
-| [infra #7](https://github.com/DEFRA/ai-platform-infra/pull/7) `feature/tenant-modules`    | WS2 `v0.5.0` — `modules/team`, `apim-team-api`, `entra-team-app`, `tenants/`                                                | Phase 3, M3 and M4           |
-| [workflows #1](https://github.com/DEFRA/ai-platform-workflows/pull/1)                     | WS3 `v1.0.0` and `v1` — nine reusable workflows, `setup` and `gitops` actions, Octokit modules and scripts, 145 tests       | Phase 3, all                 |
-| [environments #1](https://github.com/DEFRA/ai-platform-environments/pull/1)               | WS1 config — `registry.json`, `global.tfvars.json`, `environments/infradev/platform.tfvars.json`                            | Phase 3, M1                  |
-| [tenants #1](https://github.com/DEFRA/ai-platform-tenants/pull/1)                         | WS4 callers — `submit`, `validate`, `apply` (`state: tenants`), `prune`                                                     | Phase 3, M3–M5               |
-| [deployments #1](https://github.com/DEFRA/ai-platform-deployments/pull/1)                 | WS4 callers — `submit`, `validate`, `apply` (`state: platform`), `prune`                                                    | Phase 3, M2                  |
-| [backend #35](https://github.com/DEFRA/ai-platform-backend-api/pull/35)                   | WS5 — GitHub App client, `TenantOrchestrator`, `TenantResourceVerifier`, D14 policy, R11 polling, `entra:{oid}` attribution | Phase 4, M6 (blocked on WS6) |
-| [frontend #35](https://github.com/DEFRA/ai-platform-frontend/pull/35)                     | Phase 4 item 8 — submit run, pull request and apply run links on the team request page                                      | Phase 4                      |
-| [discovery-docs #21](https://github.com/DEFRA/ai-platform-discovery-docs/pull/21)         | The four 14 Oct direction entries this plan now follows                                                                     | Direction only               |
+| Repository and pull request                                                            | Carries                                                                      | State on 15 Oct 2026                    |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------- |
+| infra #5, #6, #7                                                                       | WS1 and WS2: schemas, `aip-checks`, platform and tenant modules, `bootstrap` | Merged; `v0.3.0` to `v0.5.0`            |
+| infra #12                                                                              | `entra.teamRegistrations` flag, `team_registrations` Terraform variable      | Merged; `v0.6.0`                        |
+| infra #14                                                                              | `gpt-4o` UK South team SKU (`Standard`), `team` tier, `infradev` environment | Merged; `v0.7.0` (latest)               |
+| workflows #1, #8                                                                       | WS3 reusable workflows; `team_registrations` pass-through                    | Merged; `v1.0.0`, `v1.1.0` (`v1` moved) |
+| environments #1, #2                                                                    | Registry and parameters; `infradev` `entra.enabled: false`                   | Merged                                  |
+| tenants #1, deployments #1                                                             | WS4 callers                                                                  | Merged by hand; no rulesets yet         |
+| tenants #2                                                                             | First team file written by the portal (`cool-team`, `gpt-4o`)                | Merged by hand; tenants apply, 9 added  |
+| [backend #35](https://github.com/DEFRA/ai-platform-backend-api/pull/35)                | WS5 and WS6: orchestrator, verifier, D14 policy, R11 polling, `entra:{oid}`  | Open, review required; 478 tests pass   |
+| [frontend #35](https://github.com/DEFRA/ai-platform-frontend/pull/35)                  | Phase 4 item 8: run links on the team request page                           | Open; 238 tests pass                    |
+| discovery-docs [#21](https://github.com/DEFRA/ai-platform-discovery-docs/pull/21), #22 | 14 Oct direction entries; only real environments are GitHub Environments     | Open                                    |
 
-**What is left is configuration and consent, not code.** Reviewed against the branches on
-14 Oct 2026, the prepared repositories hold no TODOs, no skipped tests and no unimplemented
-workflow steps; the placeholders in `ai-platform-environments` have all been filled
-(`entra.tenantId`, the publisher email — still a person's address rather than a shared mailbox —
-and `identities.portal_api_principal_object_id`), and `azure.existing_resource_group` is set to
-`SNDAIEAIPRGP1401`. The outstanding prerequisites are:
+The platform is applied through the pipeline (pins `v0.5.0` to `v0.7.0`, the first with a
+break-glass `allow_destroy` for one Key Vault role replacement) and a team applies end to end
+without an Entra registration.
 
-| #   | Prerequisite                                                                                                                        | Blocks                         |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| 1   | User Access Administrator (or RBAC Administrator) on `SNDAIEAIPRGP1401`                                                             | `bootstrap`, so M2 onwards     |
-| 2   | Entra admin consent for `Application.ReadWrite.OwnedBy` on the deploy identity, and on the backend identity for secrets             | M3, M4, M7 — every team proof  |
-| 3   | GitHub Environments `infradev`, `gitops-writer`, `gitops-reader`, `gitops-dispatch` and `release`, with the App key and OIDC values | Every workflow run             |
-| 4   | Repository variables `GITOPS_APP_CLIENT_ID` and `AZURE_TENANT_ID` in both state repositories                                        | Every workflow run             |
-| 5   | Branch rulesets requiring `validate-desired-state / validate`, no App bypass, App limited to `environments/infradev/**`             | WS4 proofs M2–M5               |
-| 6   | A shared mailbox for the API Management publisher                                                                                   | Nothing today; tidy before DEV |
+**What is left is consent, rulesets and review, not code.** The prerequisites, as they stand:
+
+| #   | Prerequisite                                                                                 | State on 15 Oct 2026                                                                           |
+| --- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1   | Role administration on `SNDAIEAIPRGP1401`                                                    | Done; the deploy identity applies                                                              |
+| 2   | Entra admin consent for `Application.ReadWrite.OwnedBy` on the deploy and backend identities | **Open.** Entra is off for `infradev`; the interim flag skips only the team registration       |
+| 3   | GitHub Environments and the App key                                                          | Done in a simpler form: `infradev` Environment in tenants and deployments; App key as a secret |
+| 4   | Repository variables `GITOPS_APP_CLIENT_ID` and `AZURE_TENANT_ID`                            | Done                                                                                           |
+| 5   | Branch rulesets requiring `validate-desired-state / validate`, no App bypass                 | **Open** (admin). Until then `submit.yml` ends with an auto-merge error and PRs merge by hand  |
+| 6   | A shared mailbox for the API Management publisher                                            | Open; tidy before DEV                                                                          |
+| 7   | Sweden Central for Infradev (Defra Allowed locations policy)                                 | **Open.** Team models are limited to those with a UK South non-Global SKU (`gpt-4o`)           |
 
 ## Built versus remaining, at a glance
 
-| Phase | Built (on the branches above)                                                                                                                                                                                                  | Remaining                                                                                              |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| 0     | —                                                                                                                                                                                                                              | All of it: restructure `build-stories.md`                                                              |
-| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                                                                                             | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal  |
-| 2     | **All of design F's team model**: `slug`, `serviceCode` and its verifier port, the role change with the last-admin guard, `currentTeamId`, `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | The environment list (row 6), and a real service code verifier when a source is agreed                 |
-| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                                                                                          | Merge in order, run `bootstrap`, then prove M2–M5 in Infradev                                          |
-| 4     | WS5 and WS6 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, the desired-state builder, run links in the portal                                                                      | Prove M6 against Infradev once Phase 3 is applied; the environment list                                |
-| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                                                                                                 | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry |
-| 6     | —                                                                                                                                                                                                                              | All of it                                                                                              |
-| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                                                                                        | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks              |
+| Phase | Built (on the branches above)                                                                                                                                                                                                  | Remaining                                                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| 0     | —                                                                                                                                                                                                                              | All of it: restructure `build-stories.md`                                                                                   |
+| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                                                                                             | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal                       |
+| 2     | **All of design F's team model**: `slug`, `serviceCode` and its verifier port, the role change with the last-admin guard, `currentTeamId`, `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | The environment list (row 6), and a real service code verifier when a source is agreed                                      |
+| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                                                                                          | **Merged, released and applied in Infradev** (M2 platform, M3 team without registration); M4, M5 and the Entra parts remain |
+| 4     | WS5 and WS6 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, the desired-state builder, run links in the portal                                                                      | M6 proven locally to the team apply; merge backend and frontend #35; the environment list                                   |
+| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                                                                                                 | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry                      |
+| 6     | —                                                                                                                                                                                                                              | All of it                                                                                                                   |
+| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                                                                                        | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks                                   |
 
 ## Direction that changed on 13 and 14 October 2026
 
@@ -279,12 +279,15 @@ regression test; a backfill test proving a slugless legacy team is handled; upda
 
 ## Phase 3 — IaC baseline, GitOps path in Infradev
 
-**Status: in progress — code prepared, nothing merged or applied.** Story B15. Repositories:
+**Status: mostly done on 15 Oct 2026 — merged, released and applied in Infradev; Entra and the
+rulesets remain.** Story B15. Repositories:
 `ai-platform-infra` and `ai-platform-workflows` (public), `ai-platform-environments`,
 `ai-platform-tenants` and `ai-platform-deployments` (internal). No dependencies.
-
-WS1 to WS4 all exist on the seven open pull requests listed above; what remains is the WS0
-prerequisites, merging in order (infra #5 → #6 → #7, then workflows #1, then the three config and
+re merged and released (infra `v0.7.0`, workflows `v1.1.0`) and the platform is
+applied through the pipeline in Infradev. What remains is the Entra consent (so `entra.enabled`
+can return to `true` and the interim `entra.teamRegistrations` flag can go), the branch rulesets,
+and M4 and M5 (a federated OAuth team and the robustness controls), which need the Entra consent.
+en workflows #1, then the three config and
 state repositories), and running M2 to M5 in Infradev. Follow
 [docs/iac-baseline-plan.md](../../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md) —
 do not re-derive it.
@@ -297,7 +300,9 @@ do not re-derive it.
   `aip-checks` CLI (`catalogue`, `tenants`, `tenants-on-main`, `pins`, `pin-on-main`,
   `environments`, `params`, `plan-guard`, `run-report`, `teams-variables`, `canonical`),
   `examples/`, `docs/gitops-contract.md`, and the `team` tier on **`gpt-5-nano`** as
-  `DataZoneStandard` in Sweden Central (it is not offered as Standard in UK South), with
+  `DataZoneStandard` in Sweden Central (it is not offered as Standard in UK South; since infra
+  `v0.7.0` **`gpt-4o`** is also a team model through a UK South `Standard` SKU, the only one
+  deployable while Infradev has no Sweden Central), with
   `capacityPolicy.environments.infradev.quota` of 10 capping the sum across teams. The schemas
   enforce the OAuth-only `credentialType`, the slug pattern, the principal pattern and
   `entra.createdObjectLimit`; `team-rules.js` enforces 32 deployments per Foundry account.
@@ -369,13 +374,14 @@ robustness controls R1–R4 and R6.
 
 ## Phase 4 — Team provisioning through GitOps
 
-**Status: in progress — WS5 and WS6 prepared in backend PR #35 and frontend PR #35.**
+**Status: in progress on 15 Oct 2026 — WS5 and WS6 are in backend PR #35 and frontend PR #35
+(open); M6 is proven locally to the team apply.**
 Story B16; closes B09 and deployment gap 4. Repositories: backend, frontend. Depends on Phase 3.
 Blocks Phases 5 and 6. Follows iac plan WS5 and WS6, M6 and M7, D3, D6 and D14.
 
 The async lifecycle already existed against the mock, and backend PR #35 reshapes it onto the
-GitOps contract and builds the document the contract wants. **What is left is running M6 against
-Infradev**, which needs Phase 3 merged and applied.
+GitOps contract and builds the document the contract wants. **What is left is merging both pull
+requests and finishing M6 against Infradev** (the first half ran on 15 Oct 2026).
 
 Built in the open pull requests:
 
@@ -418,7 +424,13 @@ Still to do:
 3. Legacy people have no Entra `oid` until their next sign-in, and `requireUserPrincipal` refuses
    them with `403 entra-identity-required`. Check this is acceptable for invited members who have
    never signed in, and cover it in a journey test.
-4. Prove it end to end once Phase 3 is applied: M6 locally with `TENANT_ORCHESTRATOR=github`.
+   **Done in part on 15 Oct 2026**: a local portal created `cool-team` with `gpt-4o` in Infradev
+   and the pipeline applied it (project, deployment and API, no registration). Not yet seen: the
+   wait page reaching `active` (ARM verification needs `PROVISIONING_MODE=live`), the failure,
+   retry and revert paths, and the client-secret step, which needs the Entra consent.
+4. The local proof used two uncommitted edits that point the portal at `infradev`
+   (`TEAM_FACING_ENVIRONMENT` and the frontend environment option); revert them and do item 1.
+5. Prove it end to end once Phase 3 is applied: M6 locally with `TENANT_ORCHESTRATOR=github`.
 
 Keep the mock for local runs and journey tests.
 
@@ -580,36 +592,39 @@ reference fails the checks, with a regression test.
 
 ---
 
-## Order of work from here (14 Oct 2026)
+## Order of work from here (15 Oct 2026)
 
-The phases are not strictly sequential, and three strands can run at once. Step 2 is the long
-pole; step 1 unblocks it and needs other people, so raise those requests today.
+The phases are not strictly sequential. The long pole is now the Entra consent, which needs
+other people, so raise it first.
 
-1. **Request the consents and configure GitHub** (prerequisite rows 1–5). None of it is code and
-   all of it blocks a proof: role assignment on the resource group, Entra admin consent, the five
-   GitHub Environments, the two repository variables, the two rulesets.
-2. **Merge Phase 3 and prove it** — infra #5, #6, #7 in order, then workflows #1 (which releases
-   `v1.0.0` and `v1`), then environments #1, deployments #1 and tenants #1. Run `bootstrap` by
-   hand once, then M2 (platform through release and pin), M3 and M4 (an OAuth team by scripted
-   dispatch, client secret then federated), M5 (R1–R4 and R6). Expect to iterate on Azure policy
-   and quota here, not on the code.
-3. ~~**Phase 2 row 1 — the team `slug`**~~ — **done on 14 Oct 2026**, on the two portal branches:
-   derived in `createTeam`, numbered on a clash, unique index, dated backfill, and shown on the
-   team page as "Team ID".
-4. ~~**Then WS6, the desired-state builder**~~ — **done on 14 Oct 2026**. Merge backend #35 and
-   frontend #35, then run M6 locally with `TENANT_ORCHESTRATOR=github` against Infradev as soon as
-   step 2 has applied the platform.
-5. **Then B18's Graph client-secret issuer** (Phase 5), which is what finally gives a team a
-   working credential and completes M7. Only after M7 does a team journey work end to end in a
-   real environment.
-6. **Phase 1 and the rest of Phase 2** can be picked up by anyone not on the critical path at any
+1. **Request the Entra consent and the rulesets** (prerequisite rows 2 and 5). Entra admin
+   consent for `Application.ReadWrite.OwnedBy` on the deploy and backend identities; rulesets
+   requiring `validate-desired-state / validate` on tenants and deployments, and the infra checks
+   on infra and workflows, so team and release pull requests auto-merge.
+2. ~~**Merge Phase 3 and prove the platform**~~ — **done on 15 Oct 2026**: infra `v0.7.0`,
+   workflows `v1.1.0`, environments, tenants and deployments merged; platform applied at
+   `v0.5.0` to `v0.7.0`; a team applied end to end. Still open from it: M4 and M5, which need the
+   Entra consent.
+3. ~~**Phase 2 row 1 — the team `slug`**~~ — done on 14 Oct 2026.
+4. ~~**WS6, the desired-state builder**~~ — done on 14 Oct 2026. **Now: review and merge backend
+   #35 and frontend #35**, revert the two local `infradev` edits, and drive the team-facing
+   environment from `AIP_ENVIRONMENTS` (Phase 2 row 6, Phase 4 item 1). M6 then needs the failure,
+   retry and revert paths and ARM verification checked.
+5. **Then B18's Graph client-secret issuer** (Phase 5), which needs the consent from step 1 and
+   is what finally gives a team a working credential and completes M7; then set `entra.enabled`
+   back to `true` and remove the interim flag.
+6. **Decide Sweden Central for Infradev** (Defra policy exception). Until then `gpt-4o` is the
+   only team model; `gpt-4-1-nano` and `gpt-5-nano` follow when `swedencentral` is added to
+   `environments/infradev/platform.tfvars.json` `azure.foundry.regions`.
+7. **Phase 1 and the rest of Phase 2** can be picked up by anyone not on the critical path at any
    point; Phase 0 is a documentation-only afternoon in `ai-platform-discovery-docs` and is worth
    doing while step 1 is waiting on other people.
-7. **Phases 6 and 7** follow, except that B20 and B22 gate DEV creation, so start Phase 7's
+8. **Phases 6 and 7** follow, except that B20 and B22 gate DEV creation, so start Phase 7's
    telemetry work as soon as Phase 4 is proven rather than leaving it to the end.
 
-Discovery-docs PR #21 can merge whenever; it records direction, not built state. Flip each
-`Status` line here as a phase lands, then follow cross-phase rule 7.
+Discovery-docs PRs #21 and #22 can merge whenever; they record direction, not built state.
+Built state (the interim flag, the `gpt-4o` team SKU, the proven team apply) goes in a separate
+discovery-docs PR. Flip each `Status` line here as a phase lands, then follow cross-phase rule 7.
 
 ---
 
@@ -659,6 +674,24 @@ Discovery-docs PR #21 can merge whenever; it records direction, not built state.
 - Rewriting dated `decision-history.md` or `design-pack-plan.md` entries.
 
 ## Dated notes
+
+**15 Oct 2026 — Phase 3 applied, team apply proven.** The IaC repositories were merged and
+released (infra `v0.7.0`, workflows `v1.1.0`) and the platform was applied through the pipeline in
+Infradev. What differed from this plan: (1) the App key is a repository secret, not a set of
+GitHub Environments, and only real environments are Environments; (2) the pin lives in
+`ai-platform-deployments` and merging it triggers the platform apply; (3) the deploy identity
+cannot create Entra app registrations, so `infradev` runs with `entra.enabled: false` and a new
+`entra.teamRegistrations` flag (infra #12, workflows #8) skips only the per-team registration;
+(4) plan-guard refused the expected Key Vault role replacement, so the first apply used the
+break-glass `allow_destroy`; (5) the Sweden Central team SKUs cannot deploy because Defra's
+Allowed locations policy refuses it, so `gpt-4o` got a UK South `Standard` team SKU (infra #14,
+`v0.7.0`; `gpt-4.1-nano` and `gpt-5-nano` are Global-only there); (6) with no rulesets,
+`submit.yml` ends with an auto-merge error and pull requests are merged by hand. A local portal
+then created `cool-team` with `gpt-4o`: `Submit` run, tenants #2, validation, tenants apply (9
+added), with the project, deployment and API present in Azure. The proof used two uncommitted
+local edits pointing the portal at `infradev`, because the portal's team environment is the
+`sandbox` constant (Phase 2 row 6). Not yet proven: the wait page reaching `active`, failure and
+revert paths, M4, M5 and the client-secret step (Entra consent).
 
 **14 Oct 2026 — revised against ten open pull requests, then reviewed branch by branch.** Phase 3
 (WS1–WS4) and the WS5 half of Phase 4 are written as code but nothing is merged, released or

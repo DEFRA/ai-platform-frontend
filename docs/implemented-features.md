@@ -15,12 +15,12 @@ The core product journey is "three routes to a credential" — see
 [docs/ui-flow-three-routes.md](ui-flow-three-routes.md) for the full flow and
 [docs/plans/](plans/) for the build plan behind each route.
 
-| Route                                   | Covers                                                                                                 | Status                                                                                          |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| [Route 0](plans/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three                                           | **Implemented** (29 Sept 2026, flat design build spec)                                          |
-| [Route 1](plans/route1-plan.md)         | Research tier: browse the model catalogue, request a personal shared-model credential, manage it       | **Implemented** (22 Sept 2026)                                                                  |
-| [Route 2](plans/route2-plan.md)         | Team tier: create/select a team, request a dedicated model deployment for it                           | **Implemented** (23 Sept 2026, refactored 25 Sept 2026 to match the discovery-docs design pack) |
-| [Route 3](plans/route3-plan.md)         | Team tier: joining a team that already has access, admin-vs-user role enforcement, credential rotation | **Implemented** (25 Sept 2026)                                                                  |
+| Route                                               | Covers                                                                                                 | Status                                                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| [Route 0](plans/implemented/route0-welcome-plan.md) | Home page (`/`), the shared entry point into the other three                                           | **Implemented** (29 Sept 2026, flat design build spec)                                          |
+| [Route 1](plans/implemented/route1-plan.md)         | Research tier: browse the model catalogue, request a personal shared-model credential, manage it       | **Implemented** (22 Sept 2026)                                                                  |
+| [Route 2](plans/implemented/route2-plan.md)         | Team tier: create/select a team, request a dedicated model deployment for it                           | **Implemented** (23 Sept 2026, refactored 25 Sept 2026 to match the discovery-docs design pack) |
+| [Route 3](plans/implemented/route3-plan.md)         | Team tier: joining a team that already has access, admin-vs-user role enforcement, credential rotation | **Implemented** (25 Sept 2026)                                                                  |
 
 ## Route 1 — Research tier shared model access
 
@@ -120,8 +120,8 @@ These aren't tied to one route — they're shared infrastructure every route abo
   and in `live` mode `ENABLED_GATEWAYS` (default `azure-apim`, renamed from `ENABLED_ADAPTERS`)
   lists the gateways the environment can run - a model on any other gateway gets
   `501 gateway-not-enabled`. See
-  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 1
-  and the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
+  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 1
+  and the [centralised gateway plan](plans/implemented/centralised-gateway/centralised-gateway-plan.md).
 - **GitOps `TenantOrchestrator` (WS5 and WS6, 14 Oct 2026, not yet merged)**: `TENANT_ORCHESTRATOR=github`
   dispatches `submit.yml` with the whole team document and tracks it to `active` (pull request,
   merge, GitHub Deployment, run report, ARM check), with the D14 retry-then-revert policy, a
@@ -152,7 +152,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `catalogue/` holds 8 Foundry-deployment models + 1 provider: `v0.1.2` is the flat
   `cloud`/`adapter` shape and `v0.2.0` (tagged, merged) adds `hosting`/`gateway` offerings and
   `catalogue/schema/`. The backend reads only the new shape and stores models with a nested `hosting`
-  object and `gateway`; see the [centralised gateway plan](plans/centralised-gateway/centralised-gateway-plan.md).
+  object and `gateway`; see the [centralised gateway plan](plans/implemented/centralised-gateway/centralised-gateway-plan.md).
   A model contradicting or referencing an unknown offering is skipped, not synced.
   Per-model `apiProfile` (`chat-completions` vs `responses`) drives both the frontend's gateway URL
   shape (`gateway-request.js`) and the backend's `apiVersion` default: a `responses`-profile model
@@ -161,7 +161,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   chat-completions-era default even when the source says otherwise), since `chat-completions` isn't
   supported at all for a responses-only model. `models.seed.json` (the local `file` source) now
   includes one `responses`-profile model (`gpt-5-3-codex`) so this path is exercised without GitHub
-  catalogue access. See [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 2.
+  catalogue access. See [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 2.
 - **Credential secrets persisted to Key Vault, with an audited reveal**: a `CredentialVault` port
   (`issue`/`rotate` write through it, `renew` updates the existing secret version's expiry in place
   via `updateExpiry` rather than rotating it, `revoke` soft-deletes) behind a `mock` adapter
@@ -173,7 +173,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   updated Mongo `expiresAt`). `POST /v1/credentials/{id}/reveal` lets an owner (research tier) or
   team admin (team tier) re-view an already-issued secret, audited with a required reason,
   `Cache-Control: no-store`. See
-  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 3.
+  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 3.
 - **Loading state on backend-triggering buttons**: `.app-button--loading-on-submit` (view) +
   `application.js` progressive enhancement disables the submit button and shows a spinner on
   `submit`, so a slow request (renew, revoke confirm, issue a credential) can't be re-triggered by
@@ -195,7 +195,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   journey, `/manage/credentials/{id}/view`, lets a research credential's owner or a team admin
   re-reveal the full secret with a required reason, via the backend's
   `POST /v1/credentials/{id}/reveal`. See
-  [research-tier-integration-plan.md](plans/integration/research-tier-integration-plan.md)'s Phase 5.
+  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 5.
 - **Security baseline**: structured JSON logging with no PII (`hapi-pino` + ECS format), CSP via
   Blankie, CSRF via `@hapi/crumb`, session cookies via `@hapi/yar` (all frontend); Joi validation
   rejecting unknown keys on every backend route.

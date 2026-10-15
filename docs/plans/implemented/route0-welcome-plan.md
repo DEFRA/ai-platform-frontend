@@ -1,6 +1,6 @@
 # Route 0: Welcome page (entry point into all three tiers)
 
-> Part of the ["three routes to a credential"](../ui-flow-three-routes.md) journey. See also [Route 1](route1-plan.md), [Route 2](route2-plan.md), [Route 3](route3-plan.md). **Status: implemented (29 Sept 2026, superseding shape below).**
+> Part of the ["three routes to a credential"](../../ui-flow-three-routes.md) journey. See also [Route 1](route1-plan.md), [Route 2](route2-plan.md), [Route 3](route3-plan.md). **Status: implemented (29 Sept 2026, superseding shape below).**
 
 **UPDATED 29 Sept 2026 - flat design build spec superseded the hub/tile shape:**
 `docs/flat-design-updates/build-spec.md` (pages 01/02) landed after this plan was written and

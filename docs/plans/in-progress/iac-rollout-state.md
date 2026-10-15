@@ -1,0 +1,55 @@
+---
+ms.date: '2026-10-15'
+---
+
+# IaC rollout state
+
+Goal: Infradev Terraform pipelines applying through GitHub Actions, then the portal creating teams through them (task prompt: `.github/prompts/iac.prompt.md`).
+Never apply without owner confirmation; only resource group `SNDAIEAIPRGP1401`.
+
+## Done (15 Oct 2026)
+
+- **Pipeline built and released:** `ai-platform-workflows` v1.1.0 (`v1` moved), `ai-platform-infra` v0.7.0, `ai-platform-environments` registry, tenants and deployments callers, all merged. The App key is the repository secret `GITOPS_APP_PRIVATE_KEY` plus the variable `GITOPS_APP_CLIENT_ID` in all five repos; only real environments are GitHub Environments (`infradev` in tenants and deployments, `main` only).
+- **Platform applied through the pipeline:** first pin `v0.5.0` (`ai-platform-deployments` #2), then `v0.6.0` (#3) and `v0.7.0`. The first apply needed `allow_destroy=true` (break-glass) for the Key Vault role replacement; later applies are tag-only. `entra.enabled` is `false` for `infradev` (environments #2) because the deploy identity has no Graph permission.
+- **Interim flag:** registry `entra.teamRegistrations` (infra #12, workflows #8) skips only the per-team Entra app registration; with `entra.enabled: false` a team applies without one.
+- **Catalogue:** `gpt-4o` has a UK South `Standard` team SKU (infra #14); `gpt-4.1-nano` and `gpt-5-nano` are Global-only in UK South, so their team SKUs stay in Sweden Central.
+- **Portal to team apply proven** (local portal, Infradev): `cool-team` + `gpt-4o` -> `Submit` run -> `ai-platform-tenants` #2 -> validate -> merged by hand -> tenants apply, 9 added: Foundry project `aip-cool-team`, deployment `cool-team-gpt-4o` (Standard, capacity 1), APIM API `cool-team`, no Entra registration.
+- Local tooling: Terraform 1.16.5 and `jq` installed; the tenants Terraform tests and the `apply.sh` integration tests pass locally.
+
+## Gotchas
+
+- A reusable workflow gets no secrets unless the caller passes `secrets: inherit`, even environment ones.
+- The `gh` CLI is the owner's account: approvals by the last pusher do not count (`require_last_push_approval`); another person must approve after the last push.
+- No required status checks on any repo's `main` yet: release-merge refuses to auto-merge release PRs, and `submit.yml` ends with "Pull request is in clean status" because auto-merge cannot be enabled on an already mergeable PR. Merge release PRs and team PRs by hand until an admin adds the rulesets.
+- The infra pin is `environments/{env}/platform.json` in `ai-platform-deployments`, not `registry.json`; merging it triggers the platform apply, so a registry change that affects the apply must land before it.
+- Plan-guard refuses every delete in the platform state; an engineer dispatches `apply.yml` with `allow_destroy=true` for an expected replacement.
+- The backend `CATALOGUE_REF` must be a release with team tiers (v0.7.0), not v0.2.0; restart the backend after changing it.
+- Local run: start Mongo with `docker compose --env-file <empty file> up -d mongodb` (compose cannot parse the `//` comment in the backend `.env`), Redis from the frontend compose file, the backend with `node --env-file-if-exists=.env ./src` (the `npm run dev` watcher restarts on `.git` changes and printed nothing), the frontend with `npm run dev`.
+- On Windows set `$env:TZ='UTC'` (and `$env:AWS_EMF_ENVIRONMENT='Local'` for the frontend) and run `npx vitest run`, since `npm test` uses Unix env syntax. The frontend `start-server.test.js` times out in the full run but passes alone.
+- Agent terminal: write long output to a `$env:TEMP` file and read it; `gh --jq` with pipes breaks, use `ConvertFrom-Json`; `az --query` with brackets breaks, filter in PowerShell.
+
+## Left to do
+
+**Open pull requests**
+
+- Backend #35 and frontend #35 (orchestrator, run links): review and merge. Their tests pass (478 and 238) and the builder output validates against `schemas/team.schema.json`.
+- `ai-platform-discovery-docs` #21 and #22: merge; then record built state there (build-stories status, decision history for the interim flag and the `gpt-4o` decision).
+- Dependabot eslint bumps: infra #9, workflows #2 (approved).
+
+**Local edits to revert before committing**
+
+- Backend `TEAM_FACING_ENVIRONMENT` and frontend `team-controller.js` point at `infradev`; the design's team-facing environment is `sandbox`, which has no pipeline environment yet. The proper fix is to drive the team-facing environment from `AIP_ENVIRONMENTS` (build-stories delivery plan Phase 2 row 6, Phase 4).
+
+**Admin tasks**
+
+- Rulesets requiring `validate-desired-state / validate` (tenants, deployments) and the infra checks (infra, workflows), so team PRs and release PRs auto-merge; org Actions allow-list.
+- Delete the unused `release` Environment in `ai-platform-workflows`.
+- Entra consent for the deploy and backend identities (`Application.ReadWrite.OwnedBy`); then set `entra.enabled` back to `true` (with `teamRegistrations: false` only if just the team registration is still blocked) and remove the interim flag.
+
+**Decisions and gaps**
+
+- Sweden Central for Infradev (Defra policy exception), then add `swedencentral` to `environments/infradev/platform.tfvars.json` `azure.foundry.regions`; until then team models are those with a UK South non-Global SKU.
+- `gpt-4o` Standard quota in UK South: capacity 1 worked; larger capacities untested.
+- Team OAuth client secret (Phase 5 B18) needs the Entra consent; until then the last wait-page step cannot complete.
+- Turn off `operator_state_access` once the pipeline is accepted; clean up `%TEMP%\wt-docs` and `%TEMP%\wt-infra7`.
+- Update `docs/implemented-features.md` and discovery-docs `build-stories.md#status`.
