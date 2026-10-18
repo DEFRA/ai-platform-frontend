@@ -32,7 +32,7 @@ Never apply without owner confirmation; only resource group `SNDAIEAIPRGP1401`.
 
 **Open pull requests**
 
-- Backend #35 and frontend #35 (orchestrator, run links): review and merge. Their tests pass (478 and 238) and the builder output validates against `schemas/team.schema.json`.
+- Backend #35 and frontend #35 (orchestrator, run links): review and merge. Their tests pass (501 and 275), SonarCloud is green and the builder output validates against `schemas/team.schema.json`.
 - `ai-platform-discovery-docs` #21 (#22 merged): merge #21; then record built state there (build-stories status, decision history for the interim flag and the `gpt-4o` decision).
 - Dependabot bumps: infra #9, workflows #2 (approved), frontend #36 to #42, backend #36 and #37.
 
@@ -46,7 +46,7 @@ Never apply without owner confirmation; only resource group `SNDAIEAIPRGP1401`.
 
 - The team-facing environment is configuration, not code: backend `TEAM_ENVIRONMENTS` and frontend `TEAM_ENVIRONMENTS` (default `infradev`), offered on the details step; the `sandbox` constant and the local `infradev` edits are gone.
 - An admin can remove a model from the team page (`DELETE /v1/teams/{teamId}/deployments/{id}`, a GitOps `remove` follow-up). Team decommission is handled by the IaC checks (`pending-removal` → `removed` → delete, with a cooling-off period) but has no portal path yet.
-- Rulesets are in place: `aip-machine-main` on tenants and deployments requires `validate-desired-state / validate` with no approvals, so team PRs auto-merge (with a merge-when-validated fallback in `submit.js`); `aip-human-main` on infra, workflows and environments; `aip-release-tags` on `v*`. Stray Environments deleted. See `ai-platform-workflows` README "Repository settings" and `scripts/setup/repo-settings.sh`.
+- Rulesets are in place: `aip-machine-main` on tenants and deployments requires `validate-desired-state / validate` with no approvals, so team PRs auto-merge (with a merge-when-validated fallback in `submit.js`; a change outside `environments/` fails that check closed and merges through the `ai-dev-team` pull-request bypass); `aip-human-main` on infra, workflows and environments; `aip-release-tags` on `v*`. Stray Environments deleted. See `ai-platform-workflows` README "Repository settings" and `scripts/setup/repo-settings.sh`.
 
 **Admin tasks**
 
