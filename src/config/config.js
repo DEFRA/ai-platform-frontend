@@ -221,6 +221,12 @@ export const config = convict({
     default: 'http://localhost:3001',
     env: 'API_BASE_URL'
   },
+  teamEnvironments: {
+    doc: 'Comma-separated environments a team may deploy a model to from this instance (design C #control-plane, D1); must match the backend\u2019s TEAM_ENVIRONMENTS. The first is preselected',
+    format: Array,
+    default: ['infradev'],
+    env: 'TEAM_ENVIRONMENTS'
+  },
   gateway: {
     baseUrl: {
       doc: 'Public base URL of the APIM gateway - not called by this frontend, only used to show the real request in code samples',

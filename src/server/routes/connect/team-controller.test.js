@@ -207,6 +207,91 @@ describe('#teamConnectController', () => {
     expect(postCheck.headers.location).toBe(
       '/connect/team/request/team-1/deployment-1'
     )
+    // The request names the environment chosen on the details step, which
+    // defaults to the first configured one.
+    const [, init] = fetchMock.mock.calls.at(-1)
+    expect(JSON.parse(init.body)).toMatchObject({
+      modelSlug: 'gpt-4o',
+      environment: 'infradev'
+    })
+  })
+
+  describe('the environment on the details step', () => {
+    async function reachDetails(cookies) {
+      const postAccessType = await server.inject({
+        method: 'POST',
+        url: '/connect',
+        headers: { cookie: cookieHeader(cookies) },
+        payload: { crumb: cookies.crumb, accessType: 'team' }
+      })
+      cookies = mergeCookies(cookies, postAccessType)
+      fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleTeam] }))
+      cookies = mergeCookies(
+        cookies,
+        await server.inject({
+          method: 'GET',
+          url: '/connect/team/select',
+          headers: { cookie: cookieHeader(cookies) }
+        })
+      )
+      cookies = mergeCookies(
+        cookies,
+        await server.inject({
+          method: 'POST',
+          url: '/connect/team/select',
+          headers: { cookie: cookieHeader(cookies) },
+          payload: { crumb: cookies.crumb, teamId: 'team-1' }
+        })
+      )
+      fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+      cookies = mergeCookies(
+        cookies,
+        await server.inject({
+          method: 'GET',
+          url: '/connect/team/model',
+          headers: { cookie: cookieHeader(cookies) }
+        })
+      )
+
+      return mergeCookies(
+        cookies,
+        await server.inject({
+          method: 'POST',
+          url: '/connect/team/model',
+          headers: { cookie: cookieHeader(cookies) },
+          payload: { crumb: cookies.crumb, modelSlug: 'gpt-4o' }
+        })
+      )
+    }
+
+    test('offers the configured environments, the first preselected, and says which are available', async () => {
+      const cookies = await reachDetails(await signIn(server))
+
+      const { result } = await server.inject({
+        method: 'GET',
+        url: '/connect/team/details',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(result).toContain('value="infradev"')
+      expect(result).toMatch(/value="infradev"[^>]*checked/)
+      expect(result).toContain('Only Infradev is available today.')
+      expect(result).not.toContain('value="sandbox"')
+    })
+
+    test('refuses an environment this instance does not deploy to', async () => {
+      const cookies = await reachDetails(await signIn(server))
+
+      const { statusCode, result } = await server.inject({
+        method: 'POST',
+        url: '/connect/team/details',
+        headers: { cookie: cookieHeader(cookies) },
+        payload: { crumb: cookies.crumb, purpose: 'x', environment: 'prod' }
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain('Select an available environment')
+    })
   })
 
   test('check step shows a link to the existing request on a 409', async () => {
@@ -766,6 +851,28 @@ describe('#teamConnectController', () => {
     expect(statusCode).toBe(statusCodes.notFound)
     expect(result).toEqual(expect.stringContaining('Request not found'))
   })
+
+  test.each(['removing', 'removed'])(
+    'request wait page sends a %s deployment to its team page, where the removal is shown',
+    async (status) => {
+      const cookies = await signIn(server)
+
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          deployment: { _id: 'deployment-r', status, requestedBy: 'user-1' }
+        })
+      )
+
+      const { statusCode, headers } = await server.inject({
+        method: 'GET',
+        url: '/connect/team/request/team-1/deployment-r',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/teams/team-1')
+    }
+  )
 
   test('request wait page shows a safe error for a failed deployment', async () => {
     let cookies = await signIn(server)

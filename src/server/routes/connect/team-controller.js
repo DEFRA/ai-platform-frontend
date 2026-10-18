@@ -16,14 +16,46 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
+import { config } from '#/config/config.js'
+import {
+  DEPLOYMENT_REMOVED_STATUS,
+  DEPLOYMENT_REMOVING_STATUS
+} from '#/server/common/helpers/deployment-status.js'
 
-// Phase 1 (confirmed 24 Sept 2026): the one live team-facing environment is
-// the Sandbox (SND4) - every design C environment is shown so the option
-// isn't a surprise later, but only `sandbox` is enabled, matching the
-// backend's `environment-not-available` policy for anything else.
-const ENVIRONMENT_ITEMS = [
-  { value: 'infradev', text: 'Infradev', checked: true }
-]
+// The environments this instance deploys a team's models to (D1): the CDP
+// dev instance drives Infradev, the test instance the Sandbox. Shown as
+// radios from the configured list, the first preselected; the backend
+// refuses anything outside its own list as `environment-not-available`.
+const ENVIRONMENT_NAMES = {
+  infradev: 'Infradev',
+  sandbox: 'Sandbox',
+  dev: 'Development',
+  qa: 'QA',
+  test: 'Test',
+  preprod: 'Pre-production',
+  prod: 'Production',
+  uat: 'UAT'
+}
+
+/**
+ * The environments a team may choose from, as GOV.UK radio items.
+ * @returns {Array<{value: string, text: string, checked: boolean}>}
+ */
+function environmentItems() {
+  return config.get('teamEnvironments').map((value, index) => ({
+    value,
+    text: ENVIRONMENT_NAMES[value] ?? value,
+    checked: index === 0
+  }))
+}
+
+function environmentHint() {
+  const names = environmentItems().map((item) => item.text)
+
+  return names.length === 1
+    ? `Only ${names[0]} is available today.`
+    : `Available today: ${names.join(', ')}.`
+}
 
 // The wait page groups every intermediate GitOps state into one friendly
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
@@ -90,7 +122,10 @@ const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
-  environment: Joi.string().valid('infradev').default('infradev')
+  environment: Joi.string()
+    .valid(...config.get('teamEnvironments'))
+    .default(config.get('teamEnvironments')[0])
+    .messages({ 'any.only': 'Select an available environment' })
 })
 
 function redirectToStart(h) {
@@ -377,7 +412,8 @@ export const teamConnectController = {
           pageTitle: 'Say what it is for',
           heading: 'Say what it is for',
           values: { purpose: pendingAccess.purpose ?? '' },
-          environmentItems: ENVIRONMENT_ITEMS,
+          environmentItems: environmentItems(),
+          environmentHint: environmentHint(),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -393,7 +429,8 @@ export const teamConnectController = {
                 pageTitle: 'Error: Say what it is for',
                 heading: 'Say what it is for',
                 values: request.payload,
-                environmentItems: ENVIRONMENT_ITEMS,
+                environmentItems: environmentItems(),
+                environmentHint: environmentHint(),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
               })
@@ -411,7 +448,7 @@ export const teamConnectController = {
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: 'infradev'
+          environment: request.payload.environment
         })
 
         return h.redirect('/connect/team/check').code(statusCodes.seeOther)
@@ -538,6 +575,13 @@ export const teamConnectController = {
           }
 
           throw error
+        }
+
+        if (
+          deployment.status === DEPLOYMENT_REMOVING_STATUS ||
+          deployment.status === DEPLOYMENT_REMOVED_STATUS
+        ) {
+          return h.redirect(`/teams/${teamId}`).code(statusCodes.seeOther)
         }
 
         if (IN_PROGRESS_STATUSES.includes(deployment.status)) {
