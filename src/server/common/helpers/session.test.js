@@ -1,15 +1,19 @@
 import {
   getSessionUser,
   setSessionUser,
-  clearSessionUser,
   getPendingAccess,
   setPendingAccess,
+  clearPendingAccess,
+  getRequestedDeployments,
+  setRequestedDeployments,
+  clearRequestedDeployments,
+  resetSession,
   setIssuedCredential,
   takeIssuedCredential
 } from './session.js'
 
 function mockRequest() {
-  const store = {}
+  let store = {}
 
   return {
     yar: {
@@ -19,29 +23,61 @@ function mockRequest() {
       },
       clear: (key) => {
         delete store[key]
+      },
+      reset: () => {
+        store = {}
       }
     }
   }
 }
 
 describe('#session helpers', () => {
-  test('sets, gets and clears the session user', () => {
+  test('sets and gets the session user', () => {
     const request = mockRequest()
 
     expect(getSessionUser(request)).toBeUndefined()
 
     setSessionUser(request, { id: 'user-1' })
     expect(getSessionUser(request)).toEqual({ id: 'user-1' })
-
-    clearSessionUser(request)
-    expect(getSessionUser(request)).toBeUndefined()
   })
 
-  test('sets and gets pending access', () => {
+  test('sets, gets and clears pending access', () => {
     const request = mockRequest()
 
     setPendingAccess(request, { provider: 'openai' })
     expect(getPendingAccess(request)).toEqual({ provider: 'openai' })
+
+    clearPendingAccess(request)
+    expect(getPendingAccess(request)).toBeUndefined()
+  })
+
+  test('sets, gets and clears the deployments a team request made', () => {
+    const request = mockRequest()
+
+    setRequestedDeployments(request, { teamId: 't1', ids: ['a', 'b'] })
+    expect(getRequestedDeployments(request)).toEqual({
+      teamId: 't1',
+      ids: ['a', 'b']
+    })
+
+    clearRequestedDeployments(request)
+    expect(getRequestedDeployments(request)).toBeUndefined()
+  })
+
+  test('resetSession drops everything a person left in the session', () => {
+    const request = mockRequest()
+
+    setSessionUser(request, { id: 'user-1' })
+    setPendingAccess(request, { teamId: 't1' })
+    setRequestedDeployments(request, { teamId: 't1', ids: ['a'] })
+    setIssuedCredential(request, { secret: 'mock_secret' })
+
+    resetSession(request)
+
+    expect(getSessionUser(request)).toBeUndefined()
+    expect(getPendingAccess(request)).toBeUndefined()
+    expect(getRequestedDeployments(request)).toBeUndefined()
+    expect(takeIssuedCredential(request)).toBeUndefined()
   })
 
   test('takeIssuedCredential returns and clears the credential', () => {

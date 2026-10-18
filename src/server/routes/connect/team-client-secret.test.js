@@ -2,12 +2,15 @@ import { errorMessageForCode } from './team-client-secret.js'
 
 describe('team-client-secret', () => {
   test.each([
+    ['deployment-exists', 'Your team already has one of these models.'],
     [
-      'deployment-exists',
-      'A deployment for this team and model already exists.'
+      'model-not-eligible',
+      'One of these models is not available for your team.'
     ],
-    ['model-not-eligible', 'This model is not available for your team.'],
-    ['model-not-granted', 'Your team does not have access to this model.'],
+    [
+      'model-not-granted',
+      'Your team does not have access to one of these models.'
+    ],
     ['environment-not-available', 'This environment is not available yet.'],
     [
       'gateway-not-enabled',

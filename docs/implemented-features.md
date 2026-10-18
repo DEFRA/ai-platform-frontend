@@ -50,7 +50,15 @@ The core product journey is "three routes to a credential" — see
 - Each team also has a three-character service code, required when the team is created and
   changeable by an admin on the team page. It is checked through a `ServiceCodeVerifier` port whose
   only adapter is a mock, so teams show "To be verified" until an authoritative source is agreed.
-- Request a dedicated model deployment for the team: `/connect/team/*`.
+- Request dedicated model deployments for the team: `/connect/team/*`. The model step takes
+  **several models at once** (checkboxes; the model you came from on its page is ticked; one the team
+  already has is shown but not selectable). The backend makes one deployment per model in the order
+  asked (the first in flight, the rest queued), idempotent by a key made when the answers are given
+  (a double click replays one request). The wait page follows every model, then one client secret
+  covers them all (a model that failed, or could not be added, is named). A journey belongs to the
+  person who chose the team and is dropped for anyone else; it is cleared when the request is made;
+  sign-out ends the whole session; sessions are always held server-side (`maxCookieSize: 0`), so a
+  cookie keeps nothing.
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
   (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per
   environment** (not per model) once the deployment reaches `active`, covering every requested

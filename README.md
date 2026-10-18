@@ -58,14 +58,14 @@ You can override the default behaviour by setting the `SESSION_CACHE_ENGINE` env
 Please note: CatboxMemory (`memory`) is _not_ suitable for production use! The cache will not be shared between each
 instance of the service and it will not persist between restarts.
 
+Sessions are always held in this cache (the cookie carries only a session id), so a person, a half-made request and a
+client secret awaiting display never sit in the browser, and signing out ends the session for good.
+
 ## Redis
 
 Redis is an in-memory key-value store. Every instance of a service has access to the same Redis key-value store similar
 to how services might have a database (or MongoDB). All frontend services are given access to a namespaced prefixed that
 matches the service name. e.g. `my-service` will have access to everything in Redis that is prefixed with `my-service`.
-
-If your service does not require a session cache to be shared between instances or if you don't require Redis, you can
-disable setting `SESSION_CACHE_ENGINE=false` or changing the default value in `src/config/index.js`.
 
 ## Proxy
 

@@ -82,6 +82,48 @@ describe('#signOutController', () => {
     expect(headers.location).toBe('/')
   })
 
+  test('POST /sign-out ends the whole session, so a half-made journey is not there for the next person', async () => {
+    const cookies = await signInViaOidc(server, fetchMock)
+    const headers = { cookie: cookieHeader(cookies) }
+
+    const started = await server.inject({
+      method: 'POST',
+      url: '/connect',
+      headers,
+      payload: {
+        accessType: 'team',
+        modelSlug: 'gpt-4o',
+        crumb: cookies.crumb
+      }
+    })
+
+    expect(started.statusCode).toBe(303)
+
+    const before = await server.inject({
+      method: 'GET',
+      url: '/connect',
+      headers
+    })
+
+    expect(before.result).toContain('value="gpt-4o"')
+
+    await server.inject({
+      method: 'POST',
+      url: '/sign-out',
+      headers,
+      payload: { crumb: cookies.crumb }
+    })
+
+    // The old session is gone server-side, even for a cookie that was kept.
+    const after = await server.inject({
+      method: 'GET',
+      url: '/connect',
+      headers
+    })
+
+    expect(after.result).not.toContain('value="gpt-4o"')
+  })
+
   test('POST /sign-out works even without a signed-in session', async () => {
     const homeResponse = await server.inject({ method: 'GET', url: '/' })
     const cookies = mergeCookies({}, homeResponse)

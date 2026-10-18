@@ -4,48 +4,33 @@ import Joi from 'joi'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import {
+  clearPendingAccess,
   getSessionUser,
-  getPendingAccess,
   setPendingAccess,
-  takeIssuedCredential,
-  setAccountNotification
+  setRequestedDeployments
 } from '#/server/common/helpers/session.js'
 import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import { formatDate } from '#/config/nunjucks/filters/format-date.js'
-import {
-  DEPLOYMENT_REMOVED_STATUS,
-  DEPLOYMENT_REMOVING_STATUS
-} from '#/server/common/helpers/deployment-status.js'
-import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
-import {
-  errorMessageForCode,
-  issueTeamClientSecret
-} from './team-client-secret.js'
+import { errorMessageForCode } from './team-client-secret.js'
 import {
   environmentHint,
   environmentItems,
   environmentValues
 } from './team-environments.js'
 import {
-  FAILURE_STATUSES,
-  IN_PROGRESS_STATUSES,
-  QUEUED_STATUS,
-  buildPipelineLinks,
-  waitPageHeading
-} from './team-request-view.js'
-
-// The team journey needs both a chosen team and a chosen model. Without the
-// teamId a shared-flow session would fall through to /v1/teams/undefined/....
-function hasTeamJourneyState(pendingAccess) {
-  return Boolean(
-    pendingAccess?.modelSlug &&
-    pendingAccess?.teamId &&
-    pendingAccess?.accessType === 'team'
-  )
-}
+  MAX_MODELS_PER_REQUEST,
+  hasCompletedTeamJourney,
+  hasTeamJourneyState,
+  preselectedModelSlugs,
+  teamJourneyOf
+} from './team-journey.js'
+import {
+  buildModelCheckboxes,
+  loadModelChoices,
+  unavailableSlugs
+} from './team-model-choices.js'
 
 const selectTeamSchema = Joi.object({
   teamId: Joi.string().required().messages({
@@ -53,10 +38,22 @@ const selectTeamSchema = Joi.object({
   })
 })
 
-const selectModelSchema = Joi.object({
-  modelSlug: Joi.string().required().messages({
-    'any.required': 'Select a model'
-  })
+// One ticked box posts a string, several post a list; both become a list.
+const selectModelsSchema = Joi.object({
+  modelSlugs: Joi.array()
+    .items(Joi.string().pattern(/^[a-z0-9-]+$/))
+    .single()
+    .unique()
+    .min(1)
+    .max(MAX_MODELS_PER_REQUEST)
+    .required()
+    .messages({
+      'any.required': 'Select at least one model',
+      'array.min': 'Select at least one model',
+      'array.max': `Select no more than ${MAX_MODELS_PER_REQUEST} models`,
+      'array.unique': 'Select each model only once',
+      'string.pattern.base': 'Select models from the list'
+    })
 })
 
 const detailsSchema = Joi.object({
@@ -85,20 +82,44 @@ function buildTeamItems(teamsList, selectedTeamId) {
   }))
 }
 
-function buildModelItems(models, selectedModelSlug) {
-  return models.map((model) => ({
-    value: model.slug,
-    text: model.displayName,
-    hint: { text: model.description },
-    checked: model.slug === selectedModelSlug
-  }))
+// The slugs a posted model form names, whatever its shape.
+function postedSlugs(payload) {
+  return [].concat(payload?.modelSlugs ?? []).filter(Boolean)
+}
+
+function modelStepView(h, choices, selected, problem = {}) {
+  return h.view('connect/team/model', {
+    pageTitle: `${problem.errorSummary ? 'Error: ' : ''}Choose your models`,
+    heading: 'Which models do you want to connect to?',
+    modelItems: buildModelCheckboxes(choices, selected),
+    errorSummary: problem.errorSummary ?? null,
+    fieldErrors: problem.fieldErrors ?? {}
+  })
+}
+
+async function checkAnswersView(request, h, pendingAccess, problem = {}) {
+  const models = await Promise.all(
+    pendingAccess.modelSlugs.map((slug) =>
+      apiClient(request).get(`/v1/models/${slug}`)
+    )
+  )
+
+  return h.view('connect/team/check', {
+    pageTitle: 'Check your answers',
+    heading: 'Check your answers',
+    models,
+    purpose: pendingAccess.purpose,
+    environment: pendingAccess.environment,
+    errorMessage: problem.errorMessage ?? null,
+    existingRequestUrl: problem.existingRequestUrl ?? null
+  })
 }
 
 export const teamConnectController = {
   selectTeam: {
     get: {
       async handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+        const pendingAccess = teamJourneyOf(request)
 
         if (pendingAccess?.accessType !== 'team') {
           return redirectToStart(h)
@@ -148,15 +169,17 @@ export const teamConnectController = {
         }
       },
       handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+        const pendingAccess = teamJourneyOf(request)
 
         if (pendingAccess?.accessType !== 'team') {
           return redirectToStart(h)
         }
 
+        // From here the journey belongs to this person (teamJourneyOf).
         setPendingAccess(request, {
           ...pendingAccess,
-          teamId: request.payload.teamId
+          teamId: request.payload.teamId,
+          userId: getSessionUser(request).id
         })
 
         return h.redirect('/connect/team/model').code(statusCodes.seeOther)
@@ -164,59 +187,70 @@ export const teamConnectController = {
     }
   },
 
-  selectModel: {
+  selectModels: {
     get: {
       async handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+        const pendingAccess = teamJourneyOf(request)
 
         if (!pendingAccess?.teamId) {
           return redirectToStart(h)
         }
 
-        const { items } = await apiClient(request).get('/v1/models?tier=team')
+        const choices = await loadModelChoices(request, pendingAccess.teamId)
 
-        return h.view('connect/shared/model', {
-          pageTitle: 'Choose a model',
-          heading: 'Which model do you want to connect to?',
-          modelItems: buildModelItems(items, pendingAccess.modelSlug),
-          errorSummary: null,
-          fieldErrors: {}
-        })
+        return modelStepView(h, choices, preselectedModelSlugs(pendingAccess))
       }
     },
     post: {
       options: {
         validate: {
-          payload: selectModelSchema,
+          payload: selectModelsSchema,
           failAction: async (request, h, error) => {
-            const { items } = await apiClient(request).get(
-              '/v1/models?tier=team'
+            const pendingAccess = teamJourneyOf(request)
+
+            if (!pendingAccess?.teamId) {
+              return redirectToStart(h)
+            }
+
+            const choices = await loadModelChoices(
+              request,
+              pendingAccess.teamId
             )
 
-            return h
-              .view('connect/shared/model', {
-                pageTitle: 'Error: Choose a model',
-                heading: 'Which model do you want to connect to?',
-                modelItems: buildModelItems(items, request.payload.modelSlug),
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
-              })
+            return modelStepView(h, choices, postedSlugs(request.payload), {
+              errorSummary: buildErrorSummary(error),
+              fieldErrors: buildFieldErrors(error)
+            })
               .code(statusCodes.badRequest)
               .takeover()
           }
         }
       },
-      handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+      async handler(request, h) {
+        const pendingAccess = teamJourneyOf(request)
 
         if (!pendingAccess?.teamId) {
           return redirectToStart(h)
         }
 
-        setPendingAccess(request, {
-          ...pendingAccess,
-          modelSlug: request.payload.modelSlug
-        })
+        const { modelSlugs } = request.payload
+        const choices = await loadModelChoices(request, pendingAccess.teamId)
+
+        // The form only posts what it offered; anything else is a stale page
+        // (a model the team has since been given) or a forged request.
+        if (unavailableSlugs(choices, modelSlugs).length > 0) {
+          const text = 'Select models from the list'
+
+          return modelStepView(h, choices, modelSlugs, {
+            errorSummary: [{ text, href: '#modelSlugs' }],
+            fieldErrors: { modelSlugs: { text } }
+          }).code(statusCodes.badRequest)
+        }
+
+        // `modelSlug` was only where the person came from; their choice replaces it.
+        const { modelSlug, ...journey } = pendingAccess
+
+        setPendingAccess(request, { ...journey, modelSlugs })
 
         return h.redirect('/connect/team/details').code(statusCodes.seeOther)
       }
@@ -226,7 +260,7 @@ export const teamConnectController = {
   details: {
     get: {
       handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+        const pendingAccess = teamJourneyOf(request)
 
         if (!hasTeamJourneyState(pendingAccess)) {
           return redirectToStart(h)
@@ -265,16 +299,20 @@ export const teamConnectController = {
         }
       },
       handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+        const pendingAccess = teamJourneyOf(request)
 
         if (!hasTeamJourneyState(pendingAccess)) {
           return redirectToStart(h)
         }
 
+        // A fresh key for each time the answers are confirmed from here: a
+        // double click on "Confirm" replays one request, a changed answer
+        // makes a new one.
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: request.payload.environment
+          environment: request.payload.environment,
+          requestKey: randomUUID()
         })
 
         return h.redirect('/connect/team/check').code(statusCodes.seeOther)
@@ -285,33 +323,21 @@ export const teamConnectController = {
   check: {
     get: {
       async handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+        const pendingAccess = teamJourneyOf(request)
 
-        if (!hasTeamJourneyState(pendingAccess)) {
+        if (!hasCompletedTeamJourney(pendingAccess)) {
           return redirectToStart(h)
         }
 
-        const model = await apiClient(request).get(
-          `/v1/models/${pendingAccess.modelSlug}`
-        )
-
-        return h.view('connect/team/check', {
-          pageTitle: 'Check your answers',
-          heading: 'Check your answers',
-          model,
-          purpose: pendingAccess.purpose,
-          environment: pendingAccess.environment,
-          errorMessage: null,
-          existingRequestUrl: null
-        })
+        return checkAnswersView(request, h, pendingAccess)
       }
     },
     post: {
       async handler(request, h) {
-        const pendingAccess = getPendingAccess(request)
+        const pendingAccess = teamJourneyOf(request)
         const sessionUser = getSessionUser(request)
 
-        if (!hasTeamJourneyState(pendingAccess)) {
+        if (!hasCompletedTeamJourney(pendingAccess)) {
           return redirectToStart(h)
         }
 
@@ -321,160 +347,42 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        const { teamId, modelSlugs, environment, requestKey } = pendingAccess
+
         try {
-          const { deployment } = await apiClient(request).post(
-            `/v1/teams/${pendingAccess.teamId}/deployments`,
-            {
-              modelSlug: pendingAccess.modelSlug,
-              environment: pendingAccess.environment
-            },
-            { userId: sessionUser.id, idempotencyKey: randomUUID() }
+          const { deployments } = await apiClient(request).post(
+            `/v1/teams/${teamId}/deployments`,
+            { modelSlugs, environment },
+            { userId: sessionUser.id, idempotencyKey: requestKey }
           )
 
+          // Made: the journey is over, and its answers must not seed the next.
+          setRequestedDeployments(request, {
+            teamId,
+            ids: deployments.map(({ _id }) => _id)
+          })
+          clearPendingAccess(request)
+
           return h
-            .redirect(
-              `/connect/team/request/${pendingAccess.teamId}/${deployment._id}`
-            )
+            .redirect(`/connect/team/request/${teamId}/${deployments[0]._id}`)
             .code(statusCodes.seeOther)
         } catch (error) {
           if (error instanceof ApiError) {
-            const model = await apiClient(request).get(
-              `/v1/models/${pendingAccess.modelSlug}`
-            )
-
             const existingRequestUrl =
               error.code === 'deployment-exists' && error.existingId
-                ? `/connect/team/request/${pendingAccess.teamId}/${error.existingId}`
+                ? `/connect/team/request/${teamId}/${error.existingId}`
                 : null
 
-            return h
-              .view('connect/team/check', {
-                pageTitle: 'Check your answers',
-                heading: 'Check your answers',
-                model,
-                purpose: pendingAccess.purpose,
-                environment: pendingAccess.environment,
+            return (
+              await checkAnswersView(request, h, pendingAccess, {
                 errorMessage: errorMessageForCode(error),
                 existingRequestUrl
               })
-              .code(error.statusCode)
+            ).code(error.statusCode)
           }
 
           throw error
         }
-      }
-    }
-  },
-
-  request: {
-    get: {
-      async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-
-        if (!sessionUser) {
-          return redirectToStart(h)
-        }
-
-        const { teamId, id } = request.params
-
-        let deployment
-        try {
-          ;({ deployment } = await apiClient(request).get(
-            `/v1/teams/${teamId}/deployments/${id}`,
-            { userId: sessionUser.id }
-          ))
-        } catch (error) {
-          if (
-            error instanceof ApiError &&
-            error.statusCode === statusCodes.notFound
-          ) {
-            return h
-              .view('error/index', {
-                pageTitle: 'Request not found',
-                heading: 'Request not found',
-                message:
-                  'This request does not exist, or you are not a member of this team.',
-                actionHref: '/manage',
-                actionText: 'Go to your access'
-              })
-              .code(statusCodes.notFound)
-          }
-
-          throw error
-        }
-
-        if (
-          deployment.status === DEPLOYMENT_REMOVING_STATUS ||
-          deployment.status === DEPLOYMENT_REMOVED_STATUS
-        ) {
-          return h.redirect(`/teams/${teamId}`).code(statusCodes.seeOther)
-        }
-
-        if (IN_PROGRESS_STATUSES.includes(deployment.status)) {
-          const heading = waitPageHeading(deployment.status)
-
-          return h.view('connect/team/request', {
-            pageTitle: heading,
-            heading,
-            queued: deployment.status === QUEUED_STATUS,
-            refreshSeconds: 3,
-            lastCheckedAt: formatDate(new Date(), 'HH:mm'),
-            failed: false,
-            stages: deployment.progressSteps,
-            pipelineLinks: buildPipelineLinks(deployment.links)
-          })
-        }
-
-        if (FAILURE_STATUSES.includes(deployment.status)) {
-          return h.view('connect/team/request', {
-            pageTitle: "We could not set up your team's access",
-            heading: "We could not set up your team's access",
-            refreshSeconds: null,
-            failed: true,
-            stages: [],
-            failureReason: deployment.failureReason ?? null,
-            pipelineLinks: buildPipelineLinks(deployment.links)
-          })
-        }
-
-        // Only the member who requested the deployment may trigger issuance and
-        // see the one-time secret. Everyone else gets the read-only /manage view.
-        if (deployment.requestedBy !== sessionUser.id) {
-          setAccountNotification(request, {
-            type: 'success',
-            message:
-              "Your team's model is ready to use - see it below. Ask the person who requested it for the connection details."
-          })
-
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        return issueTeamClientSecret(request, h, {
-          sessionUser,
-          teamId,
-          deployment
-        })
-      }
-    }
-  },
-
-  credential: {
-    get: {
-      handler(request, h) {
-        const issued = takeIssuedCredential(request)
-
-        if (!issued) {
-          return h.redirect('/connect')
-        }
-
-        return h
-          .view('connect/shared/credential', {
-            pageTitle: 'Your connection details',
-            heading: 'Your connection details',
-            ...issued,
-            environmentName: credentialEnvironmentName(issued.credential)
-          })
-          .header('cache-control', 'no-store')
       }
     }
   }

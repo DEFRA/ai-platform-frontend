@@ -32,6 +32,13 @@
     <div class="govuk-grid-column-two-thirds">
       {% if failed %}
         <p class="govuk-body">Something went wrong while setting up your team's dedicated model access.</p>
+        {% if requests.length > 1 %}
+          <ul class="govuk-list govuk-list--bullet">
+            {% for item in requests %}
+              <li>{{ item.title }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
         <p class="govuk-body">
           <a class="govuk-link" href="/connect">Start again</a>
         </p>
@@ -46,25 +53,30 @@
           }) }}
         {% else %}
           {{ govukNotificationBanner({
-            text: "This usually takes about 2 minutes. You can leave this page and come back.",
+            text: "This usually takes about 2 minutes" + (" for each model" if requests.length > 1 else "") + ". You can leave this page and come back.",
             titleText: "In progress"
           }) }}
         {% endif %}
 
         <h2 class="govuk-heading-m">Progress</h2>
-        <ol class="govuk-list govuk-list--spaced" aria-live="polite">
-          {% for stage in stages %}
-            <li style="padding: 0.25rem 0;">
-              {% if stage.state == "done" %}
-                <strong class="govuk-tag govuk-tag--green">Done:</strong> {{ stage.label }}
-              {% elif stage.state == "current" %}
-                <strong class="govuk-tag govuk-tag--blue">Doing now:</strong> {{ stage.label }}
-              {% else %}
-                <strong class="govuk-tag govuk-tag--grey">To do:</strong> {{ stage.label }}
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ol>
+        {% for item in requests %}
+          {% if item.title %}
+            <h3 class="govuk-heading-s">{{ item.title }}</h3>
+          {% endif %}
+          <ol class="govuk-list govuk-list--spaced" aria-live="polite">
+            {% for stage in item.stages %}
+              <li style="padding: 0.25rem 0;">
+                {% if stage.state == "done" %}
+                  <strong class="govuk-tag govuk-tag--green">Done:</strong> {{ stage.label }}
+                {% elif stage.state == "current" %}
+                  <strong class="govuk-tag govuk-tag--blue">Doing now:</strong> {{ stage.label }}
+                {% else %}
+                  <strong class="govuk-tag govuk-tag--grey">To do:</strong> {{ stage.label }}
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        {% endfor %}
 
         <p class="govuk-body">Last checked at {{ lastCheckedAt }}. This page checks again every {{ refreshSeconds }} seconds.</p>
 
@@ -78,24 +90,26 @@
         </p>
       {% endif %}
 
-      {% if pipelineLinks.length or failureReason %}
-        {% set supportDetailsHtml %}
-          {% if failureReason %}
-            <p class="govuk-body">{{ failureReason }}</p>
-          {% endif %}
-          {% if pipelineLinks.length %}
-            <ul class="govuk-list">
-              {% for link in pipelineLinks %}
-                <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
-              {% endfor %}
-            </ul>
-          {% endif %}
-        {% endset %}
-        {{ govukDetails({
-          summaryText: "Details for the AI Platform team",
-          html: supportDetailsHtml
-        }) }}
-      {% endif %}
+      {% for item in requests %}
+        {% if item.pipelineLinks.length or item.failureReason %}
+          {% set supportDetailsHtml %}
+            {% if item.failureReason %}
+              <p class="govuk-body">{{ item.failureReason }}</p>
+            {% endif %}
+            {% if item.pipelineLinks.length %}
+              <ul class="govuk-list">
+                {% for link in item.pipelineLinks %}
+                  <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          {% endset %}
+          {{ govukDetails({
+            summaryText: "Details for the AI Platform team" + (": " + item.title if item.title else ""),
+            html: supportDetailsHtml
+          }) }}
+        {% endif %}
+      {% endfor %}
     </div>
   </div>
 {% endblock %}

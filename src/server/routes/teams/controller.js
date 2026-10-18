@@ -244,7 +244,8 @@ export const teamsController = {
             setPendingAccess(request, {
               ...currentAccess,
               accessType: 'team',
-              teamId: team._id
+              teamId: team._id,
+              userId: sessionUser.id
             })
 
             return h
