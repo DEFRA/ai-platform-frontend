@@ -26,7 +26,7 @@
       <h2 class="govuk-heading-m">Keys and client secrets you can use</h2>
 
       {% if keyRows.length == 0 %}
-        <p class="govuk-body">You do not have a key yet.</p>
+        <p class="govuk-body">You do not have a key or client secret yet.</p>
         <p class="govuk-body">Pick a model and answer three short questions. It takes about 5 minutes.</p>
         {{ govukButton({ text: "Browse models", href: "/models" }) }}
       {% else %}
@@ -46,7 +46,7 @@
             {% for row in keyRows %}
               <tr class="govuk-table__row" data-testid="keys-table-row">
                 <td class="govuk-table__cell">{{ row.forText }}</td>
-                <td class="govuk-table__cell">{{ row.modelDisplayName }}, ends {{ row.keyHint }}</td>
+                <td class="govuk-table__cell">{{ row.modelDisplayName }}{% if row.keyHint %}, ends {{ row.keyHint }}{% endif %}</td>
                 <td class="govuk-table__cell">{{ row.environment }}</td>
                 <td class="govuk-table__cell">
                   {{ govukTag({ text: row.statusText, classes: row.tagClass }) }}
@@ -65,33 +65,44 @@
         </table>
       {% endif %}
 
-      {% if beingSetUpRows.length > 0 %}
-        <h2 class="govuk-heading-m">Being set up</h2>
-        <table class="govuk-table app-credentials-table" data-testid="being-set-up-table">
-          <caption class="govuk-table__caption govuk-visually-hidden">Being set up</caption>
+      <h2 class="govuk-heading-m">Your models</h2>
+
+      {% if modelsUnavailable %}
+        <p class="govuk-body" data-testid="models-unavailable">We could not list all of your teams' models just now. Refresh the page to try again.</p>
+      {% endif %}
+
+      {% if modelRows.length == 0 %}
+        {% if not modelsUnavailable %}
+          <p class="govuk-body" data-testid="models-placeholder">None of your teams has a model yet. A team's models are set up from Connect and shared through its client secret.</p>
+        {% endif %}
+      {% else %}
+        <table class="govuk-table app-credentials-table" data-testid="models-table">
+          <caption class="govuk-table__caption govuk-visually-hidden">Your models</caption>
           <thead class="govuk-table__head">
             <tr class="govuk-table__row">
               <th class="govuk-table__header" scope="col">Model</th>
-              <th class="govuk-table__header" scope="col">For</th>
+              <th class="govuk-table__header" scope="col">Team</th>
+              <th class="govuk-table__header" scope="col">Environment</th>
               <th class="govuk-table__header" scope="col">Status</th>
               <th class="govuk-table__header" scope="col">Actions</th>
             </tr>
           </thead>
           <tbody class="govuk-table__body">
-            {% for deployment in beingSetUpRows %}
-              <tr class="govuk-table__row">
-                <td class="govuk-table__cell">{{ deployment.modelDisplayName }}</td>
-                <td class="govuk-table__cell">{{ deployment.forText }}</td>
+            {% for row in modelRows %}
+              <tr class="govuk-table__row" data-testid="models-table-row">
+                <td class="govuk-table__cell">{{ row.modelDisplayName }}</td>
+                <td class="govuk-table__cell">{{ row.teamName }}</td>
+                <td class="govuk-table__cell">{{ row.environment }}</td>
                 <td class="govuk-table__cell">
-                  {{ govukTag({
-                    text: deployment.statusText,
-                    classes: deployment.tagClass
-                  }) }}
+                  {{ govukTag({ text: row.statusText, classes: row.tagClass }) }}
+                  {% if row.failureReason %}
+                    <p class="govuk-body-s govuk-!-margin-bottom-0 govuk-!-margin-top-1">{{ row.failureReason }}</p>
+                  {% endif %}
                 </td>
                 <td class="govuk-table__cell">
-                  <a class="govuk-link app-link--progress" href="{{ deployment.requestUrl }}" data-testid="deployment-check-progress">
-                    {% if deployment.status != "active" %}<span class="app-spinner" aria-hidden="true"></span>{% endif %}
-                    Check progress
+                  <a class="govuk-link app-link--progress" href="{{ row.action.href }}" data-testid="model-action">
+                    {% if row.inProgress %}<span class="app-spinner" aria-hidden="true"></span>{% endif %}
+                    {{ row.action.text }}<span class="govuk-visually-hidden"> for {{ row.modelDisplayName }}</span>
                   </a>
                 </td>
               </tr>

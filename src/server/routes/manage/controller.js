@@ -1,5 +1,4 @@
 import Joi from 'joi'
-import { differenceInCalendarDays } from 'date-fns'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
@@ -15,16 +14,12 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import {
-  DEPLOYMENT_REMOVED_STATUS,
-  DEPLOYMENT_REMOVING_STATUS,
-  deploymentStatusText,
-  deploymentTagClass,
-  isDeploymentInProgress
-} from '#/server/common/helpers/deployment-status.js'
 import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
-import { formatDate } from '#/config/nunjucks/filters/format-date.js'
-import { formatLabel } from '#/config/nunjucks/filters/format-label.js'
+import {
+  buildKeyRows,
+  buildModelRows,
+  notificationBannerParams
+} from './access-view.js'
 
 const revokeConfirmSchema = Joi.object({
   confirmRevoke: Joi.string().valid('yes', 'no').required().messages({
@@ -145,176 +140,6 @@ function isNotFound(error) {
   return error instanceof ApiError && error.statusCode === statusCodes.notFound
 }
 
-const TAG_CLASS_BY_STATUS = {
-  active: 'govuk-tag--green',
-  revoked: 'govuk-tag--red'
-}
-
-function tagClassForStatus(status) {
-  return TAG_CLASS_BY_STATUS[status] ?? 'govuk-tag--grey'
-}
-
-function modelDisplayNameFor(credential, modelNames) {
-  if (credential.tier === 'team') {
-    const slugs = credential.allowedDeployments ?? []
-
-    return slugs.length > 0
-      ? slugs.map((slug) => modelNames[slug] ?? slug).join(', ')
-      : 'No models yet'
-  }
-
-  return modelNames[credential.modelSlug] ?? credential.modelSlug
-}
-
-// Research keys carry a fixed, meaningful expiry - show a countdown instead
-// of a static "Active" tag so people notice one is about to run out.
-const RESEARCH_EXPIRY_WARNING_DAYS = 3
-
-function statusDisplayFor(credential) {
-  if (credential.tier === 'team' || credential.status !== 'active') {
-    return {
-      text: formatLabel(credential.status),
-      tagClass: tagClassForStatus(credential.status)
-    }
-  }
-
-  const daysLeft = Math.max(
-    differenceInCalendarDays(new Date(credential.expiresAt), new Date()),
-    0
-  )
-
-  return {
-    text: `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`,
-    tagClass:
-      daysLeft <= RESEARCH_EXPIRY_WARNING_DAYS
-        ? 'govuk-tag--yellow'
-        : 'govuk-tag--green'
-  }
-}
-
-function decorateKeyRow(
-  credential,
-  modelNames,
-  { forText, showRenewRevoke, isAdmin }
-) {
-  const statusDisplay = statusDisplayFor(credential)
-
-  return {
-    ...credential,
-    modelDisplayName: modelDisplayNameFor(credential, modelNames),
-    forText,
-    environment: credentialEnvironmentName(credential),
-    statusText: statusDisplay.text,
-    tagClass: statusDisplay.tagClass,
-    runsOut: credential.expiresAt ? formatDate(credential.expiresAt) : null,
-    showRenewRevoke,
-    showRotateRevoke: credential.tier === 'team' && isAdmin
-  }
-}
-
-// A credential that never finished issuing (still 'pending', or 'failed'
-// after a retry was exhausted/reconciled) was never a usable key - nothing
-// to view/renew/revoke. Surfacing it here would show, per failed attempt, a
-// permanent dead-end row (the connect journey already told the requester
-// about the failure inline when it happened).
-const UNISSUED_CREDENTIAL_STATUSES = ['pending', 'failed']
-
-// Builds the single "Keys and client secrets you can use" table (page 11):
-// personal research keys and shared team client secrets side by side, so
-// people can compare what they hold without switching tabs.
-function buildKeyRows(credentials, teamsById, modelNames) {
-  return credentials
-    .filter(
-      (credential) => !UNISSUED_CREDENTIAL_STATUSES.includes(credential.status)
-    )
-    .map((credential) => {
-      if (credential.tier === 'team') {
-        const team = teamsById.get(credential.teamId)
-
-        return decorateKeyRow(credential, modelNames, {
-          forText: `${team?.name ?? 'Unknown team'} / Team`,
-          showRenewRevoke: false,
-          isAdmin: team?.role === 'admin'
-        })
-      }
-
-      return decorateKeyRow(credential, modelNames, {
-        forText: 'You / Research',
-        showRenewRevoke: true,
-        isAdmin: false
-      })
-    })
-}
-
-// Deployment requests that haven't produced a viewable credential yet (still
-// being set up, failed, or active but not yet revealed to anyone) get a
-// "check progress" row, so a request never becomes unreachable if the
-// requester navigates away from the wait page. A model whose credential was
-// ever actually issued (active or later revoked) has already been through
-// that flow - keep it out permanently so revoking a credential doesn't
-// resurrect its request row and let "check progress" issue a brand new one.
-
-function buildIssuedModelSlugsByTeam(teamCredentials) {
-  const issuedByTeam = new Map()
-
-  for (const credential of teamCredentials) {
-    if (!['active', 'revoked'].includes(credential.status)) {
-      continue
-    }
-
-    const slugs = issuedByTeam.get(credential.teamId) ?? new Set()
-    for (const slug of credential.allowedDeployments ?? []) {
-      slugs.add(slug)
-    }
-    issuedByTeam.set(credential.teamId, slugs)
-  }
-
-  return issuedByTeam
-}
-
-function buildBeingSetUpRows(
-  deployments,
-  teamCredentials,
-  teamsById,
-  modelNames
-) {
-  const issuedModelSlugsByTeam = buildIssuedModelSlugsByTeam(teamCredentials)
-
-  // A removed model is history, not something being set up; one being
-  // removed is shown however the team's credential still lists it.
-  return deployments
-    .filter(
-      (deployment) =>
-        deployment.status !== DEPLOYMENT_REMOVED_STATUS &&
-        (deployment.status === DEPLOYMENT_REMOVING_STATUS ||
-          !issuedModelSlugsByTeam
-            .get(deployment.teamId)
-            ?.has(deployment.modelSlug))
-    )
-    .map((deployment) => ({
-      ...deployment,
-      modelDisplayName:
-        modelNames[deployment.modelSlug] ?? deployment.modelSlug,
-      forText: teamsById.get(deployment.teamId)?.name ?? 'Unknown team',
-      statusText: deploymentStatusText(deployment.status),
-      tagClass: deploymentTagClass(deployment.status),
-      requestUrl: `/connect/team/request/${deployment.teamId}/${deployment._id}`
-    }))
-}
-
-// GOV.UK's notification banner macro only has a distinct "success" style;
-// anything else renders its default (informational/error) style.
-function notificationBannerParams(notification) {
-  if (!notification) {
-    return null
-  }
-
-  return {
-    text: notification.message,
-    ...(notification.type === 'success' ? { type: 'success' } : {})
-  }
-}
-
 export const manageController = {
   list: {
     get: {
@@ -356,29 +181,28 @@ export const manageController = {
         // stale if they later change teams; tier is the reliable signal for
         // personal vs shared, since teamId is never used for authorization.
         const teamsById = new Map(teamItems.map((team) => [team._id, team]))
-        const teamCredentials = items.filter(
-          (credential) => credential.tier === 'team'
-        )
-
-        const hasInProgressDeployment = deployments.some((deployment) =>
-          isDeploymentInProgress(deployment.status)
+        const modelRows = buildModelRows(
+          deployments,
+          items,
+          teamsById,
+          modelNames
         )
 
         return h.view('manage/index', {
           pageTitle: 'Your access',
           heading: 'Your access',
           keyRows: buildKeyRows(items, teamsById, modelNames),
-          beingSetUpRows: buildBeingSetUpRows(
-            deployments,
-            teamCredentials,
-            teamsById,
-            modelNames
+          modelRows,
+          modelsUnavailable: deploymentResults.some(
+            (result) => result.status === 'rejected'
           ),
           teams: teamItems,
           notificationBanner: notificationBannerParams(
             takeAccountNotification(request)
           ),
-          refreshSeconds: hasInProgressDeployment ? 5 : undefined
+          refreshSeconds: modelRows.some((row) => row.inProgress)
+            ? 5
+            : undefined
         })
       }
     }

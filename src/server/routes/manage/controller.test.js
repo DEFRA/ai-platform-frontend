@@ -116,6 +116,8 @@ describe('#manageController', () => {
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).toEqual(expect.stringContaining('GPT-4o'))
     expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
+    expect(result).toContain('data-testid="models-unavailable"')
+    expect(result).not.toContain('data-testid="models-placeholder"')
   })
 
   test('GET /manage shows the empty state with no credentials', async () => {
@@ -132,7 +134,9 @@ describe('#manageController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('You do not have a key yet'))
+    expect(result).toEqual(
+      expect.stringContaining('You do not have a key or client secret yet')
+    )
   })
 
   test('GET /manage hides failed and pending credentials, including repeated failures for the same model, from the key list', async () => {
@@ -157,7 +161,9 @@ describe('#manageController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('You do not have a key yet'))
+    expect(result).toEqual(
+      expect.stringContaining('You do not have a key or client secret yet')
+    )
   })
 
   test('GET /manage shows a "Your teams" placeholder with no team memberships', async () => {
@@ -210,7 +216,7 @@ describe('#manageController', () => {
     expect(result).toContain('Keys and client secrets you can use')
     expect(result).not.toContain('Keys you can use')
     expect(result).not.toEqual(
-      expect.stringContaining('You do not have a key yet')
+      expect.stringContaining('You do not have a key or client secret yet')
     )
   })
 
@@ -275,7 +281,7 @@ describe('#manageController', () => {
 
     expect(statusCode).toBe(statusCodes.ok)
     expect(result).not.toEqual(
-      expect.stringContaining('You do not have a key yet')
+      expect.stringContaining('You do not have a key or client secret yet')
     )
     expect(result).toEqual(expect.stringContaining('ab12'))
     expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
@@ -462,7 +468,9 @@ describe('#manageController', () => {
     })
 
     expect(result).toContain('Removing')
-    expect(result).toContain('/connect/team/request/team-1/deployment-r1')
+    // A removal is the team page's to follow; the request page would only send the person there.
+    expect(result).toContain('href="/teams/team-1"')
+    expect(result).not.toContain('/connect/team/request/team-1/deployment-r1')
     // The team credential's row names its environment, not a fixed one.
     expect(result).toContain('Infradev')
   })
@@ -495,18 +503,20 @@ describe('#manageController', () => {
     })
 
     expect(result).toEqual(expect.stringContaining('Ready to view'))
+    expect(result).toContain('Finish setting up')
     expect(result).toEqual(
       expect.stringContaining('/connect/team/request/team-1/deployment-3')
     )
   })
 
-  test('GET /manage does not show a request row for a model whose team credential has since been revoked', async () => {
+  test('GET /manage sends a ready model to its team page once the team secret has been issued, even if since revoked', async () => {
     const cookies = await signIn(server)
     const revokedTeamCredential = {
       ...sampleCredential,
       _id: 'cred-team-revoked',
       teamId: 'team-1',
       tier: 'team',
+      environment: 'infradev',
       status: 'revoked',
       allowedDeployments: ['gpt-4o']
     }
@@ -525,6 +535,7 @@ describe('#manageController', () => {
             _id: 'deployment-5',
             teamId: 'team-1',
             modelSlug: 'gpt-4o',
+            environment: 'infradev',
             status: 'active'
           }
         ]
@@ -538,10 +549,70 @@ describe('#manageController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).not.toEqual(expect.stringContaining('Ready to view'))
-    expect(result).not.toEqual(
-      expect.stringContaining('/connect/team/request/team-1/deployment-5')
+    expect(result).toContain('Ready to view')
+    expect(result).toContain('Manage in Flood Risk Team')
+    expect(result).not.toContain('Finish setting up')
+    expect(result).not.toContain('/connect/team/request/team-1/deployment-5')
+  })
+
+  test('GET /manage lists every model with its team, environment and failure reason', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
     )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-f',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            environment: 'infradev',
+            status: 'deploy-failed',
+            failureReason: 'The apply workflow failed'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('data-testid="models-table"')
+    expect(result).toContain('Your models')
+    expect(result).not.toContain('Being set up')
+    expect(result).toContain('Flood Risk Team')
+    expect(result).toContain('Infradev')
+    expect(result).toContain('Setup failed')
+    expect(result).toContain('The apply workflow failed')
+    expect(result).toContain('See what happened')
+    expect(result).not.toContain('http-equiv="refresh"')
+  })
+
+  test('GET /manage says when none of the person’s teams has a model', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('data-testid="models-placeholder"')
+    expect(result).not.toContain('data-testid="models-table"')
   })
 
   test('GET /manage sorts a team with a request in progress before other teams, so a refresh keeps showing it', async () => {

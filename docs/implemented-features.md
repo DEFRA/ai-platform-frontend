@@ -61,8 +61,10 @@ The core product journey is "three routes to a credential" — see
   cookie keeps nothing.
 - Backend: `teams`, `teamMembers`, `teamDeployments` collections; a `TenantOrchestrator` port
   (`mock`, or `github` - see below) drives the slow "provision the team's stack" path; one **shared credential per team per
-  environment** (not per model) once the deployment reaches `active`, covering every requested
-  model via `allowedDeployments[]`.
+  environment** (not per model) once the deployment reaches `active`. Its `allowedDeployments[]` is
+  the team's live gateway grants, read from the team's deployments on every response and never
+  stored, so a removed model leaves the credential at once; a revoked credential keeps what it
+  covered when it was revoked.
 - Team credentials are OAuth client secrets (decision of 14 Oct 2026): `/connect/team/*` requests
   `credentialType: 'oauth'` and the team pages say "client secret", never "key". Research keeps keys.
   Until the real OAuth issuer (M7), live mode answers `501 gateway-not-enabled`, which the wait page explains.
@@ -105,10 +107,15 @@ The core product journey is "three routes to a credential" — see
   model as nav items (`src/config/nunjucks/context/build-navigation.js`).
 - Presenter layer: `src/config/nunjucks/filters/format-label.js` (enum -> display label) and a
   simplified `formatDate` (`d MMMM yyyy`).
-- `/manage` restructured from per-team tabs to one merged "Keys you can use" table (personal +
-  team credentials together) plus a flat "Being set up" table and a plain-text "Your teams" list.
+- `/manage` restructured from per-team tabs to one merged "Keys and client secrets you can use" table
+  (personal + team credentials together), a "Your models" table (every model a person's teams have
+  or are changing, with team, environment, status, failure reason and the one action that fits:
+  check progress, see what happened, finish setting up, or manage in the team) and a plain-text
+  "Your teams" list; row shaping lives in `manage/access-view.js`.
 - Home page (`/`) now has real content for both signed-out and signed-in visitors (was a
-  placeholder) — see the Route 0 status above.
+  placeholder) — see the Route 0 status above. Signed in, one inset per team with an active client
+  secret names the team and the models it covers today (or says none are deployed) and links to
+  `/manage`.
 
 ## Cross-cutting platform features
 
