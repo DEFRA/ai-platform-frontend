@@ -21,10 +21,13 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 import {
-  deploymentStatusText,
-  deploymentTagClass,
-  isDeploymentInProgress
-} from '#/server/common/helpers/deployment-status.js'
+  TEAM_VIEW,
+  isForbidden,
+  isNotFound,
+  loadTeamForView,
+  loadTeamModels,
+  teamPageContext
+} from './team-view.js'
 
 const serviceCodeField = Joi.string()
   .trim()
@@ -65,14 +68,6 @@ const addMemberSchema = Joi.object({
   })
 })
 
-function isForbidden(error) {
-  return error instanceof ApiError && error.statusCode === statusCodes.forbidden
-}
-
-function isNotFound(error) {
-  return error instanceof ApiError && error.statusCode === statusCodes.notFound
-}
-
 function errorMessageForCode(error) {
   if (error.code === 'team-exists') {
     return 'A team with this name already exists.'
@@ -81,143 +76,24 @@ function errorMessageForCode(error) {
   return error.message
 }
 
-// Only an admin needs to see a colleague's full address (to manage invites);
-// everyone else gets a masked form so the page isn't a team-wide email list.
-function maskEmail(email) {
-  const [localPart, domain] = email.split('@')
-
-  if (!domain) {
-    return 'Hidden'
+// A member change the backend refused: the last-admin rule becomes a banner,
+// a refusal or a missing member is silent, and anything else is a fault.
+function handleMemberChangeError(request, error) {
+  if (!(error instanceof ApiError)) {
+    throw error
   }
 
-  return `${localPart.slice(0, 1)}${'*'.repeat(Math.max(localPart.length - 1, 1))}@${domain}`
-}
-
-async function loadTeamForView(request, id) {
-  const sessionUser = getSessionUser(request)
-  const result = await apiClient(request).get(`/v1/teams/${id}`, {
-    userId: sessionUser.id
-  })
-
-  const isAdmin = result.members.some(
-    (member) =>
-      member.userId === sessionUser.id &&
-      member.role === 'admin' &&
-      member.status === 'active'
-  )
-
-  const activeAdminCount = result.members.filter(
-    (member) => member.role === 'admin' && member.status === 'active'
-  ).length
-
-  const members = result.members
-    // Removed members are kept in the backend for audit purposes only.
-    .filter((member) => member.status !== 'removed')
-    .map((member) => ({
-      ...member,
-      email:
-        member.email && !isAdmin && member.userId !== sessionUser.id
-          ? maskEmail(member.email)
-          : member.email,
-      // The team's last admin can be neither removed nor demoted; promote
-      // someone else first.
-      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
-      canChangeRole:
-        isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
-      nextRole: member.role === 'admin' ? 'user' : 'admin'
-    }))
-
-  return { ...result, members, isAdmin }
-}
-
-// The team's model deployments, as rows for the team page. Supplementary
-// to the team itself: a failure to list them must not take the page down.
-async function loadTeamModels(request, id, isAdmin) {
-  const sessionUser = getSessionUser(request)
-  const [deployments, catalogue] = await Promise.allSettled([
-    apiClient(request).get(`/v1/teams/${id}/deployments`, {
-      userId: sessionUser.id
-    }),
-    apiClient(request).get('/v1/models')
-  ])
-
-  if (deployments.status === 'rejected') {
-    request.logger.warn(
-      { err: deployments.reason },
-      'Could not load the team models for the team page'
-    )
-    return []
-  }
-
-  const modelNames = Object.fromEntries(
-    (catalogue.value?.items ?? []).map((model) => [
-      model.slug,
-      model.displayName
-    ])
-  )
-
-  return (deployments.value?.items ?? []).map((deployment) => ({
-    _id: deployment._id,
-    modelSlug: deployment.modelSlug,
-    modelDisplayName: modelNames[deployment.modelSlug] ?? deployment.modelSlug,
-    environment: deployment.environment,
-    status: deployment.status,
-    statusText: deploymentStatusText(deployment.status),
-    tagClass: deploymentTagClass(deployment.status),
-    failureReason: deployment.failureReason ?? null,
-    // Only an admin removes a model, and only one that is in place.
-    canRemove: isAdmin && deployment.status === 'active',
-    removeUrl: `/teams/${id}/models/${deployment._id}/remove`,
-    requestUrl: `/connect/team/request/${id}/${deployment._id}`
-  }))
-}
-
-// What every render of the team page needs.
-function teamPageContext(result, models, extras) {
-  return {
-    pageTitle: result.team.name,
-    heading: result.team.name,
-    team: result.team,
-    members: result.members,
-    isAdmin: result.isAdmin,
-    models,
-    refreshSeconds: models.some((model) => isDeploymentInProgress(model.status))
-      ? 5
-      : undefined,
-    notification: null,
-    errorSummary: null,
-    fieldErrors: {},
-    ...extras
-  }
-}
-
-function removeModelErrorMessage(error) {
-  if (error.code === 'deployment-in-progress') {
-    return 'This model is still being set up. Try again once it is ready.'
-  }
-
-  if (error.code === 'team-file-busy') {
-    return 'Another change to this team is in progress. Try again in a few minutes.'
-  }
-
-  if (error.code === 'admin-required') {
-    return 'Only a team admin can remove a model.'
-  }
-
-  return error.message
-}
-
-function modelNotFound(h, teamId) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Model not found',
-      heading: 'Model not found',
-      message:
-        'This model is not one of this team’s, or you are not an admin of the team.',
-      actionHref: `/teams/${teamId}`,
-      actionText: 'Back to the team'
+  if (error.code === 'last-admin') {
+    setAccountNotification(request, {
+      type: 'error',
+      message: 'A team must keep at least one admin.'
     })
-    .code(statusCodes.notFound)
+    return
+  }
+
+  if (!isForbidden(error) && !isNotFound(error)) {
+    throw error
+  }
 }
 
 export const teamsController = {
@@ -406,75 +282,11 @@ export const teamsController = {
         const models = await loadTeamModels(request, id, result.isAdmin)
 
         return h.view(
-          'teams/team',
+          TEAM_VIEW,
           teamPageContext(result, models, {
             notification: takeAccountNotification(request)
           })
         )
-      }
-    }
-  },
-
-  removeModel: {
-    get: {
-      async handler(request, h) {
-        const { id, deploymentId } = request.params
-        const result = await loadTeamForView(request, id)
-        const model = (await loadTeamModels(request, id, result.isAdmin)).find(
-          (candidate) => candidate._id === deploymentId
-        )
-
-        if (!model || !result.isAdmin) {
-          return modelNotFound(h, id)
-        }
-
-        return h.view('teams/remove-model', {
-          pageTitle: `Remove ${model.modelDisplayName} from ${result.team.name}`,
-          heading: `Remove ${model.modelDisplayName} from ${result.team.name}?`,
-          team: result.team,
-          model
-        })
-      }
-    },
-    post: {
-      async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { id, deploymentId } = request.params
-
-        try {
-          const { deployment } = await apiClient(request).del(
-            `/v1/teams/${id}/deployments/${deploymentId}`,
-            { userId: sessionUser.id }
-          )
-
-          setAccountNotification(request, {
-            type: 'success',
-            message:
-              deployment.status === 'removed'
-                ? `${deployment.modelSlug} has been removed from the team.`
-                : `${deployment.modelSlug} is being removed. Apps using it through your team’s address will stop working once it has gone; this takes a few minutes.`
-          })
-        } catch (error) {
-          // Only a refusal the person can act on becomes a banner; a backend
-          // fault goes to the error page like everywhere else.
-          if (
-            !(error instanceof ApiError) ||
-            error.statusCode >= statusCodes.internalServerError
-          ) {
-            throw error
-          }
-
-          if (isNotFound(error)) {
-            return modelNotFound(h, id)
-          }
-
-          setAccountNotification(request, {
-            type: 'error',
-            message: removeModelErrorMessage(error)
-          })
-        }
-
-        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
       }
     }
   },
@@ -502,18 +314,7 @@ export const teamsController = {
             { userId: sessionUser.id }
           )
         } catch (error) {
-          if (!(error instanceof ApiError)) {
-            throw error
-          }
-
-          if (error.code === 'last-admin') {
-            setAccountNotification(request, {
-              type: 'error',
-              message: 'A team must keep at least one admin.'
-            })
-          } else if (!isForbidden(error) && !isNotFound(error)) {
-            throw error
-          }
+          handleMemberChangeError(request, error)
         }
 
         return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
@@ -533,7 +334,7 @@ export const teamsController = {
 
             return h
               .view(
-                'teams/team',
+                TEAM_VIEW,
                 teamPageContext(result, models, {
                   errorSummary: buildErrorSummary(error),
                   fieldErrors: buildFieldErrors(error)
@@ -577,7 +378,7 @@ export const teamsController = {
 
             return h
               .view(
-                'teams/team',
+                TEAM_VIEW,
                 teamPageContext(result, models, {
                   errorSummary: buildErrorSummary(error),
                   fieldErrors: buildFieldErrors(error)
@@ -624,18 +425,7 @@ export const teamsController = {
             userId: sessionUser.id
           })
         } catch (error) {
-          if (!(error instanceof ApiError)) {
-            throw error
-          }
-
-          if (error.code === 'last-admin') {
-            setAccountNotification(request, {
-              type: 'error',
-              message: 'A team must keep at least one admin.'
-            })
-          } else if (!isForbidden(error) && !isNotFound(error)) {
-            throw error
-          }
+          handleMemberChangeError(request, error)
         }
 
         return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)

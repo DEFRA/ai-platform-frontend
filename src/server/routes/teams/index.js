@@ -1,4 +1,80 @@
 import { teamsController } from './controller.js'
+import { removeModelController } from './models-controller.js'
+
+const routes = [
+  {
+    method: 'GET',
+    path: '/teams',
+    handler: teamsController.list.get.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/new',
+    handler: teamsController.newTeam.get.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/new',
+    options: {
+      validate: teamsController.newTeam.post.options.validate
+    },
+    handler: teamsController.newTeam.post.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/new/check',
+    handler: teamsController.check.get.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/new/check',
+    handler: teamsController.check.post.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/{id}',
+    handler: teamsController.team.get.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{id}/service-code',
+    options: {
+      validate: teamsController.setServiceCode.post.options.validate
+    },
+    handler: teamsController.setServiceCode.post.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{id}/members',
+    options: {
+      validate: teamsController.addMember.post.options.validate
+    },
+    handler: teamsController.addMember.post.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{id}/members/{memberId}/role',
+    options: {
+      validate: teamsController.setMemberRole.post.options.validate
+    },
+    handler: teamsController.setMemberRole.post.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{id}/members/{memberId}/remove',
+    handler: teamsController.removeMember.post.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/{id}/models/{deploymentId}/remove',
+    handler: removeModelController.get.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{id}/models/{deploymentId}/remove',
+    handler: removeModelController.post.handler
+  }
+]
 
 /**
  * Sets up the routes for team select/create/manage (B08). Protected by the
@@ -9,80 +85,7 @@ export const teams = {
   plugin: {
     name: 'teams',
     register(server) {
-      server.route([
-        {
-          method: 'GET',
-          path: '/teams',
-          handler: teamsController.list.get.handler
-        },
-        {
-          method: 'GET',
-          path: '/teams/new',
-          handler: teamsController.newTeam.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/teams/new',
-          options: {
-            validate: teamsController.newTeam.post.options.validate
-          },
-          handler: teamsController.newTeam.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/teams/new/check',
-          handler: teamsController.check.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/teams/new/check',
-          handler: teamsController.check.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/teams/{id}',
-          handler: teamsController.team.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/teams/{id}/service-code',
-          options: {
-            validate: teamsController.setServiceCode.post.options.validate
-          },
-          handler: teamsController.setServiceCode.post.handler
-        },
-        {
-          method: 'POST',
-          path: '/teams/{id}/members',
-          options: {
-            validate: teamsController.addMember.post.options.validate
-          },
-          handler: teamsController.addMember.post.handler
-        },
-        {
-          method: 'POST',
-          path: '/teams/{id}/members/{memberId}/role',
-          options: {
-            validate: teamsController.setMemberRole.post.options.validate
-          },
-          handler: teamsController.setMemberRole.post.handler
-        },
-        {
-          method: 'POST',
-          path: '/teams/{id}/members/{memberId}/remove',
-          handler: teamsController.removeMember.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/teams/{id}/models/{deploymentId}/remove',
-          handler: teamsController.removeModel.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/teams/{id}/models/{deploymentId}/remove',
-          handler: teamsController.removeModel.post.handler
-        }
-      ])
+      server.route(routes)
     }
   }
 }

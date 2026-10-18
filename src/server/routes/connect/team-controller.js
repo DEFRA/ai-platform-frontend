@@ -7,7 +7,6 @@ import {
   getSessionUser,
   getPendingAccess,
   setPendingAccess,
-  setIssuedCredential,
   takeIssuedCredential,
   setAccountNotification
 } from '#/server/common/helpers/session.js'
@@ -16,85 +15,26 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
-import { config } from '#/config/config.js'
 import {
   DEPLOYMENT_REMOVED_STATUS,
   DEPLOYMENT_REMOVING_STATUS
 } from '#/server/common/helpers/deployment-status.js'
-
-// The environments this instance deploys a team's models to (D1): the CDP
-// dev instance drives Infradev, the test instance the Sandbox. Shown as
-// radios from the configured list, the first preselected; the backend
-// refuses anything outside its own list as `environment-not-available`.
-const ENVIRONMENT_NAMES = {
-  infradev: 'Infradev',
-  sandbox: 'Sandbox',
-  dev: 'Development',
-  qa: 'QA',
-  test: 'Test',
-  preprod: 'Pre-production',
-  prod: 'Production',
-  uat: 'UAT'
-}
-
-/**
- * The environments a team may choose from, as GOV.UK radio items.
- * @returns {Array<{value: string, text: string, checked: boolean}>}
- */
-function environmentItems() {
-  return config.get('teamEnvironments').map((value, index) => ({
-    value,
-    text: ENVIRONMENT_NAMES[value] ?? value,
-    checked: index === 0
-  }))
-}
-
-function environmentHint() {
-  const names = environmentItems().map((item) => item.text)
-
-  return names.length === 1
-    ? `Only ${names[0]} is available today.`
-    : `Available today: ${names.join(', ')}.`
-}
-
-// The wait page groups every intermediate GitOps state into one friendly
-// "being set up" message - it never shows raw GitOps jargon to the user (B09).
-// GitOps applies one change per team file at a time, so a request made while
-// another is in flight waits as `queued`, which gets its own wording.
-const QUEUED_STATUS = 'queued'
-const IN_PROGRESS_STATUSES = [
+import {
+  errorMessageForCode,
+  issueTeamClientSecret
+} from './team-client-secret.js'
+import {
+  environmentHint,
+  environmentItems,
+  environmentValues
+} from './team-environments.js'
+import {
+  FAILURE_STATUSES,
+  IN_PROGRESS_STATUSES,
   QUEUED_STATUS,
-  'requested',
-  'pr-raised',
-  'merged',
-  'deploying',
-  'deployed',
-  'verified'
-]
-const FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
-
-function waitPageHeading(status) {
-  return status === QUEUED_STATUS
-    ? 'Waiting for another change to this team to finish'
-    : 'Setting up your team client secret'
-}
-
-// Support links to the GitOps runs and pull request behind a team request,
-// when the backend has them. Labelled here, and only https links are shown.
-const PIPELINE_LINK_LABELS = {
-  submitRun: 'Submit workflow run',
-  pullRequest: 'Pull request',
-  applyRun: 'Apply workflow run'
-}
-
-function buildPipelineLinks(links = {}) {
-  return Object.entries(PIPELINE_LINK_LABELS)
-    .filter(
-      ([key]) =>
-        typeof links[key] === 'string' && links[key].startsWith('https://')
-    )
-    .map(([key, text]) => ({ href: links[key], text }))
-}
+  buildPipelineLinks,
+  waitPageHeading
+} from './team-request-view.js'
 
 // The team journey needs both a chosen team and a chosen model. Without the
 // teamId a shared-flow session would fall through to /v1/teams/undefined/....
@@ -123,8 +63,8 @@ const detailsSchema = Joi.object({
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
   environment: Joi.string()
-    .valid(...config.get('teamEnvironments'))
-    .default(config.get('teamEnvironments')[0])
+    .valid(...environmentValues())
+    .default(environmentValues()[0])
     .messages({ 'any.only': 'Select an available environment' })
 })
 
@@ -147,127 +87,6 @@ function buildModelItems(models, selectedModelSlug) {
     hint: { text: model.description },
     checked: model.slug === selectedModelSlug
   }))
-}
-
-function errorMessageForCode(error) {
-  if (error.code === 'deployment-exists') {
-    return 'A deployment for this team and model already exists.'
-  }
-
-  if (error.code === 'model-not-eligible') {
-    return 'This model is not available for your team.'
-  }
-
-  if (error.code === 'model-not-granted') {
-    return 'Your team does not have access to this model.'
-  }
-
-  if (error.code === 'environment-not-available') {
-    return 'This environment is not available yet.'
-  }
-
-  // In live mode no gateway issues team OAuth client secrets until the real
-  // OAuth issuer exists (M7), so the backend refuses with 501.
-  if (error.code === 'gateway-not-enabled') {
-    return 'Team client secrets are not available in this environment yet.'
-  }
-
-  return error.message
-}
-
-// Explains a team credential that cannot be issued in this environment (see
-// errorMessageForCode); any other error is unexpected here, so it rethrows.
-function clientSecretUnavailableOrThrow(h, error) {
-  if (!(error instanceof ApiError) || error.code !== 'gateway-not-enabled') {
-    throw error
-  }
-
-  return h
-    .view('error/index', {
-      pageTitle: 'We cannot create your team client secret yet',
-      heading: 'We cannot create your team client secret yet',
-      message: errorMessageForCode(error),
-      actionHref: '/manage',
-      actionText: 'Go to your access'
-    })
-    .code(error.statusCode)
-}
-
-// The deployment is active and the signed-in member requested it: issue (or
-// reuse) the team's shared credential and reveal its secret once.
-async function issueTeamClientSecret(
-  request,
-  h,
-  { sessionUser, teamId, deployment }
-) {
-  // Defense in depth for /manage already hiding this deployment's request row
-  // once its credential is revoked: a stale/bookmarked link could still reach
-  // the request page directly, so re-check here too before issuing anything.
-  // A revoked team credential is a deliberate, final action - it must not be
-  // silently resurrected.
-  const { items: existingCredentials } = await apiClient(request).get(
-    '/v1/credentials',
-    { userId: sessionUser.id }
-  )
-  const wasRevoked = existingCredentials.some(
-    (existing) =>
-      existing.teamId === teamId &&
-      existing.tier === 'team' &&
-      existing.status === 'revoked' &&
-      (existing.allowedDeployments ?? []).includes(deployment.modelSlug)
-  )
-
-  if (wasRevoked) {
-    setAccountNotification(request, {
-      type: 'success',
-      message:
-        'Access to this model was revoked for your team. Ask your team to request access again from Connect if you still need it.'
-    })
-
-    return h.redirect('/manage').code(statusCodes.seeOther)
-  }
-
-  // Deployment fields (not session) are the source of truth here, so this
-  // works even after the session's pendingAccess is gone - e.g. reached via a
-  // "check progress" link from /manage. Team credentials are OAuth client
-  // secrets, never subscription keys.
-  let credential
-  let secret
-  try {
-    ;({ credential, secret } = await apiClient(request).post(
-      '/v1/credentials',
-      {
-        modelSlug: deployment.modelSlug,
-        tier: 'team',
-        teamId,
-        environment: deployment.environment,
-        credentialType: 'oauth'
-      },
-      { userId: sessionUser.id, idempotencyKey: randomUUID() }
-    ))
-  } catch (error) {
-    return clientSecretUnavailableOrThrow(h, error)
-  }
-
-  if (!secret) {
-    // Already issued and shown once to whoever triggered it originally -
-    // nothing new to reveal. /manage always lists the team's credential
-    // (key hint only).
-    setAccountNotification(request, {
-      type: 'success',
-      message: "Your team's model is ready to use - see it below."
-    })
-
-    return h.redirect('/manage').code(statusCodes.seeOther)
-  }
-
-  const model = await apiClient(request).get(
-    `/v1/models/${deployment.modelSlug}`
-  )
-
-  setIssuedCredential(request, { credential, secret, model })
-
-  return h.redirect('/connect/team/credential').code(statusCodes.seeOther)
 }
 
 export const teamConnectController = {
