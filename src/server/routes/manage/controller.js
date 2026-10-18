@@ -35,6 +35,9 @@ const revealSchema = Joi.object({
   })
 })
 
+// How often the page re-reads while any of the person's models is changing.
+const MODELS_CHANGING_REFRESH_SECONDS = 5
+
 // Only the credential's own model is looked up, so this stays a single call
 // rather than fetching the whole catalogue for a one-row confirm page.
 async function findModel(request, modelSlug) {
@@ -201,7 +204,7 @@ export const manageController = {
             takeAccountNotification(request)
           ),
           refreshSeconds: modelRows.some((row) => row.inProgress)
-            ? 5
+            ? MODELS_CHANGING_REFRESH_SECONDS
             : undefined
         })
       }
