@@ -7,7 +7,7 @@ section or design-pack page that has the full detail, and those are what you sho
 update) when you touch the feature. Do not copy detail out of those documents into this file; keep
 this page to short bullet points.
 
-Last updated: 15 Oct 2026 (the IaC GitOps pipeline applied in Infradev, with a team applied end to end from the portal; the catalogue's team tier; and, from 14 Oct 2026, team slug; the WS6 desired-state builder, so GitOps requests build a real team document; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
+Last updated: 18 Oct 2026 (an admin removes a model from the team page through GitOps; team environments from `TEAM_ENVIRONMENTS`; and, from 15 Oct 2026, the IaC GitOps pipeline applied in Infradev, with a team applied end to end from the portal; the catalogue's team tier; team slug; the WS6 desired-state builder, so GitOps requests build a real team document; team credentials are OAuth client secrets; queued team changes; IaC baseline WS5: a GitHub `TenantOrchestrator` behind `TENANT_ORCHESTRATOR`; every GitOps change attributed to the signed-in person's `entra:{oid}`; the team request page links to its runs and pull request; see below).
 
 ## Journey status at a glance
 
@@ -58,8 +58,17 @@ The core product journey is "three routes to a credential" — see
 - Team credentials are OAuth client secrets (decision of 14 Oct 2026): `/connect/team/*` requests
   `credentialType: 'oauth'` and the team pages say "client secret", never "key". Research keeps keys.
   Until the real OAuth issuer (M7), live mode answers `501 gateway-not-enabled`, which the wait page explains.
-- Team-facing environment today is `sandbox` only (Phase 1 — see
-  [design-environments.md#phase-1](../../ai-platform-discovery-docs/src/content/design-environments.md)).
+- The environments a team can deploy to come from `TEAM_ENVIRONMENTS` (backend) and
+  `TEAM_ENVIRONMENTS` (frontend, default `infradev`; the details step offers them as radios and
+  refuses any other) rather than a constant in code, so Phase 1's Infradev-only proof and the later
+  estate (see [design-environments.md#phase-1](../../ai-platform-discovery-docs/src/content/design-environments.md))
+  need no code change.
+- Remove a model (18 Oct 2026, in the open PR #35s): the team page lists the team's models with
+  their status; an admin removes an `active` one from `/teams/{id}/models/{deploymentId}/remove`
+  (confirm page, then `DELETE /v1/teams/{teamId}/deployments/{id}`). The backend runs it as a
+  `remove` follow-up through GitOps (`removing` → `removed`, `$pull` from `allowedDeployments`; back
+  to `active` with a reason on failure) and the team page refreshes until it settles. The wait
+  page sends a removing or removed deployment to the team page. Team decommission is IaC-only so far.
 
 ## Route 3 — Team tier, joining a team with existing access
 

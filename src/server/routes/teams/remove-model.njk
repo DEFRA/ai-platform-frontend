@@ -1,0 +1,54 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back to the team", href: "/teams/" + team._id }) }}
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Model" },
+            value: { text: model.modelDisplayName }
+          },
+          {
+            key: { text: "Environment" },
+            value: { text: model.environment }
+          }
+        ]
+      }) }}
+
+      {{ govukWarningText({
+        text: "Anything using this model through your team's address will stop working as soon as it has been removed. Your team's other models and its client secret are not affected.",
+        iconFallbackText: "Warning"
+      }) }}
+
+      <p class="govuk-body">Removing takes a few minutes. You can add the model again later.</p>
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Remove model",
+            classes: "govuk-button--warning",
+            attributes: { "data-testid": "remove-model-confirm" }
+          }) }}
+          <a class="govuk-link" href="/teams/{{ team._id }}">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

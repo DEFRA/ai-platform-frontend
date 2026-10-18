@@ -14,6 +14,13 @@
   {{ govukBackLink({ text: "Back to your access", href: "/manage" }) }}
 {% endblock %}
 
+{% block head %}
+  {{ super() }}
+  {% if refreshSeconds %}
+    <meta http-equiv="refresh" content="{{ refreshSeconds }}">
+  {% endif %}
+{% endblock %}
+
 {% block content %}
   {{ appHeading({
     text: heading
@@ -67,6 +74,44 @@
           }
         ]
       }) }}
+
+      <h2 class="govuk-heading-m">Models</h2>
+
+      {% if models.length %}
+        <table class="govuk-table" data-testid="team-models">
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th class="govuk-table__header" scope="col">Model</th>
+              <th class="govuk-table__header" scope="col">Environment</th>
+              <th class="govuk-table__header" scope="col">Status</th>
+              <th class="govuk-table__header" scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for model in models %}
+              <tr class="govuk-table__row">
+                <td class="govuk-table__cell">{{ model.modelDisplayName }}</td>
+                <td class="govuk-table__cell">{{ model.environment }}</td>
+                <td class="govuk-table__cell">
+                  {{ govukTag({ text: model.statusText, classes: model.tagClass }) }}
+                  {% if model.failureReason %}
+                    <p class="govuk-hint govuk-!-margin-bottom-0">{{ model.failureReason }}</p>
+                  {% endif %}
+                </td>
+                <td class="govuk-table__cell">
+                  {% if model.canRemove %}
+                    <a class="govuk-link" href="{{ model.removeUrl }}" data-testid="model-remove">Remove<span class="govuk-visually-hidden"> {{ model.modelDisplayName }}</span></a>
+                  {% elif model.status != "removed" and model.status != "active" %}
+                    <a class="govuk-link" href="{{ model.requestUrl }}">Check progress<span class="govuk-visually-hidden"> of {{ model.modelDisplayName }}</span></a>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="govuk-body">This team has no models yet. <a class="govuk-link" href="/connect">Connect to a model</a> to add one.</p>
+      {% endif %}
 
       <h2 class="govuk-heading-m">Members</h2>
 

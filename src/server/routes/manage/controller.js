@@ -15,6 +15,12 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import {
+  DEPLOYMENT_REMOVED_STATUS,
+  deploymentStatusText,
+  deploymentTagClass,
+  isDeploymentInProgress
+} from '#/server/common/helpers/deployment-status.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { formatLabel } from '#/config/nunjucks/filters/format-label.js'
 
@@ -211,43 +217,6 @@ function buildKeyRows(credentials, teamsById, modelNames) {
 // ever actually issued (active or later revoked) has already been through
 // that flow - keep it out permanently so revoking a credential doesn't
 // resurrect its request row and let "check progress" issue a brand new one.
-const DEPLOYMENT_FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
-
-// GitOps applies one change per team file at a time, so a later request
-// waits as `queued` until the one before it finishes.
-const DEPLOYMENT_QUEUED_STATUS = 'queued'
-
-function deploymentStatusText(status) {
-  if (status === 'active') {
-    return 'Ready to view'
-  }
-
-  if (status === DEPLOYMENT_QUEUED_STATUS) {
-    return 'Waiting for another change'
-  }
-
-  if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
-    return 'Setup failed'
-  }
-
-  return 'Setting up'
-}
-
-function deploymentTagClass(status) {
-  if (status === 'active') {
-    return 'govuk-tag--green'
-  }
-
-  if (status === DEPLOYMENT_QUEUED_STATUS) {
-    return 'govuk-tag--grey'
-  }
-
-  if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
-    return 'govuk-tag--red'
-  }
-
-  return 'govuk-tag--yellow'
-}
 
 function buildIssuedModelSlugsByTeam(teamCredentials) {
   const issuedByTeam = new Map()
@@ -275,9 +244,11 @@ function buildBeingSetUpRows(
 ) {
   const issuedModelSlugsByTeam = buildIssuedModelSlugsByTeam(teamCredentials)
 
+  // A removed model is history, not something being set up.
   return deployments
     .filter(
       (deployment) =>
+        deployment.status !== DEPLOYMENT_REMOVED_STATUS &&
         !issuedModelSlugsByTeam
           .get(deployment.teamId)
           ?.has(deployment.modelSlug)
@@ -351,10 +322,8 @@ export const manageController = {
           (credential) => credential.tier === 'team'
         )
 
-        const hasInProgressDeployment = deployments.some(
-          (deployment) =>
-            !DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status) &&
-            deployment.status !== 'active'
+        const hasInProgressDeployment = deployments.some((deployment) =>
+          isDeploymentInProgress(deployment.status)
         )
 
         return h.view('manage/index', {

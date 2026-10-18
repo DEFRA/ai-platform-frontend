@@ -42,14 +42,15 @@ Never apply without owner confirmation; only resource group `SNDAIEAIPRGP1401`.
 - Local dev servers may still be running (backend 3001, frontend 3000, Mongo and Redis in Docker). The backend `.env` has `TENANT_ORCHESTRATOR=github`, `AIP_ENVIRONMENTS` and `CATALOGUE_REF=v0.7.0`.
 - A test team `cool-team` (`gpt-4o`) exists in Infradev and in `ai-platform-tenants`; a second request for the same team, for another model, is the next thing to try.
 
-**Local edits to revert before committing**
+**Resolved on 18 Oct 2026 (hardening round)**
 
-- Backend `TEAM_FACING_ENVIRONMENT` and frontend `team-controller.js` point at `infradev`; the design's team-facing environment is `sandbox`, which has no pipeline environment yet. The proper fix is to drive the team-facing environment from `AIP_ENVIRONMENTS` (build-stories delivery plan Phase 2 row 6, Phase 4).
+- The team-facing environment is configuration, not code: backend `TEAM_ENVIRONMENTS` and frontend `TEAM_ENVIRONMENTS` (default `infradev`), offered on the details step; the `sandbox` constant and the local `infradev` edits are gone.
+- An admin can remove a model from the team page (`DELETE /v1/teams/{teamId}/deployments/{id}`, a GitOps `remove` follow-up). Team decommission is handled by the IaC checks (`pending-removal` → `removed` → delete, with a cooling-off period) but has no portal path yet.
+- Rulesets are in place: `aip-machine-main` on tenants and deployments requires `validate-desired-state / validate` with no approvals, so team PRs auto-merge (with a merge-when-validated fallback in `submit.js`); `aip-human-main` on infra, workflows and environments; `aip-release-tags` on `v*`. Stray Environments deleted. See `ai-platform-workflows` README "Repository settings" and `scripts/setup/repo-settings.sh`.
 
 **Admin tasks**
 
-- Rulesets requiring `validate-desired-state / validate` (tenants, deployments) and the infra checks (infra, workflows), so team PRs and release PRs auto-merge; org Actions allow-list.
-- Delete the unused `release` Environment in `ai-platform-workflows`.
+- Org Actions allow-list for the workflows the callers use.
 - Entra consent for the deploy and backend identities (`Application.ReadWrite.OwnedBy`); then set `entra.enabled` back to `true` (with `teamRegistrations: false` only if just the team registration is still blocked) and remove the interim flag.
 
 **Decisions and gaps**

@@ -20,6 +20,11 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import {
+  deploymentStatusText,
+  deploymentTagClass,
+  isDeploymentInProgress
+} from '#/server/common/helpers/deployment-status.js'
 
 const serviceCodeField = Joi.string()
   .trim()
@@ -123,6 +128,96 @@ async function loadTeamForView(request, id) {
     }))
 
   return { ...result, members, isAdmin }
+}
+
+// The team's model deployments, as rows for the team page. Supplementary
+// to the team itself: a failure to list them must not take the page down.
+async function loadTeamModels(request, id, isAdmin) {
+  const sessionUser = getSessionUser(request)
+  const [deployments, catalogue] = await Promise.allSettled([
+    apiClient(request).get(`/v1/teams/${id}/deployments`, {
+      userId: sessionUser.id
+    }),
+    apiClient(request).get('/v1/models')
+  ])
+
+  if (deployments.status === 'rejected') {
+    request.logger.warn(
+      { err: deployments.reason },
+      'Could not load the team models for the team page'
+    )
+    return []
+  }
+
+  const modelNames = Object.fromEntries(
+    (catalogue.value?.items ?? []).map((model) => [
+      model.slug,
+      model.displayName
+    ])
+  )
+
+  return (deployments.value?.items ?? []).map((deployment) => ({
+    _id: deployment._id,
+    modelSlug: deployment.modelSlug,
+    modelDisplayName: modelNames[deployment.modelSlug] ?? deployment.modelSlug,
+    environment: deployment.environment,
+    status: deployment.status,
+    statusText: deploymentStatusText(deployment.status),
+    tagClass: deploymentTagClass(deployment.status),
+    failureReason: deployment.failureReason ?? null,
+    // Only an admin removes a model, and only one that is in place.
+    canRemove: isAdmin && deployment.status === 'active',
+    removeUrl: `/teams/${id}/models/${deployment._id}/remove`,
+    requestUrl: `/connect/team/request/${id}/${deployment._id}`
+  }))
+}
+
+// What every render of the team page needs.
+function teamPageContext(result, models, extras) {
+  return {
+    pageTitle: result.team.name,
+    heading: result.team.name,
+    team: result.team,
+    members: result.members,
+    isAdmin: result.isAdmin,
+    models,
+    refreshSeconds: models.some((model) => isDeploymentInProgress(model.status))
+      ? 5
+      : undefined,
+    notification: null,
+    errorSummary: null,
+    fieldErrors: {},
+    ...extras
+  }
+}
+
+function removeModelErrorMessage(error) {
+  if (error.code === 'deployment-in-progress') {
+    return 'This model is still being set up. Try again once it is ready.'
+  }
+
+  if (error.code === 'team-file-busy') {
+    return 'Another change to this team is in progress. Try again in a few minutes.'
+  }
+
+  if (error.code === 'admin-required') {
+    return 'Only a team admin can remove a model.'
+  }
+
+  return error.message
+}
+
+function modelNotFound(h, teamId) {
+  return h
+    .view('error/index', {
+      pageTitle: 'Model not found',
+      heading: 'Model not found',
+      message:
+        'This model is not one of this team’s, or you are not an admin of the team.',
+      actionHref: `/teams/${teamId}`,
+      actionText: 'Back to the team'
+    })
+    .code(statusCodes.notFound)
 }
 
 export const teamsController = {
@@ -308,16 +403,78 @@ export const teamsController = {
         // Opening a team is what makes it the one you are acting in.
         setCurrentTeamId(request, id)
 
-        return h.view('teams/team', {
-          pageTitle: result.team.name,
-          heading: result.team.name,
+        const models = await loadTeamModels(request, id, result.isAdmin)
+
+        return h.view(
+          'teams/team',
+          teamPageContext(result, models, {
+            notification: takeAccountNotification(request)
+          })
+        )
+      }
+    }
+  },
+
+  removeModel: {
+    get: {
+      async handler(request, h) {
+        const { id, deploymentId } = request.params
+        const result = await loadTeamForView(request, id)
+        const model = (await loadTeamModels(request, id, result.isAdmin)).find(
+          (candidate) => candidate._id === deploymentId
+        )
+
+        if (!model || !result.isAdmin) {
+          return modelNotFound(h, id)
+        }
+
+        return h.view('teams/remove-model', {
+          pageTitle: `Remove ${model.modelDisplayName} from ${result.team.name}`,
+          heading: `Remove ${model.modelDisplayName} from ${result.team.name}?`,
           team: result.team,
-          members: result.members,
-          isAdmin: result.isAdmin,
-          notification: takeAccountNotification(request),
-          errorSummary: null,
-          fieldErrors: {}
+          model
         })
+      }
+    },
+    post: {
+      async handler(request, h) {
+        const sessionUser = getSessionUser(request)
+        const { id, deploymentId } = request.params
+
+        try {
+          const { deployment } = await apiClient(request).del(
+            `/v1/teams/${id}/deployments/${deploymentId}`,
+            { userId: sessionUser.id }
+          )
+
+          setAccountNotification(request, {
+            type: 'success',
+            message:
+              deployment.status === 'removed'
+                ? `${deployment.modelSlug} has been removed from the team.`
+                : `${deployment.modelSlug} is being removed. Apps using it through your team’s address will stop working once it has gone; this takes a few minutes.`
+          })
+        } catch (error) {
+          // Only a refusal the person can act on becomes a banner; a backend
+          // fault goes to the error page like everywhere else.
+          if (
+            !(error instanceof ApiError) ||
+            error.statusCode >= statusCodes.internalServerError
+          ) {
+            throw error
+          }
+
+          if (isNotFound(error)) {
+            return modelNotFound(h, id)
+          }
+
+          setAccountNotification(request, {
+            type: 'error',
+            message: removeModelErrorMessage(error)
+          })
+        }
+
+        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
       }
     }
   },
@@ -372,17 +529,16 @@ export const teamsController = {
           failAction: async (request, h, error) => {
             const { id } = request.params
             const result = await loadTeamForView(request, id)
+            const models = await loadTeamModels(request, id, result.isAdmin)
 
             return h
-              .view('teams/team', {
-                pageTitle: result.team.name,
-                heading: result.team.name,
-                team: result.team,
-                members: result.members,
-                isAdmin: result.isAdmin,
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
-              })
+              .view(
+                'teams/team',
+                teamPageContext(result, models, {
+                  errorSummary: buildErrorSummary(error),
+                  fieldErrors: buildFieldErrors(error)
+                })
+              )
               .code(statusCodes.badRequest)
               .takeover()
           }
@@ -417,18 +573,16 @@ export const teamsController = {
           failAction: async (request, h, error) => {
             const { id } = request.params
             const result = await loadTeamForView(request, id)
+            const models = await loadTeamModels(request, id, result.isAdmin)
 
             return h
-              .view('teams/team', {
-                pageTitle: result.team.name,
-                heading: result.team.name,
-                team: result.team,
-                members: result.members,
-                isAdmin: result.isAdmin,
-                notification: null,
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
-              })
+              .view(
+                'teams/team',
+                teamPageContext(result, models, {
+                  errorSummary: buildErrorSummary(error),
+                  fieldErrors: buildFieldErrors(error)
+                })
+              )
               .code(statusCodes.badRequest)
               .takeover()
           }

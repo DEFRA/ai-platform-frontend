@@ -380,6 +380,45 @@ describe('#manageController', () => {
     expect(result).toEqual(expect.stringContaining('Setup failed'))
   })
 
+  test('GET /manage lists a model being removed, keeps refreshing, and leaves a removed one out', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-r1',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'removing'
+          },
+          {
+            _id: 'deployment-r2',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'removed'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Removing')
+    expect(result).toContain('http-equiv="refresh" content="5"')
+    expect(result).not.toContain('deployment-r2')
+    expect(result).not.toContain('>Removed<')
+  })
+
   test('GET /manage shows a "ready to view" link for an active deployment with no credential yet', async () => {
     const cookies = await signIn(server)
 

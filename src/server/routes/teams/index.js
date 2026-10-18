@@ -71,6 +71,16 @@ export const teams = {
           method: 'POST',
           path: '/teams/{id}/members/{memberId}/remove',
           handler: teamsController.removeMember.post.handler
+        },
+        {
+          method: 'GET',
+          path: '/teams/{id}/models/{deploymentId}/remove',
+          handler: teamsController.removeModel.get.handler
+        },
+        {
+          method: 'POST',
+          path: '/teams/{id}/models/{deploymentId}/remove',
+          handler: teamsController.removeModel.post.handler
         }
       ])
     }
