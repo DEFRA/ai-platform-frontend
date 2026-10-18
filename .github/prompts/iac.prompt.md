@@ -1,7 +1,7 @@
 You are taking over the AI Platform IaC baseline (Defra). Goal: get the Terraform pipelines applying Infradev
 
 through GitHub Actions, then build create-platform, create-tenants and trigger-from-UI on top.
- 
+
 Read first (ai-platform-discovery-docs, branch docs/iac-baseline-decisions, PR #21): docs/iac-baseline-plan.md
 
 (D1-D16, WS0-WS7, M1-M7, R1-R12), docs/decision-history.md (14 and 15 October entries), and the design pages
@@ -11,7 +11,7 @@ design-environments, design-repositories-pipelines (#workflows), design-orchestr
 design-infrastructure. Then ai-platform-infra docs/bootstrap.md, docs/gitops-contract.md and docs/modules.md,
 
 and ai-platform-workflows README.md.
- 
+
 Repos and branches (all pushed, stacked, none merged): ai-platform-workflows feature/reusable-workflows #1;
 
 ai-platform-infra #5 feature/gitops-contract -> #6 feature/platform-baseline -> #7 feature/tenant-modules
@@ -21,7 +21,7 @@ ai-platform-infra #5 feature/gitops-contract -> #6 feature/platform-baseline -> 
 (draft); ai-platform-tenants and -deployments feature/gitops-callers #1; ai-platform-backend-api #35;
 
 ai-platform-frontend #35; discovery-docs #21.
- 
+
 CURRENT STATE (15 Oct 2026). Applied BY HAND (engineer sign-in) and ONLY inside resource group
 
 SNDAIEAIPRGP1401 in AZR-AIE-SND1 (7f8da4be-7fd1-469f-a34f-fe89fa5d24d2): bootstrap state in
@@ -43,7 +43,7 @@ Data Contributor on the state container. Entra is OFF (entra_enabled=false): the
 team registration, and I cannot create app registrations. Never touch anything outside that RG; confirm every
 
 apply with the owner first.
- 
+
 TO DO TO RUN THE PIPELINES (nothing below exists yet; GitHub has no Environments, variables or secrets):
 
 1. Merge workflows #1, then create the v1 tag (README, Releases). Infra and environments CI cannot start
@@ -83,12 +83,12 @@ TO DO TO RUN THE PIPELINES (nothing below exists yet; GitHub has no Environments
    and consent to Graph Application.ReadWrite.OwnedBy for the deploy and backend identities (plan D4/D12A). Until
 
    then UI -> API -> submit -> PR -> validate -> merge can be tested, but not the tenants apply.
- 
+
 LOCAL WORKFLOW. Generate parameters with `node checks/bin/aip-checks.js params --infra . --environments
 
 ../ai-platform-environments --environment infradev --out <file>`; use it with `terraform -chdir=platform plan
 
--var-file=<file> -var release=<x> -var entra_enabled=false` after `init -backend-config=resource_group_name=...
+-var-file=<file> -var release=<x> -var entra_enabled=false`after`init -backend-config=resource_group_name=...
 
 storage_account_name=sndaipinfsto1401 container_name=tfstate key=platform.tfstate`, with ARM_SUBSCRIPTION_ID set
 
@@ -99,7 +99,7 @@ it), run init -migrate-state per docs/bootstrap.md. The owner's state access is 
 set it false when the pipeline is proven. Tests: Windows needs the Git bash for AIP_TEST_BASH and tools on PATH;
 
 infra Terraform checks run via ai-platform-workflows/scripts/infra-checks.sh.
- 
+
 RULES: GitOps by default; the backend never commits (dispatch -> validate -> App commit -> PR -> auto-merge).
 
 Parameters are namespaced under azure.*, merged only by aip-checks params. Team tier is OAuth only (Research
@@ -111,7 +111,7 @@ tier keeps its time-bound subscription keys). Names come from the naming module,
 ships with a failing-then-passing test. Conventional commits with the Copilot Co-authored-by trailer; branches
 
 and PRs only; format, lint and tests pass before every push; never --no-verify.
- 
+
 KNOWN OPEN ITEMS: Sweden Central is refused by the DEFRA Allowed locations policy (Infradev is UK South only),
 
 so the team proof (M3) needs a model deployable there or a policy exception; a shared mailbox for the APIM
@@ -125,11 +125,11 @@ desired-state builder): run their tests and check the builder's team file agains
 schemas/team.schema.json; nightly drift plan stays at the gate before DEV; the Key Vaults have purge protection,
 
 so their names are held for 7 days if deleted.
- 
+
 Notes from the handover:
- 
+
 Infradev is bootstrapped and its platform is applied, by hand and only inside SNDAIEAIPRGP1401. The full summary and the developer handover prompt are in this file just above this message. The GitHub side isn't set up yet, so your developer (the one taking over from the handover) can't run the TF pipelines until the ordered steps in the handover are done. I haven't run any GitHub Actions workflow.
- 
+
 Pushed: every IaC change is committed and pushed, and no Copilot review threads are unresolved.
 
 Infra #5 030182d, #6 72d672f, #7 440274c.
@@ -149,4 +149,3 @@ Still on: your state-container access, which a manual apply needs. Turn it off w
 Not done: I didn't run the developer's backend or frontend tests, or check their team builder's output against the infra team schema.
 
 Next steps: the handover lists them in order: merge workflows #1 and create the v1 tag, merge the infra PRs and pin the release in environments, make tenants and deployments internal, then set up the Environments, variables and secrets. After that, dispatch the platform apply.
- 
