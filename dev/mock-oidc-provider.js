@@ -13,10 +13,15 @@ const redirectUri =
 const postLogoutRedirectUri =
   process.env.MOCK_OIDC_POST_LOGOUT_REDIRECT_URI ?? 'http://localhost:3000/'
 
+// Entra's object and tenant IDs, which the backend keys people on
+// (POST /v1/users requires both as GUIDs). Stable, so the mock user is
+// the same person across restarts.
 const mockAccount = {
   accountId: 'mock-dev-user',
   email: process.env.MOCK_OIDC_EMAIL ?? 'dev.user@defra.gov.uk',
-  name: process.env.MOCK_OIDC_NAME ?? 'Dev User'
+  name: process.env.MOCK_OIDC_NAME ?? 'Dev User',
+  oid: process.env.MOCK_OIDC_OID ?? '11111111-1111-4111-8111-111111111111',
+  tid: process.env.MOCK_OIDC_TID ?? '22222222-2222-4222-8222-222222222222'
 }
 
 const provider = new Provider(issuer, {
@@ -37,7 +42,7 @@ const provider = new Provider(issuer, {
     }
   ],
   claims: {
-    openid: ['sub'],
+    openid: ['sub', 'oid', 'tid'],
     profile: ['name'],
     email: ['email']
   },
@@ -49,7 +54,13 @@ const provider = new Provider(issuer, {
     return {
       accountId: sub,
       async claims() {
-        return { sub, email: mockAccount.email, name: mockAccount.name }
+        return {
+          sub,
+          email: mockAccount.email,
+          name: mockAccount.name,
+          oid: mockAccount.oid,
+          tid: mockAccount.tid
+        }
       }
     }
   },

@@ -17,10 +17,12 @@ import {
 } from '#/server/common/helpers/govuk-errors.js'
 import {
   DEPLOYMENT_REMOVED_STATUS,
+  DEPLOYMENT_REMOVING_STATUS,
   deploymentStatusText,
   deploymentTagClass,
   isDeploymentInProgress
 } from '#/server/common/helpers/deployment-status.js'
+import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { formatLabel } from '#/config/nunjucks/filters/format-label.js'
 
@@ -97,6 +99,40 @@ async function findTeamName(request, sessionUser, teamId) {
   return items.find((team) => team._id === teamId)?.name
 }
 
+// What the rotate confirmation needs, or null when there is nothing to
+// rotate here: an unknown credential, or a research key, which is renewed
+// rather than rotated whatever the API would allow its owner.
+async function loadRotatePage(request) {
+  const sessionUser = getSessionUser(request)
+  const { id } = request.params
+  let credential
+
+  try {
+    credential = await apiClient(request).get(`/v1/credentials/${id}`, {
+      userId: sessionUser.id
+    })
+  } catch (error) {
+    if (isNotFound(error)) {
+      return null
+    }
+    throw error
+  }
+
+  if (credential.tier !== 'team') {
+    return null
+  }
+
+  const models = await findModelsForCredential(request, credential)
+  const teamName = await findTeamName(request, sessionUser, credential.teamId)
+
+  return {
+    heading: `Are you sure you want to rotate the ${teamName ?? 'team'} client secret?`,
+    credential,
+    environmentName: credentialEnvironmentName(credential),
+    modelNamesText: modelNamesText(models)
+  }
+}
+
 async function buildModelNameMap(request) {
   const { items } = await apiClient(request).get('/v1/models')
 
@@ -167,7 +203,7 @@ function decorateKeyRow(
     ...credential,
     modelDisplayName: modelDisplayNameFor(credential, modelNames),
     forText,
-    environment: 'Sandbox',
+    environment: credentialEnvironmentName(credential),
     statusText: statusDisplay.text,
     tagClass: statusDisplay.tagClass,
     runsOut: credential.expiresAt ? formatDate(credential.expiresAt) : null,
@@ -244,14 +280,16 @@ function buildBeingSetUpRows(
 ) {
   const issuedModelSlugsByTeam = buildIssuedModelSlugsByTeam(teamCredentials)
 
-  // A removed model is history, not something being set up.
+  // A removed model is history, not something being set up; one being
+  // removed is shown however the team's credential still lists it.
   return deployments
     .filter(
       (deployment) =>
         deployment.status !== DEPLOYMENT_REMOVED_STATUS &&
-        !issuedModelSlugsByTeam
-          .get(deployment.teamId)
-          ?.has(deployment.modelSlug)
+        (deployment.status === DEPLOYMENT_REMOVING_STATUS ||
+          !issuedModelSlugsByTeam
+            .get(deployment.teamId)
+            ?.has(deployment.modelSlug))
     )
     .map((deployment) => ({
       ...deployment,
@@ -526,33 +564,15 @@ export const manageController = {
   rotate: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { id } = request.params
+        const page = await loadRotatePage(request)
 
-        let credential
-        try {
-          credential = await apiClient(request).get(`/v1/credentials/${id}`, {
-            userId: sessionUser.id
-          })
-        } catch (error) {
-          if (isNotFound(error)) {
-            return h.redirect('/manage').code(statusCodes.seeOther)
-          }
-          throw error
+        if (!page) {
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
-
-        const models = await findModelsForCredential(request, credential)
-        const teamName = await findTeamName(
-          request,
-          sessionUser,
-          credential.teamId
-        )
 
         return h.view('manage/rotate', {
           pageTitle: 'Confirm rotate',
-          heading: `Are you sure you want to rotate the ${teamName ?? 'team'} client secret?`,
-          credential,
-          modelNamesText: modelNamesText(models),
+          ...page,
           errorSummary: null,
           fieldErrors: {}
         })
@@ -564,25 +584,16 @@ export const manageController = {
         validate: {
           payload: revokeConfirmSchema,
           failAction: async (request, h, error) => {
-            const sessionUser = getSessionUser(request)
-            const { id } = request.params
-            const credential = await apiClient(request).get(
-              `/v1/credentials/${id}`,
-              { userId: sessionUser.id }
-            )
-            const models = await findModelsForCredential(request, credential)
-            const teamName = await findTeamName(
-              request,
-              sessionUser,
-              credential.teamId
-            )
+            const page = await loadRotatePage(request)
+
+            if (!page) {
+              return h.redirect('/manage').code(statusCodes.seeOther).takeover()
+            }
 
             return h
               .view('manage/rotate', {
                 pageTitle: 'Error: Confirm rotate',
-                heading: `Are you sure you want to rotate the ${teamName ?? 'team'} client secret?`,
-                credential,
-                modelNamesText: modelNamesText(models),
+                ...page,
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
               })
@@ -601,6 +612,17 @@ export const manageController = {
         const sessionUser = getSessionUser(request)
 
         try {
+          // Rotation is a team action: a research key is renewed, never
+          // rotated, whatever the API would allow its owner.
+          const current = await apiClient(request).get(
+            `/v1/credentials/${id}`,
+            { userId: sessionUser.id }
+          )
+
+          if (current.tier !== 'team') {
+            return h.redirect('/manage').code(statusCodes.seeOther)
+          }
+
           const { credential, secret } = await apiClient(request).post(
             `/v1/credentials/${id}/rotate`,
             undefined,

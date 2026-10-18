@@ -49,10 +49,20 @@ export const removeModelController = {
   get: {
     async handler(request, h) {
       const { id, deploymentId } = request.params
-      const result = await loadTeamForView(request, id)
-      const model = (await loadTeamModels(request, id, result.isAdmin)).find(
-        (candidate) => candidate._id === deploymentId
-      )
+      let result
+
+      try {
+        result = await loadTeamForView(request, id)
+      } catch (error) {
+        if (isNotFound(error)) {
+          return modelNotFound(h, id)
+        }
+
+        throw error
+      }
+
+      const { models } = await loadTeamModels(request, id, result.isAdmin)
+      const model = models.find((candidate) => candidate._id === deploymentId)
 
       if (!model || !result.isAdmin) {
         return modelNotFound(h, id)

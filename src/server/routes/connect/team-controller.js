@@ -19,6 +19,7 @@ import {
   DEPLOYMENT_REMOVED_STATUS,
   DEPLOYMENT_REMOVING_STATUS
 } from '#/server/common/helpers/deployment-status.js'
+import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
 import {
   errorMessageForCode,
   issueTeamClientSecret
@@ -62,9 +63,13 @@ const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
   }),
+  // Checked against the configured list when the form is posted, not when
+  // the module loads, so configuration is read where it is used.
   environment: Joi.string()
-    .valid(...environmentValues())
-    .default(environmentValues()[0])
+    .custom((value, helpers) =>
+      environmentValues().includes(value) ? value : helpers.error('any.only')
+    )
+    .default(() => environmentValues()[0])
     .messages({ 'any.only': 'Select an available environment' })
 })
 
@@ -231,7 +236,7 @@ export const teamConnectController = {
           pageTitle: 'Say what it is for',
           heading: 'Say what it is for',
           values: { purpose: pendingAccess.purpose ?? '' },
-          environmentItems: environmentItems(),
+          environmentItems: environmentItems(pendingAccess.environment),
           environmentHint: environmentHint(),
           errorSummary: null,
           fieldErrors: {}
@@ -248,7 +253,9 @@ export const teamConnectController = {
                 pageTitle: 'Error: Say what it is for',
                 heading: 'Say what it is for',
                 values: request.payload,
-                environmentItems: environmentItems(),
+                environmentItems: environmentItems(
+                  request.payload?.environment
+                ),
                 environmentHint: environmentHint(),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
@@ -464,7 +471,8 @@ export const teamConnectController = {
           .view('connect/shared/credential', {
             pageTitle: 'Your connection details',
             heading: 'Your connection details',
-            ...issued
+            ...issued,
+            environmentName: credentialEnvironmentName(issued.credential)
           })
           .header('cache-control', 'no-store')
       }

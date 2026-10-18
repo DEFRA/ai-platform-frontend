@@ -96,6 +96,28 @@ function handleMemberChangeError(request, error) {
   }
 }
 
+// The team page again with the errors of a form on it, and what the person
+// typed still in that form: the saved service code stays in the summary,
+// the attempted one in the input.
+async function rerenderTeamPage(request, h, error) {
+  const { id } = request.params
+  const result = await loadTeamForView(request, id)
+  const listing = await loadTeamModels(request, id, result.isAdmin)
+  const attempted = request.payload?.serviceCode
+
+  return h
+    .view(
+      TEAM_VIEW,
+      teamPageContext(result, listing, {
+        errorSummary: buildErrorSummary(error),
+        fieldErrors: buildFieldErrors(error),
+        ...(typeof attempted === 'string' && { serviceCodeValue: attempted })
+      })
+    )
+    .code(statusCodes.badRequest)
+    .takeover()
+}
+
 export const teamsController = {
   list: {
     get: {
@@ -279,11 +301,11 @@ export const teamsController = {
         // Opening a team is what makes it the one you are acting in.
         setCurrentTeamId(request, id)
 
-        const models = await loadTeamModels(request, id, result.isAdmin)
+        const listing = await loadTeamModels(request, id, result.isAdmin)
 
         return h.view(
           TEAM_VIEW,
-          teamPageContext(result, models, {
+          teamPageContext(result, listing, {
             notification: takeAccountNotification(request)
           })
         )
@@ -327,22 +349,7 @@ export const teamsController = {
       options: {
         validate: {
           payload: addMemberSchema,
-          failAction: async (request, h, error) => {
-            const { id } = request.params
-            const result = await loadTeamForView(request, id)
-            const models = await loadTeamModels(request, id, result.isAdmin)
-
-            return h
-              .view(
-                TEAM_VIEW,
-                teamPageContext(result, models, {
-                  errorSummary: buildErrorSummary(error),
-                  fieldErrors: buildFieldErrors(error)
-                })
-              )
-              .code(statusCodes.badRequest)
-              .takeover()
-          }
+          failAction: rerenderTeamPage
         }
       },
       async handler(request, h) {
@@ -371,22 +378,7 @@ export const teamsController = {
       options: {
         validate: {
           payload: serviceCodeSchema,
-          failAction: async (request, h, error) => {
-            const { id } = request.params
-            const result = await loadTeamForView(request, id)
-            const models = await loadTeamModels(request, id, result.isAdmin)
-
-            return h
-              .view(
-                TEAM_VIEW,
-                teamPageContext(result, models, {
-                  errorSummary: buildErrorSummary(error),
-                  fieldErrors: buildFieldErrors(error)
-                })
-              )
-              .code(statusCodes.badRequest)
-              .takeover()
-          }
+          failAction: rerenderTeamPage
         }
       },
       async handler(request, h) {

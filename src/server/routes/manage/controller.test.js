@@ -419,6 +419,54 @@ describe('#manageController', () => {
     expect(result).not.toContain('>Removed<')
   })
 
+  test('GET /manage still lists a model being removed when the team credential already covers it, in its own environment', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            ...sampleCredential,
+            _id: 'team-cred',
+            tier: 'team',
+            teamId: 'team-1',
+            environment: 'infradev',
+            credentialType: 'oauth',
+            allowedDeployments: ['gpt-4o'],
+            expiresAt: null
+          }
+        ]
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
+    )
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          {
+            _id: 'deployment-r1',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            status: 'removing'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Removing')
+    expect(result).toContain('/connect/team/request/team-1/deployment-r1')
+    // The team credential's row names its environment, not a fixed one.
+    expect(result).toContain('Infradev')
+  })
+
   test('GET /manage shows a "ready to view" link for an active deployment with no credential yet', async () => {
     const cookies = await signIn(server)
 
@@ -931,6 +979,58 @@ describe('#manageController', () => {
     expect(result).not.toContain('rotate the key')
   })
 
+  test('GET /manage/credentials/{id}/rotate names the environment the team credential is for', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        ...sampleCredential,
+        teamId: 'team-1',
+        tier: 'team',
+        environment: 'infradev',
+        credentialType: 'oauth',
+        allowedDeployments: ['gpt-4o']
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage/credentials/cred-1/rotate',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Infradev')
+    expect(result).not.toContain('Sandbox')
+  })
+
+  test.each(['GET', 'POST'])(
+    '%s /manage/credentials/{id}/rotate sends a research key back to the access page: keys are renewed, not rotated',
+    async (method) => {
+      const cookies = await signIn(server)
+      fetchMock.mockResponseOnce(
+        JSON.stringify({ ...sampleCredential, tier: 'research' })
+      )
+
+      const { statusCode, headers } = await server.inject({
+        method,
+        url: '/manage/credentials/cred-1/rotate',
+        headers: { cookie: cookieHeader(cookies) },
+        ...(method === 'POST' && {
+          payload: { crumb: cookies.crumb, confirmRevoke: 'yes' }
+        })
+      })
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/manage')
+      // Nothing was rotated.
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url).endsWith('/rotate'))
+      ).toBe(false)
+    }
+  )
+
   test('GET /manage/credentials/{id}/rotate falls back to "the team client secret" when the team name is unknown', async () => {
     const cookies = await signIn(server)
 
@@ -995,6 +1095,10 @@ describe('#manageController', () => {
   test('rotating a team credential (no fixed expiry) does not 500 on the rotated page', async () => {
     const cookies = await signIn(server)
 
+    // The credential is read first, to be sure it is a team's.
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ ...sampleCredential, teamId: 'team-1', tier: 'team' })
+    )
     fetchMock.mockResponseOnce(
       JSON.stringify({
         credential: {

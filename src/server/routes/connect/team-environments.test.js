@@ -24,6 +24,23 @@ describe('team-environments', () => {
     ])
   })
 
+  test('keeps the environment already chosen checked, unless it is not on offer', () => {
+    config.set('teamEnvironments', ['infradev', 'sandbox'])
+
+    expect(
+      environmentItems('sandbox').map((item) => [item.value, item.checked])
+    ).toEqual([
+      ['infradev', false],
+      ['sandbox', true]
+    ])
+    expect(
+      environmentItems('prod').map((item) => [item.value, item.checked])
+    ).toEqual([
+      ['infradev', true],
+      ['sandbox', false]
+    ])
+  })
+
   test('says which environment is available when there is one', () => {
     config.set('teamEnvironments', ['infradev'])
 

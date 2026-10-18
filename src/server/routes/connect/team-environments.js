@@ -1,19 +1,10 @@
 import { config } from '#/config/config.js'
+import { environmentName } from '#/server/common/helpers/environment-names.js'
 
 // The environments this instance deploys a team's models to (D1): the CDP
 // dev instance drives Infradev, the test instance the Sandbox. Shown as
-// radios from the configured list, the first preselected; the backend
-// refuses anything outside its own list as `environment-not-available`.
-const ENVIRONMENT_NAMES = {
-  infradev: 'Infradev',
-  sandbox: 'Sandbox',
-  dev: 'Development',
-  qa: 'QA',
-  test: 'Test',
-  preprod: 'Pre-production',
-  prod: 'Production',
-  uat: 'UAT'
-}
+// radios from the configured list; the backend refuses anything outside its
+// own list as `environment-not-available`.
 
 /**
  * The environments a team may choose from, in configured order.
@@ -24,14 +15,19 @@ export function environmentValues() {
 }
 
 /**
- * The environments a team may choose from, as GOV.UK radio items.
+ * The environments a team may choose from, as GOV.UK radio items, with the
+ * one already chosen checked, or the first when nothing has been chosen.
+ * @param {string} [selected]
  * @returns {Array<{value: string, text: string, checked: boolean}>}
  */
-export function environmentItems() {
-  return environmentValues().map((value, index) => ({
+export function environmentItems(selected) {
+  const values = environmentValues()
+  const checked = values.includes(selected) ? selected : values[0]
+
+  return values.map((value) => ({
     value,
-    text: ENVIRONMENT_NAMES[value] ?? value,
-    checked: index === 0
+    text: environmentName(value),
+    checked: value === checked
   }))
 }
 

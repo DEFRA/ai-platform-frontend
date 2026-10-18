@@ -1,6 +1,7 @@
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
+import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   signInViaOidc,
@@ -291,6 +292,61 @@ describe('#teamConnectController', () => {
 
       expect(statusCode).toBe(statusCodes.badRequest)
       expect(result).toContain('Select an available environment')
+    })
+
+    describe('with two environments on offer', () => {
+      const configured = config.get('teamEnvironments')
+
+      beforeEach(() => {
+        config.set('teamEnvironments', ['infradev', 'sandbox'])
+      })
+
+      afterEach(() => {
+        config.set('teamEnvironments', configured)
+      })
+
+      test('keeps the chosen environment selected when the purpose fails validation', async () => {
+        const cookies = await reachDetails(await signIn(server))
+
+        const { statusCode, result } = await server.inject({
+          method: 'POST',
+          url: '/connect/team/details',
+          headers: { cookie: cookieHeader(cookies) },
+          payload: {
+            crumb: cookies.crumb,
+            purpose: 'x'.repeat(501),
+            environment: 'sandbox'
+          }
+        })
+
+        expect(statusCode).toBe(statusCodes.badRequest)
+        expect(result).toMatch(/value="sandbox"[^>]*checked/)
+        expect(result).not.toMatch(/value="infradev"[^>]*checked/)
+      })
+
+      test('shows the environment already chosen when the person comes back to the step', async () => {
+        let cookies = await reachDetails(await signIn(server))
+        const posted = await server.inject({
+          method: 'POST',
+          url: '/connect/team/details',
+          headers: { cookie: cookieHeader(cookies) },
+          payload: {
+            crumb: cookies.crumb,
+            purpose: 'x',
+            environment: 'sandbox'
+          }
+        })
+        cookies = mergeCookies(cookies, posted)
+
+        const { result } = await server.inject({
+          method: 'GET',
+          url: '/connect/team/details',
+          headers: { cookie: cookieHeader(cookies) }
+        })
+
+        expect(result).toMatch(/value="sandbox"[^>]*checked/)
+        expect(result).not.toMatch(/value="infradev"[^>]*checked/)
+      })
     })
   })
 

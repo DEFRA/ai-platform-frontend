@@ -9,9 +9,6 @@ import {
 
 export const TEAM_VIEW = 'teams/team'
 
-// How often the team page refreshes itself while a model is changing.
-const REFRESH_SECONDS = 5
-
 /**
  * Whether the backend refused the caller for lack of permission.
  * @param {unknown} error
@@ -87,11 +84,12 @@ export async function loadTeamForView(request, id) {
 
 /**
  * The team's model deployments, as rows for the team page. Supplementary to
- * the team itself: a failure to list them must not take the page down.
+ * the team itself: a failure to list them must not take the page down, but
+ * is reported as such rather than shown as a team with no models.
  * @param {import('@hapi/hapi').Request} request
  * @param {string} id
  * @param {boolean} isAdmin
- * @returns {Promise<object[]>}
+ * @returns {Promise<{models: object[], modelsUnavailable: boolean}>}
  */
 export async function loadTeamModels(request, id, isAdmin) {
   const sessionUser = getSessionUser(request)
@@ -107,7 +105,7 @@ export async function loadTeamModels(request, id, isAdmin) {
       { err: deployments.reason },
       'Could not load the team models for the team page'
     )
-    return []
+    return { models: [], modelsUnavailable: true }
   }
 
   const modelNames = Object.fromEntries(
@@ -117,7 +115,7 @@ export async function loadTeamModels(request, id, isAdmin) {
     ])
   )
 
-  return (deployments.value?.items ?? []).map((deployment) => ({
+  const models = (deployments.value?.items ?? []).map((deployment) => ({
     _id: deployment._id,
     modelSlug: deployment.modelSlug,
     modelDisplayName: modelNames[deployment.modelSlug] ?? deployment.modelSlug,
@@ -131,26 +129,32 @@ export async function loadTeamModels(request, id, isAdmin) {
     removeUrl: `/teams/${id}/models/${deployment._id}/remove`,
     requestUrl: `/connect/team/request/${id}/${deployment._id}`
   }))
+
+  return { models, modelsUnavailable: false }
 }
 
 /**
- * What every render of the team page needs.
+ * What every render of the team page needs. A model still changing is
+ * reported with a link to refresh, never by reloading the page under the
+ * person's forms.
  * @param {{team: object, members: object[], isAdmin: boolean}} result
- * @param {object[]} models
+ * @param {{models: object[], modelsUnavailable: boolean}} listing
  * @param {object} [extras]
  * @returns {object}
  */
-export function teamPageContext(result, models, extras) {
+export function teamPageContext(result, listing, extras) {
   return {
     pageTitle: result.team.name,
     heading: result.team.name,
     team: result.team,
     members: result.members,
     isAdmin: result.isAdmin,
-    models,
-    refreshSeconds: models.some((model) => isDeploymentInProgress(model.status))
-      ? REFRESH_SECONDS
-      : undefined,
+    models: listing.models,
+    modelsUnavailable: listing.modelsUnavailable,
+    modelsChanging: listing.models.some((model) =>
+      isDeploymentInProgress(model.status)
+    ),
+    serviceCodeValue: result.team.serviceCode ?? '',
     notification: null,
     errorSummary: null,
     fieldErrors: {},

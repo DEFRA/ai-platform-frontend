@@ -67,8 +67,13 @@ The core product journey is "three routes to a credential" — see
   their status; an admin removes an `active` one from `/teams/{id}/models/{deploymentId}/remove`
   (confirm page, then `DELETE /v1/teams/{teamId}/deployments/{id}`). The backend runs it as a
   `remove` follow-up through GitOps (`removing` → `removed`, `$pull` from `allowedDeployments`; back
-  to `active` with a reason on failure) and the team page refreshes until it settles. The wait
-  page sends a removing or removed deployment to the team page. Team decommission is IaC-only so far.
+  to `active` with a reason on failure); the team page offers a refresh link while a model is
+  changing (never an automatic reload under its forms) and says when the listing is unavailable.
+  The wait page sends a removing or removed deployment to the team page. Team decommission is
+  IaC-only so far.
+- Environment labels come from the credential (`environment-names.js`): a team credential names its
+  own environment, a Research key the Sandbox. Rotate is for team credentials only; a Research key
+  is renewed, never rotated. The mock OIDC user carries stable `oid` and `tid` claims for the backend.
 
 ## Route 3 — Team tier, joining a team with existing access
 

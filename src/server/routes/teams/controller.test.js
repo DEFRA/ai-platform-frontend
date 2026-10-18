@@ -273,12 +273,12 @@ describe('#teamsController', () => {
     expect(JSON.parse(options.body)).toEqual({ serviceCode: 'xyz' })
   })
 
-  test('POST /teams/{id}/service-code re-renders the team page for an invalid code', async () => {
+  test('POST /teams/{id}/service-code re-renders the team page for an invalid code, keeping what was typed in the input and the saved code in the summary', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(
       JSON.stringify({
-        team: sampleTeam,
+        team: { ...sampleTeam, serviceCode: 'OLD' },
         members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
       })
     )
@@ -294,6 +294,8 @@ describe('#teamsController', () => {
     expect(result).toContain(
       'Service code must be 3 letters or numbers, for example AIP'
     )
+    expect(result).toMatch(/name="serviceCode"[^>]*value="TOO-LONG"/)
+    expect(result).toContain('OLD')
   })
 
   test('GET /teams/{id} hides the add member form from a non-admin', async () => {
@@ -778,8 +780,11 @@ describe('#teamsController', () => {
       expect(result).toContain('href="/connect/team/request/team-1/dep-2"')
       expect(result).not.toContain('/models/dep-2/remove')
       expect(result).not.toContain('/models/dep-3/remove')
-      // Something is still changing, so the page checks again.
-      expect(result).toContain('http-equiv="refresh" content="5"')
+      // Something is still changing: the page offers a refresh rather than
+      // reloading itself under the forms.
+      expect(result).toContain('data-testid="team-models-changing"')
+      expect(result).toContain('Refresh this page')
+      expect(result).not.toContain('http-equiv="refresh"')
     })
 
     test('GET /teams/{id} shows a member the models without a Remove link', async () => {
@@ -794,10 +799,10 @@ describe('#teamsController', () => {
 
       expect(result).toContain('GPT-4o')
       expect(result).not.toContain('/models/dep-1/remove')
-      expect(result).not.toContain('http-equiv="refresh"')
+      expect(result).not.toContain('data-testid="team-models-changing"')
     })
 
-    test('GET /teams/{id} still renders when the models cannot be listed', async () => {
+    test('GET /teams/{id} says so when the models cannot be listed, rather than showing an empty team', async () => {
       const cookies = await signIn(server)
       fetchMock.mockResponseOnce(JSON.stringify(adminTeam))
       fetchMock.mockResponseOnce(
@@ -813,7 +818,28 @@ describe('#teamsController', () => {
       })
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('This team has no models yet')
+      expect(result).toContain('data-testid="team-models-unavailable"')
+      expect(result).toContain('Try again')
+      expect(result).not.toContain('This team has no models yet')
+      // The rest of the team page still works.
+      expect(result).toContain('Add a member')
+    })
+
+    test('GET /teams/{id}/models/{deploymentId}/remove is not found when the team is', async () => {
+      const cookies = await signIn(server)
+      fetchMock.mockResponseOnce(
+        JSON.stringify({ statusCode: 404, message: 'Not Found' }),
+        { status: 404 }
+      )
+
+      const { result, statusCode } = await server.inject({
+        method: 'GET',
+        url: '/teams/team-9/models/dep-1/remove',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(statusCode).toBe(statusCodes.notFound)
+      expect(result).toContain('Model not found')
     })
 
     test('GET /teams/{id}/models/{deploymentId}/remove asks an admin to confirm', async () => {
