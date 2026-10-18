@@ -347,6 +347,34 @@ describe('#teamsController', () => {
     expect(result).toEqual(expect.stringContaining('@defra.gov.uk'))
   })
 
+  test('GET /teams/{id} hides a member email that is not an address at all from a non-admin', async () => {
+    const cookies = await signIn(server)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: sampleTeam,
+        members: [
+          { userId: 'user-1', role: 'user', status: 'active' },
+          {
+            userId: 'user-2',
+            email: 'not-an-address',
+            role: 'user',
+            status: 'active'
+          }
+        ]
+      })
+    )
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/teams/team-1',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('Hidden')
+    expect(result).not.toContain('not-an-address')
+  })
+
   test('GET /teams/{id} shows full email addresses to an admin', async () => {
     const cookies = await signIn(server)
 
@@ -785,6 +813,35 @@ describe('#teamsController', () => {
       expect(result).toContain('data-testid="team-models-changing"')
       expect(result).toContain('Refresh this page')
       expect(result).not.toContain('http-equiv="refresh"')
+    })
+
+    test('GET /teams/{id} names a model by its slug when the catalogue no longer lists it', async () => {
+      const cookies = await signIn(server)
+      mockTeamPage(adminTeam, [deployment({ modelSlug: 'retired-model' })])
+
+      const { result } = await server.inject({
+        method: 'GET',
+        url: '/teams/team-1',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(result).toContain('retired-model')
+    })
+
+    test('GET /teams/{id}/models/{deploymentId}/remove fails rather than hiding a team lookup that broke', async () => {
+      const cookies = await signIn(server)
+      fetchMock.mockResponseOnce(
+        JSON.stringify({ statusCode: 502, message: 'down' }),
+        { status: 502 }
+      )
+
+      const { statusCode } = await server.inject({
+        method: 'GET',
+        url: '/teams/team-1/models/dep-1/remove',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
     })
 
     test('GET /teams/{id} shows a member the models without a Remove link', async () => {
