@@ -561,10 +561,11 @@ field, and never a full secret logged or persisted.
 "Status unknown" (grey, not refreshing, no "Check progress"), so a new backend status is visible
 instead of disguised. `active` is "Ready to use"; a credential's `pending` is "Being created". The
 team page offers "Check progress" only while a model is in progress and "See what happened" on a
-failure. The wait page heading is "Setting up your model access" until every request has reached
-`verified`, then "Setting up your team client secret". The backend's fourth step is "Preparing your
-client secret" (it does not claim an Entra secret is made while R5's mock stands in), and `active`
-now marks all four steps done. Still to do: R5's placeholder inset.
+failure. The wait page heading is "Setting up your model access" until every request has finished
+the apply (`deployed`), then "Setting up your team client secret". The backend's fourth step is
+"Checking and preparing your client secret", current from `deployed` so the Azure step turns done
+when the apply ends instead of flashing past (it does not claim an Entra secret is made while R5's
+mock stands in), and `active` now marks all four steps done. Still to do: R5's placeholder inset.
 
 **19 Oct 2026 — R5 built.** `MOCK_TIERS=team` and the port-level mock already existed, so the work
 was the labelling. One component, `placeholder-credential-notice` (a GOV.UK inset), is shown on the

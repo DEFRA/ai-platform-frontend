@@ -12,8 +12,9 @@ export const IN_PROGRESS_STATUSES = [
   ...DEPLOYMENT_SETTING_UP_STATUSES
 ]
 
-// The only state in which the team's client secret is being made.
-const SECRET_STEP_STATUS = 'verified'
+// The states in which the team's client secret is being prepared: the apply
+// has finished and what remains is the check and activation.
+const SECRET_STEP_STATUSES = ['deployed', 'verified']
 
 /**
  * The heading of the wait page, from the statuses of the deployments it
@@ -27,7 +28,7 @@ export function waitPageHeading(statuses) {
     return 'Waiting for another change to this team to finish'
   }
 
-  return statuses.every((status) => status === SECRET_STEP_STATUS)
+  return statuses.every((status) => SECRET_STEP_STATUSES.includes(status))
     ? 'Setting up your team client secret'
     : 'Setting up your model access'
 }

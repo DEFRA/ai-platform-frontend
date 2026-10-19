@@ -22,6 +22,12 @@ describe('team-request-view', () => {
     expect(waitPageHeading(['deploying'])).toBe('Setting up your model access')
   })
 
+  test('promises the client secret from the end of the apply, when the Azure step is done', () => {
+    expect(waitPageHeading(['deployed'])).toBe(
+      'Setting up your team client secret'
+    )
+  })
+
   test('promises the client secret only once every request has reached that step', () => {
     expect(waitPageHeading(['verified'])).toBe(
       'Setting up your team client secret'
