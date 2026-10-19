@@ -222,6 +222,41 @@ describe('#manageController', () => {
     )
   })
 
+  test('GET /manage does not list a team client secret that covers no models', async () => {
+    const cookies = await signIn(server)
+    const teamCredential = {
+      ...sampleCredential,
+      teamId: 'team-3',
+      tier: 'team',
+      credentialType: 'oauth',
+      expiresAt: null
+    }
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          { ...teamCredential, _id: 'cred-empty', allowedDeployments: [] },
+          { ...teamCredential, _id: 'cred-unset' }
+        ]
+      })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ items: [{ _id: 'team-3', name: 'team-test-3' }] })
+    )
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(result).toContain('You do not have a key or client secret yet')
+    expect(result).not.toContain('data-testid="keys-table-row"')
+    expect(result).not.toContain('No models')
+  })
+
   test('GET /manage shows a "Your teams" placeholder with no team memberships', async () => {
     const cookies = await signIn(server)
 
@@ -250,7 +285,8 @@ describe('#manageController', () => {
       ...sampleCredential,
       _id: 'cred-team-1',
       teamId: 'team-1',
-      tier: 'team'
+      tier: 'team',
+      allowedDeployments: ['gpt-4o']
     }
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [teamCredential] }))

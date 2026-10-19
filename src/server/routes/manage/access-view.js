@@ -35,6 +35,15 @@ const RESEARCH_EXPIRY_WARNING_DAYS = 3
 // about the failure inline when it happened).
 const UNISSUED_CREDENTIAL_STATUSES = ['pending', 'failed']
 
+// A team's secret that covers no model opens nothing, so it is not listed
+// (it stays on the team's record and covers models again once one is added).
+function coversNoModel(credential) {
+  return (
+    credential.tier === 'team' &&
+    (credential.allowedDeployments ?? []).length === 0
+  )
+}
+
 // A credential someone has been through issuance for, whatever happened
 // to it since: the team's secret exists (or did), so no model of that
 // team's needs its first reveal.
@@ -55,9 +64,7 @@ export function credentialModelsText(credential, modelNames) {
   if (credential.tier === 'team') {
     const slugs = credential.allowedDeployments ?? []
 
-    return slugs.length > 0
-      ? slugs.map((slug) => modelNames[slug] ?? slug).join(', ')
-      : 'No models'
+    return slugs.map((slug) => modelNames[slug] ?? slug).join(', ')
   }
 
   return modelNames[credential.modelSlug] ?? credential.modelSlug
@@ -114,7 +121,9 @@ function keyRow(credential, modelNames, { forText, showRenewRevoke, isAdmin }) {
 export function buildKeyRows(credentials, teamsById, modelNames) {
   return credentials
     .filter(
-      (credential) => !UNISSUED_CREDENTIAL_STATUSES.includes(credential.status)
+      (credential) =>
+        !UNISSUED_CREDENTIAL_STATUSES.includes(credential.status) &&
+        !coversNoModel(credential)
     )
     .map((credential) => {
       if (credential.tier === 'team') {
