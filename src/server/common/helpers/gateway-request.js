@@ -8,7 +8,7 @@ const SAMPLE_PROMPT = 'Hello'
 /**
  * Builds the real APIM gateway request for a model, keyed off `apiProfile`
  * (design: "snippets and tabs follow apiProfile") - shapes verified against
- * the sandbox gateway (see docs/plans/integration/research-tier-integration-plan.md).
+ * the sandbox gateway (see docs/plans/implemented/integration/research-tier-integration-plan.md).
  * `responses` takes the model as a body field with no deployment segment in
  * the URL; every other profile (including `chat-completions`) uses the
  * deployment-scoped chat completions shape.

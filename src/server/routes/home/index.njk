@@ -6,9 +6,12 @@
 
 {% block content %}
   {% if signedIn and expiringBanner %}
+    {% set expiringBannerHtml %}
+      Your research key runs out in {{ expiringBanner.daysLeft }} day{{ '' if expiringBanner.daysLeft == 1 else 's' }}, on {{ expiringBanner.expiresAtText }}. <a class="govuk-notification-banner__link" href="{{ expiringBanner.renewUrl }}">Renew your key</a>
+    {% endset %}
     {{ govukNotificationBanner({
       titleText: "Important",
-      html: 'Your research key runs out in ' + expiringBanner.daysLeft + ' day' + ('' if expiringBanner.daysLeft == 1 else 's') + ', on ' + expiringBanner.expiresAtText + '. <a class="govuk-notification-banner__link" href="' + expiringBanner.renewUrl + '">Renew your key</a>'
+      html: expiringBannerHtml
     }) }}
   {% endif %}
 
@@ -27,14 +30,24 @@
 
         <h2 class="govuk-heading-m">Your access</h2>
 
-        {% if teamAccess %}
+        {% for team in teamAccess %}
+          {% set modelsText = team.modelNames | join(", ") %}
+          {% set teamAccessHtml %}
+            {% if team.modelNames.length %}
+              <p class="govuk-body">Your team <strong>{{ team.teamName }}</strong> already has an OAuth client secret for its deployed models: {{ modelsText }}. Anyone in the team can use it, so you may not need your own.</p>
+            {% else %}
+              <p class="govuk-body">Your team <strong>{{ team.teamName }}</strong> already has an OAuth client secret, but no models are deployed for it at the moment. Anyone in the team can use it once a model is deployed.</p>
+            {% endif %}
+            <p class="govuk-body"><a class="govuk-link" href="/manage">View your team's client secret and model access</a></p>
+          {% endset %}
           {{ govukInsetText({
-            html: teamAccess.teamName + ' already has a key for ' + teamAccess.modelsText + '. Anyone in the team can use it, so you may not need your own.<br><a class="govuk-link" href="' + teamAccess.credentialUrl + '">View the ' + teamAccess.teamName + ' key</a>'
+            html: teamAccessHtml,
+            attributes: { "data-testid": "team-access" }
           }) }}
-        {% endif %}
+        {% endfor %}
 
         <p class="govuk-body">
-          <a class="govuk-link" href="/manage">See every key you and your teams hold</a>
+          <a class="govuk-link" href="/manage">See every key and client secret you and your teams hold</a>
         </p>
       {% else %}
         {{ govukButton({ text: "Start now", href: "/models", isStartButton: true }) }}

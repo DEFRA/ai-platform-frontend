@@ -1,5 +1,6 @@
 import { connectController } from './controller.js'
 import { teamConnectController } from './team-controller.js'
+import { teamRequestController } from './team-request-controller.js'
 
 const publicRoute = { app: { public: true } }
 
@@ -90,15 +91,15 @@ export const connect = {
         {
           method: 'GET',
           path: '/connect/team/model',
-          handler: teamConnectController.selectModel.get.handler
+          handler: teamConnectController.selectModels.get.handler
         },
         {
           method: 'POST',
           path: '/connect/team/model',
           options: {
-            validate: teamConnectController.selectModel.post.options.validate
+            validate: teamConnectController.selectModels.post.options.validate
           },
-          handler: teamConnectController.selectModel.post.handler
+          handler: teamConnectController.selectModels.post.handler
         },
         {
           method: 'GET',
@@ -126,12 +127,12 @@ export const connect = {
         {
           method: 'GET',
           path: '/connect/team/request/{teamId}/{id}',
-          handler: teamConnectController.request.get.handler
+          handler: teamRequestController.request.get.handler
         },
         {
           method: 'GET',
           path: '/connect/team/credential',
-          handler: teamConnectController.credential.get.handler
+          handler: teamRequestController.credential.get.handler
         }
       ])
     }

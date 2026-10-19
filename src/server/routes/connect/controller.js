@@ -5,6 +5,7 @@ import { addDays } from 'date-fns'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
+import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
 import {
   getSessionUser,
   getPendingAccess,
@@ -92,7 +93,7 @@ function buildAccessTypeItems(selectedAccessType) {
       value: 'team',
       text: 'For my team',
       hint: {
-        text: 'A key the whole team shares. Admins can rotate or revoke it. Takes a few minutes to set up.'
+        text: 'An OAuth client secret the whole team shares. Admins can rotate or revoke it. Takes a few minutes to set up.'
       },
       checked: selectedAccessType === 'team'
     }
@@ -477,7 +478,8 @@ export const connectController = {
             pageTitle: 'Your connection details',
             heading: 'Your connection details',
             ...issued,
-            ...buildGatewayRequest(issued.model)
+            ...buildGatewayRequest(issued.model),
+            environmentName: credentialEnvironmentName(issued.credential)
           })
           .header('cache-control', 'no-store')
       }

@@ -1,5 +1,4 @@
 import Joi from 'joi'
-import { differenceInCalendarDays } from 'date-fns'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
@@ -15,8 +14,12 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import { formatDate } from '#/config/nunjucks/filters/format-date.js'
-import { formatLabel } from '#/config/nunjucks/filters/format-label.js'
+import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
+import {
+  buildKeyRows,
+  buildModelRows,
+  notificationBannerParams
+} from './access-view.js'
 
 const revokeConfirmSchema = Joi.object({
   confirmRevoke: Joi.string().valid('yes', 'no').required().messages({
@@ -31,6 +34,9 @@ const revealSchema = Joi.object({
     'any.required': 'Enter why you need to see this'
   })
 })
+
+// How often the page re-reads while any of the person's models is changing.
+const MODELS_CHANGING_REFRESH_SECONDS = 5
 
 // Only the credential's own model is looked up, so this stays a single call
 // rather than fetching the whole catalogue for a one-row confirm page.
@@ -52,6 +58,11 @@ async function findModelsForCredential(request, credential) {
 
 function modelNamesText(models) {
   return models.map((model) => model.displayName).join(', ') || 'this model'
+}
+
+// Team credentials are OAuth client secrets; research credentials are keys.
+function secretNameFor(credential) {
+  return credential.tier === 'team' ? 'client secret' : 'key'
 }
 
 // The signed-in user's role for one team credential - looked up from the
@@ -86,6 +97,40 @@ async function findTeamName(request, sessionUser, teamId) {
   return items.find((team) => team._id === teamId)?.name
 }
 
+// What the rotate confirmation needs, or null when there is nothing to
+// rotate here: an unknown credential, or a research key, which is renewed
+// rather than rotated whatever the API would allow its owner.
+async function loadRotatePage(request) {
+  const sessionUser = getSessionUser(request)
+  const { id } = request.params
+  let credential
+
+  try {
+    credential = await apiClient(request).get(`/v1/credentials/${id}`, {
+      userId: sessionUser.id
+    })
+  } catch (error) {
+    if (isNotFound(error)) {
+      return null
+    }
+    throw error
+  }
+
+  if (credential.tier !== 'team') {
+    return null
+  }
+
+  const models = await findModelsForCredential(request, credential)
+  const teamName = await findTeamName(request, sessionUser, credential.teamId)
+
+  return {
+    heading: `Are you sure you want to rotate the ${teamName ?? 'team'} client secret?`,
+    credential,
+    environmentName: credentialEnvironmentName(credential),
+    modelNamesText: modelNamesText(models)
+  }
+}
+
 async function buildModelNameMap(request) {
   const { items } = await apiClient(request).get('/v1/models')
 
@@ -96,197 +141,6 @@ async function buildModelNameMap(request) {
 
 function isNotFound(error) {
   return error instanceof ApiError && error.statusCode === statusCodes.notFound
-}
-
-const TAG_CLASS_BY_STATUS = {
-  active: 'govuk-tag--green',
-  revoked: 'govuk-tag--red'
-}
-
-function tagClassForStatus(status) {
-  return TAG_CLASS_BY_STATUS[status] ?? 'govuk-tag--grey'
-}
-
-function modelDisplayNameFor(credential, modelNames) {
-  if (credential.tier === 'team') {
-    const slugs = credential.allowedDeployments ?? []
-
-    return slugs.length > 0
-      ? slugs.map((slug) => modelNames[slug] ?? slug).join(', ')
-      : 'No models yet'
-  }
-
-  return modelNames[credential.modelSlug] ?? credential.modelSlug
-}
-
-// Research keys carry a fixed, meaningful expiry - show a countdown instead
-// of a static "Active" tag so people notice one is about to run out.
-const RESEARCH_EXPIRY_WARNING_DAYS = 3
-
-function statusDisplayFor(credential) {
-  if (credential.tier === 'team' || credential.status !== 'active') {
-    return {
-      text: formatLabel(credential.status),
-      tagClass: tagClassForStatus(credential.status)
-    }
-  }
-
-  const daysLeft = Math.max(
-    differenceInCalendarDays(new Date(credential.expiresAt), new Date()),
-    0
-  )
-
-  return {
-    text: `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`,
-    tagClass:
-      daysLeft <= RESEARCH_EXPIRY_WARNING_DAYS
-        ? 'govuk-tag--yellow'
-        : 'govuk-tag--green'
-  }
-}
-
-function decorateKeyRow(
-  credential,
-  modelNames,
-  { forText, showRenewRevoke, isAdmin }
-) {
-  const statusDisplay = statusDisplayFor(credential)
-
-  return {
-    ...credential,
-    modelDisplayName: modelDisplayNameFor(credential, modelNames),
-    forText,
-    environment: 'Sandbox',
-    statusText: statusDisplay.text,
-    tagClass: statusDisplay.tagClass,
-    runsOut: credential.expiresAt ? formatDate(credential.expiresAt) : null,
-    showRenewRevoke,
-    showRotateRevoke: credential.tier === 'team' && isAdmin
-  }
-}
-
-// A credential that never finished issuing (still 'pending', or 'failed'
-// after a retry was exhausted/reconciled) was never a usable key - nothing
-// to view/renew/revoke. Surfacing it here would show, per failed attempt, a
-// permanent dead-end row (the connect journey already told the requester
-// about the failure inline when it happened).
-const UNISSUED_CREDENTIAL_STATUSES = ['pending', 'failed']
-
-// Builds the single "Keys you can use" table (page 11): personal research
-// keys and shared team keys side by side, so people can compare what they
-// hold without switching tabs.
-function buildKeyRows(credentials, teamsById, modelNames) {
-  return credentials
-    .filter(
-      (credential) => !UNISSUED_CREDENTIAL_STATUSES.includes(credential.status)
-    )
-    .map((credential) => {
-      if (credential.tier === 'team') {
-        const team = teamsById.get(credential.teamId)
-
-        return decorateKeyRow(credential, modelNames, {
-          forText: `${team?.name ?? 'Unknown team'} / Team`,
-          showRenewRevoke: false,
-          isAdmin: team?.role === 'admin'
-        })
-      }
-
-      return decorateKeyRow(credential, modelNames, {
-        forText: 'You / Research',
-        showRenewRevoke: true,
-        isAdmin: false
-      })
-    })
-}
-
-// Deployment requests that haven't produced a viewable credential yet (still
-// being set up, failed, or active but not yet revealed to anyone) get a
-// "check progress" row, so a request never becomes unreachable if the
-// requester navigates away from the wait page. A model whose credential was
-// ever actually issued (active or later revoked) has already been through
-// that flow - keep it out permanently so revoking a credential doesn't
-// resurrect its request row and let "check progress" issue a brand new one.
-const DEPLOYMENT_FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
-
-function deploymentStatusText(status) {
-  if (status === 'active') {
-    return 'Ready to view'
-  }
-
-  if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
-    return 'Setup failed'
-  }
-
-  return 'Setting up'
-}
-
-function deploymentTagClass(status) {
-  if (status === 'active') {
-    return 'govuk-tag--green'
-  }
-
-  if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
-    return 'govuk-tag--red'
-  }
-
-  return 'govuk-tag--yellow'
-}
-
-function buildIssuedModelSlugsByTeam(teamCredentials) {
-  const issuedByTeam = new Map()
-
-  for (const credential of teamCredentials) {
-    if (!['active', 'revoked'].includes(credential.status)) {
-      continue
-    }
-
-    const slugs = issuedByTeam.get(credential.teamId) ?? new Set()
-    for (const slug of credential.allowedDeployments ?? []) {
-      slugs.add(slug)
-    }
-    issuedByTeam.set(credential.teamId, slugs)
-  }
-
-  return issuedByTeam
-}
-
-function buildBeingSetUpRows(
-  deployments,
-  teamCredentials,
-  teamsById,
-  modelNames
-) {
-  const issuedModelSlugsByTeam = buildIssuedModelSlugsByTeam(teamCredentials)
-
-  return deployments
-    .filter(
-      (deployment) =>
-        !issuedModelSlugsByTeam
-          .get(deployment.teamId)
-          ?.has(deployment.modelSlug)
-    )
-    .map((deployment) => ({
-      ...deployment,
-      modelDisplayName:
-        modelNames[deployment.modelSlug] ?? deployment.modelSlug,
-      forText: teamsById.get(deployment.teamId)?.name ?? 'Unknown team',
-      statusText: deploymentStatusText(deployment.status),
-      tagClass: deploymentTagClass(deployment.status),
-      requestUrl: `/connect/team/request/${deployment.teamId}/${deployment._id}`
-    }))
-}
-
-// GOV.UK's notification banner macro only has a distinct "success" style;
-// anything else renders its default (informational/error) style.
-function notificationBannerParams(notification) {
-  if (!notification) {
-    return null
-  }
-
-  return {
-    text: notification.message,
-    ...(notification.type === 'success' ? { type: 'success' } : {})
-  }
 }
 
 export const manageController = {
@@ -330,31 +184,28 @@ export const manageController = {
         // stale if they later change teams; tier is the reliable signal for
         // personal vs shared, since teamId is never used for authorization.
         const teamsById = new Map(teamItems.map((team) => [team._id, team]))
-        const teamCredentials = items.filter(
-          (credential) => credential.tier === 'team'
-        )
-
-        const hasInProgressDeployment = deployments.some(
-          (deployment) =>
-            !DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status) &&
-            deployment.status !== 'active'
+        const modelRows = buildModelRows(
+          deployments,
+          items,
+          teamsById,
+          modelNames
         )
 
         return h.view('manage/index', {
           pageTitle: 'Your access',
           heading: 'Your access',
           keyRows: buildKeyRows(items, teamsById, modelNames),
-          beingSetUpRows: buildBeingSetUpRows(
-            deployments,
-            teamCredentials,
-            teamsById,
-            modelNames
+          modelRows,
+          modelsUnavailable: deploymentResults.some(
+            (result) => result.status === 'rejected'
           ),
           teams: teamItems,
           notificationBanner: notificationBannerParams(
             takeAccountNotification(request)
           ),
-          refreshSeconds: hasInProgressDeployment ? 5 : undefined
+          refreshSeconds: modelRows.some((row) => row.inProgress)
+            ? MODELS_CHANGING_REFRESH_SECONDS
+            : undefined
         })
       }
     }
@@ -540,33 +391,15 @@ export const manageController = {
   rotate: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { id } = request.params
+        const page = await loadRotatePage(request)
 
-        let credential
-        try {
-          credential = await apiClient(request).get(`/v1/credentials/${id}`, {
-            userId: sessionUser.id
-          })
-        } catch (error) {
-          if (isNotFound(error)) {
-            return h.redirect('/manage').code(statusCodes.seeOther)
-          }
-          throw error
+        if (!page) {
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
-
-        const models = await findModelsForCredential(request, credential)
-        const teamName = await findTeamName(
-          request,
-          sessionUser,
-          credential.teamId
-        )
 
         return h.view('manage/rotate', {
           pageTitle: 'Confirm rotate',
-          heading: `Are you sure you want to rotate the ${teamName ?? 'team'} key?`,
-          credential,
-          modelNamesText: modelNamesText(models),
+          ...page,
           errorSummary: null,
           fieldErrors: {}
         })
@@ -578,25 +411,16 @@ export const manageController = {
         validate: {
           payload: revokeConfirmSchema,
           failAction: async (request, h, error) => {
-            const sessionUser = getSessionUser(request)
-            const { id } = request.params
-            const credential = await apiClient(request).get(
-              `/v1/credentials/${id}`,
-              { userId: sessionUser.id }
-            )
-            const models = await findModelsForCredential(request, credential)
-            const teamName = await findTeamName(
-              request,
-              sessionUser,
-              credential.teamId
-            )
+            const page = await loadRotatePage(request)
+
+            if (!page) {
+              return h.redirect('/manage').code(statusCodes.seeOther).takeover()
+            }
 
             return h
               .view('manage/rotate', {
                 pageTitle: 'Error: Confirm rotate',
-                heading: `Are you sure you want to rotate the ${teamName ?? 'team'} key?`,
-                credential,
-                modelNamesText: modelNamesText(models),
+                ...page,
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
               })
@@ -615,6 +439,17 @@ export const manageController = {
         const sessionUser = getSessionUser(request)
 
         try {
+          // Rotation is a team action: a research key is renewed, never
+          // rotated, whatever the API would allow its owner.
+          const current = await apiClient(request).get(
+            `/v1/credentials/${id}`,
+            { userId: sessionUser.id }
+          )
+
+          if (current.tier !== 'team') {
+            return h.redirect('/manage').code(statusCodes.seeOther)
+          }
+
           const { credential, secret } = await apiClient(request).post(
             `/v1/credentials/${id}/rotate`,
             undefined,
@@ -692,10 +527,12 @@ export const manageController = {
         }
 
         const models = await findModelsForCredential(request, credential)
+        const secretName = secretNameFor(credential)
 
         return h.view('manage/reveal', {
-          pageTitle: 'View the full key',
-          heading: `View the full key for ${modelNamesText(models)}`,
+          pageTitle: `View the full ${secretName}`,
+          heading: `View the full ${secretName} for ${modelNamesText(models)}`,
+          secretName,
           values: { reason: '' },
           errorSummary: null,
           fieldErrors: {}
@@ -715,11 +552,13 @@ export const manageController = {
               { userId: sessionUser.id }
             )
             const models = await findModelsForCredential(request, credential)
+            const secretName = secretNameFor(credential)
 
             return h
               .view('manage/reveal', {
-                pageTitle: 'Error: View the full key',
-                heading: `View the full key for ${modelNamesText(models)}`,
+                pageTitle: `Error: View the full ${secretName}`,
+                heading: `View the full ${secretName} for ${modelNamesText(models)}`,
+                secretName,
                 values: request.payload,
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
@@ -734,13 +573,23 @@ export const manageController = {
         const { id } = request.params
 
         try {
+          // The reveal response holds only the secret, so read the
+          // credential first to name it on the next page.
+          const credential = await apiClient(request).get(
+            `/v1/credentials/${id}`,
+            { userId: sessionUser.id }
+          )
           const { secret } = await apiClient(request).post(
             `/v1/credentials/${id}/reveal`,
             { reason: request.payload.reason },
             { userId: sessionUser.id }
           )
 
-          setIssuedCredential(request, { secret, credentialId: id })
+          setIssuedCredential(request, {
+            secret,
+            credentialId: id,
+            secretName: secretNameFor(credential)
+          })
 
           return h
             .redirect(`/manage/credentials/${id}/revealed`)
@@ -777,8 +626,9 @@ export const manageController = {
 
         return h
           .view('manage/revealed', {
-            pageTitle: 'Your key',
-            heading: 'Your key',
+            pageTitle: `Your ${issued.secretName}`,
+            heading: `Your ${issued.secretName}`,
+            secretName: issued.secretName,
             secret: issued.secret,
             credentialId: issued.credentialId
           })

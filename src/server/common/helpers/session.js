@@ -1,6 +1,8 @@
 const SESSION_USER_KEY = 'user'
 const PENDING_ACCESS_KEY = 'pendingAccess'
+const REQUESTED_DEPLOYMENTS_KEY = 'requestedDeployments'
 const PENDING_TEAM_KEY = 'pendingTeam'
+const CURRENT_TEAM_KEY = 'currentTeamId'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
@@ -19,16 +21,38 @@ export function setSessionUser(request, user) {
   request.yar.set(SESSION_USER_KEY, user)
 }
 
-export function clearSessionUser(request) {
-  request.yar.clear(SESSION_USER_KEY)
-}
-
 export function getPendingAccess(request) {
   return request.yar.get(PENDING_ACCESS_KEY)
 }
 
 export function setPendingAccess(request, value) {
   request.yar.set(PENDING_ACCESS_KEY, value)
+}
+
+// A finished or abandoned connect journey must not seed the next one.
+export function clearPendingAccess(request) {
+  request.yar.clear(PENDING_ACCESS_KEY)
+}
+
+// The deployments one team request made, so its wait page can follow them
+// all; the page falls back to the one in its address when this is gone.
+export function getRequestedDeployments(request) {
+  return request.yar.get(REQUESTED_DEPLOYMENTS_KEY)
+}
+
+export function setRequestedDeployments(request, value) {
+  request.yar.set(REQUESTED_DEPLOYMENTS_KEY, value)
+}
+
+export function clearRequestedDeployments(request) {
+  request.yar.clear(REQUESTED_DEPLOYMENTS_KEY)
+}
+
+// Ends the whole session, and with it everything a person left in it
+// (journey state, a credential not yet shown, notifications), so the next
+// person on this browser starts clean.
+export function resetSession(request) {
+  request.yar.reset()
 }
 
 export function getPendingTeam(request) {
@@ -41,6 +65,16 @@ export function setPendingTeam(request, value) {
 
 export function clearPendingTeam(request) {
   request.yar.clear(PENDING_TEAM_KEY)
+}
+
+// A person belongs to several teams but acts in one at a time (design F):
+// opening a team's page is what makes it the one they are acting in.
+export function getCurrentTeamId(request) {
+  return request.yar.get(CURRENT_TEAM_KEY)
+}
+
+export function setCurrentTeamId(request, teamId) {
+  request.yar.set(CURRENT_TEAM_KEY, teamId)
 }
 
 export function setIssuedCredential(request, value) {

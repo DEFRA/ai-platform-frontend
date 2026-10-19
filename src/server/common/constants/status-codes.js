@@ -9,5 +9,6 @@ export const statusCodes = {
   imATeapot: 418,
   conflict: 409,
   internalServerError: 500,
+  notImplemented: 501,
   serviceUnavailable: 503
 }

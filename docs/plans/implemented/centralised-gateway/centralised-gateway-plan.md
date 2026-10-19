@@ -1,7 +1,7 @@
 # Centralised gateway: APIM-only, offering-derived hosting
 
 > Cross-cutting plan, not a journey route. See also the
-> ["three routes to a credential"](../../ui-flow-three-routes.md) journey
+> ["three routes to a credential"](../../../ui-flow-three-routes.md) journey
 > ([Route 0](../route0-welcome-plan.md), [Route 1](../route1-plan.md), [Route 2](../route2-plan.md),
 > [Route 3](../route3-plan.md)) and the other cross-cutting plan,
 > [research-tier-integration-plan.md](../integration/research-tier-integration-plan.md).
@@ -45,15 +45,15 @@ Three-legged OAuth is a later question.
 from that commit — PR #14 added `ms.date` frontmatter to every content page, which shifted every
 earlier citation by one line.
 
-| Reference                                                                                                                            | What it mandates                                                                                                                                                                                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [design-orchestration.md](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md) L162-191 `{#catalogue-schema}` | The provider/offering field table. L185: "Model files do not repeat `cloud` or `adapter`; the backend derives both from the offering". L187 PR checks, L189 extension rules                                                                                                                                                  |
-| Same file L191                                                                                                                       | **The backend must read both shapes.** "`ai-platform-infra` `v0.1.2` ships one provider file in the earlier flat shape … and backend `0.24.0` reads that shape. The shape above replaces it without changing the fields mirrored onto models and credentials, so the backend reads both until a catalogue release adopts it" |
-| Same file L193-208 `{#catalogue-flow}`                                                                                               | "Credential issuer and vault registries keyed by the offering's `gateway`, never by cloud or platform"                                                                                                                                                                                                                       |
-| Same file L382                                                                                                                       | Constraint 10: confirm how APIM authenticates to Amazon Bedrock before any `bedrock` offering ships                                                                                                                                                                                                                          |
-| [catalogue.md](../../../../ai-platform-discovery-docs/src/content/catalogue.md) `{#availability}`                                    | Added by PR #14. The same direction in user-facing terms: "The catalogue lists model providers such as OpenAI, Anthropic or Meta; each provider's offerings are its hosting routes… A hosting route is never a separate gateway, and team credentials are always gateway credentials"                                        |
-| [decision-history.md](../../../../ai-platform-discovery-docs/docs/decision-history.md) 8 Oct 2026 entry                              | "Adopting the new shape is application and catalogue work outside this site" — i.e. this plan. Its **Open** section now adds: "Move `ai-platform-infra`'s catalogue and the backend sync to the `hosting` and `gateway` shape **together**, and add `catalogue/schema/`"                                                     |
-| [cloud-designs.json](../../../../ai-platform-discovery-docs/src/data/cloud-designs.json) AR03 v0.6.0                                 | "Bedrock and direct provider APIs are hosting platforms behind API Management, never separate gateways or credential issuers", and the control "team credentials stay gateway credentials"                                                                                                                                   |
+| Reference                                                                                                                               | What it mandates                                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [design-orchestration.md](../../../../../ai-platform-discovery-docs/src/content/design-orchestration.md) L162-191 `{#catalogue-schema}` | The provider/offering field table. L185: "Model files do not repeat `cloud` or `adapter`; the backend derives both from the offering". L187 PR checks, L189 extension rules                                                                                                                                                  |
+| Same file L191                                                                                                                          | **The backend must read both shapes.** "`ai-platform-infra` `v0.1.2` ships one provider file in the earlier flat shape … and backend `0.24.0` reads that shape. The shape above replaces it without changing the fields mirrored onto models and credentials, so the backend reads both until a catalogue release adopts it" |
+| Same file L193-208 `{#catalogue-flow}`                                                                                                  | "Credential issuer and vault registries keyed by the offering's `gateway`, never by cloud or platform"                                                                                                                                                                                                                       |
+| Same file L382                                                                                                                          | Constraint 10: confirm how APIM authenticates to Amazon Bedrock before any `bedrock` offering ships                                                                                                                                                                                                                          |
+| [catalogue.md](../../../../../ai-platform-discovery-docs/src/content/catalogue.md) `{#availability}`                                    | Added by PR #14. The same direction in user-facing terms: "The catalogue lists model providers such as OpenAI, Anthropic or Meta; each provider's offerings are its hosting routes… A hosting route is never a separate gateway, and team credentials are always gateway credentials"                                        |
+| [decision-history.md](../../../../../ai-platform-discovery-docs/docs/decision-history.md) 8 Oct 2026 entry                              | "Adopting the new shape is application and catalogue work outside this site" — i.e. this plan. Its **Open** section now adds: "Move `ai-platform-infra`'s catalogue and the backend sync to the `hosting` and `gateway` shape **together**, and add `catalogue/schema/`"                                                     |
+| [cloud-designs.json](../../../../../ai-platform-discovery-docs/src/data/cloud-designs.json) AR03 v0.6.0                                 | "Bedrock and direct provider APIs are hosting platforms behind API Management, never separate gateways or credential issuers", and the control "team credentials stay gateway credentials"                                                                                                                                   |
 
 The design pack matches [new-shape.md](new-shape.md) on every field name and enum. It ships neither
 the JSON Schema nor any example provider JSON; those exist only in `new-shape.md`.
@@ -264,7 +264,7 @@ gateway: DEFAULT_GATEWAY }`; a legacy flat `{ id, cloud, adapter }` offering fro
 
 ### D. Backfill and indexes
 
-Follows [`schema-changes.instructions.md`](../../../../ai-platform-backend-api/.github/instructions/schema-changes.instructions.md).
+Follows [`schema-changes.instructions.md`](../../../../../ai-platform-backend-api/.github/instructions/schema-changes.instructions.md).
 
 - **D1.** New entry appended to the **end** of `src/common/backfills/registry.js`:
   `2026-10-08-models-hosting-gateway`. **The final registry order is load-bearing**:
@@ -345,7 +345,7 @@ Can run in parallel with B-F; only needs B3's field names.
 
 ### H. Frontend docs
 
-- **H1.** [`docs/implemented-features.md`](../../implemented-features.md) L10 (the "multi-cloud
+- **H1.** [`docs/implemented-features.md`](../../../implemented-features.md) L10 (the "multi-cloud
   catalogue: models carry `cloud`/`adapter` … chosen per adapter via `ENABLED_ADAPTERS`" header
   line), L99-110, L102-104, L112-125, L131-137. Mandatory per
   `implemented-features.instructions.md` once R and B-G land. Note this file is not just internal:
@@ -357,7 +357,7 @@ Can run in parallel with B-F; only needs B3's field names.
 - **H3.** [`docs/plans/route1-plan.md`](../route1-plan.md) L148 ("Bedrock/Anthropic-style entries
   greyed" — provider framing) plus a note that G1/G2 landed. Light pointer notes only on Route 2
   and Route 3.
-- **H4.** [`docs/ui-flow-three-routes.md`](../../ui-flow-three-routes.md) L101-102, the stale
+- **H4.** [`docs/ui-flow-three-routes.md`](../../../ui-flow-three-routes.md) L101-102, the stale
   "APIM adapter blocked on D01".
 
 ### I. Discovery docs

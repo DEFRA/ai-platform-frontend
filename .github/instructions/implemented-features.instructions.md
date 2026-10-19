@@ -22,7 +22,7 @@ Keep entries to one or two lines with a link to the authoritative source (route 
 section, design-pack page) for detail — do not grow this file into a second copy of that detail.
 Update the "Last updated" date at the top whenever you edit it.
 
-This is separate from (and in addition to) keeping `docs/plans/routeN-plan.md` STATUS lines
+This is separate from (and in addition to) keeping `docs/plans/implemented/routeN-plan.md` STATUS lines
 current — see [route-plans.instructions.md](route-plans.instructions.md) for that mechanism.
 
 ## Then check the discovery repo's build state

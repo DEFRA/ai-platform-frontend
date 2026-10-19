@@ -2,12 +2,15 @@ import * as client from 'openid-client'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { config } from '#/config/config.js'
-import { clearSessionUser } from '#/server/common/helpers/session.js'
+import { resetSession } from '#/server/common/helpers/session.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
 
 export const signOutController = {
   async handler(request, h) {
-    clearSessionUser(request)
+    // Everything the person left in the session goes with them: the next
+    // person on this browser must not inherit a half-made request, a team,
+    // or a credential not yet shown.
+    resetSession(request)
 
     // Entra ID is the only sign-in mechanism, so sign-out always ends the Entra
     // session too; falling back to '/' only if the end-session URL can't be built.

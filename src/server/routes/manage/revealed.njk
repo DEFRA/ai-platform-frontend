@@ -10,13 +10,13 @@
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {{ govukWarningText({
-        text: "This key is shown once. Copy it now and store it safely.",
+        text: "This " + secretName + " is shown once. Copy it now and store it safely.",
         iconFallbackText: "Warning"
       }) }}
 
       <div class="app-copy-field">
-        <input class="govuk-input app-copy-field__input" id="credential-key" type="text" value="{{ secret }}" readonly aria-label="Your key">
-        <button type="button" class="govuk-button govuk-button--secondary app-copy-button" data-copy-target="credential-key" data-testid="copy-key-button" hidden>Copy key</button>
+        <input class="govuk-input app-copy-field__input" id="credential-key" type="text" value="{{ secret }}" readonly aria-label="Your {{ secretName }}">
+        <button type="button" class="govuk-button govuk-button--secondary app-copy-button" data-copy-target="credential-key" data-testid="copy-key-button" hidden>Copy {{ secretName }}</button>
       </div>
 
       <p class="govuk-body">

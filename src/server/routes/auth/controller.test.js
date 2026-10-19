@@ -19,7 +19,12 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
-    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+    claims: () => ({
+      oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
+      tid: '7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+      email: 'test.user@defra.gov.uk',
+      name: 'Test User'
+    })
   })),
   buildEndSessionUrl: vi.fn(
     () => new URL('https://login.microsoftonline.com/tenant/oauth2/v2.0/logout')
@@ -126,6 +131,12 @@ describe('#authController', () => {
 
     expect(statusCode).toBe(statusCodes.seeOther)
     expect(headers.location).toBe('/connect')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
+      tid: '7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+      email: 'test.user@defra.gov.uk',
+      displayName: 'Test User'
+    })
   })
 
   test('GET /auth/callback redirects to returnTo when it was set before login', async () => {

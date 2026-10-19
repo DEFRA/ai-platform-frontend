@@ -40,24 +40,21 @@ function buildExpiringBanner(credentials) {
   }
 }
 
+// One entry per team whose client secret the person can already use, with
+// the models it covers today: the credential's live grants, so a removed
+// model drops out and a newly ready one appears.
 function buildTeamAccess(credentials, teamsById, modelNames) {
-  const teamCredential = credentials.find(
-    (credential) => credential.tier === 'team' && credential.status === 'active'
-  )
-
-  if (!teamCredential) {
-    return null
-  }
-
-  const modelsText = (teamCredential.allowedDeployments ?? [])
-    .map((slug) => modelNames[slug] ?? slug)
-    .join(', ')
-
-  return {
-    teamName: teamsById.get(teamCredential.teamId)?.name ?? 'Your team',
-    modelsText,
-    credentialUrl: `/manage/credentials/${teamCredential._id}`
-  }
+  return credentials
+    .filter(
+      (credential) =>
+        credential.tier === 'team' && credential.status === 'active'
+    )
+    .map((credential) => ({
+      teamName: teamsById.get(credential.teamId)?.name ?? 'Your team',
+      modelNames: (credential.allowedDeployments ?? []).map(
+        (slug) => modelNames[slug] ?? slug
+      )
+    }))
 }
 
 /**
