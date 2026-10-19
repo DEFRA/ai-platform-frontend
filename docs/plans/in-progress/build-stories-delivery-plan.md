@@ -7,12 +7,15 @@
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md) and
 > [research-tier-integration-plan.md](../implemented/integration/research-tier-integration-plan.md).
 >
-> **STATUS: IN PROGRESS (15 Oct 2026).** Phase 3 (IaC baseline) is merged, released and applied in
+> **STATUS: IN PROGRESS (19 Oct 2026).** Phase 3 (IaC baseline) is merged, released and applied in
 > Infradev, and the portal-to-team-apply path is proven locally (M6 in part). Backend and
 > frontend PR #35 and the discovery-docs PRs are still open, Entra consent is outstanding, and
-> Phase 0 is still next. Update the `Status` line on each phase as it lands and add a dated note
-> at the bottom recording what actually happened versus what is written here. The rollout detail
-> and open actions live in [iac-rollout-state.md](iac-rollout-state.md).
+> Phase 0 is still next. The research tier's move onto the same pipeline, the progress-page and
+> status-label work and the interim team credential are planned in
+> [research-tier-infradev-plan.md](research-tier-infradev-plan.md). Update the `Status` line on
+> each phase as it lands and add a dated note at the bottom recording what actually happened
+> versus what is written here. The rollout detail and open actions live in
+> [iac-rollout-state.md](iac-rollout-state.md).
 
 ## Authoritative source
 
@@ -85,16 +88,16 @@ without an Entra registration.
 
 ## Built versus remaining, at a glance
 
-| Phase | Built (on the branches above)                                                                                                                                                                                                  | Remaining                                                                                                                   |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| 0     | —                                                                                                                                                                                                                              | All of it: restructure `build-stories.md`                                                                                   |
-| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                                                                                             | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal                       |
-| 2     | **All of design F's team model**: `slug`, `serviceCode` and its verifier port, the role change with the last-admin guard, `currentTeamId`, `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | The environment list (row 6), and a real service code verifier when a source is agreed                                      |
-| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                                                                                          | **Merged, released and applied in Infradev** (M2 platform, M3 team without registration); M4, M5 and the Entra parts remain |
-| 4     | WS5 and WS6 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, the desired-state builder, run links in the portal                                                                      | M6 proven locally to the team apply; merge backend and frontend #35; the environment list                                   |
-| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                                                                                                 | The portal's limits page and increase flow; the backend's Graph client-secret issuer; federation entry                      |
-| 6     | —                                                                                                                                                                                                                              | All of it                                                                                                                   |
-| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                                                                                        | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks                                   |
+| Phase | Built (on the branches above)                                                                                                                                                                                                  | Remaining                                                                                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | —                                                                                                                                                                                                                              | All of it: restructure `build-stories.md`                                                                                                             |
+| 1     | CodeQL and checkov wired in the new repositories; `aip-checks` and workflows carry 90/90/85/90 coverage thresholds                                                                                                             | Portal coverage thresholds, axe scans, no-JavaScript journeys, `AUTH_MODE`, the `azure` alias removal                                                 |
+| 2     | **All of design F's team model**: `slug`, `serviceCode` and its verifier port, the role change with the last-admin guard, `currentTeamId`, `entra:{oid}` attribution, the `oid`+`tid` unique index, the non-unique email index | The environment list (row 6), and a real service code verifier when a source is agreed                                                                |
+| 3     | WS1–WS4 in full: schemas, 11 `aip-checks` commands, 12 modules, 4 roots, 11 workflows, 2 actions, callers, parameters                                                                                                          | **Merged, released and applied in Infradev** (M2 platform, M3 team without registration); M4, M5 and the Entra parts remain                           |
+| 4     | WS5 and WS6 in full: orchestrator, ARM verifier, D14 policy, queueing, polling, admin retry/reconcile, the desired-state builder, run links in the portal                                                                      | M6 proven locally to the team apply; merge backend and frontend #35; the verified-resource list and the status labels, both in the research tier plan |
+| 5     | Gateway-side limits and the OAuth-only team API; Terraform-owned registrations and federations                                                                                                                                 | The portal's limits page and increase flow; the backend's Graph client-secret issuer, which retires the labelled placeholder; federation entry        |
+| 6     | —                                                                                                                                                                                                                              | All of it                                                                                                                                             |
+| 7     | `trace_parent` and the `Traceparent` trailer in the contract; Application Insights, W3C APIM diagnostics, token metrics                                                                                                        | The OpenTelemetry SDK both sides, `capturePrompts`, Grafana, dashboards, alerts, runbooks                                                             |
 
 ## Direction that changed on 13 and 14 October 2026
 
@@ -415,23 +418,28 @@ Built in the open pull requests:
    clients and agreed limits carried over untouched. `getCurrentDocument` on the orchestrator port
    reads the file; a team with no file starts at revision 1 with the configured default limits.
 
-Still to do:
+Still to do (the team-facing environment is no longer one of them — `TEAM_ENVIRONMENTS` replaced
+the `sandbox` constant in the 18 Oct hardening round, and the two local `infradev` edits are gone):
 
-1. Drive the team-facing environment from `AIP_ENVIRONMENTS` rather than the `sandbox` constant.
-2. **Gap 4** is now closed differently: with an OAuth-only team tier there is no team subscription
+1. **Gap 4** is now closed differently: with an OAuth-only team tier there is no team subscription
    key to scope, so the `MOCK_TIERS=team` workaround ends when a gateway issues team OAuth client
-   secrets — that is M7 and Phase 5's B18, not this phase. Until then `live` mode answers
-   `501 gateway-not-enabled` and the wait page explains it.
-3. Legacy people have no Entra `oid` until their next sign-in, and `requireUserPrincipal` refuses
+   secrets — that is M7 and Phase 5's B18, not this phase. Until then the mocked secret is shown
+   as an openly labelled placeholder rather than a refusal
+   ([research-tier-infradev-plan.md](research-tier-infradev-plan.md) R5).
+2. Legacy people have no Entra `oid` until their next sign-in, and `requireUserPrincipal` refuses
    them with `403 entra-identity-required`. Check this is acceptable for invited members who have
    never signed in, and cover it in a journey test.
    **Done in part on 15 Oct 2026**: a local portal created `cool-team` with `gpt-4o` in Infradev
    and the pipeline applied it (project, deployment and API, no registration). Not yet seen: the
    wait page reaching `active` (ARM verification needs `PROVISIONING_MODE=live`), the failure,
    retry and revert paths, and the client-secret step, which needs the Entra consent.
-4. The local proof used two uncommitted edits that point the portal at `infradev`
-   (`TEAM_FACING_ENVIRONMENT` and the frontend environment option); revert them and do item 1.
-5. Prove it end to end once Phase 3 is applied: M6 locally with `TENANT_ORCHESTRATOR=github`.
+3. Prove it end to end once Phase 3 is applied: M6 locally with `TENANT_ORCHESTRATOR=github`.
+4. The page a person actually watches is still thin, and worse, it can lie: when ARM verification
+   does not pass, `verifyDeployed` discards the reason and returns the status the entry already
+   had, so the entry re-verifies every poll for ever while the page keeps saying "Setting up" —
+   and `verified → active` never happens, so no credential can be issued. The fix, the
+   verified-resource list and the label work are R6 and R7 of
+   [research-tier-infradev-plan.md](research-tier-infradev-plan.md).
 
 Keep the mock for local runs and journey tests.
 
@@ -466,12 +474,56 @@ those limits before this story starts.
 
 ### B18 OAuth credentials for team applications
 
+Until this story lands, a team's credential is a mocked stand-in shown as an openly labelled
+placeholder ([research-tier-infradev-plan.md](research-tier-infradev-plan.md) R5). **Removing that
+label is part of this story**, not a tidy-up afterwards: when item 1 below issues a real secret,
+delete the `placeholder-credential-notice` component, `placeholder-credential.js`, the backend's
+`credentialPlaceholder` and `isMockedFor`, and the tests that pin them, or the portal will keep telling people
+their working credential does not work.
+
 Terraform creates `app-aip-{env}-{slug}`, its service principal and its federated credentials
 (infra PR #7), owned by the deploy and Portal API identities, and **deliberately ignores the
 `password` and the service principal's `account_enabled`**, and sets the team API's access-window
 named value to `none` and never touches it again. Those three are the Portal API's, and they are
 the work below. It needs Entra admin consent for `Application.ReadWrite.OwnedBy` on the backend
 identity.
+
+**The shape of the issuer.** Two identities, not one, and only the first is the backend's own:
+
+- The backend keeps authenticating to Azure exactly as it does today — its own app registration
+  with federated credentials, built by `getArmCredential()` in `azure-credential.js`. That does
+  not change, and nothing about this story introduces a second way for the backend to sign in.
+- What changes is what it then calls. Research calls ARM to mint an API Management subscription
+  key. Team calls **Microsoft Graph** to add a client secret to the **team's own** registration —
+  the one Terraform created — and then stores it in Key Vault and reveals it once, exactly as
+  research already does.
+
+So this is a new adapter behind the existing `CredentialIssuer` port, not a new subsystem:
+
+1. **`graph-client.js` beside `arm-client.js`**, same shape, same credential, different base URL
+   and scope (`https://graph.microsoft.com/.default`). `getArmCredential()` is already
+   scope-agnostic — it builds a credential, and the scope is passed at `getToken` — so rename it
+   to something honest rather than copying it.
+2. **A Graph team credential issuer** implementing `issue`, `rotate`, `revoke`, `suspend` and
+   `renew` against the team registration's `addPassword` and `removePassword`, returning the same
+   `{externalId, secret, keyHint, expiresAt}` shape. It must pass
+   `credential-issuer-contract.js` unchanged — that suite is what proves it is substitutable.
+3. **Register it by tier.** `credential-issuer-registry.js` currently throws
+   `'No gateway issues team OAuth credentials yet'` for `tier === 'team'` in `live` mode. Replace
+   that branch with the new issuer, and persist its `issuerKey` so lifecycle operations route back
+   to it. `MOCK_TIERS=team` stops being needed.
+4. **The registration's object id comes from the run report**, carried onto the team record when
+   the deployment verifies (R6 item 6 of
+   [research-tier-infradev-plan.md](research-tier-infradev-plan.md)) — never a Graph lookup by
+   display name, which would be guessable and ambiguous across environments.
+5. **Vault and reveal are unchanged.** Reuse `writeSecretToVault`, the `vaultState: 'unwritten'`
+   retry in `reconcilePendingCredentials`, and `POST /v1/credentials/{id}/reveal`. A team secret
+   is revealed once at creation and once at rotation, like every other credential.
+6. **Fail closed where the registration does not exist.** With `entra.teamRegistrations` false
+   there is no registration to add a password to; the issuer must refuse with a stable code the
+   portal already maps, not throw something generic.
+
+Then the story's own rules:
 
 1. Issue and rotate a real client secret on the team's registration through Graph, replacing the
    mock issuer's stand-in secret and the `501 gateway-not-enabled` refusal in `live` mode —
@@ -593,7 +645,7 @@ reference fails the checks, with a regression test.
 
 ---
 
-## Order of work from here (15 Oct 2026)
+## Order of work from here (19 Oct 2026)
 
 The phases are not strictly sequential. The long pole is now the Entra consent, which needs
 other people, so raise it first.
@@ -607,20 +659,23 @@ other people, so raise it first.
    `v0.5.0` to `v0.7.0`; a team applied end to end. Still open from it: M4 and M5, which need the
    Entra consent.
 3. ~~**Phase 2 row 1 — the team `slug`**~~ — done on 14 Oct 2026.
-4. ~~**WS6, the desired-state builder**~~ — done on 14 Oct 2026. **Now: review and merge backend
-   #35 and frontend #35**, revert the two local `infradev` edits, and drive the team-facing
-   environment from `AIP_ENVIRONMENTS` (Phase 2 row 6, Phase 4 item 1). M6 then needs the failure,
-   retry and revert paths and ARM verification checked.
-5. **Then B18's Graph client-secret issuer** (Phase 5), which needs the consent from step 1 and
+4. ~~**WS6, the desired-state builder**~~ — done on 14 Oct 2026. ~~Drive the team-facing
+   environment from `AIP_ENVIRONMENTS`~~ — done on 18 Oct 2026 as `TEAM_ENVIRONMENTS`. **Now:
+   review and merge backend #35 and frontend #35.** M6 then needs the failure, retry and revert
+   paths and ARM verification checked.
+5. **Then the research tier move** ([research-tier-infradev-plan.md](research-tier-infradev-plan.md)),
+   which takes the last hand-built resources out of the platform and carries the progress-page and
+   status-label work with it. R0 and R1 run in parallel with step 1 and do not wait on it.
+6. **Then B18's Graph client-secret issuer** (Phase 5), which needs the consent from step 1 and
    is what finally gives a team a working credential and completes M7; then set `entra.enabled`
    back to `true` and remove the interim flag.
-6. **Decide Sweden Central for Infradev** (Defra policy exception). Until then `gpt-4o` is the
+7. **Decide Sweden Central for Infradev** (Defra policy exception). Until then `gpt-4o` is the
    only team model; `gpt-4-1-nano` and `gpt-5-nano` follow when `swedencentral` is added to
    `environments/infradev/platform.tfvars.json` `azure.foundry.regions`.
-7. **Phase 1 and the rest of Phase 2** can be picked up by anyone not on the critical path at any
+8. **Phase 1 and the rest of Phase 2** can be picked up by anyone not on the critical path at any
    point; Phase 0 is a documentation-only afternoon in `ai-platform-discovery-docs` and is worth
    doing while step 1 is waiting on other people.
-8. **Phases 6 and 7** follow, except that B20 and B22 gate DEV creation, so start Phase 7's
+9. **Phases 6 and 7** follow, except that B20 and B22 gate DEV creation, so start Phase 7's
    telemetry work as soon as Phase 4 is proven rather than leaving it to the end.
 
 Discovery-docs PR #21 can merge whenever; it records direction, not built state.
@@ -675,6 +730,32 @@ discovery-docs PR. Flip each `Status` line here as a phase lands, then follow cr
 - Rewriting dated `decision-history.md` or `design-pack-plan.md` entries.
 
 ## Dated notes
+
+**19 Oct 2026 — B18's issuer shape settled, and a stall found behind it.** B18 is now written as
+what it actually is: the backend keeps its own federated app registration for signing in to Azure,
+and gains a Microsoft Graph client beside the ARM one so a new `CredentialIssuer` adapter can add
+a client secret to the **team's own** registration, then vault and reveal it exactly as research
+does. It is one adapter plus one registry branch, not a subsystem, and the existing contract suite
+is what proves it substitutable. While confirming that, a real defect surfaced in the path that
+must work before any of it runs: `verifyDeployed` keeps only `{ verified }` from the resource
+verifier and throws away the `reason`, so a failed verification returns the entry's existing
+`deployed` status, persists nothing, and re-runs every poll indefinitely while the page shows
+progress — which is why a team whose Azure resources plainly exist sits at "Setting up" and cannot
+reach `active` or get a credential. Fixed in R6 of the research tier plan, with the likeliest
+trigger being `environment-not-configured` from a missing `AIP_ENVIRONMENTS` entry.
+
+**19 Oct 2026 — the research tier split out into its own plan.** Reviewing what the platform still
+builds by hand found that the research tier is the last part of it: the portal points at
+`SNDAIEEXPRGP1401`, `DEPLOYTESTDEFRA` and `kv-aip-sandbox-tenants`, and no research Foundry
+project, research deployment or `research` API exists in any environment's Terraform — only
+`aip-key-guard` and the catalogue's `tiers`/`deploymentName`, which anticipate it. Two further
+findings: the Portal API principal has no API Management role on the Infradev instance, so
+repointing configuration alone would fail at the first key issue, and creating a narrow enough
+custom role needs a grant the deploy identity does not have. That work, the verified-resource list
+on the progress page, the status-label fixes and the interim labelled team credential are now
+[research-tier-infradev-plan.md](research-tier-infradev-plan.md). Corrected here at the same time:
+Phase 4's "still to do" claimed the team-facing environment and the two local `infradev` edits were
+outstanding, but the 18 October hardening round had already replaced them with `TEAM_ENVIRONMENTS`.
 
 **15 Oct 2026 — Phase 3 applied, team apply proven.** The IaC repositories were merged and
 released (infra `v0.7.0`, workflows `v1.1.0`) and the platform was applied through the pipeline in

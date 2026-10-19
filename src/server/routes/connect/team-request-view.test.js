@@ -16,11 +16,24 @@ describe('team-request-view', () => {
   })
 
   test('explains a queued request differently from one being set up', () => {
-    expect(waitPageHeading('queued')).toBe(
+    expect(waitPageHeading(['queued'])).toBe(
       'Waiting for another change to this team to finish'
     )
-    expect(waitPageHeading('deploying')).toBe(
+    expect(waitPageHeading(['deploying'])).toBe('Setting up your model access')
+  })
+
+  test('promises the client secret only once every request has reached that step', () => {
+    expect(waitPageHeading(['verified'])).toBe(
       'Setting up your team client secret'
+    )
+    expect(waitPageHeading(['verified', 'verified'])).toBe(
+      'Setting up your team client secret'
+    )
+    expect(waitPageHeading(['verified', 'deploying'])).toBe(
+      'Setting up your model access'
+    )
+    expect(waitPageHeading(['queued', 'verified'])).toBe(
+      'Setting up your model access'
     )
   })
 

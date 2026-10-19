@@ -1,4 +1,5 @@
 import {
+  DEPLOYMENT_SETTING_UP_STATUSES,
   deploymentStatusText,
   deploymentTagClass,
   isDeploymentInProgress
@@ -6,10 +7,14 @@ import {
 
 describe('deployment-status', () => {
   test.each([
-    ['active', 'Ready to view', 'govuk-tag--green', false],
+    ['active', 'Ready to use', 'govuk-tag--green', false],
     ['queued', 'Waiting for another change', 'govuk-tag--grey', true],
     ['requested', 'Setting up', 'govuk-tag--yellow', true],
+    ['pr-raised', 'Setting up', 'govuk-tag--yellow', true],
+    ['merged', 'Setting up', 'govuk-tag--yellow', true],
     ['deploying', 'Setting up', 'govuk-tag--yellow', true],
+    ['deployed', 'Setting up', 'govuk-tag--yellow', true],
+    ['verified', 'Setting up', 'govuk-tag--yellow', true],
     ['removing', 'Removing', 'govuk-tag--yellow', true],
     ['removed', 'Removed', 'govuk-tag--grey', false],
     ['checks-failed', 'Setup failed', 'govuk-tag--red', false],
@@ -23,9 +28,32 @@ describe('deployment-status', () => {
     }
   )
 
-  test('treats a status it does not know as still setting up', () => {
-    expect(deploymentStatusText('verifying')).toBe('Setting up')
-    expect(deploymentTagClass('verifying')).toBe('govuk-tag--yellow')
-    expect(isDeploymentInProgress('verifying')).toBe(true)
+  test('maps every setting-up status explicitly', () => {
+    expect(DEPLOYMENT_SETTING_UP_STATUSES).toEqual([
+      'requested',
+      'pr-raised',
+      'merged',
+      'deploying',
+      'deployed',
+      'verified'
+    ])
+  })
+
+  test('reads a status it does not know as unknown, not as progress', () => {
+    expect(deploymentStatusText('verifying')).toBe('Status unknown')
+    expect(deploymentTagClass('verifying')).toBe('govuk-tag--grey')
+    expect(isDeploymentInProgress('verifying')).toBe(false)
+  })
+
+  test('gives no two different states the same text', () => {
+    expect(deploymentStatusText('active')).not.toBe(
+      deploymentStatusText('requested')
+    )
+    expect(deploymentStatusText('queued')).not.toBe(
+      deploymentStatusText('requested')
+    )
+    expect(deploymentStatusText('removing')).not.toBe(
+      deploymentStatusText('removed')
+    )
   })
 })

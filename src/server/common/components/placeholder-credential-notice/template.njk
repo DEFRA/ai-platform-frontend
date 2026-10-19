@@ -1,0 +1,6 @@
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+
+{{ govukInsetText({
+  html: "<strong>This client secret is a placeholder.</strong> It does not work with the gateway yet, because your team's app registration is waiting for a Microsoft Entra administrator to approve it. The rest of your setup is real.",
+  attributes: { "data-testid": "placeholder-credential-notice" }
+}) }}

@@ -15,6 +15,7 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
+import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 import {
   buildKeyRows,
   buildModelRows,
@@ -250,6 +251,7 @@ export const manageController = {
           pageTitle: heading,
           heading,
           credential,
+          placeholderCredential: isPlaceholderCredential(credential),
           models: models.map((model) => ({
             ...model,
             gatewayEndpoint: buildGatewayRequest(model).endpoint
@@ -500,6 +502,7 @@ export const manageController = {
             pageTitle: 'Credential rotated',
             heading: 'Credential rotated',
             credential: issued.credential,
+            placeholderCredential: isPlaceholderCredential(issued.credential),
             secret: issued.secret,
             modelNamesText: issued.modelNamesText
           })
@@ -588,7 +591,8 @@ export const manageController = {
           setIssuedCredential(request, {
             secret,
             credentialId: id,
-            secretName: secretNameFor(credential)
+            secretName: secretNameFor(credential),
+            placeholderCredential: isPlaceholderCredential(credential)
           })
 
           return h
@@ -629,6 +633,7 @@ export const manageController = {
             pageTitle: `Your ${issued.secretName}`,
             heading: `Your ${issued.secretName}`,
             secretName: issued.secretName,
+            placeholderCredential: issued.placeholderCredential,
             secret: issued.secret,
             credentialId: issued.credentialId
           })

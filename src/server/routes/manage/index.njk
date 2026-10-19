@@ -4,6 +4,7 @@
 {% from "govuk/components/tag/macro.njk" import govukTag %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "credential-actions/macro.njk" import appCredentialActions %}
+{% from "placeholder-credential-notice/macro.njk" import appPlaceholderCredentialNotice %}
 
 {% block head %}
   {{ super() }}
@@ -60,6 +61,13 @@
                   }) }}
                 </td>
               </tr>
+              {% if row.placeholder %}
+                <tr class="govuk-table__row" data-testid="keys-table-placeholder-row">
+                  <td class="govuk-table__cell" colspan="6">
+                    {{ appPlaceholderCredentialNotice() }}
+                  </td>
+                </tr>
+              {% endif %}
             {% endfor %}
           </tbody>
         </table>

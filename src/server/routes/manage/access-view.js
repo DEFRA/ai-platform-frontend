@@ -1,6 +1,7 @@
 import { differenceInCalendarDays } from 'date-fns'
 
 import {
+  DEPLOYMENT_FAILURE_STATUSES,
   DEPLOYMENT_REMOVED_STATUS,
   DEPLOYMENT_REMOVING_STATUS,
   deploymentStatusText,
@@ -13,6 +14,7 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { formatLabel } from '#/config/nunjucks/filters/format-label.js'
+import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 
 // How the Your access page shapes what a person holds: the keys and client
 // secrets they can use, and their teams' models with where each has got to.
@@ -94,6 +96,7 @@ function keyRow(credential, modelNames, { forText, showRenewRevoke, isAdmin }) {
     statusText: statusDisplay.text,
     tagClass: statusDisplay.tagClass,
     runsOut: credential.expiresAt ? formatDate(credential.expiresAt) : null,
+    placeholder: isPlaceholderCredential(credential),
     showRenewRevoke,
     showRotateRevoke: credential.tier === 'team' && isAdmin
   }
@@ -165,8 +168,13 @@ function modelAction(deployment, { teamName, secretIssued }) {
     return { href: requestUrl, text: 'Check progress' }
   }
 
-  if (deployment.status !== 'active') {
+  if (DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status)) {
     return { href: requestUrl, text: 'See what happened' }
+  }
+
+  // An unknown status has no step to check or finish.
+  if (deployment.status !== 'active') {
+    return teamPage
   }
 
   return secretIssued

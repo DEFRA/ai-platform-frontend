@@ -801,7 +801,7 @@ describe('#teamsController', () => {
       expect(statusCode).toBe(statusCodes.ok)
       expect(result).toContain('data-testid="team-models"')
       expect(result).toContain('GPT-4o')
-      expect(result).toContain('Ready to view')
+      expect(result).toContain('Ready to use')
       expect(result).toContain('Setting up')
       expect(result).toContain('Removed')
       expect(result).toContain('href="/teams/team-1/models/dep-1/remove"')
@@ -813,6 +813,75 @@ describe('#teamsController', () => {
       expect(result).toContain('data-testid="team-models-changing"')
       expect(result).toContain('Refresh this page')
       expect(result).not.toContain('http-equiv="refresh"')
+    })
+
+    test('GET /teams/{id} offers "See what happened" for a failed model and no link for an unknown status', async () => {
+      const cookies = await signIn(server)
+      mockTeamPage(adminTeam, [
+        deployment({ _id: 'dep-f', status: 'deploy-failed' }),
+        deployment({ _id: 'dep-u', status: 'brand-new-status' })
+      ])
+
+      const { result } = await server.inject({
+        method: 'GET',
+        url: '/teams/team-1',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(result).toContain('Setup failed')
+      expect(result).toContain('See what happened')
+      expect(result).toContain('href="/connect/team/request/team-1/dep-f"')
+      expect(result).toContain('Status unknown')
+      expect(result).not.toContain('Setting up')
+      expect(result).not.toContain('Check progress')
+      expect(result).not.toContain('/connect/team/request/team-1/dep-u')
+    })
+
+    test('GET /teams/{id} lists what was set up for an active model, by name and kind, with the registration state', async () => {
+      const cookies = await signIn(server)
+      mockTeamPage(adminTeam, [
+        deployment({
+          resources: [
+            { name: 'aip-alpha', kind: 'Foundry project', verified: true },
+            { name: 'alpha-gpt-4o', kind: 'Model deployment', verified: true }
+          ],
+          appRegistration: 'skipped'
+        })
+      ])
+
+      const { result } = await server.inject({
+        method: 'GET',
+        url: '/teams/team-1',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(result).toContain('data-testid="model-resources"')
+      expect(result).toContain('Foundry project')
+      expect(result).toContain('aip-alpha')
+      expect(result).toContain('alpha-gpt-4o')
+      expect(result).toContain('Skipped, awaiting Entra consent')
+    })
+
+    test('GET /teams/{id} lists nothing for a model that is not active yet', async () => {
+      const cookies = await signIn(server)
+      mockTeamPage(adminTeam, [
+        deployment({
+          status: 'deployed',
+          resources: [
+            { name: 'aip-alpha', kind: 'Foundry project', verified: false }
+          ],
+          appRegistration: 'skipped'
+        })
+      ])
+
+      const { result } = await server.inject({
+        method: 'GET',
+        url: '/teams/team-1',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(result).not.toContain('data-testid="model-resources"')
+      expect(result).not.toContain('aip-alpha')
     })
 
     test('GET /teams/{id} names a model by its slug when the catalogue no longer lists it', async () => {

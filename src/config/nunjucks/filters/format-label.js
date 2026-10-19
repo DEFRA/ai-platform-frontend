@@ -6,7 +6,7 @@ const LABELS = {
   meta: 'Meta',
   uksouth: 'UK South',
   active: 'Active',
-  pending: 'Setting up',
+  pending: 'Being created',
   revoked: 'Revoked',
   expired: 'Expired',
   failed: 'Failed',

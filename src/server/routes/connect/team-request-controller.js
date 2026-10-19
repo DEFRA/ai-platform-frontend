@@ -12,6 +12,7 @@ import {
   DEPLOYMENT_REMOVING_STATUS
 } from '#/server/common/helpers/deployment-status.js'
 import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
+import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 import { issueTeamClientSecret } from './team-client-secret.js'
 import {
   FAILURE_STATUSES,
@@ -95,18 +96,22 @@ function requestItem(deployment, title) {
     queued: deployment.status === QUEUED_STATUS,
     stages: deployment.progressSteps ?? [],
     pipelineLinks: buildPipelineLinks(deployment.links),
-    failureReason: deployment.failureReason ?? null
+    failureReason: deployment.failureReason ?? null,
+    verificationFailed: Boolean(deployment.verificationFailure)
   }
 }
 
 function waitView(h, waiting, requests) {
   const queued = waiting.every(({ status }) => status === QUEUED_STATUS)
-  const heading = waitPageHeading(queued ? QUEUED_STATUS : 'requested')
+  const heading = waitPageHeading(waiting.map(({ status }) => status))
 
   return h.view('connect/team/request', {
     pageTitle: heading,
     heading,
     queued,
+    placeholderCredential: waiting.some(
+      ({ credentialPlaceholder }) => credentialPlaceholder
+    ),
     refreshSeconds: 3,
     lastCheckedAt: formatDate(new Date(), 'HH:mm'),
     failed: false,
@@ -181,6 +186,9 @@ export const teamRequestController = {
             heading: "We could not set up your team's access",
             refreshSeconds: null,
             failed: true,
+            verificationFailed: requests.some(
+              ({ verificationFailed }) => verificationFailed
+            ),
             requests
           })
         }
@@ -222,6 +230,7 @@ export const teamRequestController = {
             pageTitle: 'Your connection details',
             heading: 'Your connection details',
             ...issued,
+            placeholderCredential: isPlaceholderCredential(issued.credential),
             model: issued.models[0],
             modelNames: issued.models.map(({ displayName }) => displayName),
             modelRows: issued.models.map((model) => [
