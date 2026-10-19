@@ -4,11 +4,11 @@ Plans live in one of two folders. Move a plan to `implemented/` when every phase
 
 ## In progress
 
-| Plan                                                                         | State (19 Oct 2026)                                                                                        |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [build-stories-delivery-plan.md](in-progress/build-stories-delivery-plan.md) | Build stories B01 to B22 in phases; Phase 3 (IaC) applied in Infradev, Phases 0, 1, 5, 6 and 7 not started |
-| [iac-rollout-state.md](in-progress/iac-rollout-state.md)                     | IaC rollout and the portal-to-team-apply proof: what is done, gotchas, what is left                        |
-| [research-tier-infradev-plan.md](in-progress/research-tier-infradev-plan.md) | Research tier IaC and the portal move off the hand-built resource group; not started                       |
+| Plan                                                                         | State (19 Oct 2026)                                                                                                              |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [build-stories-delivery-plan.md](in-progress/build-stories-delivery-plan.md) | Build stories B01 to B22 in phases; Phase 3 (IaC) applied in Infradev, Phases 0, 1, 5, 6 and 7 not started                       |
+| [iac-rollout-state.md](in-progress/iac-rollout-state.md)                     | IaC rollout and the portal-to-team-apply proof: what is done, gotchas, what is left                                              |
+| [research-tier-infradev-plan.md](in-progress/research-tier-infradev-plan.md) | Research tier IaC and the portal move off the hand-built resource group; R5 to R7 built in open PRs, R0 to R4 and R8 not started |
 
 ## Implemented
 

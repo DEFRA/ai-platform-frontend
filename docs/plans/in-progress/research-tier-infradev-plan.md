@@ -7,7 +7,8 @@
 > (what the research tier is today) and
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >
-> **STATUS: NOT STARTED (19 Oct 2026).** Nothing here is built. The research Foundry project, the
+> **STATUS: IN PROGRESS (19 Oct 2026).** R5 to R7 are built in open pull requests, with live
+> verification outstanding. R0 to R4 and R8 are not started: the research Foundry project, the
 > research deployments and the `research` API do not exist in any environment's IaC. Update the
 > `Status` line on each phase as it lands and add a dated note at the bottom recording what
 > actually happened versus what is written here.
