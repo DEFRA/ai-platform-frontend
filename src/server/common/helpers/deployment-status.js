@@ -17,6 +17,8 @@ const SETTING_UP_STATUSES = [
   'verified'
 ]
 const UNKNOWN_TEXT = 'Status unknown'
+const GREY_TAG = 'govuk-tag--grey'
+const YELLOW_TAG = 'govuk-tag--yellow'
 
 const TEXT_BY_STATUS = {
   active: 'Ready to use',
@@ -33,18 +35,18 @@ const TEXT_BY_STATUS = {
 
 const TAG_CLASS_BY_STATUS = {
   active: 'govuk-tag--green',
-  [QUEUED]: 'govuk-tag--grey',
-  [REMOVING]: 'govuk-tag--yellow',
-  [REMOVED]: 'govuk-tag--grey',
+  [QUEUED]: GREY_TAG,
+  [REMOVING]: YELLOW_TAG,
+  [REMOVED]: GREY_TAG,
   ...Object.fromEntries(
-    SETTING_UP_STATUSES.map((status) => [status, 'govuk-tag--yellow'])
+    SETTING_UP_STATUSES.map((status) => [status, YELLOW_TAG])
   ),
   ...Object.fromEntries(
     FAILURE_STATUSES.map((status) => [status, 'govuk-tag--red'])
   )
 }
 
-const IN_PROGRESS_STATUSES = [QUEUED, REMOVING, ...SETTING_UP_STATUSES]
+const IN_PROGRESS_STATUSES = new Set([QUEUED, REMOVING, ...SETTING_UP_STATUSES])
 
 /**
  * The short status a person sees for a deployment. A status not listed
@@ -62,7 +64,7 @@ function deploymentStatusText(status) {
  * @returns {string}
  */
 function deploymentTagClass(status) {
-  return TAG_CLASS_BY_STATUS[status] ?? 'govuk-tag--grey'
+  return TAG_CLASS_BY_STATUS[status] ?? GREY_TAG
 }
 
 /**
@@ -71,7 +73,7 @@ function deploymentTagClass(status) {
  * @returns {boolean}
  */
 function isDeploymentInProgress(status) {
-  return IN_PROGRESS_STATUSES.includes(status)
+  return IN_PROGRESS_STATUSES.has(status)
 }
 
 export {

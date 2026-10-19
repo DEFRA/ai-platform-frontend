@@ -2,17 +2,15 @@
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
 // GitOps applies one change per team file at a time, so a request made while
 // another is in flight waits as `queued`, which gets its own wording.
-import {
-  DEPLOYMENT_FAILURE_STATUSES,
-  DEPLOYMENT_SETTING_UP_STATUSES
-} from '#/server/common/helpers/deployment-status.js'
+import { DEPLOYMENT_SETTING_UP_STATUSES } from '#/server/common/helpers/deployment-status.js'
+
+export { DEPLOYMENT_FAILURE_STATUSES as FAILURE_STATUSES } from '#/server/common/helpers/deployment-status.js'
 
 export const QUEUED_STATUS = 'queued'
 export const IN_PROGRESS_STATUSES = [
   QUEUED_STATUS,
   ...DEPLOYMENT_SETTING_UP_STATUSES
 ]
-export const FAILURE_STATUSES = DEPLOYMENT_FAILURE_STATUSES
 
 // The only state in which the team's client secret is being made.
 const SECRET_STEP_STATUS = 'verified'
