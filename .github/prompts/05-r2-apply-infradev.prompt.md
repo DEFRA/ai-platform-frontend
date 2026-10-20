@@ -4,7 +4,7 @@ description: 'R2 - apply the research tier to Infradev: parameters, the pin, the
 ---
 
 You are implementing **Phase R2** of
-`ai-platform-frontend/docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase and
+`ai-platform-frontend/docs/plans/implemented/02-research-tier.md`. Read that phase and
 "Pipeline ordering" in full first.
 
 **Requires R1 released.** Do not start otherwise.
@@ -17,7 +17,7 @@ You are implementing **Phase R2** of
 
 **Never apply without the owner's explicit confirmation, and only within resource group
 `SNDAIEAIPRGP1401`.** Show the plan, say what it will create, change and destroy, and wait. This
-rule is in `docs/plans/in-progress/iac-rollout-state.md` and is not negotiable.
+rule is in `docs/plans/implemented/05-platform-and-gitops-pipeline.md` and is not negotiable.
 
 ## Order
 
@@ -58,5 +58,5 @@ hand against the API returns a completion; a second apply shows no drift and lea
 and its assignment untouched.
 
 Record the resources actually created, **by name**, in
-`ai-platform-frontend/docs/plans/in-progress/iac-rollout-state.md`, and add a dated note to the
+`ai-platform-frontend/docs/plans/implemented/05-platform-and-gitops-pipeline.md`, and add a dated note to the
 research tier plan.

@@ -4,7 +4,7 @@ description: 'R3 - make the research tier environment-aware: resolve Azure from 
 ---
 
 You are implementing **Phase R3** of
-`ai-platform-frontend/docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase in
+`ai-platform-frontend/docs/plans/implemented/02-research-tier.md`. Read that phase in
 full first.
 
 Code can be written against R1's branch, but it **lands after R2 has applied** - the portal must

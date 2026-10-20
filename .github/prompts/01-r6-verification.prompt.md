@@ -4,7 +4,7 @@ description: 'R6 - make team deployment verification finish, record why it faile
 ---
 
 You are implementing **Phase R6** of
-`docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase in full first, then this.
+`docs/plans/implemented/03-team-tier.md`. Read that phase in full first, then this.
 
 **Do this one first.** It is the blocker for the whole team-tier demo: nothing reaches `active`
 today, so no team credential can be issued and the page shows progress for ever.

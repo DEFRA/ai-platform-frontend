@@ -4,7 +4,7 @@ description: 'R7 - fix the status labels so "Setting up" stops meaning five diff
 ---
 
 You are implementing **Phase R7** of
-`docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase in full first, then this.
+`docs/plans/implemented/03-team-tier.md`. Read that phase in full first, then this.
 
 Do this after R6, or alongside it - both change the same pages.
 
