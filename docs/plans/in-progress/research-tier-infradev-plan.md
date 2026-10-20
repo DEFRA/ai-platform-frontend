@@ -8,7 +8,7 @@
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >
 > **STATUS: IN PROGRESS (20 Oct 2026).** R1 is built and tested in `ai-platform-infra` on branch
-> `feature/research-tier-iac`, awaiting its pull request and release; nothing is applied. R5 to R7 are
+> `feature/research-tier-iac`, in open pull request [ai-platform-infra#18](https://github.com/DEFRA/ai-platform-infra/pull/18) awaiting review and release; nothing is applied. R5 to R7 are
 > built in open pull requests, with live verification outstanding. R0, R2 to R4 and R8 are not started:
 > the research Foundry project, the research deployments and the `research` API do not exist in any
 > environment. Update the `Status` line on each phase as it lands and add a dated note at the bottom
