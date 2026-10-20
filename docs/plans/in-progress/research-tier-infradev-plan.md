@@ -7,11 +7,12 @@
 > (what the research tier is today) and
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >
-> **STATUS: IN PROGRESS (19 Oct 2026).** R5 to R7 are built in open pull requests, with live
-> verification outstanding. R0 to R4 and R8 are not started: the research Foundry project, the
-> research deployments and the `research` API do not exist in any environment's IaC. Update the
-> `Status` line on each phase as it lands and add a dated note at the bottom recording what
-> actually happened versus what is written here.
+> **STATUS: IN PROGRESS (20 Oct 2026).** R1 is built and tested in `ai-platform-infra` on branch
+> `feature/research-tier-iac`, awaiting its pull request and release; nothing is applied. R5 to R7 are
+> built in open pull requests, with live verification outstanding. R0, R2 to R4 and R8 are not started:
+> the research Foundry project, the research deployments and the `research` API do not exist in any
+> environment. Update the `Status` line on each phase as it lands and add a dated note at the bottom
+> recording what actually happened versus what is written here.
 
 ## Why
 
@@ -188,8 +189,8 @@ parallel with R1.
 
 ## Phase R1 — Research tier IaC
 
-**Status: not started.** Repository: `ai-platform-infra`. Blocks R2. Items 1 to 4 extend the
-tenant layer; item 5 is platform layer.
+**Status: built 20 Oct 2026, not yet released or applied** (see the dated note). Repository:
+`ai-platform-infra`. Blocks R2. Items 1 to 4 extend the tenant layer; item 5 is platform layer.
 
 The work is to teach the existing team stack one new credential type, not to build a second one.
 
@@ -555,6 +556,41 @@ field, and never a full secret logged or persisted.
   [build-stories-delivery-plan.md](build-stories-delivery-plan.md).
 
 ## Dated notes
+
+**20 Oct 2026 — R1 built, not released, not applied.** `ai-platform-infra` branch
+`feature/research-tier-iac`. `terraform validate` and every module and root test pass, `aip-checks`
+and the checks suite pass (262 tests), `terraform fmt`, Prettier, ESLint and tflint's Terraform ruleset
+are clean, and checkov shows nothing on the new resources. **No plan against Infradev was run** (no
+credentials), so "additions only" is argued, not seen: the OAuth policy renders byte-identically to
+the old template, `apim-team-api`'s named values moved to `[0]` with `moved` blocks (simulated: no
+destroy), and a team API's arguments are unchanged. The release version is recorded here once release-please
+has cut it. What was decided where the plan was silent:
+
+- **Catalogue.** D03 excludes Global, so the research file needs non-Global SKUs. `gpt-4-1-nano`,
+  `gpt-4o` and `gpt-5-nano`, the only models offered in Infradev, now list `research` as well as
+  `team` on their existing SKU; the file's deployments are those three. The other four research models
+  are Sandbox only, with Global SKUs, and are not in the file. `CATALOGUE_REF` moves with the release.
+- **`allowedDeployments` holds names in the research file**, since `gpt-4.1-nano` is not a slug. The
+  checks tell the two apart by credential type and reconcile both directions with the catalogue's
+  `deploymentName`, including a model the catalogue offers to research in the environment that the file
+  leaves out.
+- **`research` is reserved.** `subscription-key` is accepted only in that file, a team cannot be called
+  `research`, and `aip-checks` refuses the file when a writer App authored the change, so no portal
+  path writes it; an engineer commits it by break-glass pull request.
+- **The research policy skips `aip-request-model`** and reads the raw name itself. Both counters
+  (request and token) are keyed by the subscription, not only the token one.
+- **Named values** exist only for OAuth APIs; a key API has none.
+- **Role.** `modules/apim-subscription-role` (platform root) with `uuidv5` IDs derived from the
+  environment-bearing name, an assignment name derived the same way, and a `time_sleep` wait; its seven
+  actions were each confirmed with `az provider operation show`. This adds the `hashicorp/time` provider
+  (`0.14.2`, locked for five platforms).
+- **The project display name** stays "AI Platform team research"; accepted rather than adding an override.
+- **Open before R2: who holds what.** This plan says the deploy identity holds User Access
+  Administrator. `ai-platform-infra`'s bootstrap grants Contributor and a _constrained_ Role Based Access
+  Control Administrator, whose condition lists the roles it may assign, and the design pack's identity
+  table agrees. That
+  grant cannot write a role definition and would refuse an assignment of this role. Confirm the real
+  grant, or add the role to the bootstrap, before R2 applies.
 
 **19 Oct 2026 — R7 built.** `deployment-status.js` maps every GitOps state explicitly: the six
 "setting up" states, `queued`, `removing`, `removed` and the two failures. Anything else reads

@@ -172,6 +172,15 @@ These aren't tied to one route — they're shared infrastructure every route abo
   catalogue has a team tier: `gpt-4o` through a UK South `Standard` SKU, `gpt-4-1-nano` and
   `gpt-5-nano` through Sweden Central, which Defra policy blocks for now. What is done and what is
   left: [iac-rollout-state.md](plans/in-progress/iac-rollout-state.md).
+- **Research tier IaC (R1, 20 Oct 2026, built in `ai-platform-infra`, not released or applied)**:
+  the research tier is a platform-owned team file, `research.json`, naming `subscription-key`, built
+  by the same tenants module as a team: shared project, account-child deployments named as callers
+  send them, and a `research` API that requires a subscription and runs `aip-key-guard`, with the
+  limits counted per subscription. `aip-checks` accepts a key only in that file, never from a writer
+  App, and reconciles its deployment names with the catalogue. The platform root adds the custom
+  API Management role the Portal API needs to mint subscriptions. Terraform creates no
+  subscription. Nothing exists in Azure until R2 applies. See
+  [research-tier-infradev-plan.md](plans/in-progress/research-tier-infradev-plan.md).
 - **Team deployment verification finishes and says why it did not (R6, 19 Oct 2026, not yet merged)**:
   the verifier's reason is kept, counted on `gitops.verification`, audited
   (`teamDeployment.verificationFailed`) and logged on every failed attempt. After
