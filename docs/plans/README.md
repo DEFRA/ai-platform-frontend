@@ -32,4 +32,4 @@ record.
 - Link, do not copy: design direction is in `ai-platform-discovery-docs`, acceptance criteria are its `build-stories.md`.
 
 The source UI flow is [../ui-flow-three-routes.md](../ui-flow-three-routes.md); the one-page index for new joiners is
-[../implemented-features.md](../implemented-features.md).
+[implemented/implemented-features.md](implemented/implemented-features.md).

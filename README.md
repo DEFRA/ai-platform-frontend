@@ -30,7 +30,7 @@ Core delivery platform Node.js Frontend Template.
 
 ## Documentation
 
-- [Implemented features](docs/implemented-features.md) — what's been built so far across this repo and
+- [Implemented features](docs/plans/implemented/implemented-features.md) — what's been built so far across this repo and
   `ai-platform-backend-api`, for new joiners.
 - [UI flow: three routes to a credential](docs/ui-flow-three-routes.md) and the per-route plans in
   [docs/plans/](docs/plans/) — the authoritative design/build detail behind the journey.

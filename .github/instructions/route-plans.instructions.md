@@ -51,8 +51,8 @@ Do all of this in the same change, without being asked.
    `implemented/` file (add a new numbered file for a new category). A deliberately deferred item stays in `remaining.md`
    marked "deferred, not removed".
 3. **README matches.** Update the tables in [docs/plans/README.md](../../docs/plans/README.md) and
-   [docs/implemented-features.md](../../docs/implemented-features.md) in the same change.
+   [docs/plans/implemented/implemented-features.md](../../docs/plans/implemented/implemented-features.md) in the same change.
 4. **Links follow.** Repoint every inbound link (both repos' instructions, READMEs, code comments) and check every relative
    link under `docs/` still resolves.
-5. **Format.** Run `npx prettier --write docs/plans docs/implemented-features.md` and confirm the files are not empty before
+5. **Format.** Run `npx prettier --write docs/plans docs/plans/implemented/implemented-features.md` and confirm the files are not empty before
    finishing; stage a new file with `git add` so an editor cannot lose it.

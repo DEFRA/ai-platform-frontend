@@ -47,4 +47,4 @@ stop and re-read "The shape the design requires" in the plan.
 
 A person copies the sample from the portal, runs it unedited, and gets a completion from Infradev.
 
-Then update `docs/implemented-features.md` and add a dated note to the plan.
+Then update `docs/plans/implemented/implemented-features.md` and add a dated note to the plan.

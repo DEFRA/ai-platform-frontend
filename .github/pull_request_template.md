@@ -7,7 +7,7 @@
 - [ ] `npm run format`, `npm run format:check`, `npm run lint` and `npm test` pass
 - [ ] New or changed behaviour has tests; a bug fix has a regression test
 - [ ] No secret, PII or full credential in code, logs or tests
-- [ ] Plan and `docs/implemented-features.md` updated where a phase landed
+- [ ] Plan and `docs/plans/implemented/implemented-features.md` updated where a phase landed
 - [ ] Breaking change called out
 
 ## Review

@@ -65,5 +65,5 @@ that pins it, or the portal will keep telling people their working credential do
 A client secret issued by the portal authenticates against the team's API; a suspended registration
 is refused; no placeholder wording remains anywhere.
 
-Then update `docs/implemented-features.md`, flip the Phase 5 status line, and open the separate
+Then update `docs/plans/implemented/implemented-features.md`, flip the Phase 5 status line, and open the separate
 discovery-docs built-state pull request.
