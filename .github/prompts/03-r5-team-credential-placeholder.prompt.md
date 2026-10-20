@@ -4,7 +4,7 @@ description: 'R5 - let a team finish the journey with a clearly labelled placeho
 ---
 
 You are implementing **Phase R5** of
-`docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase in full first, then this.
+`docs/plans/implemented/03-team-tier.md`. Read that phase in full first, then this.
 
 **Requires R6.** A team only reaches the credential step once its deployment reaches `active`, and
 it cannot today. Do not start this before R6 is working.
@@ -57,5 +57,5 @@ wherever a mocked team secret does; a research credential issued in the same run
 real Key Vault.
 
 Then update `docs/implemented-features.md` and add a dated note to the plan. Check that Phase 5
-B18 in `docs/plans/in-progress/build-stories-delivery-plan.md` still names removing this
+B18 in `docs/plans/remaining.md` still names removing this
 placeholder as part of that story.

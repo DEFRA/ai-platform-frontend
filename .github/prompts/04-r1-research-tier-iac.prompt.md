@@ -4,7 +4,7 @@ description: 'R1 - build the research tier in Terraform: allow subscription-key,
 ---
 
 You are implementing **Phase R1** of
-`ai-platform-frontend/docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase, and
+`ai-platform-frontend/docs/plans/implemented/02-research-tier.md`. Read that phase, and
 the sections "The shape the design requires" and "Pipeline ordering", in full first.
 
 This is the bulk of the work and the start of the second track. It does not depend on R5, R6 or R7.

@@ -4,7 +4,7 @@ description: 'R8 - journey tests, README values, implemented-features and the di
 ---
 
 You are implementing **Phase R8** of
-`ai-platform-frontend/docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase in
+`ai-platform-frontend/docs/plans/remaining.md` (section 5, R8). Read that phase in
 full first.
 
 **Last.** It records what the other phases did, so it needs them done.
@@ -45,6 +45,6 @@ hand-built resources. The replacements in step 2 apply only to guidance for new 
 accurate historical records and the Sandbox configuration while credentials issued there still
 need lifecycle operations.
 
-Then move the plan from `docs/plans/in-progress/` to `docs/plans/implemented/`, repoint every link
-to it, and update `docs/plans/README.md` - per
-`.github/instructions/route-plans.instructions.md`.
+Then move the R8 and research-tier items out of `docs/plans/remaining.md` into
+`docs/plans/implemented/02-research-tier.md`, and update `docs/plans/README.md` and
+`docs/implemented-features.md` - per `.github/instructions/route-plans.instructions.md`.

@@ -4,7 +4,7 @@ description: 'R4 - point the portal at the Infradev gateway per environment and 
 ---
 
 You are implementing **Phase R4** of
-`docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase in full first.
+`docs/plans/implemented/02-research-tier.md`. Read that phase in full first.
 
 **Requires R3.** The frontend should not describe an environment the backend cannot issue into.
 

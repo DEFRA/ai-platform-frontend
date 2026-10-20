@@ -15,9 +15,8 @@ and `/account` frontend routes are REPLACED by `/connect/*` and `/manage`). For 
 orchestration model referenced throughout (GitOps vs Direct API paths), see
 [design-orchestration.md](../../ai-platform-discovery-docs/src/content/design-orchestration.md)
 (area C) in `ai-platform-discovery-docs`. For how this journey was actually built, see
-[docs/plans/implemented/route0-welcome-plan.md](plans/implemented/route0-welcome-plan.md),
-[route1-plan.md](plans/implemented/route1-plan.md), [route2-plan.md](plans/implemented/route2-plan.md) and
-[route3-plan.md](plans/implemented/route3-plan.md).
+[plans/implemented/01-portal-journeys.md](plans/implemented/01-portal-journeys.md),
+[02-research-tier.md](plans/implemented/02-research-tier.md) and [03-team-tier.md](plans/implemented/03-team-tier.md).
 
 ## Overview: three routes at a glance
 

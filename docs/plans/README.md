@@ -1,24 +1,35 @@
 # Plans
 
-Plans live in one of two folders. Move a plan to `implemented/` when every phase is built, and repoint its links.
+What is built, and what is left, in two places only.
 
-## In progress
-
-| Plan                                                                               | State (20 Oct 2026)                                                                                                                                                                                                                                              |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [build-stories-delivery-plan.md](in-progress/build-stories-delivery-plan.md)       | Build stories in phases; Phases 3 (IaC) and 4 (team GitOps) merged and applied in Infradev; Phases 0, 1, 5 (limits), 6 and 7 not started, B18 waits for Entra consent                                                                                            |
-| [iac-rollout-state.md](in-progress/iac-rollout-state.md)                           | IaC rollout and the portal-to-team-apply proof: what is done, gotchas, what is left                                                                                                                                                                              |
-| [research-tier-integration-plan.md](in-progress/research-tier-integration-plan.md) | Real Azure behind the research tier; Phases 0 to 3 and 5 built, Phase 4 (ARM liveness reconcile) deferred by decision, Phase 6 (CDP deployment) done through the research tier plan                                                                              |
-| [research-tier-infradev-plan.md](in-progress/research-tier-infradev-plan.md)       | Research tier IaC and the portal move off the hand-built resource group; R0 to R7 merged and applied (infra v0.9.1, research API live in Infradev, CDP dev configured); open: the dev proxy rule for GitHub artifacts and R8 (journey tests, built-state record) |
+| Where                        | Holds                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| [implemented/](implemented/) | One file per category of built work. Read these to learn how a feature works today. |
+| [remaining.md](remaining.md) | Every feature not yet built, in one file, by category.                              |
 
 ## Implemented
 
-| Plan                                                                                                           | Built                                          |
-| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| [route0-welcome-plan.md](implemented/route0-welcome-plan.md)                                                   | 29 Sept 2026                                   |
-| [route1-plan.md](implemented/route1-plan.md) (research tier)                                                   | 22 Sept 2026                                   |
-| [route2-plan.md](implemented/route2-plan.md) (team tier, first person)                                         | 23 Sept 2026                                   |
-| [route3-plan.md](implemented/route3-plan.md) (team tier, joining a team)                                       | 25 Sept 2026                                   |
-| [centralised-gateway/centralised-gateway-plan.md](implemented/centralised-gateway/centralised-gateway-plan.md) | 9 Oct 2026 (rolled out to CDP dev 20 Oct 2026) |
+| File                                                                                 | Category                     | What it covers                                                                 |
+| ------------------------------------------------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------ |
+| [01-portal-journeys.md](implemented/01-portal-journeys.md)                           | Portal journeys              | Routes 0 to 3, sign-in, pages, flat Defra design                               |
+| [02-research-tier.md](implemented/02-research-tier.md)                               | Research tier                | Personal API keys, real Azure, Key Vault, environments, Infradev IaC           |
+| [03-team-tier.md](implemented/03-team-tier.md)                                       | Team tier                    | Teams and roles, dedicated models, GitOps provisioning, status, client secrets |
+| [04-catalogue-and-gateway.md](implemented/04-catalogue-and-gateway.md)               | Catalogue and gateway        | Catalogue from `ai-platform-infra`, hosting and gateway shape                  |
+| [05-platform-and-gitops-pipeline.md](implemented/05-platform-and-gitops-pipeline.md) | Platform infrastructure      | The five repositories, how a change flows, Infradev, CDP dev, operating notes  |
+| [06-shared-services-and-security.md](implemented/06-shared-services-and-security.md) | Shared services and security | Idempotency, audit, locks, backfills, security baseline, federated auth        |
 
-The source UI flow is [../ui-flow-three-routes.md](../ui-flow-three-routes.md); what is built, feature by feature, is [../implemented-features.md](../implemented-features.md).
+## Remaining
+
+[remaining.md](remaining.md): identity and credentials (B18), limits and reporting (B17, B19), observability (B20 to B22),
+gateway authorisation (B23), research tier follow-ups, quality and delivery, platform operations, and the discovery-docs
+record.
+
+## Keeping this current
+
+- When a feature is built, move its entry from `remaining.md` into the matching `implemented/` file (add a new numbered
+  file for a new category), date it, and update the tables above.
+- When a feature is left out on purpose, say so in `remaining.md` ("deferred, not removed") rather than deleting it.
+- Link, do not copy: design direction is in `ai-platform-discovery-docs`, acceptance criteria are its `build-stories.md`.
+
+The source UI flow is [../ui-flow-three-routes.md](../ui-flow-three-routes.md); the one-page index for new joiners is
+[../implemented-features.md](../implemented-features.md).

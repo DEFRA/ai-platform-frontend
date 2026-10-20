@@ -4,7 +4,7 @@ description: 'R0 - update the design pack for the research tier shape, environme
 ---
 
 You are implementing **Phase R0** of
-`ai-platform-frontend/docs/plans/in-progress/research-tier-infradev-plan.md`. Read that phase in
+`ai-platform-frontend/docs/plans/implemented/02-research-tier.md`. Read that phase in
 full first.
 
 Independent of every other phase - a short documentation session, good to do while something else

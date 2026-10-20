@@ -4,7 +4,7 @@ description: 'B18 - replace the placeholder with a real team client secret, issu
 ---
 
 You are implementing **Phase 5, story B18** of
-`docs/plans/in-progress/build-stories-delivery-plan.md`. Read that story in full first.
+`docs/plans/remaining.md` (section 1, B18). Read that story in full first.
 
 **Blocked until Entra admin consent for `Application.ReadWrite.OwnedBy` is granted on the backend
 identity.** Do not start otherwise - there is nothing to call.
