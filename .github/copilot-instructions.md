@@ -114,6 +114,7 @@ This repo already complies with Defra's dependency guidance — keep it that way
 - Whenever a plan under `docs/plans/` changes state, keep the layout in sync in the same change: the plan sits in `implemented/` (every phase built) or `in-progress/` (any phase left), `docs/plans/README.md` lists it in the matching table with its current state, and every link to it is repointed. Follow [route-plans.instructions.md](instructions/route-plans.instructions.md#whenever-you-touch-a-plan-keep-the-folders-and-the-readme-in-sync); do not wait to be asked.
 - Keep solutions DRY: before adding new utilities, search `src/server/common/` and existing routes for similar code.
 - Any bug fix — from a code review comment, a deployed defect, or a failing test — must ship with a regression test (unit, integration, or journey, whichever fits) that fails without the fix and passes with it; a fix with no new/updated test is incomplete, not just unpolished.
+- After opening a pull request, request Copilot review (`gh pr edit <n> --add-reviewer "@copilot"`), fix every comment and resolve every thread, then request a human reviewer; Copilot never replaces the required approval. Follow [pull-requests.instructions.md](instructions/pull-requests.instructions.md); do not wait to be asked.
 - If a request conflicts with these instructions, or would use a discouraged library, skip tests, hardcode a secret, or break a quality gate — flag it explicitly and do not proceed silently.
 
 ## Licence
