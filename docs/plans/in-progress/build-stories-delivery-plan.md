@@ -5,7 +5,7 @@
 > ([Route 0](../implemented/route0-welcome-plan.md), [Route 1](../implemented/route1-plan.md), [Route 2](../implemented/route2-plan.md),
 > [Route 3](../implemented/route3-plan.md)) and the other cross-cutting plans,
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md) and
-> [research-tier-integration-plan.md](../implemented/integration/research-tier-integration-plan.md).
+> [research-tier-integration-plan.md](research-tier-integration-plan.md).
 >
 > **STATUS: IN PROGRESS (20 Oct 2026).** Phase 3 (IaC baseline) and Phase 4 (team provisioning through
 > GitOps) are merged and applied in Infradev (backend and frontend #35, infra #16, workflows #10 merged on

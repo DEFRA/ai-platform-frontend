@@ -3,7 +3,7 @@
 > Cross-cutting plan, not a journey route. See also
 > [build-stories-delivery-plan.md](build-stories-delivery-plan.md) and
 > [iac-rollout-state.md](iac-rollout-state.md), and the two implemented cross-cutting plans,
-> [research-tier-integration-plan.md](../implemented/integration/research-tier-integration-plan.md)
+> [research-tier-integration-plan.md](research-tier-integration-plan.md)
 > (what the research tier is today) and
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >

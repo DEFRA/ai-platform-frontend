@@ -150,7 +150,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   and in `live` mode `ENABLED_GATEWAYS` (default `azure-apim`, renamed from `ENABLED_ADAPTERS`)
   lists the gateways the environment can run - a model on any other gateway gets
   `501 gateway-not-enabled`. See
-  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 1
+  [research-tier-integration-plan.md](plans/in-progress/research-tier-integration-plan.md)'s Phase 1
   and the [centralised gateway plan](plans/implemented/centralised-gateway/centralised-gateway-plan.md).
 - **GitOps `TenantOrchestrator` (WS5 and WS6, 14 Oct 2026, merged)**: `TENANT_ORCHESTRATOR=github`
   dispatches `submit.yml` with the whole team document and tracks it to `active` (pull request,
@@ -245,7 +245,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   chat-completions-era default even when the source says otherwise), since `chat-completions` isn't
   supported at all for a responses-only model. `models.seed.json` (the local `file` source) now
   includes one `responses`-profile model (`gpt-5-3-codex`) so this path is exercised without GitHub
-  catalogue access. See [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 2.
+  catalogue access. See [research-tier-integration-plan.md](plans/in-progress/research-tier-integration-plan.md)'s Phase 2.
 - **Credential secrets persisted to Key Vault, with an audited reveal**: a `CredentialVault` port
   (`issue`/`rotate` write through it, `renew` updates the existing secret version's expiry in place
   via `updateExpiry` rather than rotating it, `revoke` soft-deletes) behind a `mock` adapter
@@ -257,7 +257,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   updated Mongo `expiresAt`). `POST /v1/credentials/{id}/reveal` lets an owner (research tier) or
   team admin (team tier) re-view an already-issued secret, audited with a required reason,
   `Cache-Control: no-store`. See
-  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 3.
+  [research-tier-integration-plan.md](plans/in-progress/research-tier-integration-plan.md)'s Phase 3.
 - **Loading state on backend-triggering buttons**: `.app-button--loading-on-submit` (view) +
   `application.js` progressive enhancement disables the submit button and shows a spinner on
   `submit`, so a slow request (renew, revoke confirm, issue a credential) can't be re-triggered by
@@ -279,7 +279,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   journey, `/manage/credentials/{id}/view`, lets a research credential's owner or a team admin
   re-reveal the full secret with a required reason, via the backend's
   `POST /v1/credentials/{id}/reveal`. See
-  [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 5.
+  [research-tier-integration-plan.md](plans/in-progress/research-tier-integration-plan.md)'s Phase 5.
 - **Security baseline**: structured JSON logging with no PII (`hapi-pino` + ECS format), CSP via
   Blankie, CSRF via `@hapi/crumb`, session cookies via `@hapi/yar` (all frontend); Joi validation
   rejecting unknown keys on every backend route.

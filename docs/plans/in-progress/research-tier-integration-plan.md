@@ -1,10 +1,10 @@
 # Research tier integration plan: ARM-based credential issuing, Foundry-derived catalogue, Key Vault
 
 > Cross-cutting integration plan, not a journey route. Replaces the mocked seams behind
-> [Route 1](../route1-plan.md) (research/shared tier) with real Azure and GitHub integrations, and
-> makes credential issuing provider-extensible. See also [Route 0](../route0-welcome-plan.md),
-> [Route 2](../route2-plan.md), [Route 3](../route3-plan.md) and the
-> [UI flow](../../../ui-flow-three-routes.md).
+> [Route 1](../implemented/route1-plan.md) (research/shared tier) with real Azure and GitHub integrations, and
+> makes credential issuing provider-extensible. See also [Route 0](../implemented/route0-welcome-plan.md),
+> [Route 2](../implemented/route2-plan.md), [Route 3](../implemented/route3-plan.md) and the
+> [UI flow](../../ui-flow-three-routes.md).
 >
 > **Filed under `implemented/` on 15 Oct 2026:** every phase the team plans to build is built.
 > Phase 4 (scheduled ARM liveness reconcile) and Phase 6 (CDP deployment, Bicep, docs tidy-up) stay
@@ -17,6 +17,10 @@
 > (client ID + secret, Contributor + User Access Administrator on the subscription) — so no service
 > principal creation and **no certificates**. CDP deployment is deferred to Phase 6; everything
 > before it runs locally against the sandbox.
+>
+> **Where this stands (20 Oct 2026).** Phase 4 (ARM liveness reconcile) is still deferred, so the plan stays in
+> progress. Phase 6's CDP deployment happened on 20 Oct through the research tier plan
+> ([research-tier-infradev-plan.md](research-tier-infradev-plan.md)) and the Terraform pipeline, not Bicep.
 >
 > **UPDATED 5 Oct 2026 — Phase 5 (frontend) implemented.** All five items done: (1)
 > `src/server/common/helpers/gateway-request.js` (new) builds the real request shape from a model's
@@ -198,7 +202,7 @@ list` output - correct them when that's available. Phase 2 is now complete end-t
 > with a nested `hosting` object and `gateway` (no flat `cloud`/`adapter`), the issuer registry is
 > keyed by the model's `gateway`, `ENABLED_ADAPTERS` is `ENABLED_GATEWAYS`, and the error is
 > `501 gateway-not-enabled`. The backend reads only the new offering shape. Full
-> detail: [centralised-gateway-plan.md](../centralised-gateway/centralised-gateway-plan.md).
+> detail: [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >
 > **UPDATED 7 Oct 2026 (multi-cloud catalogue shape; superseded 9 Oct, see above)** — catalogue now says which cloud and
 > gateway adapter serves each model: `providers/{id}.json` is the model vendor with
@@ -362,12 +366,12 @@ user signs in → requests access to a model → backend calls ARM → APIM subs
 Route 1 shipped on 22 Sept 2026 against two mocks. This plan replaces both, adds the credential
 persistence the design pack requires, and restructures issuing so it is not Azure-only:
 
-| Seam               | Today                                                                                                                                     | After this plan                                                                                                       |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Credential issuing | [`mock-credential-issuer.js`](../../../../../ai-platform-backend-api/src/adapters/mock-credential-issuer.js) generates a fake key locally | Azure **ARM management-plane** adapter behind the same `CredentialIssuer` port                                        |
-| Provider choice    | Hardcoded default parameter                                                                                                               | Registry keyed by the model's gateway (`azure-apim`); a new gateway is a new adapter plus one registry entry          |
-| Model catalogue    | [`models.seed.json`](../../../../../ai-platform-backend-api/src/common/seed/models.seed.json) re-seeded on every start                    | Derived from real Foundry deployments, held in `ai-platform-infra/catalogue/`, read via Octokit and synced to MongoDB |
-| Credential storage | Secret returned once, never persisted anywhere                                                                                            | Written to `kv-aip-{env}-tenants` Key Vault, with an audited view/re-share path                                       |
+| Seam               | Today                                                                                                                                  | After this plan                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Credential issuing | [`mock-credential-issuer.js`](../../../../ai-platform-backend-api/src/adapters/mock-credential-issuer.js) generates a fake key locally | Azure **ARM management-plane** adapter behind the same `CredentialIssuer` port                                        |
+| Provider choice    | Hardcoded default parameter                                                                                                            | Registry keyed by the model's gateway (`azure-apim`); a new gateway is a new adapter plus one registry entry          |
+| Model catalogue    | [`models.seed.json`](../../../../ai-platform-backend-api/src/common/seed/models.seed.json) re-seeded on every start                    | Derived from real Foundry deployments, held in `ai-platform-infra/catalogue/`, read via Octokit and synced to MongoDB |
+| Credential storage | Secret returned once, never persisted anywhere                                                                                         | Written to `kv-aip-{env}-tenants` Key Vault, with an audited view/re-share path                                       |
 
 ## Critical correction: ARM management plane, not APIM's own APIs
 
@@ -414,10 +418,10 @@ is infrastructure work, and it is Phase 0.
 The single easiest thing to get wrong, because the obvious environment variable names are already
 taken.
 
-| App registration | Purpose                                        | Lives in                                                                | Environment variables                                                   |
-| ---------------- | ---------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Existing**     | Entra ID SSO / sign-in **only**                | frontend [`config.js`](../../../../src/config/config.js) as `azureAd.*` | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`             |
-| **New**          | Backend → Azure ARM, for the credential issuer | backend `src/config.js` as `armAuth.*`                                  | `AZURE_ARM_TENANT_ID`, `AZURE_ARM_CLIENT_ID`, `AZURE_ARM_CLIENT_SECRET` |
+| App registration | Purpose                                        | Lives in                                                             | Environment variables                                                   |
+| ---------------- | ---------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Existing**     | Entra ID SSO / sign-in **only**                | frontend [`config.js`](../../../src/config/config.js) as `azureAd.*` | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`             |
+| **New**          | Backend → Azure ARM, for the credential issuer | backend `src/config.js` as `armAuth.*`                               | `AZURE_ARM_TENANT_ID`, `AZURE_ARM_CLIENT_ID`, `AZURE_ARM_CLIENT_SECRET` |
 
 The new registration is provided to us, not created by this plan. It holds **Contributor** and
 **User Access Administrator** on the subscription, and uses a **client secret — no certificates**.
@@ -463,9 +467,9 @@ optional cleanup.
 ## Design facts that override intuition
 
 Sourced from
-[design-orchestration.md](../../../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+[design-orchestration.md](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
 and
-[design-infrastructure.md](../../../../../ai-platform-discovery-docs/src/content/design-infrastructure.md).
+[design-infrastructure.md](../../../../ai-platform-discovery-docs/src/content/design-infrastructure.md).
 Each of these is easy to get wrong by reasoning from first principles:
 
 1. **APIM products are not used.** _"Why the boundary is an API for each team and not a product in
@@ -904,7 +908,7 @@ the truth about what is _allowed_, and MongoDB is the read model the API serves.
 1. **Generate the catalogue from 0.3's deployment list.** Create `catalogue/providers/{id}.json`,
    `catalogue/models/{slug}.json` and `catalogue/schema/*.json` in `ai-platform-infra`, one model
    file per real Foundry deployment, enriched with the descriptive fields from
-   [`models.seed.json`](../../../../../ai-platform-backend-api/src/common/seed/models.seed.json):
+   [`models.seed.json`](../../../../ai-platform-backend-api/src/common/seed/models.seed.json):
    - from Foundry: `deploymentName`, `modelName`, `version`, `offering` (from `model.format`),
      `skus[]`
    - from the existing seed: `displayName`, `description`, `useCases[]`, `family`
@@ -955,7 +959,7 @@ Depends on 0.9.
 3. New `src/adapters/mock-credential-vault.js` — in-memory, for dev and tests, selected by the same
    `PROVISIONING_MODE` guard as the issuer.
 4. Wire into
-   [`credential-service.js`](../../../../../ai-platform-backend-api/src/services/credential-service.js):
+   [`credential-service.js`](../../../../ai-platform-backend-api/src/services/credential-service.js):
    - `issueCredential`: after `issuer.issue()` succeeds, call `vault.put()`. On vault failure do
      **not** fail the request — the user already holds their key — instead set
      `vaultState: 'unwritten'` on the credential document and still return the secret.
@@ -1071,8 +1075,8 @@ kept here as the agreed steps for whenever that decision happens.
 
 4. Tidy up the APIM samples now nothing depends on them: delete `echo-api` and, more importantly,
    the `starter` / `unlimited` products, so no keyless request can match an open product.
-5. Docs: dated `**UPDATED**` note in [route1-plan.md](../route1-plan.md);
-   [implemented-features.md](../../../implemented-features.md) — Route 1 row, the "Mocked external
+5. Docs: dated `**UPDATED**` note in [route1-plan.md](../implemented/route1-plan.md);
+   [implemented-features.md](../../implemented-features.md) — Route 1 row, the "Mocked external
    integrations" bullet, the new credential-reveal capability, the Last updated line; backend README
    covering the new environment variables, the two-app-registration split, `PROVISIONING_MODE`,
    running against the local file catalogue, and how to add a new credential issuer.

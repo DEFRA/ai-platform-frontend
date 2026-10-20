@@ -57,7 +57,7 @@ STATUS note, not duplicated here.
 **UPDATED 30 Sept 2026 - real integration planned, mocks still in place:** Route 1's two mocked
 seams (`mock-credential-issuer.js` and the `models.seed.json` catalogue) now have a plan to replace
 them - see
-[docs/plans/integration/research-tier-integration-plan.md](integration/research-tier-integration-plan.md).
+[docs/plans/in-progress/research-tier-integration-plan.md](integration/research-tier-integration-plan.md).
 Nothing in this route's shipped code has changed yet; **the STATUS above still describes what is
 running**. Read the integration plan before touching credential issuing, the model catalogue, or
 anything under `/connect/shared/*`, because three things this plan assumes turn out to be wrong:

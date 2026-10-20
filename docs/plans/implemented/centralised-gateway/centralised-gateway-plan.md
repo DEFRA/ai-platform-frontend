@@ -10,8 +10,7 @@
 >
 > **STATUS: COMPLETE (9 Oct 2026).** All phases are done and merged: backend 18, frontend 17,
 > discovery-docs 15, `ai-platform-infra` `v0.2.0` and `cdp-app-config` 4820 (dev
-> `CATALOGUE_REF=v0.2.0`). What remains is rollout: release and deploy the backend to `dev`. Until
-> then the deployed `0.24.0` cannot read `v0.2.0` and keeps its last synced catalogue. Update this line as each
+> `CATALOGUE_REF=v0.2.0`). Rolled out to CDP dev on 20 Oct 2026 (backend `0.43.0`, catalogue `v0.9.1`). Update this line as each
 > phase lands (`Phase A complete`, etc.) and add a dated note at the bottom recording what actually
 > happened versus what is written here.
 >
@@ -351,7 +350,7 @@ Can run in parallel with B-F; only needs B3's field names.
   `implemented-features.instructions.md` once R and B-G land. Note this file is not just internal:
   `build-stories.md#status` in the design pack cites it as "the running record" of built state, so
   leaving it stale propagates the error into the design pack at the next read.
-- **H2.** [`docs/plans/integration/research-tier-integration-plan.md`](../integration/research-tier-integration-plan.md):
+- **H2.** [`docs/plans/in-progress/research-tier-integration-plan.md`](../integration/research-tier-integration-plan.md):
   a dated STATUS note, plus fixes at L189-206 (the canonical statement of the old shape),
   L197-199 (`ENABLED_ADAPTERS`), L354, L764, L815-848, L894-904, L1112-1123, L1143.
 - **H3.** [`docs/plans/route1-plan.md`](../route1-plan.md) L148 ("Bedrock/Anthropic-style entries
