@@ -13,10 +13,10 @@ it survives a fresh clone of the platform repos.
 This is the FINALIZED user journey superseding earlier assumed routes (e.g. old `/connect-model/*`
 and `/account` frontend routes are REPLACED by `/connect/*` and `/manage`). For the backend
 orchestration model referenced throughout (GitOps vs Direct API paths), see
-[design-orchestration.md](../../ai-platform-discovery-docs/src/content/design-orchestration.md)
+[design-orchestration.md](../../../../ai-platform-discovery-docs/src/content/design-orchestration.md)
 (area C) in `ai-platform-discovery-docs`. For how this journey was actually built, see
-[plans/implemented/01-portal-journeys.md](plans/implemented/01-portal-journeys.md),
-[02-research-tier.md](plans/implemented/02-research-tier.md) and [03-team-tier.md](plans/implemented/03-team-tier.md).
+[plans/implemented/01-portal-journeys.md](../../plans/implemented/01-portal-journeys.md),
+[02-research-tier.md](../../plans/implemented/02-research-tier.md) and [03-team-tier.md](../../plans/implemented/03-team-tier.md).
 
 ## Overview: three routes at a glance
 
@@ -99,7 +99,7 @@ Known gaps flagged on the diagram itself: two stories disagreed (B04 showed the 
 when signed in; B06 sent signed-out people to sign in — resolved by the Route 1 follow-up plan
 making browsing and `GET /connect` public); provisioning was a mock when the diagram was drawn (the
 `CredentialIssuer` port now has a real Azure APIM issuer, see
-[implemented-features.md](plans/implemented/implemented-features.md)); the backend trusts `x-user-id` (any caller on the internal network can
+[implemented-features.md](../../plans/implemented/implemented-features.md)); the backend trusts `x-user-id` (any caller on the internal network can
 assert a person); nothing after handover (no diagnostics if the first call fails, no warning before
 day-7 expiry); upgrade to a funded team is named on `/manage` but wasn't designed.
 

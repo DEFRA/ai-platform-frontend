@@ -34,7 +34,7 @@ work. See [remaining.md](../remaining.md).
 
 ## Where to go next
 
-- [ui-flow-three-routes.md](../../ui-flow-three-routes.md): the end-to-end flow the journeys implement.
+- [ui-flow-three-routes.md](../../flat-design-updates/v1/ui-flow-three-routes.md): the end-to-end flow the journeys implement.
 - `ai-platform-discovery-docs/src/content/design-*.md`: the design pack (environments, orchestration, repositories and
   pipelines, infrastructure, identity, teams, observability) and `build-stories.md`.
 - Each repository's README: setup, testing, locks, backfills and the proxy.

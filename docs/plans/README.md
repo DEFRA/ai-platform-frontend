@@ -31,5 +31,5 @@ record.
 - When a feature is left out on purpose, say so in `remaining.md` ("deferred, not removed") rather than deleting it.
 - Link, do not copy: design direction is in `ai-platform-discovery-docs`, acceptance criteria are its `build-stories.md`.
 
-The source UI flow is [../ui-flow-three-routes.md](../ui-flow-three-routes.md); the one-page index for new joiners is
+The source UI flow is [../flat-design-updates/v1/ui-flow-three-routes.md](../flat-design-updates/v1/ui-flow-three-routes.md); the one-page index for new joiners is
 [implemented/implemented-features.md](implemented/implemented-features.md).
