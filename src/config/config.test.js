@@ -44,4 +44,12 @@ describe('#config research environment and gateway', () => {
       'GATEWAY_BASE_URLS has no gateway for RESEARCH_ENVIRONMENT "infradev"'
     )
   })
+
+  test('refuses an inherited property name as the research environment', async () => {
+    await expect(
+      loadConfig({ RESEARCH_ENVIRONMENT: 'constructor' })
+    ).rejects.toThrow(
+      'GATEWAY_BASE_URLS has no gateway for RESEARCH_ENVIRONMENT "constructor"'
+    )
+  })
 })

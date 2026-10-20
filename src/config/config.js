@@ -299,8 +299,14 @@ config.validate({ allowed: 'strict' })
 
 // Samples for a key issued today must show a real host, so fail at startup
 // rather than render a made-up one.
-if (!config.get('gateway.baseUrls')[config.get('researchEnvironment')]) {
+const gatewayBaseUrls = config.get('gateway.baseUrls')
+const researchEnvironment = config.get('researchEnvironment')
+
+if (
+  !Object.hasOwn(gatewayBaseUrls, researchEnvironment) ||
+  !gatewayBaseUrls[researchEnvironment]
+) {
   throw new Error(
-    `GATEWAY_BASE_URLS has no gateway for RESEARCH_ENVIRONMENT "${config.get('researchEnvironment')}"`
+    `GATEWAY_BASE_URLS has no gateway for RESEARCH_ENVIRONMENT "${researchEnvironment}"`
   )
 }

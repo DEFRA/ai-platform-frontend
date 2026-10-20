@@ -5,6 +5,12 @@ const sandboxHost = 'https://deploytestdefra.azure-api.net'
 const infradevHost = 'https://apim-aip-infradev.azure-api.net'
 
 describe('#buildGatewayRequest', () => {
+  const originalBaseUrls = config.get('gateway.baseUrls')
+
+  afterEach(() => {
+    config.set('gateway.baseUrls', originalBaseUrls)
+  })
+
   test('builds the chat-completions shape for a chat-completions model', () => {
     const { endpoint, requestBody } = buildGatewayRequest(
       {
