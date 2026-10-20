@@ -8,11 +8,11 @@
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >
 > **STATUS: IN PROGRESS (20 Oct 2026).** R1 is built and released as `ai-platform-infra` v0.9.0
-> ([#18](https://github.com/DEFRA/ai-platform-infra/pull/18), merged); nothing is applied. R5 to R7 are
-> merged, with live verification outstanding. R0, R2 to R4 and R8 are not started:
-> the research Foundry project, the research deployments and the `research` API do not exist in any
-> environment. Update the `Status` line on each phase as it lands and add a dated note at the bottom
-> recording what actually happened versus what is written here.
+> ([#18](https://github.com/DEFRA/ai-platform-infra/pull/18), merged) **and its platform apply has run**
+> (the Infradev `autoPin`, see the dated note). R0, R3 and R4 are built on unpushed branches; R5 to R7
+> are merged, with live verification outstanding. R2 is part done: the pin is applied, `research.json`
+> is not committed, so the research Foundry project, the research deployments and the `research` API
+> do not exist in any environment. R8 is not started.
 
 ## Why
 
@@ -160,7 +160,8 @@ R5, and its removal is Phase 5 B18 of
 
 ## Phase R0 — Design and decisions
 
-**Status: not started.** Repository: `ai-platform-discovery-docs` only. No dependencies — runs in
+**Status: built 20 Oct 2026, unpushed** (`ai-platform-discovery-docs` branch
+`docs/r0-research-tier-design`; see the dated note). Repository: `ai-platform-discovery-docs` only. No dependencies — runs in
 parallel with R1.
 
 1. Supersede the sentence in `design-infrastructure.md` that the Infradev research proof uses an
@@ -304,7 +305,7 @@ additions only.
 
 ## Phase R2 — Apply to Infradev
 
-**Status: not started.** Repositories: `ai-platform-environments`, `ai-platform-deployments`,
+**Status: part done, `research.json` waits for owner confirmation.** Repositories: `ai-platform-environments`, `ai-platform-deployments`,
 `ai-platform-tenants`. Depends on R1. Must complete before R3 points the portal at anything.
 
 1. Pin the new infra release in `environments/infradev/platform.json` so the platform carries the
@@ -328,7 +329,8 @@ role and its assignment are untouched by it.
 
 ## Phase R3 — Backend: environment-aware research tier
 
-**Status: not started.** Repository: `ai-platform-backend-api`. Code may be written in parallel
+**Status: built 20 Oct 2026, unpushed, not deployable until R2 applies** (`ai-platform-backend-api` branch
+`feature/research-tier-environments`; see the dated note). Repository: `ai-platform-backend-api`. Code may be written in parallel
 with R1; it lands after R2.
 
 1. **Configuration.** New `research.environment` (`RESEARCH_ENVIRONMENT`). Resolve the
@@ -373,7 +375,8 @@ with R1; it lands after R2.
 
 ## Phase R4 — Frontend: environment-aware gateway and copy
 
-**Status: not started.** Repository: `ai-platform-frontend`. Depends on R3.
+**Status: built 20 Oct 2026, unpushed** (`ai-platform-frontend` branch
+`feature/research-tier-environment-gateway`). Repository: `ai-platform-frontend`. Depends on R3.
 
 1. Replace the single `gateway.baseUrl` default `https://deploytestdefra.azure-api.net` with a
    per-environment base URL, plus `RESEARCH_ENVIRONMENT` so the samples show the right host.
@@ -556,6 +559,41 @@ field, and never a full secret logged or persisted.
   [build-stories-delivery-plan.md](build-stories-delivery-plan.md).
 
 ## Dated notes
+
+**20 Oct 2026 (later) — R0, R3 and R4 built; R2's pin had already applied.**
+
+- **The v0.9.0 pin applied itself.** Infradev has `autoPin: true`, so the release submitted the pin
+  (`ai-platform-deployments` #8, merged 10:57 UTC) and the platform apply ran at once (10:58, success):
+  3 added (the custom role definition `7df21b0e-…`, its assignment and the propagation wait),
+  6 changed in place, **0 destroyed**; the tenants apply (11:01) changed 8 projects in place (tags),
+  0 added, 0 destroyed. The earlier note that nothing was applied was wrong, and "never apply
+  without confirmation" did not hold for a release. R2's remaining work is `research.json`; set
+  `autoPin` to `false` in `ai-platform-environments` before the next infra release if applies must
+  stay manual.
+- **R0** (discovery-docs, branch `docs/r0-research-tier-design`): design D `#gateway` no longer says the
+  proof uses an existing API Management instance; design C `#resource-model`, `#model-access`,
+  `#desired-state`, `#catalogue-flow` and `#identities` carry the research team file, no translation, the
+  named deployments and the deploy identity's User Access Administrator; design A `#phase-1`; diagrams C1
+  and C3; AR02 v0.7.2; decision history, design pack plan and test pins. The model-access diagram is
+  left `Proposal · unimplemented` until R2's research file applies. **Correction to this plan:** the
+  Why section and R0 item 3 say the tier is "production-only in the target". The design pack says the
+  opposite (a `research` team file exists in DEV and Infradev, and there is no `/research` path in
+  production), so R0 kept the pack's direction and did not write "production-only". Design E needed no
+  change.
+- **R3** (backend, branch `feature/research-tier-environments`): `RESEARCH_ENVIRONMENT` and the guard;
+  `AZURE_ARM_SUBSCRIPTION_ID`, `AZURE_ARM_RESOURCE_GROUP`, `APIM_SERVICE_NAME` and
+  `AZURE_KEY_VAULT_NAME` are gone. The issuer and vault resolve per call from the credential's own
+  environment; `credentialService.environmentOf()` reads `sandbox` for a research document the backfill
+  has not reached; the sweep reports stray subscriptions by logging (not auditing, to avoid an event per
+  sweep) and the built-in `master` subscription is ignored. Deploying it needs **cdp-app-config**: set
+  `RESEARCH_ENVIRONMENT=infradev` and add `infradev` (and a `sandbox` entry for the hand-built
+  `SNDAIEEXPRGP1401`/`DEPLOYTESTDEFRA`/`kv-aip-sandbox-tenants` so existing keys still revoke) to
+  `AIP_ENVIRONMENTS`, and move `CATALOGUE_REF` to v0.9.0; none of that is done. Not yet run against Infradev.
+- **R4** (frontend, branch `feature/research-tier-environment-gateway`): `GATEWAY_BASE_URLS` and
+  `RESEARCH_ENVIRONMENT` replace `GATEWAY_BASE_URL`. The Infradev default,
+  `https://apim-aip-infradev.azure-api.net`, is derived from the naming module and **not yet seen
+  live**; check it when R2 applies. A host missing for a credential's environment shows
+  `https://<gateway-host>`, and startup fails if the research environment has no host.
 
 **20 Oct 2026 — R1 built and released (v0.9.0), not applied.** `ai-platform-infra` branch
 `feature/research-tier-iac`. `terraform validate` and every module and root test pass, `aip-checks`
