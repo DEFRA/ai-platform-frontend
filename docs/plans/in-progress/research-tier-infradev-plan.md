@@ -585,12 +585,11 @@ has cut it. What was decided where the plan was silent:
   actions were each confirmed with `az provider operation show`. This adds the `hashicorp/time` provider
   (`0.14.2`, locked for five platforms).
 - **The project display name** stays "AI Platform team research"; accepted rather than adding an override.
-- **Open before R2: who holds what.** This plan says the deploy identity holds User Access
-  Administrator. `ai-platform-infra`'s bootstrap grants Contributor and a _constrained_ Role Based Access
-  Control Administrator, whose condition lists the roles it may assign, and the design pack's identity
-  table agrees. That
-  grant cannot write a role definition and would refuse an assignment of this role. Confirm the real
-  grant, or add the role to the bootstrap, before R2 applies.
+- **Deploy identity grant, confirmed 20 Oct 2026.** The deploy identity holds User Access Administrator
+  on the whole subscription, so it can create the role definition and assign it, as this plan says. The
+  bootstrap's constrained Role Based Access Control Administrator grant does not matter for R1: Azure
+  allows what either role allows, and User Access Administrator carries no assignable-role condition. The
+  bootstrap and design pack still describe only the constrained grant; correct them in R0.
 
 **19 Oct 2026 — R7 built.** `deployment-status.js` maps every GitOps state explicitly: the six
 "setting up" states, `queued`, `removing`, `removed` and the two failures. Anything else reads
