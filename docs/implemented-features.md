@@ -151,7 +151,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   `501 gateway-not-enabled`. See
   [research-tier-integration-plan.md](plans/implemented/integration/research-tier-integration-plan.md)'s Phase 1
   and the [centralised gateway plan](plans/implemented/centralised-gateway/centralised-gateway-plan.md).
-- **GitOps `TenantOrchestrator` (WS5 and WS6, 14 Oct 2026, not yet merged)**: `TENANT_ORCHESTRATOR=github`
+- **GitOps `TenantOrchestrator` (WS5 and WS6, 14 Oct 2026, merged)**: `TENANT_ORCHESTRATOR=github`
   dispatches `submit.yml` with the whole team document and tracks it to `active` (pull request,
   merge, GitHub Deployment, run report, ARM check), with the D14 retry-then-revert policy, a
   scheduler sweep and Platform Admin retry/reconcile; one change per team file at a time, so a later
@@ -172,7 +172,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   catalogue has a team tier: `gpt-4o` through a UK South `Standard` SKU, `gpt-4-1-nano` and
   `gpt-5-nano` through Sweden Central, which Defra policy blocks for now. What is done and what is
   left: [iac-rollout-state.md](plans/in-progress/iac-rollout-state.md).
-- **Research tier IaC (R1, 20 Oct 2026, built in `ai-platform-infra`, not released or applied)**:
+- **Research tier IaC (R1, 20 Oct 2026, released as `ai-platform-infra` v0.9.0, not applied)**:
   the research tier is a platform-owned team file, `research.json`, naming `subscription-key`, built
   by the same tenants module as a team: shared project, account-child deployments named as callers
   send them, and a `research` API that requires a subscription and runs `aip-key-guard`, with the
@@ -181,7 +181,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   API Management role the Portal API needs to mint subscriptions. Terraform creates no
   subscription. Nothing exists in Azure until R2 applies. See
   [research-tier-infradev-plan.md](plans/in-progress/research-tier-infradev-plan.md).
-- **Team deployment verification finishes and says why it did not (R6, 19 Oct 2026, not yet merged)**:
+- **Team deployment verification finishes and says why it did not (R6, 19 Oct 2026, merged)**:
   the verifier's reason is kept, counted on `gitops.verification`, audited
   (`teamDeployment.verificationFailed`) and logged on every failed attempt. After
   `GITOPS_VERIFY_MAX_ATTEMPTS` (default 5) the deployment fails with the reason, so a missing
@@ -191,13 +191,13 @@ These aren't tied to one route — they're shared infrastructure every route abo
   (created, or skipped awaiting consent) taken from the run report. The registration's client,
   object and service principal IDs are carried onto `oauthClient.registration` when it verifies,
   for Phase 5's B18 issuer.
-- **Honest status labels (R7, 19 Oct 2026, not yet merged)**: a deployment's GitOps status is
+- **Honest status labels (R7, 19 Oct 2026, merged)**: a deployment's GitOps status is
   mapped explicitly in `deployment-status.js`, so "Setting up" means only the six in-progress
   states and an unmapped status reads "Status unknown" rather than progress. `active` reads "Ready
   to use", a credential's `pending` reads "Being created", the wait page says "Setting up your
   model access" until the client secret step, and the backend's last progress step is "Preparing
   your client secret" (all four steps done once `active`).
-- **Team client secret placeholder (R5, 19 Oct 2026, not yet merged)**: while `MOCK_TIERS=team`
+- **Team client secret placeholder (R5, 19 Oct 2026, merged)**: while `MOCK_TIERS=team`
   mocks the Graph step, every page showing a mocked team secret (wait page, credential, `/manage`
   row and detail, rotated, revealed) carries one shared inset saying it does not work with the
   gateway yet and why. Research keys are unaffected and still reach the real Key Vault. Removed by
