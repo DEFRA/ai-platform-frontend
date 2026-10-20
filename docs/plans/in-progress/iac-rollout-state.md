@@ -1,5 +1,5 @@
 ---
-ms.date: '2026-10-19'
+ms.date: '2026-10-20'
 ---
 
 # IaC rollout state
@@ -34,17 +34,18 @@ The research tier's move onto this pipeline is planned separately in
 
 ## Left to do
 
-**Open pull requests**
+**Open pull requests (20 Oct 2026)**
 
-- Backend #35 and frontend #35 (orchestrator, run links): review and merge. Their tests pass (501 and 275), SonarCloud is green and the builder output validates against `schemas/team.schema.json`.
-- `ai-platform-discovery-docs` #21 (#22 merged): merge #21; then record built state there (build-stories status, decision history for the interim flag and the `gpt-4o` decision).
-- Dependabot bumps: infra #9, workflows #2 (approved), frontend #36 to #42, backend #36 and #37.
+- `cdp-tenant-config` #2024: lets the dev backend download GitHub Actions artifacts (`.blob.core.windows.net`); until it deploys a team deployment stays on "Setting up access in Azure" after its apply succeeds.
+- `ai-platform-discovery-docs` #27 (promotion plan) and `ai-platform-infra` #24 (Terraform quality plan review).
+- Dependabot bumps: infra #9, workflows #2, frontend #36 to #42, backend #36 and #37, journey-tests #9 and #10.
 
-**State of the workspace (15 Oct 2026)**
+**Merged since 15 Oct 2026:** backend #35 and frontend #35 (orchestrator, run links), infra #16 and workflows #10 (gateway guard, removal lifecycle, destroy cap), discovery-docs #21, #22, #25 and #26, the research tier (infra v0.9.0 and v0.9.1, tenants #16, backend #40, frontend #46), and the CDP dev config (cdp-app-config #4933 and #4935).
 
-- infra, workflows, tenants, deployments, environments, discovery-docs and journey-tests are on `main`, up to date, with merged local branches deleted. Frontend and backend are on their PR branches (`feature/gitops-run-links`, `feature/github-tenant-orchestrator`) with uncommitted work: the `docs/plans` reorganisation (`implemented/`, `in-progress/`, `README.md`; this file is untracked, `git add` it) and the local `infradev` edits below. Their old local branches are not cleaned up.
-- Local dev servers may still be running (backend 3001, frontend 3000, Mongo and Redis in Docker). The backend `.env` has `TENANT_ORCHESTRATOR=github`, `AIP_ENVIRONMENTS` and `CATALOGUE_REF=v0.7.0`.
-- A test team `cool-team` (`gpt-4o`) exists in Infradev and in `ai-platform-tenants`; a second request for the same team, for another model, is the next thing to try.
+**State of the workspace (20 Oct 2026)**
+
+- Every repository is on `main` and up to date, with no uncommitted work.
+- Teams `cool-team`, `bobs-team`, `dans-team`, `team-test-1` to `team-test-5` and `team-dev-1` (created from CDP dev) exist in Infradev and `ai-platform-tenants`, alongside the platform-owned `research` file.
 
 **Resolved on 18 Oct 2026 (hardening round)**
 

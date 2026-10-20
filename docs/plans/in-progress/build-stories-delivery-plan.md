@@ -7,13 +7,11 @@
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md) and
 > [research-tier-integration-plan.md](../implemented/integration/research-tier-integration-plan.md).
 >
-> **STATUS: IN PROGRESS (19 Oct 2026).** Phase 3 (IaC baseline) is merged, released and applied in
-> Infradev, and the portal-to-team-apply path is proven locally (M6 in part). Backend and
-> frontend PR #35 and the discovery-docs PRs are still open, Entra consent is outstanding, and
-> Phase 0 is still next. The research tier's move onto the same pipeline, the progress-page and
-> status-label work and the interim team credential are planned in
-> [research-tier-infradev-plan.md](research-tier-infradev-plan.md). Update the `Status` line on
-> each phase as it lands and add a dated note at the bottom recording what actually happened
+> **STATUS: IN PROGRESS (20 Oct 2026).** Phase 3 (IaC baseline) and Phase 4 (team provisioning through
+> GitOps) are merged and applied in Infradev (backend and frontend #35, infra #16, workflows #10 merged on
+> 19 Oct); the research tier now runs on the same pipeline ([research-tier-infradev-plan.md](research-tier-infradev-plan.md)).
+> Entra consent is outstanding, so B18 and the real team secret wait. Phases 0, 1, 5 (limits), 6 and 7 are not started.
+> Update the `Status` line on each phase as it lands and add a dated note at the bottom recording what actually happened
 > versus what is written here. The rollout detail and open actions live in
 > [iac-rollout-state.md](iac-rollout-state.md).
 
@@ -283,8 +281,8 @@ regression test; a backfill test proving a slugless legacy team is handled; upda
 
 ## Phase 3 — IaC baseline, GitOps path in Infradev
 
-**Status: mostly done on 15 Oct 2026 — merged, released and applied in Infradev; Entra and the
-rulesets remain.** Story B15. Repositories:
+**Status: done in Infradev (15 to 19 Oct 2026) — merged, released and applied; rulesets applied 18 Oct, gateway
+guard and destroy cap merged 19 Oct (infra #16, workflows #10); only the Entra consent remains.** Story B15. Repositories:
 `ai-platform-infra` and `ai-platform-workflows` (public), `ai-platform-environments`,
 `ai-platform-tenants` and `ai-platform-deployments` (internal). No dependencies.
 re merged and released (infra `v0.7.0`, workflows `v1.1.0`) and the platform is
@@ -378,8 +376,8 @@ robustness controls R1–R4 and R6.
 
 ## Phase 4 — Team provisioning through GitOps
 
-**Status: in progress on 15 Oct 2026 — WS5 and WS6 are in backend PR #35 and frontend PR #35
-(open); M6 is proven locally to the team apply.**
+**Status: merged 19 Oct 2026 (backend #35, frontend #35) and live in CDP dev 20 Oct; the dev proxy rule for GitHub
+artifact downloads (cdp-tenant-config #2024) is open.**
 Story B16; closes B09 and deployment gap 4. Repositories: backend, frontend. Depends on Phase 3.
 Blocks Phases 5 and 6. Follows iac plan WS5 and WS6, M6 and M7, D3, D6 and D14.
 

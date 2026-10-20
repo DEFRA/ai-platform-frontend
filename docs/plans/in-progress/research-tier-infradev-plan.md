@@ -7,12 +7,12 @@
 > (what the research tier is today) and
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >
-> **STATUS: IN PROGRESS (20 Oct 2026).** R1 is released as `ai-platform-infra` v0.9.0 and v0.9.1 (the
-> coverage fix, [#21](https://github.com/DEFRA/ai-platform-infra/pull/21)); both applied to Infradev.
-> **R2 is applied:** `research.json` merged ([tenants #16](https://github.com/DEFRA/ai-platform-tenants/pull/16))
-> and the tenants apply created the research project, the `gpt-4o` deployment and the `research` API
-> (see the dated note). R0, R3 and R4 are built with open pull requests (discovery-docs #26, backend #40,
-> frontend #46), not yet merged; R5 to R7 are merged, with live verification outstanding. R8 is not started.
+> **STATUS: IN PROGRESS (20 Oct 2026).** R0 to R7 are built and merged: infra v0.9.0 and v0.9.1 applied in
+> Infradev (R1, R2: the `research` API is live), the environment-aware backend and frontend (R3 #40, R4 #46),
+> the design pack (R0, discovery-docs #26) and the verification, placeholder and label work (R5 to R7). CDP dev
+> carries the new config (cdp-app-config #4933 and #4935). Open: the dev proxy rule for GitHub artifact
+> downloads ([cdp-tenant-config #2024](https://github.com/DEFRA/cdp-tenant-config/pull/2024)), without which a
+> team deployment stays on "Setting up access"; and R8 (journey tests, built-state record in discovery-docs).
 
 ## Why
 
@@ -160,8 +160,7 @@ R5, and its removal is Phase 5 B18 of
 
 ## Phase R0 — Design and decisions
 
-**Status: built 20 Oct 2026, unpushed** (`ai-platform-discovery-docs` branch
-`docs/r0-research-tier-design`; see the dated note). Repository: `ai-platform-discovery-docs` only. No dependencies — runs in
+**Status: merged 20 Oct 2026** (discovery-docs #26; see the dated note). Repository: `ai-platform-discovery-docs` only. No dependencies — runs in
 parallel with R1.
 
 1. Supersede the sentence in `design-infrastructure.md` that the Infradev research proof uses an
@@ -190,7 +189,7 @@ parallel with R1.
 
 ## Phase R1 — Research tier IaC
 
-**Status: built and released 20 Oct 2026 as v0.9.0, not yet applied** (see the dated note). Repository:
+**Status: released as v0.9.0 and v0.9.1 and applied in Infradev 20 Oct 2026** (see the dated notes). Repository:
 `ai-platform-infra`. Blocks R2. Items 1 to 4 extend the tenant layer; item 5 is platform layer.
 
 The work is to teach the existing team stack one new credential type, not to build a second one.
@@ -329,8 +328,7 @@ role and its assignment are untouched by it.
 
 ## Phase R3 — Backend: environment-aware research tier
 
-**Status: built 20 Oct 2026, unpushed, not deployable until R2 applies** (`ai-platform-backend-api` branch
-`feature/research-tier-environments`; see the dated note). Repository: `ai-platform-backend-api`. Code may be written in parallel
+**Status: merged 20 Oct 2026** (backend #40; configured in CDP dev). Repository: `ai-platform-backend-api`. Code may be written in parallel
 with R1; it lands after R2.
 
 1. **Configuration.** New `research.environment` (`RESEARCH_ENVIRONMENT`). Resolve the
@@ -375,8 +373,7 @@ with R1; it lands after R2.
 
 ## Phase R4 — Frontend: environment-aware gateway and copy
 
-**Status: built 20 Oct 2026, unpushed** (`ai-platform-frontend` branch
-`feature/research-tier-environment-gateway`). Repository: `ai-platform-frontend`. Depends on R3.
+**Status: merged 20 Oct 2026** (frontend #46; configured in CDP dev). Repository: `ai-platform-frontend`. Depends on R3.
 
 1. Replace the single `gateway.baseUrl` default `https://deploytestdefra.azure-api.net` with a
    per-environment base URL, plus `RESEARCH_ENVIRONMENT` so the samples show the right host.
