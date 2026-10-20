@@ -2,6 +2,10 @@ import { differenceInCalendarDays } from 'date-fns'
 
 import { apiClient } from '#/server/common/helpers/api-client.js'
 import { getSessionUser } from '#/server/common/helpers/session.js'
+import {
+  environmentName,
+  researchEnvironment
+} from '#/server/common/helpers/environment-names.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 
 const RENEWAL_WARNING_DAYS = 3
@@ -70,7 +74,8 @@ export const homeController = {
       return h.view('home/index', {
         pageTitle: 'Home',
         heading: 'Get AI model access',
-        signedIn: false
+        signedIn: false,
+        researchEnvironmentName: environmentName(researchEnvironment())
       })
     }
 

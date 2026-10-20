@@ -5,7 +5,12 @@ import { addDays } from 'date-fns'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
-import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
+import {
+  credentialEnvironment,
+  credentialEnvironmentName,
+  environmentName,
+  researchEnvironment
+} from '#/server/common/helpers/environment-names.js'
 import {
   getSessionUser,
   getPendingAccess,
@@ -85,7 +90,7 @@ function buildAccessTypeItems(selectedAccessType) {
       value: 'shared',
       text: 'Just for me, to research or try something out',
       hint: {
-        text: 'A key that lasts 7 days in Sandbox. No team needed. Ready in about a minute.'
+        text: `A key that lasts ${RESEARCH_CREDENTIAL_DAYS} days in ${environmentName(researchEnvironment())}. No team needed. Ready in about a minute.`
       },
       checked: selectedAccessType === 'shared' || !selectedAccessType
     },
@@ -161,7 +166,10 @@ function buildCheckAnswersRows(model, purpose) {
         ]
       }
     },
-    { key: { text: 'Environment' }, value: { text: 'Sandbox' } }
+    {
+      key: { text: 'Environment' },
+      value: { text: environmentName(researchEnvironment()) }
+    }
   ]
 
   if (model.limitsDefault?.requestsPerMinute) {
@@ -478,7 +486,10 @@ export const connectController = {
             pageTitle: 'Your connection details',
             heading: 'Your connection details',
             ...issued,
-            ...buildGatewayRequest(issued.model),
+            ...buildGatewayRequest(
+              issued.model,
+              credentialEnvironment(issued.credential)
+            ),
             environmentName: credentialEnvironmentName(issued.credential)
           })
           .header('cache-control', 'no-store')

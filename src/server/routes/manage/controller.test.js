@@ -969,6 +969,37 @@ describe('#manageController', () => {
     expect(result).toEqual(expect.stringContaining('Revoke this credential'))
   })
 
+  test.each([
+    [
+      'infradev',
+      'Infradev',
+      'https://apim-aip-infradev.azure-api.net/research/'
+    ],
+    ['sandbox', 'Sandbox', 'https://deploytestdefra.azure-api.net/research/'],
+    [null, 'Sandbox', 'https://deploytestdefra.azure-api.net/research/']
+  ])(
+    'GET /manage/credentials/{id} for a research key issued in %s says so and shows that gateway',
+    async (environment, expectedName, expectedHost) => {
+      const cookies = await signIn(server)
+
+      fetchMock.mockResponseOnce(
+        JSON.stringify({ ...sampleCredential, environment })
+      )
+      fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+      const { result } = await server.inject({
+        method: 'GET',
+        url: '/manage/credentials/cred-1',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(result).toMatch(
+        new RegExp(`Environment\\s*</dt>\\s*<dd[^>]*>\\s*${expectedName}`)
+      )
+      expect(result).toEqual(expect.stringContaining(expectedHost))
+    }
+  )
+
   test('GET /manage/credentials/{id} hides renew/revoke actions for a team credential', async () => {
     const cookies = await signIn(server)
 

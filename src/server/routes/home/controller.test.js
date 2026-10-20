@@ -57,6 +57,18 @@ describe('#homeController', () => {
     expect(statusCode).toBe(statusCodes.ok)
   })
 
+  test('Should name the configured research environment, not the Sandbox, when signed out', async () => {
+    const { result } = await server.inject({ method: 'GET', url: '/' })
+
+    expect(result).toEqual(
+      expect.stringContaining('A key that works for 7 days, in the Infradev')
+    )
+    expect(result).toEqual(
+      expect.stringContaining('Infradev is for building and trying things out.')
+    )
+    expect(result).not.toEqual(expect.stringContaining('Sandbox'))
+  })
+
   test('Should show a renewal banner for a key expiring soon when signed in', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
 

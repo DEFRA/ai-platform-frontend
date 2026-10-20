@@ -14,7 +14,10 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
+import {
+  credentialEnvironment,
+  credentialEnvironmentName
+} from '#/server/common/helpers/environment-names.js'
 import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 import {
   buildKeyRows,
@@ -251,10 +254,14 @@ export const manageController = {
           pageTitle: heading,
           heading,
           credential,
+          environmentName: credentialEnvironmentName(credential),
           placeholderCredential: isPlaceholderCredential(credential),
           models: models.map((model) => ({
             ...model,
-            gatewayEndpoint: buildGatewayRequest(model).endpoint
+            gatewayEndpoint: buildGatewayRequest(
+              model,
+              credentialEnvironment(credential)
+            ).endpoint
           })),
           isAdmin
         })

@@ -4,6 +4,10 @@ import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
+  environmentName,
+  researchEnvironment
+} from '#/server/common/helpers/environment-names.js'
+import {
   formatLabel,
   formatLabelList,
   formatDataZone
@@ -179,7 +183,8 @@ export const modelsController = {
           canConnect: eligible,
           modelLocationCaption: hostingCaptionFor(model),
           summaryRows: buildModelSummaryRows(model),
-          ...buildGatewayRequest(model)
+          ...buildGatewayRequest(model, researchEnvironment()),
+          environmentName: environmentName(researchEnvironment())
         })
       }
     }
