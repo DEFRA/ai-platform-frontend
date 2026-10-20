@@ -66,4 +66,4 @@ A deployment whose environment is missing from `AIP_ENVIRONMENTS` reports
 `environment-not-configured` on the page instead of spinning; a healthy team reaches `active` and
 lists its real resources; the team record carries the app registration identifiers.
 
-Then update `docs/implemented-features.md` and add a dated note to the plan.
+Then update `docs/plans/implemented/implemented-features.md` and add a dated note to the plan.

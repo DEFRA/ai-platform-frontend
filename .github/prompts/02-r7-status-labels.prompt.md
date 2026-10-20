@@ -52,4 +52,4 @@ where each is chosen today.
 No two different things share a label; an unmapped status renders as unknown rather than "Setting
 up"; the wait page heading matches the step the person is actually on.
 
-Then update `docs/implemented-features.md` and add a dated note to the plan.
+Then update `docs/plans/implemented/implemented-features.md` and add a dated note to the plan.

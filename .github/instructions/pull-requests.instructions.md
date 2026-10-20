@@ -10,7 +10,7 @@ applyTo: '**'
 - Branch `<type>/<description>` from current `main`; conventional commits.
 - Run `npm run format`, then `npm run format:check`, `npm run lint` and `npm test`; all pass. Never `--no-verify`.
 - Behaviour change means a test change; a bug fix means a regression test that fails without the fix.
-- Move the built item from `docs/plans/remaining.md` into `docs/plans/implemented/` and update `docs/implemented-features.md` when a feature lands (see `route-plans.instructions.md`).
+- Move the built item from `docs/plans/remaining.md` into `docs/plans/implemented/` and update `docs/plans/implemented/implemented-features.md` when a feature lands (see `route-plans.instructions.md`).
 - Build to the current design only: no legacy paths or backwards-compatible fallbacks.
 
 ## What review checks (Copilot included)

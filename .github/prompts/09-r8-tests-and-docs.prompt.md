@@ -21,7 +21,7 @@ pull request in `ai-platform-discovery-docs`.
 2. The backend README's live-Azure section still names `SNDAIEEXPRGP1401`, `DEPLOYTESTDEFRA` and
    `kv-aip-sandbox-tenants`. Replace them with the Infradev values. Grep both repos for all three
    strings - the README is unlikely to be the only place.
-3. Update `ai-platform-frontend/docs/implemented-features.md`.
+3. Update `ai-platform-frontend/docs/plans/implemented/implemented-features.md`.
 4. Then, in a **separate** discovery-docs pull request, update `build-stories.md`: B06 and B11 are
    currently recorded as proven "against hand-configured resources" and that is no longer true;
    B07, B09 and B16 also change. Follow that repo's propagate-date-and-record rules.
@@ -47,4 +47,4 @@ need lifecycle operations.
 
 Then move the R8 and research-tier items out of `docs/plans/remaining.md` into
 `docs/plans/implemented/02-research-tier.md`, and update `docs/plans/README.md` and
-`docs/implemented-features.md` - per `.github/instructions/route-plans.instructions.md`.
+`docs/plans/implemented/implemented-features.md` - per `.github/instructions/route-plans.instructions.md`.

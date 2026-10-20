@@ -56,6 +56,6 @@ A team journey completes and shows a credential with its key hint on `/manage`; 
 wherever a mocked team secret does; a research credential issued in the same run still reaches the
 real Key Vault.
 
-Then update `docs/implemented-features.md` and add a dated note to the plan. Check that Phase 5
+Then update `docs/plans/implemented/implemented-features.md` and add a dated note to the plan. Check that Phase 5
 B18 in `docs/plans/remaining.md` still names removing this
 placeholder as part of that story.

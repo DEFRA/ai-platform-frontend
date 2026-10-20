@@ -63,4 +63,4 @@ check, not a runtime concern.
 A research credential is issued, revealed, rotated and revoked against Infradev, with `issuerKey`
 proving it was not mocked, and the key calls the gateway and returns a completion.
 
-Then update `docs/implemented-features.md` and add a dated note to the plan.
+Then update `docs/plans/implemented/implemented-features.md` and add a dated note to the plan.

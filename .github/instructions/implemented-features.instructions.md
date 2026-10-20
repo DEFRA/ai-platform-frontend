@@ -5,7 +5,7 @@ applyTo: 'src/**, docs/plans/**'
 
 # Keep the implemented-features list current
 
-[docs/implemented-features.md](../../docs/implemented-features.md) is the one cross-repo list of
+[docs/plans/implemented/implemented-features.md](../../docs/plans/implemented/implemented-features.md) is the one cross-repo list of
 what has been built so far in the AI Platform Portal, written for new joiners — a short
 index of tables, not a duplicate of the category files in `docs/plans/implemented/` and READMEs it links to.
 
@@ -42,7 +42,7 @@ without being asked and add what is missing:
    `npm run check`. Never change application code from that repo.
 3. Keep it minimal, concise and factual: a short clause per row or note, not a paragraph. Record
    built state only, never a new design direction. Read it from
-   the released tags and `docs/implemented-features.md`, cite the version and date, and say "in an
+   the released tags and `docs/plans/implemented/implemented-features.md`, cite the version and date, and say "in an
    open pull request" for anything not yet merged or released. Built is not accepted and nothing is
    claimed as deployed unless it is.
 4. If nothing needs changing, say "build status checked, no change" in your summary rather than
