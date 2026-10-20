@@ -1,6 +1,9 @@
+import { config } from '#/config/config.js'
 import {
+  credentialEnvironment,
   credentialEnvironmentName,
-  environmentName
+  environmentName,
+  researchEnvironment
 } from './environment-names.js'
 
 describe('environment-names', () => {
@@ -10,15 +13,37 @@ describe('environment-names', () => {
     expect(environmentName('made-up')).toBe('made-up')
   })
 
-  test('takes a team credential to its own environment and a research key to the Sandbox', () => {
+  test('takes a credential to the environment it was issued in, whatever the tier', () => {
     expect(
       credentialEnvironmentName({ tier: 'team', environment: 'infradev' })
     ).toBe('Infradev')
-    expect(credentialEnvironmentName({ tier: 'team', environment: null })).toBe(
-      'Sandbox'
-    )
     expect(
       credentialEnvironmentName({ tier: 'research', environment: 'infradev' })
+    ).toBe('Infradev')
+    expect(
+      credentialEnvironmentName({ tier: 'research', environment: 'sandbox' })
     ).toBe('Sandbox')
+  })
+
+  test.each([null, undefined])(
+    'takes a credential with environment %s to the Sandbox it predates environments in',
+    (environment) => {
+      expect(credentialEnvironment({ tier: 'research', environment })).toBe(
+        'sandbox'
+      )
+      expect(credentialEnvironmentName({ tier: 'team', environment })).toBe(
+        'Sandbox'
+      )
+    }
+  )
+
+  test('reads the research environment from configuration', () => {
+    expect(researchEnvironment()).toBe('infradev')
+
+    config.set('researchEnvironment', 'sandbox')
+
+    expect(researchEnvironment()).toBe('sandbox')
+
+    config.set('researchEnvironment', 'infradev')
   })
 })

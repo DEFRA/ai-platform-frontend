@@ -81,8 +81,9 @@ The core product journey is "three routes to a credential" — see
   changing (never an automatic reload under its forms) and says when the listing is unavailable.
   The wait page sends a removing or removed deployment to the team page. Team decommission is
   IaC-only so far.
-- Environment labels come from the credential (`environment-names.js`): a team credential names its
-  own environment, a Research key the Sandbox. Rotate is for team credentials only; a Research key
+- Environment labels come from the credential (`environment-names.js`): every credential names the
+  environment it was issued in (one recorded before environments were stored reads as the Sandbox).
+  Rotate is for team credentials only; a Research key
   is renewed, never rotated. The mock OIDC user carries stable `oid` and `tid` claims for the backend.
 
 ## Route 3 — Team tier, joining a team with existing access
@@ -172,15 +173,28 @@ These aren't tied to one route — they're shared infrastructure every route abo
   catalogue has a team tier: `gpt-4o` through a UK South `Standard` SKU, `gpt-4-1-nano` and
   `gpt-5-nano` through Sweden Central, which Defra policy blocks for now. What is done and what is
   left: [iac-rollout-state.md](plans/in-progress/iac-rollout-state.md).
-- **Research tier IaC (R1, 20 Oct 2026, released as `ai-platform-infra` v0.9.0, not applied)**:
+- **Research tier IaC (R1, 20 Oct 2026, released as `ai-platform-infra` v0.9.0, platform applied)**:
   the research tier is a platform-owned team file, `research.json`, naming `subscription-key`, built
   by the same tenants module as a team: shared project, account-child deployments named as callers
   send them, and a `research` API that requires a subscription and runs `aip-key-guard`, with the
   limits counted per subscription. `aip-checks` accepts a key only in that file, never from a writer
   App, and reconciles its deployment names with the catalogue. The platform root adds the custom
   API Management role the Portal API needs to mint subscriptions. Terraform creates no
-  subscription. Nothing exists in Azure until R2 applies. See
+  subscription. The Infradev `autoPin` applied v0.9.0 on 20 Oct (role definition created, 0
+  destroyed, tenants 8 tag updates); the research project, deployments and API still do not exist
+  until `research.json` applies (R2). See
   [research-tier-infradev-plan.md](plans/in-progress/research-tier-infradev-plan.md).
+- **Research tier is environment-aware (R3 backend, R4 frontend, 20 Oct 2026, built, not merged)**:
+  the backend resolves a research key's subscription, resource group, API Management instance and
+  tenants vault from `AIP_ENVIRONMENTS` by `RESEARCH_ENVIRONMENT` (default `infradev`; live mode
+  refuses to start without it), replacing `AZURE_ARM_SUBSCRIPTION_ID`, `AZURE_ARM_RESOURCE_GROUP`,
+  `APIM_SERVICE_NAME` and `AZURE_KEY_VAULT_NAME`. Each research credential records its
+  `environment` (backfill `2026-10-20-research-credentials-environment` sets `sandbox` on existing
+  ones) and every renew, rotate, revoke, reveal and expiry acts on that environment, not the
+  configured one, so a move is configuration plus natural expiry. The scheduled sweep logs any
+  API Management subscription that is not a `research-*` key on the research API. The frontend
+  shows the gateway host and the environment per credential (`GATEWAY_BASE_URLS`,
+  `RESEARCH_ENVIRONMENT`), not the Sandbox; the request shape is unchanged.
 - **Team deployment verification finishes and says why it did not (R6, 19 Oct 2026, merged)**:
   the verifier's reason is kept, counted on `gitops.verification`, audited
   (`teamDeployment.verificationFailed`) and logged on every failed attempt. After
@@ -255,7 +269,7 @@ These aren't tied to one route — they're shared infrastructure every route abo
   surfaced and fixed (ARM `DELETE` empty-body handling).
 - **Frontend shows the real gateway, not a mock** (Phase 5): `/models/{slug}`, the research
   connect journey's credential page, and `/manage/credentials/{id}` build the real APIM request
-  (`src/server/common/helpers/gateway-request.js`, `GATEWAY_BASE_URL` config) keyed off each
+  (`src/server/common/helpers/gateway-request.js`, `GATEWAY_BASE_URLS` config) keyed off each
   model's `apiProfile` — `chat-completions` gets the deployment-scoped chat completions shape,
   `responses` gets the model-as-body-field shape, matching what the live smoke test above actually
   verified. The catalogue pages (`/models`, `/models/{slug}`) now also show ineligible/retired

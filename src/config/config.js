@@ -227,12 +227,21 @@ export const config = convict({
     default: ['infradev'],
     env: 'TEAM_ENVIRONMENTS'
   },
+  researchEnvironment: {
+    doc: 'The environment research keys are issued in from this instance - must match the backend\u2019s RESEARCH_ENVIRONMENT. Used only for wording and code samples, never to issue anything',
+    format: String,
+    default: 'infradev',
+    env: 'RESEARCH_ENVIRONMENT'
+  },
   gateway: {
-    baseUrl: {
-      doc: 'Public base URL of the APIM gateway - not called by this frontend, only used to show the real request in code samples',
-      format: String,
-      default: 'https://deploytestdefra.azure-api.net',
-      env: 'GATEWAY_BASE_URL'
+    baseUrls: {
+      doc: 'Public base URL of each environment\u2019s APIM gateway as JSON keyed by environment - not called by this frontend, only used to show the real request in code samples. Keep an environment here for as long as keys issued in it are still valid',
+      format: Object,
+      default: {
+        infradev: 'https://apim-aip-infradev.azure-api.net',
+        sandbox: 'https://deploytestdefra.azure-api.net'
+      },
+      env: 'GATEWAY_BASE_URLS'
     },
     researchApiId: {
       doc: 'APIM API id the research tier is scoped under (matches the backend\u2019s apim.researchApiId)',
@@ -287,3 +296,17 @@ export const config = convict({
 })
 
 config.validate({ allowed: 'strict' })
+
+// Samples for a key issued today must show a real host, so fail at startup
+// rather than render a made-up one.
+const gatewayBaseUrls = config.get('gateway.baseUrls')
+const researchEnvironment = config.get('researchEnvironment')
+
+if (
+  !Object.hasOwn(gatewayBaseUrls, researchEnvironment) ||
+  !gatewayBaseUrls[researchEnvironment]
+) {
+  throw new Error(
+    `GATEWAY_BASE_URLS has no gateway for RESEARCH_ENVIRONMENT "${researchEnvironment}"`
+  )
+}

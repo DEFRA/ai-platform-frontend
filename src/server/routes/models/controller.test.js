@@ -1,6 +1,7 @@
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
+import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   signInViaOidc,
@@ -256,11 +257,35 @@ describe('#modelsController', () => {
 
     expect(result).toEqual(
       expect.stringContaining(
-        '/research/openai/deployments/gpt-4o/chat/completions'
+        'https://apim-aip-infradev.azure-api.net/research/openai/deployments/gpt-4o/chat/completions'
+      )
+    )
+    expect(result).toEqual(
+      expect.stringContaining(
+        'request shape for the research tier in Infradev.'
       )
     )
     expect(result).not.toEqual(
       expect.stringContaining('mock-gateway.ai-platform.defra.gov.uk')
+    )
+  })
+
+  test('GET /models/{slug} follows the configured research environment for the host and the wording', async () => {
+    config.set('researchEnvironment', 'sandbox')
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const { result } = await server.inject({
+      method: 'GET',
+      url: '/models/gpt-4o'
+    })
+
+    config.set('researchEnvironment', 'infradev')
+
+    expect(result).toEqual(
+      expect.stringContaining('https://deploytestdefra.azure-api.net/research/')
+    )
+    expect(result).toEqual(
+      expect.stringContaining('request shape for the research tier in Sandbox.')
     )
   })
 

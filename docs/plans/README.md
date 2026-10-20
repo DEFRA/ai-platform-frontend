@@ -4,11 +4,11 @@ Plans live in one of two folders. Move a plan to `implemented/` when every phase
 
 ## In progress
 
-| Plan                                                                         | State (20 Oct 2026)                                                                                                                                                                |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [build-stories-delivery-plan.md](in-progress/build-stories-delivery-plan.md) | Build stories B01 to B22 in phases; Phase 3 (IaC) applied in Infradev, Phases 0, 1, 5, 6 and 7 not started                                                                         |
-| [iac-rollout-state.md](in-progress/iac-rollout-state.md)                     | IaC rollout and the portal-to-team-apply proof: what is done, gotchas, what is left                                                                                                |
-| [research-tier-infradev-plan.md](in-progress/research-tier-infradev-plan.md) | Research tier IaC and the portal move off the hand-built resource group; R1 released as `ai-platform-infra` v0.9.0 (not applied), R5 to R7 merged, R0, R2 to R4 and R8 not started |
+| Plan                                                                         | State (20 Oct 2026)                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [build-stories-delivery-plan.md](in-progress/build-stories-delivery-plan.md) | Build stories B01 to B22 in phases; Phase 3 (IaC) applied in Infradev, Phases 0, 1, 5, 6 and 7 not started                                                                                                                         |
+| [iac-rollout-state.md](in-progress/iac-rollout-state.md)                     | IaC rollout and the portal-to-team-apply proof: what is done, gotchas, what is left                                                                                                                                                |
+| [research-tier-infradev-plan.md](in-progress/research-tier-infradev-plan.md) | Research tier IaC and the portal move off the hand-built resource group; R1 released as `ai-platform-infra` v0.9.1 and R2 applied in Infradev (research API live), R0, R3 and R4 built (PRs open), R5 to R7 merged, R8 not started |
 
 ## Implemented
 

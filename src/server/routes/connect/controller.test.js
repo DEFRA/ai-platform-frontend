@@ -146,7 +146,8 @@ describe('#connectController', () => {
     expect(result).toContain(
       'You can move to a team client secret later and keep the same sign-in.'
     )
-    expect(result).toContain('A key that lasts 7 days in Sandbox.')
+    expect(result).toContain('A key that lasts 7 days in Infradev.')
+    expect(result).not.toContain('Sandbox')
     expect(result).not.toContain('A key the whole team shares')
     expect(result).not.toContain('team key')
   })
@@ -251,10 +252,15 @@ describe('#connectController', () => {
     expect(getCheck.result).toEqual(
       expect.stringContaining('60 requests a minute')
     )
+    expect(getCheck.result).toMatch(
+      /Environment\s*<\/dt>\s*<dd[^>]*>\s*Infradev/
+    )
 
     fetchMock.mockResponseOnce(
       JSON.stringify({
         credential: {
+          tier: 'research',
+          environment: 'infradev',
           status: 'active',
           keyHint: 'ab12',
           expiresAt: '2026-09-23T00:00:00.000Z'
@@ -291,8 +297,14 @@ describe('#connectController', () => {
     )
     expect(getCredential.result).toEqual(
       expect.stringContaining(
-        '/research/openai/deployments/gpt-4o/chat/completions'
+        'https://apim-aip-infradev.azure-api.net/research/openai/deployments/gpt-4o/chat/completions'
       )
+    )
+    expect(getCredential.result).toEqual(
+      expect.stringContaining(', in Infradev')
+    )
+    expect(getCredential.result).not.toEqual(
+      expect.stringContaining('deploytestdefra')
     )
     expect(getCredential.result).not.toEqual(
       expect.stringContaining('mock-gateway.ai-platform.defra.gov.uk')
