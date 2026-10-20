@@ -40,7 +40,10 @@ pull request in `ai-platform-discovery-docs`.
 
 ## Done when
 
-The journey tests pass against Infradev, and no repository still names the hand-built resources.
+The journey tests pass against Infradev, and new research credentials use Infradev rather than the
+hand-built resources. The replacements in step 2 apply only to guidance for new issuance: preserve
+accurate historical records and the Sandbox configuration while credentials issued there still
+need lifecycle operations.
 
 Then move the plan from `docs/plans/in-progress/` to `docs/plans/implemented/`, repoint every link
 to it, and update `docs/plans/README.md` - per
