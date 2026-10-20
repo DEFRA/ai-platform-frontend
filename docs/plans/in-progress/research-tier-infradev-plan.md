@@ -7,12 +7,12 @@
 > (what the research tier is today) and
 > [centralised-gateway-plan.md](../implemented/centralised-gateway/centralised-gateway-plan.md).
 >
-> **STATUS: IN PROGRESS (20 Oct 2026).** R1 is built and released as `ai-platform-infra` v0.9.0
-> ([#18](https://github.com/DEFRA/ai-platform-infra/pull/18), merged) **and its platform apply has run**
-> (the Infradev `autoPin`, see the dated note). R0, R3 and R4 are built on unpushed branches; R5 to R7
-> are merged, with live verification outstanding. R2 is part done: the pin is applied, `research.json`
-> is not committed, so the research Foundry project, the research deployments and the `research` API
-> do not exist in any environment. R8 is not started.
+> **STATUS: IN PROGRESS (20 Oct 2026).** R1 is released as `ai-platform-infra` v0.9.0 and v0.9.1 (the
+> coverage fix, [#21](https://github.com/DEFRA/ai-platform-infra/pull/21)); both applied to Infradev.
+> **R2 is applied:** `research.json` merged ([tenants #16](https://github.com/DEFRA/ai-platform-tenants/pull/16))
+> and the tenants apply created the research project, the `gpt-4o` deployment and the `research` API
+> (see the dated note). R0, R3 and R4 are built with open pull requests (discovery-docs #26, backend #40,
+> frontend #46), not yet merged; R5 to R7 are merged, with live verification outstanding. R8 is not started.
 
 ## Why
 
@@ -305,7 +305,7 @@ additions only.
 
 ## Phase R2 — Apply to Infradev
 
-**Status: part done, `research.json` waits for owner confirmation.** Repositories: `ai-platform-environments`, `ai-platform-deployments`,
+**Status: applied 20 Oct 2026** (see the dated note). Repositories: `ai-platform-environments`, `ai-platform-deployments`,
 `ai-platform-tenants`. Depends on R1. Must complete before R3 points the portal at anything.
 
 1. Pin the new infra release in `environments/infradev/platform.json` so the platform carries the
@@ -560,7 +560,20 @@ field, and never a full secret logged or persisted.
 
 ## Dated notes
 
-**20 Oct 2026 (later) — R0, R3 and R4 built; R2's pin had already applied.**
+**20 Oct 2026 (afternoon) — R2 applied.**
+
+- **`research.json` lists `gpt-4o` only.** Infradev's Foundry is UK South only and neither nano model has a
+  UK South SKU, so the v0.9.0 coverage rule (which required them) made every file invalid. Fixed by
+  `ai-platform-infra` #21, released as **v0.9.1**; its `autoPin` applied at 15:11 UTC (6 changed, 0 destroyed).
+- **Tenants apply (15:20 UTC):** 8 added, 0 changed, **0 destroyed**: `module.team["research"]` project,
+  `gpt-4o` deployment, API, three operations (`chat-deployment`, `chat-v1`, `whoami`), policy and
+  `hosting_supported`. `cool-team` was untouched. An unauthenticated call to
+  `https://apim-aip-infradev.azure-api.net/research/...` returns 401, not 404, so the API is live.
+- [tenants #16](https://github.com/DEFRA/ai-platform-tenants/pull/16) merged through the engineers' bypass
+  (break-glass needs two approvals from people other than the author). Not yet run: a real key issue and
+  gateway completion (R3/R4 are not merged), and `cdp-app-config` still lacks `RESEARCH_ENVIRONMENT`,
+  `AIP_ENVIRONMENTS` and `CATALOGUE_REF`.
+  **20 Oct 2026 (later) — R0, R3 and R4 built; R2's pin had already applied.**
 
 - **The v0.9.0 pin applied itself.** Infradev has `autoPin: true`, so the release submitted the pin
   (`ai-platform-deployments` #8, merged 10:57 UTC) and the platform apply ran at once (10:58, success):

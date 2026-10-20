@@ -59,7 +59,7 @@ The research tier's move onto this pipeline is planned separately in
 
 **Research tier (19 Oct 2026)**
 
-- The research tier is still the only part of the platform not built by this pipeline: the portal points at the hand-built `SNDAIEEXPRGP1401`, API Management `DEPLOYTESTDEFRA`, vault `kv-aip-sandbox-tenants` and Foundry `sndaieinfst1401aiefoundry`. `modules/apim/policies/aip-key-guard.xml` and the catalogue's `tiers`/`deploymentName` anticipate it, but no research Foundry project, research deployment or `research` API exists in any environment.
+- The research tier is built by this pipeline in Infradev from 20 Oct 2026: `research.json` (`gpt-4o` only; the nano models have no UK South SKU) applied with 8 added, 0 destroyed after infra v0.9.1. The portal still points at the hand-built `SNDAIEEXPRGP1401`, API Management `DEPLOYTESTDEFRA`, vault `kv-aip-sandbox-tenants` and Foundry `sndaieinfst1401aiefoundry` until backend #40 and frontend #46 merge and `cdp-app-config` is updated.
 - **The Portal API principal holds no API Management role on the Infradev instance** — only Key Vault Secrets Officer on the tenants vault. It mints research keys by `PUT`ing an API Management subscription through ARM, so repointing configuration alone would fail at the first key issue. No built-in role is narrow enough; the plan builds a custom role with the six subscription actions and assigns it at the API Management resource. Terraform owns both (19 Oct 2026) — the deploy identity has User Access Administrator, so no further grant is needed, but the definition and assignment must be idempotent across repeated applies.
 - Plan and phases: [research-tier-infradev-plan.md](research-tier-infradev-plan.md).
 
