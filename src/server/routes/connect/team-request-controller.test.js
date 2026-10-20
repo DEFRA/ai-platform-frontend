@@ -41,7 +41,7 @@ const STAGES = [
   { label: 'Request recorded', state: 'done' },
   { label: 'Team checked', state: 'done' },
   { label: 'Setting up access in Azure', state: 'current' },
-  { label: 'Creating your client secret', state: 'pending' }
+  { label: 'Preparing your client secret', state: 'pending' }
 ]
 
 // A deployment as the backend lists it, active and requested by the signed-in
@@ -69,12 +69,19 @@ function credentialPosts() {
     .map(([, init]) => JSON.parse(init.body))
 }
 
-const issued = (secret, allowedDeployments = ['gpt-4o']) => ({
+const PLACEHOLDER_NOTICE = 'data-testid="placeholder-credential-notice"'
+
+const issued = (
+  secret,
+  allowedDeployments = ['gpt-4o'],
+  issuerKey = 'mock'
+) => ({
   credential: {
     _id: 'cred-team-1',
     teamId: 'team-1',
     tier: 'team',
     status: 'active',
+    issuerKey,
     keyHint: 'tm01',
     allowedDeployments,
     expiresAt: null
@@ -114,12 +121,50 @@ describe('#teamRequestController', () => {
 
       expect(statusCode).toBe(statusCodes.ok)
       expect(result).toContain('http-equiv="refresh"')
-      expect(result).toContain('Setting up your team client secret')
+      expect(result).toContain('Setting up your model access')
+      expect(result).not.toContain('Setting up your team client secret')
       expect(result).toContain('This usually takes about 2 minutes. You can')
       expect(result).toContain('Setting up access in Azure')
       expect(result).not.toContain('team key')
       expect(result).not.toContain('Details for the AI Platform team')
       expect(result).not.toContain('<h3')
+    })
+
+    test('promises the client secret once the request is on that step', async () => {
+      mockDeployments(deployment({ status: 'verified', progressSteps: STAGES }))
+
+      const { result } = await request()
+
+      expect(result).toContain('Setting up your team client secret')
+      expect(result).not.toContain('Setting up your model access')
+    })
+
+    test('says the client secret will be a placeholder while the backend mocks it', async () => {
+      mockDeployments(
+        deployment({
+          status: 'deploying',
+          progressSteps: STAGES,
+          credentialPlaceholder: true
+        })
+      )
+
+      const { result } = await request()
+
+      expect(result).toContain(PLACEHOLDER_NOTICE)
+    })
+
+    test('does not mention a placeholder once the backend issues real client secrets', async () => {
+      mockDeployments(
+        deployment({
+          status: 'deploying',
+          progressSteps: STAGES,
+          credentialPlaceholder: false
+        })
+      )
+
+      const { result } = await request()
+
+      expect(result).not.toContain(PLACEHOLDER_NOTICE)
     })
 
     test('shows a queued request as waiting for another change, keeps checking and issues nothing', async () => {
@@ -204,10 +249,27 @@ describe('#teamRequestController', () => {
       expect(getCredential.result).not.toContain('Ocp-Apim-Subscription-Key')
       expect(getCredential.result).not.toContain('Your models')
       expect(getCredential.headers['cache-control']).toContain('no-store')
+      // A mocked team secret never appears without saying it is a placeholder.
+      expect(getCredential.result).toContain(PLACEHOLDER_NOTICE)
 
       const again = await get(server, cookies, '/connect/team/credential')
 
       expect(again.headers.location).toBe('/connect')
+    })
+
+    test('shows no placeholder notice for a client secret a real issuer made', async () => {
+      mockDeployments(deployment())
+      mockResponse({ items: [] })
+      mockResponse(issued('real_team_secret', ['gpt-4o'], 'azure-apim'))
+      mockResponse(sampleModel)
+
+      const getRequest = await request()
+      cookies = mergeCookies(cookies, getRequest)
+
+      const { result } = await get(server, cookies, '/connect/team/credential')
+
+      expect(result).toContain('real_team_secret')
+      expect(result).not.toContain(PLACEHOLDER_NOTICE)
     })
 
     test('says team client secrets are not available yet when no gateway issues them (501 gateway-not-enabled)', async () => {
@@ -339,6 +401,36 @@ describe('#teamRequestController', () => {
       expect(result).toContain('Automated checks failed (mock)')
     })
 
+    test('says verification failed, and what to do, when Azure resources could not be confirmed', async () => {
+      mockDeployments(
+        deployment({
+          status: 'deploy-failed',
+          failureReason:
+            "Your team's resources were created but could not be confirmed: this environment is not set up in the portal (environment-not-configured). Ask the AI Platform team to check and retry.",
+          verificationFailure: {
+            reason: 'environment-not-configured',
+            attempts: 5
+          }
+        })
+      )
+
+      const { result } = await request()
+
+      expect(result).toContain('data-testid="verification-failed"')
+      expect(result).toContain('Ask the AI Platform team to check and retry')
+      expect(result).toContain('environment-not-configured')
+    })
+
+    test('does not mention verification for a failure that is not one', async () => {
+      mockDeployments(
+        deployment({ status: 'deploy-failed', failureReason: 'Apply failed' })
+      )
+
+      const { result } = await request()
+
+      expect(result).not.toContain('data-testid="verification-failed"')
+    })
+
     test('shows the failure reason and the failed apply run for support', async () => {
       mockDeployments(
         deployment({
@@ -398,7 +490,7 @@ describe('#teamRequestController', () => {
       expect(statusCode).toBe(statusCodes.ok)
       expect(result).toContain('<h3 class="govuk-heading-s">GPT-4o</h3>')
       expect(result).toContain('<h3 class="govuk-heading-s">GPT-4.1 nano</h3>')
-      expect(result).toContain('Setting up your team client secret')
+      expect(result).toContain('Setting up your model access')
       expect(result).toContain('about 2 minutes for each model')
       expect(result).toContain('http-equiv="refresh"')
       expect(credentialPosts()).toEqual([])
@@ -529,7 +621,7 @@ describe('#teamRequestController', () => {
       const { result } = await request()
 
       expect(result).not.toContain('<h3')
-      expect(result).toContain('Setting up your team client secret')
+      expect(result).toContain('Setting up your model access')
     })
   })
 })

@@ -99,14 +99,23 @@
                 <td class="govuk-table__cell">
                   {% if model.canRemove %}
                     <a class="govuk-link" href="{{ model.removeUrl }}" data-testid="model-remove">Remove<span class="govuk-visually-hidden"> {{ model.modelDisplayName }}</span></a>
-                  {% elif model.status != "removed" and model.status != "active" %}
+                  {% elif model.inProgress and model.status != "removing" %}
                     <a class="govuk-link" href="{{ model.requestUrl }}">Check progress<span class="govuk-visually-hidden"> of {{ model.modelDisplayName }}</span></a>
+                  {% elif model.failed %}
+                    <a class="govuk-link" href="{{ model.requestUrl }}">See what happened<span class="govuk-visually-hidden"> to {{ model.modelDisplayName }}</span></a>
                   {% endif %}
                 </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
+
+        {% for model in models %}
+          {% if model.resourceRows.length %}
+            <h3 class="govuk-heading-s" data-testid="model-resources">What was set up for {{ model.modelDisplayName }}</h3>
+            {{ govukSummaryList({ rows: model.resourceRows }) }}
+          {% endif %}
+        {% endfor %}
       {% else %}
         <p class="govuk-body">This team has no models yet. <a class="govuk-link" href="/connect">Connect to a model</a> to add one.</p>
       {% endif %}

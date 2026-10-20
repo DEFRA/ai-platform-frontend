@@ -2,6 +2,7 @@ import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { getSessionUser } from '#/server/common/helpers/session.js'
 import {
+  DEPLOYMENT_FAILURE_STATUSES,
   deploymentStatusText,
   deploymentTagClass,
   isDeploymentInProgress
@@ -82,6 +83,35 @@ export async function loadTeamForView(request, id) {
   return { ...result, members, isAdmin }
 }
 
+const REGISTRATION_TEXT = {
+  created: 'Created',
+  skipped: 'Skipped, awaiting Entra consent'
+}
+
+// What was set up in Azure for a model that is in place, as summary list
+// rows: names and kinds from the backend, never an ID. Empty until active.
+function resourceRows(deployment) {
+  if (deployment.status !== 'active' || !deployment.resources?.length) {
+    return []
+  }
+
+  const rows = deployment.resources.map(({ kind, name }) => ({
+    key: { text: kind },
+    value: { text: name }
+  }))
+  const registration = REGISTRATION_TEXT[deployment.appRegistration]
+
+  return registration
+    ? [
+        ...rows,
+        {
+          key: { text: 'Entra app registration' },
+          value: { text: registration }
+        }
+      ]
+    : rows
+}
+
 /**
  * The team's model deployments, as rows for the team page. Supplementary to
  * the team itself: a failure to list them must not take the page down, but
@@ -123,7 +153,10 @@ export async function loadTeamModels(request, id, isAdmin) {
     status: deployment.status,
     statusText: deploymentStatusText(deployment.status),
     tagClass: deploymentTagClass(deployment.status),
+    inProgress: isDeploymentInProgress(deployment.status),
+    failed: DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status),
     failureReason: deployment.failureReason ?? null,
+    resourceRows: resourceRows(deployment),
     // Only an admin removes a model, and only one that is in place.
     canRemove: isAdmin && deployment.status === 'active',
     removeUrl: `/teams/${id}/models/${deployment._id}/remove`,

@@ -3,6 +3,7 @@
 {% from "govuk/components/panel/macro.njk" import govukPanel %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+{% from "placeholder-credential-notice/macro.njk" import appPlaceholderCredentialNotice %}
 
 {% block content %}
   <div class="govuk-grid-row">
@@ -16,6 +17,10 @@
         text: "This is the only time the new secret will be shown. Copy it now and store it securely.",
         iconFallbackText: "Warning"
       }) }}
+
+      {% if placeholderCredential %}
+        {{ appPlaceholderCredentialNotice() }}
+      {% endif %}
 
       {{ govukSummaryList({
         rows: [

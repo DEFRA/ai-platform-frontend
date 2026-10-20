@@ -2,27 +2,35 @@
 // "being set up" message - it never shows raw GitOps jargon to the user (B09).
 // GitOps applies one change per team file at a time, so a request made while
 // another is in flight waits as `queued`, which gets its own wording.
+import { DEPLOYMENT_SETTING_UP_STATUSES } from '#/server/common/helpers/deployment-status.js'
+
+export { DEPLOYMENT_FAILURE_STATUSES as FAILURE_STATUSES } from '#/server/common/helpers/deployment-status.js'
+
 export const QUEUED_STATUS = 'queued'
 export const IN_PROGRESS_STATUSES = [
   QUEUED_STATUS,
-  'requested',
-  'pr-raised',
-  'merged',
-  'deploying',
-  'deployed',
-  'verified'
+  ...DEPLOYMENT_SETTING_UP_STATUSES
 ]
-export const FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
+
+// The states in which the team's client secret is being prepared: the apply
+// has finished and what remains is the check and activation.
+const SECRET_STEP_STATUSES = ['deployed', 'verified']
 
 /**
- * The heading of the wait page for a deployment still in progress.
- * @param {string} status
+ * The heading of the wait page, from the statuses of the deployments it
+ * is waiting on: the client secret is promised only once every one of
+ * them has reached that step.
+ * @param {string[]} statuses
  * @returns {string}
  */
-export function waitPageHeading(status) {
-  return status === QUEUED_STATUS
-    ? 'Waiting for another change to this team to finish'
-    : 'Setting up your team client secret'
+export function waitPageHeading(statuses) {
+  if (statuses.every((status) => status === QUEUED_STATUS)) {
+    return 'Waiting for another change to this team to finish'
+  }
+
+  return statuses.every((status) => SECRET_STEP_STATUSES.includes(status))
+    ? 'Setting up your team client secret'
+    : 'Setting up your model access'
 }
 
 // Support links to the GitOps runs and pull request behind a team request,

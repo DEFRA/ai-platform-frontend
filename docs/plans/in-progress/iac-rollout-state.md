@@ -1,11 +1,14 @@
 ---
-ms.date: '2026-10-15'
+ms.date: '2026-10-19'
 ---
 
 # IaC rollout state
 
 Goal: Infradev Terraform pipelines applying through GitHub Actions, then the portal creating teams through them (task prompt: `.github/prompts/iac.prompt.md`).
 Never apply without owner confirmation; only resource group `SNDAIEAIPRGP1401`.
+
+The research tier's move onto this pipeline is planned separately in
+[research-tier-infradev-plan.md](research-tier-infradev-plan.md).
 
 ## Done (15 Oct 2026)
 
@@ -52,6 +55,12 @@ Never apply without owner confirmation; only resource group `SNDAIEAIPRGP1401`.
 
 - Org Actions allow-list for the workflows the callers use.
 - Entra consent for the deploy and backend identities (`Application.ReadWrite.OwnedBy`); then set `entra.enabled` back to `true` (with `teamRegistrations: false` only if just the team registration is still blocked) and remove the interim flag.
+
+**Research tier (19 Oct 2026)**
+
+- The research tier is still the only part of the platform not built by this pipeline: the portal points at the hand-built `SNDAIEEXPRGP1401`, API Management `DEPLOYTESTDEFRA`, vault `kv-aip-sandbox-tenants` and Foundry `sndaieinfst1401aiefoundry`. `modules/apim/policies/aip-key-guard.xml` and the catalogue's `tiers`/`deploymentName` anticipate it, but no research Foundry project, research deployment or `research` API exists in any environment.
+- **The Portal API principal holds no API Management role on the Infradev instance** — only Key Vault Secrets Officer on the tenants vault. It mints research keys by `PUT`ing an API Management subscription through ARM, so repointing configuration alone would fail at the first key issue. No built-in role is narrow enough; the plan builds a custom role with the six subscription actions and assigns it at the API Management resource. Terraform owns both (19 Oct 2026) — the deploy identity has User Access Administrator, so no further grant is needed, but the definition and assignment must be idempotent across repeated applies.
+- Plan and phases: [research-tier-infradev-plan.md](research-tier-infradev-plan.md).
 
 **Decisions and gaps**
 
