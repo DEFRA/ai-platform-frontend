@@ -2,36 +2,24 @@
 
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
 
 {% block beforeContent %}
   {{ super() }}
-  {{ govukBackLink({ text: "Back to the team", href: "/teams/" + team._id }) }}
+  {{ govukBackLink({ text: "Back", href: teamUrl }) }}
 {% endblock %}
 
 {% block content %}
   {{ appHeading({
-    text: heading
+    text: heading,
+    caption: team.name,
+    captionAbove: true
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      {{ govukSummaryList({
-        rows: [
-          {
-            key: { text: "Model" },
-            value: { text: model.modelDisplayName }
-          },
-          {
-            key: { text: "Environment" },
-            value: { text: model.environment }
-          }
-        ]
-      }) }}
-
       {{ govukWarningText({
-        text: "Anything using this model through your team's address will stop working as soon as it has been removed. Your team's other models and its client secret are not affected.",
+        text: warning,
         iconFallbackText: "Warning"
       }) }}
 
@@ -42,11 +30,11 @@
 
         <div class="govuk-button-group">
           {{ govukButton({
-            text: "Remove model",
+            text: "Remove " + modelName,
             classes: "govuk-button--warning",
             attributes: { "data-testid": "remove-model-confirm" }
           }) }}
-          <a class="govuk-link" href="/teams/{{ team._id }}">Cancel</a>
+          <a class="govuk-link" href="{{ teamUrl }}" data-testid="remove-model-cancel">Cancel</a>
         </div>
       </form>
     </div>

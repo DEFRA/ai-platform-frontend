@@ -9,7 +9,7 @@
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {{ govukPanel({
-        titleText: "Credential rotated",
+        titleText: "Client secret rotated",
         text: "The old secret for " + modelNamesText + " no longer works"
       }) }}
 
@@ -25,7 +25,7 @@
       {{ govukSummaryList({
         rows: [
           {
-            key: { text: "Client secret" if credential.tier == "team" else "Subscription key" },
+            key: { text: "Client secret" },
             value: { text: secret }
           },
           {
@@ -36,7 +36,7 @@
       }) }}
 
       <p class="govuk-body">
-        <a class="govuk-link" href="/manage">Back to your access</a>
+        <a class="govuk-link" href="{{ teamUrl }}">Back to the team</a>
       </p>
     </div>
   </div>

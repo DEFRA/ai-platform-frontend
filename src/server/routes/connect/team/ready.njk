@@ -23,7 +23,7 @@
             attributes: { "data-testid": "show-client-secret" }
           }) }}
         {% elif secretRevoked %}
-          <p class="govuk-body" data-testid="secret-revoked">The client secret for {{ environmentName }} was revoked, so there is nothing to show. <a class="govuk-link" href="/manage">Go to your access</a> to see what your team has.</p>
+          <p class="govuk-body" data-testid="secret-revoked">The client secret for {{ environmentName }} was revoked, so there is nothing to show. <a class="govuk-link" href="{{ teamUrl }}">Go to {{ teamName }}</a> to see what your team has.</p>
         {% else %}
           <p class="govuk-body" data-testid="secret-not-ready">The client secret is not ready yet. Try again in a moment.</p>
         {% endif %}

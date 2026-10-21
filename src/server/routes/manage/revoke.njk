@@ -4,6 +4,14 @@
 {% from "govuk/components/radios/macro.njk" import govukRadios %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {% if backHref %}
+    {{ govukBackLink({ text: "Back", href: backHref }) }}
+  {% endif %}
+{% endblock %}
 
 {% block content %}
   {{ appHeading({
@@ -20,7 +28,7 @@
       {% endif %}
 
       {{ govukWarningText({
-        text: "Revoking " + modelNamesText + " cannot be undone. You will need to connect again to get a new credential.",
+        text: warning,
         iconFallbackText: "Warning"
       }) }}
 
@@ -32,13 +40,13 @@
           name: "confirmRevoke",
           fieldset: {
             legend: {
-              text: "Are you sure you want to revoke this credential?"
+              text: legend
             }
           },
           errorMessage: fieldErrors.confirmRevoke,
           items: [
-            { value: "yes", text: "Yes, revoke this credential" },
-            { value: "no", text: "No, take me back to your access" }
+            { value: "yes", text: yesText },
+            { value: "no", text: noText }
           ]
         }) }}
 

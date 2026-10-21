@@ -1,14 +1,49 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { getSessionUser } from '#/server/common/helpers/session.js'
-import {
-  DEPLOYMENT_FAILURE_STATUSES,
-  deploymentStatusText,
-  deploymentTagClass,
-  isDeploymentInProgress
-} from '#/server/common/helpers/deployment-status.js'
 
-export const TEAM_VIEW = 'teams/team'
+/**
+ * Where a team's pages live: its slug, never its id (D10).
+ * @param {{slug: string}} team
+ * @returns {string}
+ */
+export function teamUrl(team) {
+  return `/teams/${encodeURIComponent(team.slug)}`
+}
+
+/**
+ * The team's tabs, with the current one marked. Everyone sees all three;
+ * only admins see change actions on them.
+ * @param {{slug: string}} team
+ * @param {'models' | 'members' | 'details'} current
+ * @returns {Array<{text: string, href: string, current: boolean}>}
+ */
+export function teamTabs(team, current) {
+  const base = teamUrl(team)
+
+  return [
+    { key: 'models', text: 'Models', href: base },
+    { key: 'members', text: 'Members', href: `${base}/members` },
+    { key: 'details', text: 'Details', href: `${base}/details` }
+  ].map(({ key, text, href }) => ({ text, href, current: key === current }))
+}
+
+/**
+ * The page for a team that does not exist or is not the person's to see.
+ * @param {import('@hapi/hapi').ResponseToolkit} h
+ * @returns {import('@hapi/hapi').ResponseObject}
+ */
+export function teamNotFoundView(h) {
+  return h
+    .view('error/index', {
+      pageTitle: 'Team not found',
+      heading: 'Team not found',
+      message: 'This team does not exist, or you are not a member.',
+      actionHref: '/teams',
+      actionText: 'Go to your teams'
+    })
+    .code(statusCodes.notFound)
+}
 
 /**
  * Whether the backend refused the caller for lack of permission.
@@ -43,14 +78,15 @@ function maskEmail(email) {
 /**
  * The team with its members shaped for the signed-in person's view.
  * @param {import('@hapi/hapi').Request} request
- * @param {string} id
- * @returns {Promise<{team: object, members: object[], isAdmin: boolean}>}
+ * @param {string} teamRef - The team's slug (or id).
+ * @returns {Promise<{team: object, members: object[], isAdmin: boolean, environments: Array<{environment: string, limits: object}>}>}
  */
-export async function loadTeamForView(request, id) {
+export async function loadTeamForView(request, teamRef) {
   const sessionUser = getSessionUser(request)
-  const result = await apiClient(request).get(`/v1/teams/${id}`, {
-    userId: sessionUser.id
-  })
+  const result = await apiClient(request).get(
+    `/v1/teams/${encodeURIComponent(teamRef)}`,
+    { userId: sessionUser.id }
+  )
 
   const isAdmin = result.members.some(
     (member) =>
@@ -81,116 +117,4 @@ export async function loadTeamForView(request, id) {
     }))
 
   return { ...result, members, isAdmin }
-}
-
-const REGISTRATION_TEXT = {
-  created: 'Created',
-  skipped: 'Skipped, awaiting Entra consent'
-}
-
-// What was set up in Azure for a model that is in place, as summary list
-// rows: names and kinds from the backend, never an ID. Empty until active.
-function resourceRows(deployment) {
-  if (deployment.status !== 'active' || !deployment.resources?.length) {
-    return []
-  }
-
-  const rows = deployment.resources.map(({ kind, name }) => ({
-    key: { text: kind },
-    value: { text: name }
-  }))
-  const registration = REGISTRATION_TEXT[deployment.appRegistration]
-
-  return registration
-    ? [
-        ...rows,
-        {
-          key: { text: 'Entra app registration' },
-          value: { text: registration }
-        }
-      ]
-    : rows
-}
-
-/**
- * The team's model deployments, as rows for the team page. Supplementary to
- * the team itself: a failure to list them must not take the page down, but
- * is reported as such rather than shown as a team with no models.
- * @param {import('@hapi/hapi').Request} request
- * @param {string} id
- * @param {boolean} isAdmin
- * @returns {Promise<{models: object[], modelsUnavailable: boolean}>}
- */
-export async function loadTeamModels(request, id, isAdmin) {
-  const sessionUser = getSessionUser(request)
-  const [deployments, catalogue] = await Promise.allSettled([
-    apiClient(request).get(`/v1/teams/${id}/deployments`, {
-      userId: sessionUser.id
-    }),
-    apiClient(request).get('/v1/models')
-  ])
-
-  if (deployments.status === 'rejected') {
-    request.logger.warn(
-      { err: deployments.reason },
-      'Could not load the team models for the team page'
-    )
-    return { models: [], modelsUnavailable: true }
-  }
-
-  const modelNames = Object.fromEntries(
-    (catalogue.value?.items ?? []).map((model) => [
-      model.slug,
-      model.displayName
-    ])
-  )
-
-  const models = (deployments.value?.items ?? []).map((deployment) => ({
-    _id: deployment._id,
-    modelSlug: deployment.modelSlug,
-    modelDisplayName: modelNames[deployment.modelSlug] ?? deployment.modelSlug,
-    environment: deployment.environment,
-    status: deployment.status,
-    statusText: deploymentStatusText(deployment.status),
-    tagClass: deploymentTagClass(deployment.status),
-    inProgress: isDeploymentInProgress(deployment.status),
-    failed: DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status),
-    failureReason: deployment.failureReason ?? null,
-    resourceRows: resourceRows(deployment),
-    // Only an admin removes a model, and only one that is in place.
-    canRemove: isAdmin && deployment.status === 'active',
-    removeUrl: `/teams/${id}/models/${deployment._id}/remove`,
-    requestUrl: `/connect/team/request/${id}/${deployment._id}`
-  }))
-
-  return { models, modelsUnavailable: false }
-}
-
-/**
- * What every render of the team page needs. A model still changing is
- * reported with a link to refresh, never by reloading the page under the
- * person's forms.
- * @param {{team: object, members: object[], isAdmin: boolean}} result
- * @param {{models: object[], modelsUnavailable: boolean}} listing
- * @param {object} [extras]
- * @returns {object}
- */
-export function teamPageContext(result, listing, extras) {
-  return {
-    pageTitle: result.team.name,
-    heading: result.team.name,
-    team: result.team,
-    members: result.members,
-    isAdmin: result.isAdmin,
-    models: listing.models,
-    modelsUnavailable: listing.modelsUnavailable,
-    modelsChanging: listing.models.some((model) =>
-      isDeploymentInProgress(model.status)
-    ),
-    serviceCodeValue: result.team.serviceCode ?? '',
-    notification: null,
-    errorSummary: null,
-    fieldErrors: {},
-    ...extras
-  }
 }

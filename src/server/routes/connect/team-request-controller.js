@@ -18,7 +18,11 @@ import {
   TEAM_AVAILABILITY,
   teamAvailability
 } from '#/server/routes/models/model-availability.js'
-import { loadTeamForView } from '#/server/routes/teams/team-view.js'
+import {
+  TEAM_SECRET_STATE,
+  teamSecretFor
+} from '#/server/routes/teams/team-secret.js'
+import { loadTeamForView, teamUrl } from '#/server/routes/teams/team-view.js'
 import { joinNames } from './team-model-choices.js'
 import {
   FAILURE_STATUSES,
@@ -29,8 +33,6 @@ import {
 } from './team-request-view.js'
 
 const ACTIVE_STATUS = 'active'
-const REVOKED_STATUS = 'revoked'
-const VAULT_UNWRITTEN = 'unwritten'
 const TEST_ENVIRONMENT = 'qa'
 const REFRESH_SECONDS = 3
 
@@ -99,10 +101,6 @@ function modelName(catalogue, deployment) {
   return catalogue[deployment.modelSlug]?.displayName ?? deployment.modelSlug
 }
 
-function teamUrl(team) {
-  return `/teams/${encodeURIComponent(team.slug)}`
-}
-
 function waitView(h, { team, live, catalogue }) {
   const queued = live.every(({ status }) => status === QUEUED_STATUS)
   const names = live.map((deployment) => modelName(catalogue, deployment))
@@ -128,57 +126,21 @@ function waitView(h, { team, live, catalogue }) {
   })
 }
 
-// The newest time a model turned active in the environment, which a
-// revocation has to come after to count (the backend gives the team a fresh
-// secret on an activation that follows an older revocation).
-function newestActivation(deployments, environment) {
-  return deployments
-    .filter((deployment) => deployment.environment === environment)
-    .map(({ activatedAt }) => activatedAt)
-    .filter(Boolean)
-    .sort()
-    .at(-1)
-}
-
-// The team's client secret for the environment the models were set up in, by
-// the backend's rules (credential-service `ensureTeamCredential`): the backend
-// grants the models to it when they turn active, so it exists by now. It can
-// be reached to show once the secret is in the vault (`vaultState` is not
-// `unwritten`). Only the team's latest credential can be revoked for good, and
-// only by a revocation after the newest activation; an older revoked one with
-// a pending or failed replacement is still on its way.
+// The team's client secret for the environment the models were set up in: the
+// backend grants the models to it when they turn active, so it exists by now.
+// It can be shown once it is in the vault.
 async function findTeamCredential(request, deployment, deployments) {
   const { items } = await apiClient(request).get('/v1/credentials', {
     userId: getSessionUser(request).id
   })
-  const ofTeam = items
-    .filter(
-      (credential) =>
-        credential.tier === 'team' &&
-        credential.teamId === deployment.teamId &&
-        credential.environment === deployment.environment
-    )
-    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-  const active = ofTeam.find(({ status }) => status === ACTIVE_STATUS)
-
-  if (active) {
-    return {
-      id: active.vaultState === VAULT_UNWRITTEN ? null : active._id,
-      revoked: false
-    }
-  }
-
-  const [latest] = ofTeam
-  const activatedAt = newestActivation(deployments, deployment.environment)
+  const { state, credential } = teamSecretFor(items, deployments, {
+    teamId: deployment.teamId,
+    environment: deployment.environment
+  })
 
   return {
-    id: null,
-    revoked: Boolean(
-      latest?.status === REVOKED_STATUS &&
-      activatedAt &&
-      latest.revokedAt &&
-      latest.revokedAt >= activatedAt
-    )
+    id: state === TEAM_SECRET_STATE.ready ? credential._id : null,
+    revoked: state === TEAM_SECRET_STATE.revoked
   }
 }
 
@@ -214,7 +176,7 @@ async function readyView(
     modelNames: joinNames(names),
     isAdmin,
     revealUrl: credential.id
-      ? `/manage/credentials/${encodeURIComponent(credential.id)}/view`
+      ? `${teamUrl(team)}/client-secrets/${encodeURIComponent(credential.id)}/view`
       : null,
     secretRevoked: credential.revoked,
     testSetUp: testSetUp(team, environment)

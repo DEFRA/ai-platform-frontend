@@ -212,6 +212,7 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
     cookies = mergeCookies(cookies, getRevokeConfirm)
     expect(getRevokeConfirm.statusCode).toBe(statusCodes.ok)
 
+    fetchMock.mockResponseOnce(JSON.stringify(issuedCredential))
     fetchMock.mockResponseOnce(null, { status: 204 })
     const postRevoke = await server.inject({
       method: 'POST',

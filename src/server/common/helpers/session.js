@@ -2,7 +2,6 @@ const SESSION_USER_KEY = 'user'
 const PENDING_ACCESS_KEY = 'pendingAccess'
 const REQUESTED_DEPLOYMENTS_KEY = 'requestedDeployments'
 const PENDING_TEAM_KEY = 'pendingTeam'
-const CURRENT_TEAM_KEY = 'currentTeamId'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
@@ -62,16 +61,6 @@ export function setPendingTeam(request, value) {
 
 export function clearPendingTeam(request) {
   request.yar.clear(PENDING_TEAM_KEY)
-}
-
-// A person belongs to several teams but acts in one at a time (design F):
-// opening a team's page is what makes it the one they are acting in.
-export function getCurrentTeamId(request) {
-  return request.yar.get(CURRENT_TEAM_KEY)
-}
-
-export function setCurrentTeamId(request, teamId) {
-  request.yar.set(CURRENT_TEAM_KEY, teamId)
 }
 
 export function setIssuedCredential(request, value) {

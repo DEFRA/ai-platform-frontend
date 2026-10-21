@@ -14,15 +14,16 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { formatLabel } from '#/config/nunjucks/filters/format-label.js'
-import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 
-// How the Your access page shapes what a person holds: the keys and client
-// secrets they can use, and their teams' models with where each has got to.
+// How the Your access page shapes what a person holds: the keys they can use
+// on their own, and their teams' models with where each has got to.
 
 const TAG_CLASS_BY_STATUS = {
   active: 'govuk-tag--green',
   revoked: 'govuk-tag--red'
 }
+
+const TEAM_TIER = 'team'
 
 // Research keys carry a fixed, meaningful expiry - show a countdown instead
 // of a static "Active" tag so people notice one is about to run out.
@@ -35,15 +36,6 @@ const RESEARCH_EXPIRY_WARNING_DAYS = 3
 // about the failure inline when it happened).
 const UNISSUED_CREDENTIAL_STATUSES = ['pending', 'failed']
 
-// A team's secret that covers no model opens nothing, so it is not listed
-// (it stays on the team's record and covers models again once one is added).
-function coversNoModel(credential) {
-  return (
-    credential.tier === 'team' &&
-    (credential.allowedDeployments ?? []).length === 0
-  )
-}
-
 // A credential someone has been through issuance for, whatever happened
 // to it since: the team's secret exists (or did), so no model of that
 // team's needs its first reveal.
@@ -53,25 +45,8 @@ function tagClassForStatus(status) {
   return TAG_CLASS_BY_STATUS[status] ?? 'govuk-tag--grey'
 }
 
-/**
- * The models a credential covers, named: a team credential's live grants, a
- * research key's one model.
- * @param {object} credential
- * @param {Record<string, string>} modelNames - Display names by slug.
- * @returns {string}
- */
-export function credentialModelsText(credential, modelNames) {
-  if (credential.tier === 'team') {
-    const slugs = credential.allowedDeployments ?? []
-
-    return slugs.map((slug) => modelNames[slug] ?? slug).join(', ')
-  }
-
-  return modelNames[credential.modelSlug] ?? credential.modelSlug
-}
-
 function statusDisplayFor(credential) {
-  if (credential.tier === 'team' || credential.status !== 'active') {
+  if (credential.status !== 'active') {
     return {
       text: formatLabel(credential.status),
       tagClass: tagClassForStatus(credential.status)
@@ -92,56 +67,36 @@ function statusDisplayFor(credential) {
   }
 }
 
-function keyRow(credential, modelNames, { forText, showRenewRevoke, isAdmin }) {
+function keyRow(credential, modelNames) {
   const statusDisplay = statusDisplayFor(credential)
 
   return {
     ...credential,
-    modelDisplayName: credentialModelsText(credential, modelNames),
-    forText,
+    modelDisplayName: modelNames[credential.modelSlug] ?? credential.modelSlug,
+    forText: 'You / Research',
     environment: credentialEnvironmentName(credential),
     statusText: statusDisplay.text,
     tagClass: statusDisplay.tagClass,
     runsOut: credential.expiresAt ? formatDate(credential.expiresAt) : null,
-    placeholder: isPlaceholderCredential(credential),
-    showRenewRevoke,
-    showRotateRevoke: credential.tier === 'team' && isAdmin
+    showRenewRevoke: true
   }
 }
 
 /**
- * The "Keys and client secrets you can use" rows: personal research keys
- * and shared team client secrets side by side, so people can compare what
- * they hold without switching tabs.
+ * The "Keys you can use" rows: the person's own research keys. A team's
+ * client secret is on the team's page, not here.
  * @param {object[]} credentials
- * @param {Map<string, object>} teamsById
  * @param {Record<string, string>} modelNames
  * @returns {object[]}
  */
-export function buildKeyRows(credentials, teamsById, modelNames) {
+export function buildKeyRows(credentials, modelNames) {
   return credentials
     .filter(
       (credential) =>
-        !UNISSUED_CREDENTIAL_STATUSES.includes(credential.status) &&
-        !coversNoModel(credential)
+        credential.tier !== TEAM_TIER &&
+        !UNISSUED_CREDENTIAL_STATUSES.includes(credential.status)
     )
-    .map((credential) => {
-      if (credential.tier === 'team') {
-        const team = teamsById.get(credential.teamId)
-
-        return keyRow(credential, modelNames, {
-          forText: `${team?.name ?? 'Unknown team'} / Team`,
-          showRenewRevoke: false,
-          isAdmin: team?.role === 'admin'
-        })
-      }
-
-      return keyRow(credential, modelNames, {
-        forText: 'You / Research',
-        showRenewRevoke: true,
-        isAdmin: false
-      })
-    })
+    .map((credential) => keyRow(credential, modelNames))
 }
 
 // The team+environment pairs whose client secret has been issued.
@@ -162,11 +117,11 @@ function issuedTeamEnvironments(credentials) {
 // admin manages it; a model still being set up or failed goes to its request
 // page; a ready one whose team secret was never revealed goes there too, to
 // finish.
-function modelAction(deployment, { teamName, secretIssued }) {
+function modelAction(deployment, { team, secretIssued }) {
   const requestUrl = `/connect/team/request/${deployment.teamId}/${deployment._id}`
   const teamPage = {
-    href: `/teams/${deployment.teamId}`,
-    text: `Manage in ${teamName}`
+    href: `/teams/${encodeURIComponent(team?.slug ?? deployment.teamId)}`,
+    text: `Manage in ${team?.name ?? 'Unknown team'}`
   }
 
   if (deployment.status === DEPLOYMENT_REMOVING_STATUS) {
@@ -226,7 +181,7 @@ export function buildModelRows(
         inProgress: isDeploymentInProgress(deployment.status),
         failureReason: deployment.failureReason ?? null,
         action: modelAction(deployment, {
-          teamName,
+          team: teamsById.get(deployment.teamId),
           secretIssued: issued.has(
             `${deployment.teamId}:${deployment.environment}`
           )

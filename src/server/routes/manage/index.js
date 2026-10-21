@@ -40,24 +40,6 @@ export const manage = {
         },
         {
           method: 'GET',
-          path: '/manage/credentials/{id}/rotate',
-          handler: manageController.rotate.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/manage/credentials/{id}/rotate',
-          options: {
-            validate: manageController.rotate.post.options.validate
-          },
-          handler: manageController.rotate.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/manage/credentials/{id}/rotated',
-          handler: manageController.rotated.get.handler
-        },
-        {
-          method: 'GET',
           path: '/manage/credentials/{id}/view',
           handler: manageController.reveal.get.handler
         },
