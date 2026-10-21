@@ -64,6 +64,10 @@ function buildModelRow(model) {
 }
 
 function forATeamText(model) {
+  if (!isEligible(model)) {
+    return 'Not available to add to a team yet.'
+  }
+
   const region = teamUkRegion(model)
 
   return region

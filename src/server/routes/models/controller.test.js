@@ -435,6 +435,20 @@ describe('#modelsController', () => {
       )
     })
 
+    test('does not promise a team deployment for an ineligible model that keeps its UK team SKU', async () => {
+      const { result } = await getDetail({
+        ...sampleModel,
+        eligible: false,
+        eligibilityReason: 'Withdrawn for review.'
+      })
+
+      expect(result).toContain('Not available yet. Withdrawn for review.')
+      expect(result).not.toContain('A deployment just for your team')
+      expect(result).toContain('Not available to add to a team yet.')
+      expect(result).toContain('Not available to try on your own yet.')
+      expect(result).not.toContain('/connect/team/start')
+    })
+
     test('leaves out the lead when the model has no use cases', async () => {
       const { result } = await getDetail({ ...sampleModel, useCases: [] })
 
