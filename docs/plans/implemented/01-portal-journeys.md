@@ -1,7 +1,7 @@
 # 01 Portal journeys (routes 0 to 3)
 
 What a person can do in the portal today. Every item is built and merged. The flow itself is in
-[ui-flow-three-routes.md](../../flat-design-updates/v1/ui-flow-three-routes.md); the tiers behind it are in
+[ui-flow-three-routes.md](../../flat-design-updates/v1/ui-flow-three-routes-v1.md); the tiers behind it are in
 [02 Research tier](02-research-tier.md) and [03 Team tier](03-team-tier.md).
 
 | Route | What it covers                                                                | Built                        |
@@ -49,4 +49,4 @@ What a person can do in the portal today. Every item is built and merged. The fl
   `src/config/nunjucks/filters/format-label.js`, row shaping in `manage/access-view.js`, navigation in
   `src/config/nunjucks/context/build-navigation.js`.
 - Backend: `src/routes/` and `src/services/` for `users`, `models`, `credentials`, `teams`, `team-deployments`.
-- Design: `docs/flat-design-updates/v1/build-spec.md` and `_govuk-frontend.scss`.
+- Design: `docs/flat-design-updates/v1/build-spec-v1.md` and `_govuk-frontend.scss`.
