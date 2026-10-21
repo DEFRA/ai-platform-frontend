@@ -332,6 +332,54 @@ describe('#teamConnectController', () => {
       expect(result).toContain('Your models will be set up in Development.')
     })
 
+    describe('when no environment is available to teams', () => {
+      beforeEach(() => {
+        config.set('teamEnvironments', ['sandbox'])
+      })
+
+      test('says so instead of showing the details form', async () => {
+        const cookies = await reachDetails(server, await signIn(server))
+
+        const { statusCode, result } = await get(
+          server,
+          cookies,
+          '/connect/team/details'
+        )
+
+        expect(statusCode).toBe(statusCodes.serviceUnavailable)
+        expect(result).toContain('No environment is available yet')
+        expect(result).not.toContain('name="purpose"')
+      })
+
+      test('says so, and saves nothing, when valid details are posted', async () => {
+        const cookies = await reachDetails(server, await signIn(server))
+
+        const { statusCode, result } = await post(
+          server,
+          cookies,
+          '/connect/team/details',
+          { purpose: 'x' }
+        )
+
+        expect(statusCode).toBe(statusCodes.serviceUnavailable)
+        expect(result).toContain('No environment is available yet')
+      })
+
+      test('says so, not the form, when invalid details are posted', async () => {
+        const cookies = await reachDetails(server, await signIn(server))
+
+        const { statusCode, result } = await post(
+          server,
+          cookies,
+          '/connect/team/details',
+          { purpose: 'x'.repeat(501) }
+        )
+
+        expect(statusCode).toBe(statusCodes.serviceUnavailable)
+        expect(result).toContain('No environment is available yet')
+      })
+    })
+
     test('refuses an environment posted from the form, as it is not chosen', async () => {
       const cookies = await reachDetails(server, await signIn(server))
 

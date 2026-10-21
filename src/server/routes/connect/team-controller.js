@@ -65,6 +65,21 @@ function redirectToStart(h) {
   return h.redirect('/connect').takeover()
 }
 
+// No environment is configured for teams to deploy to, so there is nothing
+// to state or save on the details step: say so rather than lose the journey.
+function environmentUnavailableView(h) {
+  return h
+    .view('error/index', {
+      pageTitle: 'No environment is available yet',
+      heading: 'No environment is available yet',
+      message:
+        'Models cannot be set up for a team in any environment yet. Try again later.',
+      actionHref: '/models',
+      actionText: 'Browse models'
+    })
+    .code(statusCodes.serviceUnavailable)
+}
+
 function buildTeamItems(teamsList, selectedTeamId) {
   return teamsList.map((team) => ({
     value: team._id,
@@ -257,6 +272,10 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        if (!defaultTeamEnvironment()) {
+          return environmentUnavailableView(h)
+        }
+
         return h.view('connect/team/details', {
           pageTitle: 'Say what it is for',
           heading: 'Say what it is for',
@@ -272,17 +291,19 @@ export const teamConnectController = {
         validate: {
           payload: detailsSchema,
           failAction: (request, h, error) =>
-            h
-              .view('connect/team/details', {
-                pageTitle: 'Error: Say what it is for',
-                heading: 'Say what it is for',
-                values: request.payload,
-                environmentName: environmentName(defaultTeamEnvironment()),
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
-              })
-              .code(statusCodes.badRequest)
-              .takeover()
+            (defaultTeamEnvironment()
+              ? h
+                  .view('connect/team/details', {
+                    pageTitle: 'Error: Say what it is for',
+                    heading: 'Say what it is for',
+                    values: request.payload,
+                    environmentName: environmentName(defaultTeamEnvironment()),
+                    errorSummary: buildErrorSummary(error),
+                    fieldErrors: buildFieldErrors(error)
+                  })
+                  .code(statusCodes.badRequest)
+              : environmentUnavailableView(h)
+            ).takeover()
         }
       },
       handler(request, h) {
@@ -290,6 +311,10 @@ export const teamConnectController = {
 
         if (!hasTeamJourneyState(pendingAccess)) {
           return redirectToStart(h)
+        }
+
+        if (!defaultTeamEnvironment()) {
+          return environmentUnavailableView(h)
         }
 
         // A fresh key for each time the answers are confirmed from here: a
