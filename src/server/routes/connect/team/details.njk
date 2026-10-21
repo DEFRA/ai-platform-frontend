@@ -1,14 +1,17 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
-{% block content %}
-  {{ appHeading({
-    text: heading
-  }) }}
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
 
+{% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}
@@ -17,6 +20,8 @@
           errorList: errorSummary
         }) }}
       {% endif %}
+
+      <span class="govuk-caption-xl" data-testid="app-heading-caption">{{ teamName }}</span>
 
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
@@ -27,14 +32,19 @@
           maxlength: 500,
           value: values.purpose,
           label: {
-            text: "What will you use this model for?",
-            classes: "govuk-label--m"
+            text: heading,
+            classes: "govuk-label--xl",
+            isPageHeading: true
           },
-          hint: { text: "For example, the project or piece of work this deployment supports." },
+          hint: { text: "For example, the service or piece of work it supports. This helps us plan capacity." },
           errorMessage: fieldErrors.purpose
         }) }}
 
-        <p class="govuk-body">Your models will be set up in {{ environmentName }}.</p>
+        {% set environmentHtml %}
+          <strong>It will be set up in {{ environmentName }}.</strong>
+          When it is working, you can set it up in Test and other environments from your team's page.
+        {% endset %}
+        {{ govukInsetText({ html: environmentHtml, attributes: { "data-testid": "environment-inset" } }) }}
 
         {{ govukButton({ text: "Continue" }) }}
       </form>

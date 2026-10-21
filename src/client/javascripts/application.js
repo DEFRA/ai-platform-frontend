@@ -32,19 +32,6 @@ document.querySelectorAll('[data-copy-target]').forEach((button) => {
   })
 })
 
-// Progressive enhancement: let people stop the team-request page's
-// auto-refresh (WCAG 2.2 SC 2.2.1 Timing Adjustable) - the meta-refresh
-// removal and JS-driven timer live inline in connect/team/request.njk.
-const stopRefreshButton = document.getElementById('app-stop-refresh')
-if (stopRefreshButton) {
-  stopRefreshButton.hidden = false
-  stopRefreshButton.addEventListener('click', () => {
-    window.appStopAutoRefresh?.()
-    stopRefreshButton.disabled = true
-    stopRefreshButton.textContent = 'Checking stopped'
-  })
-}
-
 // Progressive enhancement: disable a submit button and show a spinner while
 // its form is submitting, so a slow backend call (renew, revoke, issue a
 // credential) can't be re-triggered by repeat clicks. Marked by

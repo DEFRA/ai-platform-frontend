@@ -1,15 +1,15 @@
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
+import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
+import { signInViaOidc } from '#/test-helpers/oidc-session-helpers.js'
 import {
-  signInViaOidc,
-  mergeCookies
-} from '#/test-helpers/oidc-session-helpers.js'
-import {
+  abroadModel,
   nanoModel,
   sampleModel,
-  teamConnectHelpers
+  teamConnectHelpers,
+  teamWithMembers
 } from '#/test-helpers/team-connect-helpers.js'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
@@ -37,57 +37,41 @@ fetchMock.enableMocks()
 
 const { mockResponse, get, makeRequest } = teamConnectHelpers(fetchMock)
 
-const STAGES = [
-  { label: 'Request recorded', state: 'done' },
-  { label: 'Team checked', state: 'done' },
-  { label: 'Setting up access in Azure', state: 'current' },
-  { label: 'Preparing your client secret', state: 'pending' }
+const NOT_FOUND = { statusCode: 404, error: 'Not Found', message: 'Not Found' }
+
+const STEPS = [
+  { label: 'Request recorded', state: 'done', at: '2026-10-21T10:41:00.000Z' },
+  { label: 'Team checked', state: 'done', at: '2026-10-21T10:42:00.000Z' },
+  {
+    label: 'Setting up GPT-4o in Azure',
+    state: 'current',
+    at: '2026-10-21T10:42:30.000Z'
+  },
+  { label: 'Preparing your client secret', state: 'pending', at: null }
 ]
 
-// A deployment as the backend lists it, active and requested by the signed-in
-// person unless overridden.
+// A deployment as the backend lists it, active in the first environment
+// unless overridden.
 function deployment(overrides = {}) {
   return {
     _id: 'deployment-1',
+    teamId: 'team-1',
     status: 'active',
     modelSlug: 'gpt-4o',
-    environment: 'sandbox',
+    environment: 'infradev',
     requestedBy: 'user-1',
+    operationId: 'op-1234567-7f3k2',
     ...overrides
   }
 }
 
-function mockDeployments(...deployments) {
-  mockResponse({ items: deployments })
+const teamCredential = {
+  _id: 'cred-1',
+  tier: 'team',
+  teamId: 'team-1',
+  environment: 'infradev',
+  status: 'active'
 }
-
-function credentialPosts() {
-  return fetchMock.mock.calls
-    .filter(
-      ([url, init]) => url.endsWith('/v1/credentials') && init.method === 'POST'
-    )
-    .map(([, init]) => JSON.parse(init.body))
-}
-
-const PLACEHOLDER_NOTICE = 'data-testid="placeholder-credential-notice"'
-
-const issued = (
-  secret,
-  allowedDeployments = ['gpt-4o'],
-  issuerKey = 'mock'
-) => ({
-  credential: {
-    _id: 'cred-team-1',
-    teamId: 'team-1',
-    tier: 'team',
-    status: 'active',
-    issuerKey,
-    keyHint: 'tm01',
-    allowedDeployments,
-    expiresAt: null
-  },
-  ...(secret ? { secret } : {})
-})
 
 describe('#teamRequestController', () => {
   let server
@@ -107,349 +91,134 @@ describe('#teamRequestController', () => {
     cookies = await signInViaOidc(server, fetchMock)
   })
 
-  function request(id = 'deployment-1', teamId = 'team-1') {
-    return get(server, cookies, `/connect/team/request/${teamId}/${id}`)
+  // What the page reads, in order: the team (and so the person's role in it),
+  // the team's deployments, the catalogue for names and, to an admin of a
+  // team whose models are ready, the credentials.
+  function mockPage({
+    role = 'admin',
+    deployments,
+    catalogue = [sampleModel, nanoModel, abroadModel],
+    credentials
+  }) {
+    mockResponse(teamWithMembers(role))
+    mockResponse({ items: deployments })
+
+    if (catalogue) {
+      mockResponse({ items: catalogue })
+    }
+
+    if (credentials) {
+      mockResponse({ items: credentials })
+    }
   }
 
-  describe('for one model', () => {
-    test('shows the "being set up" message while in progress, no JS required', async () => {
-      mockDeployments(
-        deployment({ status: 'deploying', progressSteps: STAGES })
-      )
+  function page(id = 'deployment-1', team = 'flood-risk-team') {
+    return get(server, cookies, `/connect/team/request/${team}/${id}`)
+  }
 
-      const { statusCode, result } = await request()
+  function calledWith(text) {
+    return fetchMock.mock.calls.some(([url]) => url.includes(text))
+  }
 
-      expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('http-equiv="refresh"')
-      expect(result).toContain('Setting up your model access')
-      expect(result).not.toContain('Setting up your team client secret')
-      expect(result).toContain('This usually takes about 2 minutes. You can')
-      expect(result).toContain('Setting up access in Azure')
-      expect(result).not.toContain('team key')
-      expect(result).not.toContain('Details for the AI Platform team')
-      expect(result).not.toContain('<h3')
-    })
+  describe('while a model is being set up', () => {
+    test('says what is being set up, how long it takes, and shows each step with its time', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
 
-    test('promises the client secret once the request is on that step', async () => {
-      mockDeployments(deployment({ status: 'verified', progressSteps: STAGES }))
-
-      const { result } = await request()
-
-      expect(result).toContain('Setting up your team client secret')
-      expect(result).not.toContain('Setting up your model access')
-    })
-
-    test('says the client secret will be a placeholder while the backend mocks it', async () => {
-      mockDeployments(
-        deployment({
-          status: 'deploying',
-          progressSteps: STAGES,
-          credentialPlaceholder: true
-        })
-      )
-
-      const { result } = await request()
-
-      expect(result).toContain(PLACEHOLDER_NOTICE)
-    })
-
-    test('does not mention a placeholder once the backend issues real client secrets', async () => {
-      mockDeployments(
-        deployment({
-          status: 'deploying',
-          progressSteps: STAGES,
-          credentialPlaceholder: false
-        })
-      )
-
-      const { result } = await request()
-
-      expect(result).not.toContain(PLACEHOLDER_NOTICE)
-    })
-
-    test('shows a queued request as waiting for another change, keeps checking and issues nothing', async () => {
-      mockDeployments(deployment({ status: 'queued', progressSteps: STAGES }))
-
-      const { statusCode, result } = await request()
+      const { statusCode, result } = await page()
 
       expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('Setting up GPT-4o for your team')
+      expect(result).toContain('Flood Risk Team')
       expect(result).toContain(
-        'Waiting for another change to this team to finish'
+        'This usually takes about 2 minutes. You can leave this page and come back.'
       )
-      expect(result).toContain('Changes to a team are made one at a time.')
+      expect(result).toContain('Request recorded')
+      expect(result).toContain('10:41')
+      expect(result).toContain('Started at 10:42')
+      expect(result).toContain('Preparing your client secret')
+      expect(result).toContain('Done: ')
+      expect(result).toContain('In progress: ')
+      expect(result).toContain('Not started: ')
+      expect(result).toContain('This page updates by itself. Last checked at')
       expect(result).toContain('http-equiv="refresh"')
-      expect(result).not.toContain('Setting up your team client secret')
-      expect(result).not.toContain('This usually takes about 2 minutes')
-      expect(credentialPosts()).toEqual([])
     })
 
-    test('links to the pull request and workflow runs the backend reports, https only', async () => {
-      mockDeployments(
-        deployment({
-          status: 'pr-raised',
-          progressSteps: STAGES,
-          links: {
-            submitRun:
-              'https://github.com/DEFRA/ai-platform-tenants/actions/runs/1001',
-            pullRequest: 'https://github.com/DEFRA/ai-platform-tenants/pull/7',
-            applyRun: 'javascript:alert(1)'
-          }
-        })
-      )
-
-      const { result } = await request()
-
-      expect(result).toContain('Details for the AI Platform team')
-      expect(result).toContain(
-        '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/pull/7">Pull request</a>'
-      )
-      expect(result).toContain(
-        '<a class="govuk-link" href="https://github.com/DEFRA/ai-platform-tenants/actions/runs/1001">Submit workflow run</a>'
-      )
-      expect(result).not.toContain('Apply workflow run')
-      expect(result).not.toContain('javascript:alert')
-    })
-
-    test('issues an OAuth client secret once active and shows it once on the credential page', async () => {
-      mockDeployments(deployment())
-      mockResponse({ items: [] })
-      mockResponse(issued('mock_team_secret'))
-      mockResponse(sampleModel)
-
-      const getRequest = await request()
-      cookies = mergeCookies(cookies, getRequest)
-
-      expect(getRequest.statusCode).toBe(statusCodes.seeOther)
-      expect(getRequest.headers.location).toBe('/connect/team/credential')
-      expect(credentialPosts()).toEqual([
-        {
-          modelSlug: 'gpt-4o',
-          tier: 'team',
-          teamId: 'team-1',
-          environment: 'sandbox',
-          credentialType: 'oauth'
-        }
-      ])
-
-      const getCredential = await get(
-        server,
-        cookies,
-        '/connect/team/credential'
-      )
-
-      expect(getCredential.statusCode).toBe(statusCodes.ok)
-      expect(getCredential.result).toContain('mock_team_secret')
-      expect(getCredential.result).toContain('Your client secret is ready')
-      expect(getCredential.result).toContain('Copy client secret')
-      expect(getCredential.result).toContain(
-        'See this client secret and your other access'
-      )
-      expect(getCredential.result).toContain('Does not expire')
-      expect(getCredential.result).not.toContain('Your key')
-      expect(getCredential.result).not.toContain('Ocp-Apim-Subscription-Key')
-      expect(getCredential.result).not.toContain('Your models')
-      expect(getCredential.headers['cache-control']).toContain('no-store')
-      // A mocked team secret never appears without saying it is a placeholder.
-      expect(getCredential.result).toContain(PLACEHOLDER_NOTICE)
-
-      const again = await get(server, cookies, '/connect/team/credential')
-
-      expect(again.headers.location).toBe('/models')
-    })
-
-    test('shows no placeholder notice for a client secret a real issuer made', async () => {
-      mockDeployments(deployment())
-      mockResponse({ items: [] })
-      mockResponse(issued('real_team_secret', ['gpt-4o'], 'azure-apim'))
-      mockResponse(sampleModel)
-
-      const getRequest = await request()
-      cookies = mergeCookies(cookies, getRequest)
-
-      const { result } = await get(server, cookies, '/connect/team/credential')
-
-      expect(result).toContain('real_team_secret')
-      expect(result).not.toContain(PLACEHOLDER_NOTICE)
-    })
-
-    test('says team client secrets are not available yet when no gateway issues them (501 gateway-not-enabled)', async () => {
-      mockDeployments(deployment())
-      mockResponse({ items: [] })
-      mockResponse(
-        {
-          statusCode: statusCodes.notImplemented,
-          error: 'Not Implemented',
-          message: 'No gateway issues team OAuth credentials yet',
-          code: 'gateway-not-enabled'
-        },
-        { status: statusCodes.notImplemented }
-      )
-
-      const { statusCode, result } = await request()
-
-      expect(statusCode).toBe(statusCodes.notImplemented)
-      expect(result).toContain('We cannot create your team client secret yet')
-      expect(result).toContain(
-        'Team client secrets are not available in this environment yet.'
-      )
-      expect(result).toContain('Go to your access')
-      expect(result).not.toContain('No gateway issues team OAuth')
-      expect(result).not.toContain('Something went wrong')
-    })
-
-    test('leaves any other issuing error to the generic error page', async () => {
-      mockDeployments(deployment())
-      mockResponse({ items: [] })
-      mockResponse(
-        { message: 'The issuer did not answer', code: 'upstream-unavailable' },
-        { status: 502 }
-      )
-
-      const { statusCode, result } = await request()
-
-      expect(statusCode).toBe(statusCodes.internalServerError)
-      expect(result).toContain('Something went wrong')
-    })
-
-    test('goes to /manage when the secret was already revealed to someone else', async () => {
-      mockDeployments(deployment())
-      mockResponse({ items: [] })
-      mockResponse(issued())
-
-      const { statusCode, headers } = await request()
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe('/manage')
-    })
-
-    test('goes to /manage instead of re-issuing a secret once revoked', async () => {
-      mockDeployments(deployment())
-      mockResponse({
-        items: [
-          {
-            _id: 'cred-team-revoked',
-            teamId: 'team-1',
-            tier: 'team',
-            status: 'revoked',
-            allowedDeployments: ['gpt-4o']
-          }
+    test('has a link to the team and none of the old controls, banner or pipeline links', async () => {
+      mockPage({
+        deployments: [
+          deployment({
+            status: 'pr-raised',
+            progressSteps: STEPS,
+            links: { pullRequest: 'https://github.com/DEFRA/tenants/pull/7' }
+          })
         ]
       })
 
-      const { statusCode, headers } = await request()
+      const { result } = await page()
 
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe('/manage')
-      expect(credentialPosts()).toEqual([])
-    })
-
-    test('never reveals the secret to a teammate who did not request it', async () => {
-      mockDeployments(deployment({ requestedBy: 'a-different-teammate' }))
-
-      const { statusCode, headers } = await request()
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe('/manage')
-      expect(credentialPosts()).toEqual([])
-    })
-
-    test('shows a not found page when the team is not the person’s to see', async () => {
-      mockResponse(
-        { statusCode: 404, error: 'Not Found', message: 'Not Found' },
-        { status: 404 }
+      expect(result).toContain(
+        'href="/teams/flood-risk-team">Go to Flood Risk Team</a>'
       )
-
-      const { statusCode, result } = await request('unknown-deployment')
-
-      expect(statusCode).toBe(statusCodes.notFound)
-      expect(result).toContain('Request not found')
+      expect(result).not.toContain('Stop checking')
+      expect(result).not.toContain('Check now')
+      expect(result).not.toContain('govuk-notification-banner')
+      expect(result).not.toContain('Details for the AI Platform team')
+      expect(result).not.toContain('github.com')
+      expect(result).not.toContain('placeholder-credential-notice')
     })
 
-    test('shows a not found page for a deployment the team does not have', async () => {
-      mockDeployments(deployment({ _id: 'another-deployment' }))
+    test('shows a queued request as waiting for another change to the team', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'queued', progressSteps: STEPS })]
+      })
 
-      const { statusCode, result } = await request('unknown-deployment')
-
-      expect(statusCode).toBe(statusCodes.notFound)
-      expect(result).toContain('Request not found')
-    })
-
-    test.each(['removing', 'removed'])(
-      'sends a %s deployment to its team page, where the removal is shown',
-      async (status) => {
-        mockDeployments(deployment({ status }))
-
-        const { statusCode, headers } = await request()
-
-        expect(statusCode).toBe(statusCodes.seeOther)
-        expect(headers.location).toBe('/teams/team-1')
-      }
-    )
-
-    test('shows a safe error for a failed deployment', async () => {
-      mockDeployments(
-        deployment({
-          status: 'checks-failed',
-          failureReason: 'Automated checks failed (mock)'
-        })
-      )
-
-      const { statusCode, result } = await request()
+      const { statusCode, result } = await page()
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('Something went wrong')
-      expect(result).toContain('Automated checks failed (mock)')
+      expect(result).toContain(
+        'Waiting for another change to Flood Risk Team to finish'
+      )
+      expect(result).toContain('http-equiv="refresh"')
+      expect(result).not.toContain('Setting up GPT-4o for your team')
     })
 
-    test('says verification failed, and what to do, when Azure resources could not be confirmed', async () => {
-      mockDeployments(
-        deployment({
-          status: 'deploy-failed',
-          failureReason:
-            "Your team's resources were created but could not be confirmed: this environment is not set up in the portal (environment-not-configured). Ask the AI Platform team to check and retry.",
-          verificationFailure: {
-            reason: 'environment-not-configured',
-            attempts: 5
-          }
-        })
-      )
+    test('keeps waiting for a state it does not know', async () => {
+      mockPage({ deployments: [deployment({ status: 'something-new' })] })
 
-      const { result } = await request()
+      const { result } = await page()
 
-      expect(result).toContain('data-testid="verification-failed"')
-      expect(result).toContain('Ask the AI Platform team to check and retry')
-      expect(result).toContain('environment-not-configured')
+      expect(result).toContain('Setting up GPT-4o for your team')
     })
 
-    test('does not mention verification for a failure that is not one', async () => {
-      mockDeployments(
-        deployment({ status: 'deploy-failed', failureReason: 'Apply failed' })
-      )
+    test('shows no times for a step that has none', async () => {
+      mockPage({
+        deployments: [
+          deployment({
+            status: 'requested',
+            progressSteps: [
+              { label: 'Request recorded', state: 'current', at: null }
+            ]
+          })
+        ]
+      })
 
-      const { result } = await request()
+      const { result } = await page()
 
-      expect(result).not.toContain('data-testid="verification-failed"')
+      expect(result).toContain('Request recorded')
+      expect(result).not.toContain('Started at')
     })
 
-    test('shows the failure reason and the failed apply run for support', async () => {
-      mockDeployments(
-        deployment({
-          status: 'deploy-failed',
-          failureReason:
-            'The apply failed again after a fresh retry, so the change is being reverted',
-          links: {
-            pullRequest: 'https://github.com/DEFRA/ai-platform-tenants/pull/7',
-            applyRun:
-              'https://github.com/DEFRA/ai-platform-tenants/actions/runs/2002'
-          }
-        })
-      )
+    test('names a model by its slug when the catalogue no longer lists it', async () => {
+      mockPage({
+        catalogue: [],
+        deployments: [deployment({ status: 'deploying' })]
+      })
 
-      const { result } = await request()
+      const { result } = await page()
 
-      expect(result).toContain('Details for the AI Platform team')
-      expect(result).toContain('so the change is being reverted')
-      expect(result).toContain('Apply workflow run')
+      expect(result).toContain('Setting up gpt-4o for your team')
     })
   })
 
@@ -473,155 +242,506 @@ describe('#teamRequestController', () => {
       fetchMock.mockClear()
     }
 
-    function mockNames() {
-      mockResponse({ items: [sampleModel, nanoModel] })
-    }
-
-    test('shows each model’s progress, named, while any is still being set up', async () => {
+    test('names every model in the heading and gives each its own steps', async () => {
       await afterRequest()
-      mockDeployments(
-        first({ status: 'deploying', progressSteps: STAGES }),
-        second({ status: 'queued', progressSteps: STAGES })
-      )
-      mockNames()
+      mockPage({
+        deployments: [
+          first({ status: 'deploying', progressSteps: STEPS }),
+          second({ status: 'queued', progressSteps: STEPS })
+        ]
+      })
 
-      const { statusCode, result } = await request()
+      const { statusCode, result } = await page()
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('<h3 class="govuk-heading-s">GPT-4o</h3>')
-      expect(result).toContain('<h3 class="govuk-heading-s">GPT-4.1 nano</h3>')
-      expect(result).toContain('Setting up your model access')
+      expect(result).toContain(
+        'Setting up GPT-4o and GPT-4.1 nano for your team'
+      )
+      expect(result).toContain('<h2 class="govuk-heading-m">GPT-4o</h2>')
+      expect(result).toContain('<h2 class="govuk-heading-m">GPT-4.1 nano</h2>')
       expect(result).toContain('about 2 minutes for each model')
-      expect(result).toContain('http-equiv="refresh"')
-      expect(credentialPosts()).toEqual([])
     })
 
-    test('says it is waiting only when every model is', async () => {
+    test('keeps waiting while any model is still being set up', async () => {
       await afterRequest()
-      mockDeployments(first({ status: 'queued' }), second({ status: 'queued' }))
-      mockNames()
+      mockPage({
+        deployments: [
+          first({ status: 'active', progressSteps: STEPS }),
+          second({ status: 'deploying', progressSteps: STEPS })
+        ]
+      })
 
-      const { result } = await request()
+      const { result } = await page()
+
+      expect(result).toContain('http-equiv="refresh"')
+    })
+
+    test('follows only the deployment in the address once the session no longer remembers the request', async () => {
+      mockPage({
+        deployments: [
+          first({ status: 'deploying', progressSteps: STEPS }),
+          second({ status: 'queued', progressSteps: STEPS })
+        ]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('Setting up GPT-4o for your team')
+      expect(result).not.toContain('GPT-4.1 nano')
+    })
+
+    test('says every model is ready, in one panel', async () => {
+      await afterRequest()
+      mockPage({
+        deployments: [first(), second()],
+        credentials: [teamCredential]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('GPT-4o and GPT-4.1 nano are ready')
+      expect(result).toContain(
+        'everyone in Flood Risk Team can use GPT-4o and GPT-4.1 nano with it'
+      )
+    })
+
+    test('says what failed, and that the model that worked is not affected', async () => {
+      await afterRequest()
+      mockPage({
+        deployments: [
+          first(),
+          second({ modelSlug: 'gpt-5-mini', status: 'deploy-failed' })
+        ]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('We could not set up GPT-5 mini')
+      expect(result).toContain('GPT-4o is not affected.')
+      expect(result).toContain('use GPT-4o, which your team already has')
+    })
+
+    test('names every model that failed, with a reference and technical details for each', async () => {
+      await afterRequest()
+      mockPage({
+        deployments: [
+          first({
+            status: 'checks-failed',
+            operationId: 'op-aaaaaaa-11111',
+            failureReason: 'First failed'
+          }),
+          second({
+            status: 'deploy-failed',
+            operationId: 'op-bbbbbbb-22222',
+            failureReason: 'Second failed'
+          })
+        ]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('We could not set up GPT-4o and GPT-4.1 nano')
+      expect(result).toContain('AIP-11111, AIP-22222')
+      expect(result).toContain('remove GPT-4o from your team')
+      expect(result).toContain('remove GPT-4.1 nano from your team')
+      expect(result).toContain('<h3 class="govuk-heading-s">GPT-4o</h3>')
+      expect(result).toContain('First failed')
+      expect(result).toContain('Second failed')
+      expect(result).not.toContain('not affected')
+      expect(result).not.toContain('which your team already has')
+    })
+
+    test('tells a member to ask an admin to remove them all', async () => {
+      await afterRequest()
+      mockPage({
+        role: 'user',
+        deployments: [
+          first({ status: 'checks-failed' }),
+          second({ status: 'deploy-failed' })
+        ]
+      })
+
+      const { result } = await page()
 
       expect(result).toContain(
-        'Waiting for another change to this team to finish'
+        'ask an admin of Flood Risk Team to remove them from your team'
       )
     })
+  })
 
-    test('issues one client secret for every model once all are active', async () => {
-      await afterRequest()
-      mockDeployments(first(), second())
-      mockNames()
-      mockResponse({ items: [] })
-      mockResponse(issued('mock_team_secret'))
-      mockResponse(issued(undefined, ['gpt-4o', 'gpt-4-1-nano']))
-      mockResponse(sampleModel)
-      mockResponse(nanoModel)
+  describe('when a model is ready', () => {
+    const configured = config.get('teamEnvironments')
 
-      const getRequest = await request()
-      cookies = mergeCookies(cookies, getRequest)
-
-      expect(getRequest.headers.location).toBe('/connect/team/credential')
-      expect(credentialPosts().map(({ modelSlug }) => modelSlug)).toEqual(
-        MODELS
-      )
-
-      const { result } = await get(server, cookies, '/connect/team/credential')
-
-      expect(result).toContain('mock_team_secret')
-      expect(result).toContain('GPT-4o, GPT-4.1 nano')
-      expect(result).toContain('Your models')
-      expect(result).toContain('gpt-4-1-nano')
-      expect(result).not.toContain('Not added to your client secret')
+    afterEach(() => {
+      config.set('teamEnvironments', configured)
     })
 
-    test('still shows the secret, and says so, when a later model cannot be added to it', async () => {
-      await afterRequest()
-      mockDeployments(first(), second())
-      mockNames()
-      mockResponse({ items: [] })
-      mockResponse(issued('mock_team_secret'))
-      mockResponse(
-        { message: 'The issuer did not answer', code: 'upstream-unavailable' },
-        { status: 502 }
-      )
-      mockResponse(sampleModel)
-      mockResponse(nanoModel)
+    test('an admin gets a panel, the way to show the client secret, and what happens next', async () => {
+      mockPage({
+        deployments: [deployment()],
+        credentials: [
+          { ...teamCredential, _id: 'cred-other', environment: 'qa' },
+          { ...teamCredential, _id: 'cred-revoked', status: 'revoked' },
+          teamCredential
+        ]
+      })
 
-      const getRequest = await request()
-      cookies = mergeCookies(cookies, getRequest)
-
-      expect(getRequest.headers.location).toBe('/connect/team/credential')
-
-      const { result } = await get(server, cookies, '/connect/team/credential')
-
-      expect(result).toContain('mock_team_secret')
-      expect(result).toContain('Not added to your client secret: GPT-4.1 nano')
-    })
-
-    test('issues for the models that were set up, and names the one that failed', async () => {
-      await afterRequest()
-      mockDeployments(first(), second({ status: 'deploy-failed' }))
-      mockNames()
-      mockResponse({ items: [] })
-      mockResponse(issued('mock_team_secret'))
-      mockResponse(sampleModel)
-      mockResponse(nanoModel)
-
-      const getRequest = await request()
-      cookies = mergeCookies(cookies, getRequest)
-
-      expect(credentialPosts().map(({ modelSlug }) => modelSlug)).toEqual([
-        'gpt-4o'
-      ])
-
-      const { result } = await get(server, cookies, '/connect/team/credential')
-
-      expect(result).toContain('Not added to your client secret: GPT-4.1 nano')
-      expect(result).not.toContain('Your models')
-    })
-
-    test('lists every model that failed when none could be set up', async () => {
-      await afterRequest()
-      mockDeployments(
-        first({ status: 'checks-failed', failureReason: 'Checks failed' }),
-        second({ status: 'deploy-failed', failureReason: 'Apply failed' })
-      )
-      mockNames()
-
-      const { statusCode, result } = await request()
+      const { statusCode, result } = await page()
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('Something went wrong')
-      expect(result).toContain('<li>GPT-4o</li>')
-      expect(result).toContain('<li>GPT-4.1 nano</li>')
-      expect(result).toContain('Checks failed')
-      expect(result).toContain('Apply failed')
-      expect(credentialPosts()).toEqual([])
+      expect(result).toContain('GPT-4o is ready')
+      expect(result).toContain('for Flood Risk Team, in Development')
+      expect(result).toContain('Get your client secret')
+      expect(result).toContain(
+        'Your team shares one client secret for Development. Have somewhere safe ready to paste it'
+      )
+      expect(result).toContain('Show the client secret')
+      expect(result).toContain('href="/manage/credentials/cred-1/view"')
+      expect(result).toContain('What happens next')
+      expect(result).toContain(
+        'everyone in Flood Risk Team can use GPT-4o with it'
+      )
+      expect(result).toContain(
+        'admins can show it again or rotate it from <a class="govuk-link" href="/teams/flood-risk-team">your team'
+      )
+      expect(result).not.toContain('Ask an admin')
+      expect(result).not.toContain('http-equiv="refresh"')
     })
 
-    test('follows only the model in its address once the session has forgotten the request', async () => {
-      mockDeployments(first({ status: 'deploying' }), second())
+    test('never shows a client secret, which only a reveal with a reason can', async () => {
+      mockPage({
+        deployments: [deployment()],
+        credentials: [{ ...teamCredential, secret: 'must-not-appear' }]
+      })
 
-      const { result } = await request()
+      const { result } = await page()
 
-      expect(result).not.toContain('<h3')
-      expect(fetchMock.mock.calls.map(([url]) => url)).not.toContainEqual(
-        expect.stringContaining('/v1/models')
+      expect(result).not.toContain('must-not-appear')
+      expect(calledWith('/reveal')).toBe(false)
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            url.includes('/v1/credentials') && init.method === 'POST'
+        )
+      ).toBe(false)
+    })
+
+    test('says the client secret is not ready when the team has none yet', async () => {
+      mockPage({ deployments: [deployment()], credentials: [] })
+
+      const { result } = await page()
+
+      expect(result).toContain('The client secret is not ready yet.')
+      expect(result).not.toContain('Show the client secret')
+    })
+
+    test('a member is told to ask an admin, and is not offered the reveal', async () => {
+      mockPage({ role: 'user', deployments: [deployment()] })
+
+      const { statusCode, result } = await page()
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('GPT-4o is ready')
+      expect(result).toContain(
+        'Ask an admin of Flood Risk Team for the client secret.'
+      )
+      expect(result).not.toContain('Show the client secret')
+      expect(calledWith('/v1/credentials')).toBe(false)
+    })
+
+    test('points to setting it up in Test once Test is available', async () => {
+      config.set('teamEnvironments', ['infradev', 'qa'])
+      mockPage({
+        deployments: [deployment()],
+        credentials: [teamCredential]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain(
+        'when it is working, you can <a class="govuk-link" href="/teams/flood-risk-team/test">set it up in Test</a>'
       )
     })
 
-    test('leaves a model that is being removed to the team page', async () => {
-      await afterRequest()
-      mockDeployments(
-        first({ status: 'deploying' }),
-        second({ status: 'removed' })
+    test('does not point to Test while Test is not available', async () => {
+      mockPage({ deployments: [deployment()], credentials: [teamCredential] })
+
+      const { result } = await page()
+
+      expect(result).not.toContain('set it up in Test')
+      expect(result).not.toContain('/teams/flood-risk-team/test')
+    })
+
+    test('does not point to Test from Test itself', async () => {
+      config.set('teamEnvironments', ['qa'])
+      mockPage({
+        deployments: [deployment({ environment: 'qa' })],
+        credentials: [{ ...teamCredential, environment: 'qa' }]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('for Flood Risk Team, in Test')
+      expect(result).not.toContain('set it up in Test')
+    })
+  })
+
+  describe('when a model could not be set up', () => {
+    function failedPage(overrides, options = {}) {
+      mockPage({
+        deployments: [
+          deployment({
+            _id: 'deployment-f',
+            modelSlug: 'gpt-5-mini',
+            status: 'deploy-failed',
+            operationId: 'op-1234567-7f3k2',
+            failureReason:
+              'Apply: gpt-5-mini is not available in swedencentral',
+            links: {
+              pullRequest: 'https://github.com/DEFRA/tenants/pull/214',
+              applyRun: 'https://github.com/DEFRA/tenants/actions/runs/9',
+              submitRun: 'https://github.com/DEFRA/tenants/actions/runs/8'
+            },
+            ...overrides
+          }),
+          deployment({ _id: 'deployment-ok', modelSlug: 'gpt-4o' })
+        ],
+        ...options
+      })
+
+      return page('deployment-f')
+    }
+
+    test('names the model, says why in plain words and what is not affected', async () => {
+      const { statusCode, result } = await failedPage()
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('We could not set up GPT-5 mini')
+      expect(result).toContain(
+        'GPT-5 mini is not available to teams in the UK yet, so it could not be set up. It should not have been offered to you. GPT-4o is not affected.'
+      )
+      expect(result).not.toContain('http-equiv="refresh"')
+    })
+
+    test('an admin can remove it, use the model the team has, or ask for help quoting the reference', async () => {
+      const { result } = await failedPage()
+
+      expect(result).toContain('What you can do')
+      expect(result).toContain(
+        'href="/teams/flood-risk-team/models/deployment-f/remove">remove it from your team</a>'
+      )
+      expect(result).toContain('use GPT-4o, which your team already has')
+      expect(result).toContain('ask the AI Platform team for help</a>')
+      expect(result).toContain(
+        'quoting reference <strong data-testid="support-reference">AIP-7F3K2</strong>'
+      )
+    })
+
+    test('a member is told to ask an admin to remove it', async () => {
+      mockPage({
+        role: 'user',
+        deployments: [deployment({ status: 'checks-failed' })]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain(
+        'ask an admin of Flood Risk Team to remove it from your team'
+      )
+      expect(result).not.toContain('/remove"')
+    })
+
+    test('has technical details, closed, with the reference, what failed and the links', async () => {
+      const { result } = await failedPage()
+
+      expect(result).toContain('Technical details for the AI Platform team')
+      expect(result).toMatch(/<details[^>]*data-testid="technical-details"/)
+      expect(result).not.toMatch(/<details[^>]*\sopen/)
+      expect(result).toContain('Reference')
+      expect(result).toContain('AIP-7F3K2')
+      expect(result).toContain('What failed')
+      expect(result).toContain(
+        'Apply: gpt-5-mini is not available in swedencentral'
+      )
+      expect(result).toContain(
+        '<a class="govuk-link" href="https://github.com/DEFRA/tenants/pull/214">Pull request</a>'
+      )
+      expect(result).toContain(
+        '<a class="govuk-link" href="https://github.com/DEFRA/tenants/actions/runs/9">Apply run</a>'
+      )
+      expect(result).not.toContain('actions/runs/8')
+    })
+
+    test('shows only https links', async () => {
+      const { result } = await failedPage({
+        links: { pullRequest: 'javascript:alert(1)' }
+      })
+
+      expect(result).not.toContain('javascript:alert')
+      expect(result).not.toContain('Pull request')
+    })
+
+    test('says a model in the UK could not be set up, without blaming the offer', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'checks-failed' })]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain(
+        'GPT-4o could not be set up for Flood Risk Team.'
+      )
+      expect(result).not.toContain('should not have been offered')
+      expect(result).not.toContain('not affected')
+      expect(result).not.toContain('which your team already has')
+    })
+
+    test('says the resources were created when they could not be confirmed', async () => {
+      mockPage({
+        deployments: [
+          deployment({
+            status: 'deploy-failed',
+            verificationFailure: {
+              reason: 'environment-not-configured',
+              attempts: 5
+            }
+          })
+        ]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain(
+        'GPT-4o was created for Flood Risk Team, but we could not confirm it is working.'
+      )
+    })
+
+    test('asks for help without a reference when the deployment has none', async () => {
+      mockPage({
+        deployments: [
+          deployment({ status: 'checks-failed', operationId: undefined })
+        ]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('ask the AI Platform team for help</a>')
+      expect(result).not.toContain('quoting reference')
+      expect(result).not.toContain('AIP-')
+    })
+
+    test('names a model by its slug when the catalogue no longer lists it', async () => {
+      mockPage({
+        catalogue: [],
+        deployments: [deployment({ status: 'checks-failed' })]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('We could not set up gpt-4o')
+      expect(result).toContain(
+        'gpt-4o could not be set up for Flood Risk Team.'
+      )
+    })
+  })
+
+  describe('who can see it', () => {
+    test('shows a not found page to a person with only their own keys, who is not in the team', async () => {
+      mockResponse(NOT_FOUND, { status: 404 })
+
+      const { statusCode, result } = await page()
+
+      expect(statusCode).toBe(statusCodes.notFound)
+      expect(result).toContain('Request not found')
+      expect(calledWith('/deployments')).toBe(false)
+    })
+
+    test('shows a not found page when the backend refuses the team', async () => {
+      mockResponse(
+        { statusCode: 403, error: 'Forbidden', message: 'Forbidden' },
+        { status: 403 }
       )
 
-      const { result } = await request()
+      const { statusCode, result } = await page()
 
-      expect(result).not.toContain('<h3')
-      expect(result).toContain('Setting up your model access')
+      expect(statusCode).toBe(statusCodes.notFound)
+      expect(result).toContain('Request not found')
+    })
+
+    test('shows a not found page when the team has no deployments the person can see', async () => {
+      mockResponse(teamWithMembers())
+      mockResponse(NOT_FOUND, { status: 404 })
+
+      const { statusCode } = await page()
+
+      expect(statusCode).toBe(statusCodes.notFound)
+    })
+
+    test('shows a not found page for a deployment the team does not have', async () => {
+      mockResponse(teamWithMembers())
+      mockResponse({ items: [deployment({ _id: 'another-deployment' })] })
+
+      const { statusCode, result } = await page('unknown-deployment')
+
+      expect(statusCode).toBe(statusCodes.notFound)
+      expect(result).toContain('Request not found')
+    })
+
+    test('lets a fault in finding the team through', async () => {
+      mockResponse({ message: 'Broken', code: 'error' }, { status: 500 })
+
+      const { statusCode } = await page()
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
+    })
+
+    test('sends someone who is signed out to sign in', async () => {
+      const { statusCode, headers } = await get(
+        server,
+        {},
+        '/connect/team/request/flood-risk-team/deployment-1'
+      )
+
+      expect(statusCode).toBe(302)
+      expect(headers.location).toContain('/sign-in')
+    })
+
+    test.each(['removing', 'removed'])(
+      'sends a %s deployment to its team page, where the removal is shown',
+      async (status) => {
+        mockResponse(teamWithMembers())
+        mockResponse({ items: [deployment({ status })] })
+
+        const { statusCode, headers } = await page()
+
+        expect(statusCode).toBe(statusCodes.seeOther)
+        expect(headers.location).toBe('/teams/flood-risk-team')
+      }
+    )
+
+    test('is a page of its own: the old credential page is gone', async () => {
+      const { statusCode } = await get(
+        server,
+        cookies,
+        '/connect/team/credential'
+      )
+
+      expect(statusCode).toBe(statusCodes.notFound)
+    })
+
+    test('reads the team from whatever the address names, its id as well as its slug', async () => {
+      mockResponse(teamWithMembers())
+      mockResponse({ items: [deployment({ status: 'deploying' })] })
+      mockResponse({ items: [sampleModel] })
+
+      const { statusCode } = await get(
+        server,
+        cookies,
+        '/connect/team/request/team-1/deployment-1'
+      )
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(calledWith('/v1/teams/team-1/deployments')).toBe(true)
     })
   })
 })

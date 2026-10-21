@@ -5,8 +5,9 @@ import { teamRequestController } from './team-request-controller.js'
 
 /**
  * Sets up the routes used in the connect-to-a-model journey: `/connect/shared/*`
- * for the research tier (B06), `/connect/team/*` for the team tier's
- * GitOps-shaped provisioning wait page (B09). The two `start` routes are the
+ * for the research tier (B06), `/connect/team/*` for a team's request: choose
+ * the team, models and what it is for, check, then the page that follows the
+ * set-up to its end (B09). The two `start` routes are the
  * way in, from the Models page and a model's page. Every route here is
  * protected by the global sign-in gate
  * (src/server/plugins/require-sign-in-globally.js), which brings a signed-out
@@ -76,6 +77,7 @@ export const connect = {
         {
           method: 'GET',
           path: '/connect/team/select',
+          options: teamConnectController.selectTeam.get.options,
           handler: teamConnectController.selectTeam.get.handler
         },
         {
@@ -89,6 +91,7 @@ export const connect = {
         {
           method: 'GET',
           path: '/connect/team/model',
+          options: teamConnectController.selectModels.get.options,
           handler: teamConnectController.selectModels.get.handler
         },
         {
@@ -102,6 +105,7 @@ export const connect = {
         {
           method: 'GET',
           path: '/connect/team/details',
+          options: teamConnectController.details.get.options,
           handler: teamConnectController.details.get.handler
         },
         {
@@ -124,13 +128,8 @@ export const connect = {
         },
         {
           method: 'GET',
-          path: '/connect/team/request/{teamId}/{id}',
+          path: '/connect/team/request/{team}/{id}',
           handler: teamRequestController.request.get.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/team/credential',
-          handler: teamRequestController.credential.get.handler
         }
       ])
     }

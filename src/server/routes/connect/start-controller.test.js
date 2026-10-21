@@ -8,6 +8,7 @@ import {
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 import {
+  nanoModel,
   sampleModel,
   sampleTeam,
   teamConnectHelpers
@@ -36,7 +37,8 @@ vi.mock('openid-client', () => ({
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
-const { mockResponse, get, reachTeamStep } = teamConnectHelpers(fetchMock)
+const { mockResponse, get, reachTeamStep, mockModelChoices, mockTeamChoices } =
+  teamConnectHelpers(fetchMock)
 
 describe('#startController', () => {
   let server
@@ -170,8 +172,7 @@ describe('#startController', () => {
         { modelSlug: 'gpt-4o' }
       )
 
-      mockResponse({ items: [sampleModel] })
-      mockResponse({ items: [] })
+      mockModelChoices({ models: [sampleModel, nanoModel] })
       const { statusCode, result } = await get(
         server,
         cookies,
@@ -189,8 +190,16 @@ describe('#startController', () => {
         await get(server, cookies, '/connect/team/start')
       )
 
-      mockResponse({
-        items: [sampleTeam, { _id: 'team-2', name: 'Waste Crime Team' }]
+      mockTeamChoices({
+        teams: [
+          sampleTeam,
+          {
+            _id: 'team-2',
+            slug: 'waste-crime-team',
+            name: 'Waste Crime Team',
+            role: 'user'
+          }
+        ]
       })
       const { statusCode, result } = await get(
         server,
@@ -210,7 +219,7 @@ describe('#startController', () => {
         await get(server, cookies, '/connect/team/start')
       )
 
-      mockResponse({ items: [] })
+      mockTeamChoices({ teams: [] })
       const { headers } = await get(server, cookies, '/connect/team/select')
 
       expect(headers.location).toBe(

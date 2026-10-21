@@ -6,8 +6,6 @@ import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
 import {
   getSessionUser,
-  getPendingAccess,
-  setPendingAccess,
   getPendingTeam,
   setPendingTeam,
   clearPendingTeam,
@@ -239,15 +237,7 @@ export const teamsController = {
           clearPendingTeam(request)
 
           if (pendingTeam.returnTo) {
-            const currentAccess = getPendingAccess(request) ?? {}
-
-            setPendingAccess(request, {
-              ...currentAccess,
-              accessType: 'team',
-              teamId: team._id,
-              userId: sessionUser.id
-            })
-
+            // Back to the journey it came from, which lists the new team.
             return h
               .redirect(
                 safeReturnTo(pendingTeam.returnTo, `/teams/${team._id}`)

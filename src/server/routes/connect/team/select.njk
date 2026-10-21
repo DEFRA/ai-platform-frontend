@@ -1,14 +1,16 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/radios/macro.njk" import govukRadios %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
-{% block content %}
-  {{ appHeading({
-    text: heading
-  }) }}
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
 
+{% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}
@@ -22,25 +24,21 @@
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukRadios({
-          idPrefix: "teamId",
-          name: "teamId",
+          idPrefix: "team",
+          name: "team",
           fieldset: {
             legend: {
-              text: "Which team is this for?",
-              isPageHeading: false,
-              classes: "govuk-fieldset__legend--m"
+              text: heading,
+              isPageHeading: true,
+              classes: "govuk-fieldset__legend--xl"
             }
           },
-          errorMessage: fieldErrors.teamId,
+          errorMessage: fieldErrors.team,
           items: teamItems
         }) }}
 
         {{ govukButton({ text: "Continue" }) }}
       </form>
-
-      <p class="govuk-body">
-        <a class="govuk-link" href="/teams/new?returnTo=%2Fconnect%2Fteam%2Fselect">Create a new team</a>
-      </p>
     </div>
   </div>
 {% endblock %}
