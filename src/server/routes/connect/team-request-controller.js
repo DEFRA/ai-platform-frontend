@@ -30,6 +30,7 @@ import {
 
 const ACTIVE_STATUS = 'active'
 const REVOKED_STATUS = 'revoked'
+const VAULT_UNWRITTEN = 'unwritten'
 const TEST_ENVIRONMENT = 'qa'
 const REFRESH_SECONDS = 3
 
@@ -127,25 +128,57 @@ function waitView(h, { team, live, catalogue }) {
   })
 }
 
-// The team's client secret for the environment the models were set up in. The
-// backend grants the models to it when they turn active, so it exists by now,
-// unless an admin has revoked it since (which is final, so waiting will not
-// bring it back).
-async function findTeamCredential(request, deployment) {
+// The newest time a model turned active in the environment, which a
+// revocation has to come after to count (the backend gives the team a fresh
+// secret on an activation that follows an older revocation).
+function newestActivation(deployments, environment) {
+  return deployments
+    .filter((deployment) => deployment.environment === environment)
+    .map(({ activatedAt }) => activatedAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1)
+}
+
+// The team's client secret for the environment the models were set up in, by
+// the backend's rules (credential-service `ensureTeamCredential`): the backend
+// grants the models to it when they turn active, so it exists by now. It can
+// be reached to show once the secret is in the vault (`vaultState` is not
+// `unwritten`). Only the team's latest credential can be revoked for good, and
+// only by a revocation after the newest activation; an older revoked one with
+// a pending or failed replacement is still on its way.
+async function findTeamCredential(request, deployment, deployments) {
   const { items } = await apiClient(request).get('/v1/credentials', {
     userId: getSessionUser(request).id
   })
-  const ofTeam = items.filter(
-    (credential) =>
-      credential.tier === 'team' &&
-      credential.teamId === deployment.teamId &&
-      credential.environment === deployment.environment
-  )
+  const ofTeam = items
+    .filter(
+      (credential) =>
+        credential.tier === 'team' &&
+        credential.teamId === deployment.teamId &&
+        credential.environment === deployment.environment
+    )
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
   const active = ofTeam.find(({ status }) => status === ACTIVE_STATUS)
 
+  if (active) {
+    return {
+      id: active.vaultState === VAULT_UNWRITTEN ? null : active._id,
+      revoked: false
+    }
+  }
+
+  const [latest] = ofTeam
+  const activatedAt = newestActivation(deployments, deployment.environment)
+
   return {
-    id: active?._id ?? null,
-    revoked: !active && ofTeam.some(({ status }) => status === REVOKED_STATUS)
+    id: null,
+    revoked: Boolean(
+      latest?.status === REVOKED_STATUS &&
+      activatedAt &&
+      latest.revokedAt &&
+      latest.revokedAt >= activatedAt
+    )
   }
 }
 
@@ -160,11 +193,15 @@ function testSetUp(team, environment) {
     : null
 }
 
-async function readyView(request, h, { team, isAdmin, ready, catalogue }) {
+async function readyView(
+  request,
+  h,
+  { team, isAdmin, ready, allDeployments, catalogue }
+) {
   const names = ready.map((deployment) => modelName(catalogue, deployment))
   const { environment } = ready[0]
   const credential = isAdmin
-    ? await findTeamCredential(request, ready[0])
+    ? await findTeamCredential(request, ready[0], allDeployments)
     : { id: null, revoked: false }
   const heading = `${joinNames(names)} ${names.length > 1 ? 'are' : 'is'} ready`
 
@@ -323,7 +360,13 @@ export const teamRequestController = {
           })
         }
 
-        return readyView(request, h, { team, isAdmin, ready, catalogue })
+        return readyView(request, h, {
+          team,
+          isAdmin,
+          ready,
+          allDeployments: deployments,
+          catalogue
+        })
       }
     }
   }

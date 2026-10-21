@@ -61,6 +61,7 @@ function deployment(overrides = {}) {
     environment: 'infradev',
     requestedBy: 'user-1',
     operationId: 'op-1234567-7f3k2',
+    activatedAt: '2026-10-21T10:45:00.000Z',
     ...overrides
   }
 }
@@ -70,7 +71,8 @@ const teamCredential = {
   tier: 'team',
   teamId: 'team-1',
   environment: 'infradev',
-  status: 'active'
+  status: 'active',
+  createdAt: '2026-10-21T10:45:00.000Z'
 }
 
 describe('#teamRequestController', () => {
@@ -452,21 +454,94 @@ describe('#teamRequestController', () => {
       expect(result).not.toContain('Show the client secret')
     })
 
-    test('says the client secret was revoked, not that it is coming, when the only one for the environment is revoked', async () => {
-      mockPage({
-        deployments: [deployment()],
-        credentials: [{ ...teamCredential, status: 'revoked' }]
+    describe('the client secret an admin can show, by the backend\u2019s rules', () => {
+      const revoked = (overrides) => ({
+        ...teamCredential,
+        _id: 'cred-old',
+        status: 'revoked',
+        createdAt: '2026-10-21T09:00:00.000Z',
+        revokedAt: '2026-10-21T11:00:00.000Z',
+        ...overrides
+      })
+      const replacement = (status) => ({
+        ...teamCredential,
+        _id: 'cred-new',
+        status,
+        createdAt: '2026-10-21T12:00:00.000Z'
       })
 
-      const { result } = await page()
+      test('says the client secret was revoked, not that it is coming, when the latest one was revoked after the models turned active', async () => {
+        mockPage({
+          deployments: [deployment()],
+          credentials: [revoked()]
+        })
 
-      expect(result).toContain('data-testid="secret-revoked"')
-      expect(result).toContain(
-        'The client secret for Development was revoked, so there is nothing to show.'
+        const { result } = await page()
+
+        expect(result).toContain('data-testid="secret-revoked"')
+        expect(result).toContain(
+          'The client secret for Development was revoked, so there is nothing to show.'
+        )
+        expect(result).toContain('href="/manage"')
+        expect(result).not.toContain('not ready yet')
+        expect(result).not.toContain('Show the client secret')
+      })
+
+      test.each(['pending', 'failed'])(
+        'says it is not ready yet, not revoked, when an old revoked one has a %s replacement',
+        async (status) => {
+          mockPage({
+            deployments: [deployment()],
+            credentials: [revoked(), replacement(status)]
+          })
+
+          const { result } = await page()
+
+          expect(result).toContain('The client secret is not ready yet.')
+          expect(result).not.toContain('secret-revoked')
+          expect(result).not.toContain('Show the client secret')
+        }
       )
-      expect(result).toContain('href="/manage"')
-      expect(result).not.toContain('not ready yet')
-      expect(result).not.toContain('Show the client secret')
+
+      test('says it is not ready yet when the revocation came before the models turned active', async () => {
+        mockPage({
+          deployments: [deployment()],
+          credentials: [revoked({ revokedAt: '2026-10-21T10:00:00.000Z' })]
+        })
+
+        const { result } = await page()
+
+        expect(result).toContain('The client secret is not ready yet.')
+        expect(result).not.toContain('secret-revoked')
+      })
+
+      test('does not offer to show an active one whose secret is not in the vault yet, even beside an old revoked one', async () => {
+        mockPage({
+          deployments: [deployment()],
+          credentials: [
+            revoked(),
+            { ...replacement('active'), vaultState: 'unwritten' }
+          ]
+        })
+
+        const { result } = await page()
+
+        expect(result).toContain('The client secret is not ready yet.')
+        expect(result).not.toContain('secret-revoked')
+        expect(result).not.toContain('Show the client secret')
+        expect(result).not.toContain('/manage/credentials/')
+      })
+
+      test('offers the newest credential once it is active and in the vault', async () => {
+        mockPage({
+          deployments: [deployment()],
+          credentials: [revoked(), replacement('active')]
+        })
+
+        const { result } = await page()
+
+        expect(result).toContain('href="/manage/credentials/cred-new/view"')
+      })
     })
 
     test('a member is told to ask an admin, and is not offered the reveal', async () => {
