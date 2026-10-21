@@ -522,7 +522,9 @@ describe('#teamConnectController', () => {
       })
       mockModelChoices({
         models: [sampleModel, nanoModel],
-        deployments: [{ modelSlug: 'gpt-4o', status: 'active' }]
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'active', environment: 'infradev' }
+        ]
       })
 
       const { result } = await get(server, cookies, '/connect/team/model')
@@ -532,10 +534,50 @@ describe('#teamConnectController', () => {
       expect(result).toContain('Already set up for this team')
     })
 
+    test('offers a model the team has only in another environment, but not one it has there', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      mockModelChoices({
+        models: [sampleModel, nanoModel],
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'active', environment: 'qa' },
+          {
+            modelSlug: 'gpt-4-1-nano',
+            status: 'active',
+            environment: 'infradev'
+          }
+        ]
+      })
+
+      const { result } = await get(server, cookies, '/connect/team/model')
+
+      expect(result).not.toMatch(/value="gpt-4o"[^>]*disabled/)
+      expect(result).toMatch(/value="gpt-4-1-nano"[^>]*disabled/)
+    })
+
+    test('accepts a model the team has only in another environment', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      mockModelChoices({
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'active', environment: 'qa' }
+        ]
+      })
+
+      const { statusCode } = await post(
+        server,
+        cookies,
+        '/connect/team/model',
+        { modelSlugs: ['gpt-4o'] }
+      )
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+    })
+
     test('offers a model the team removed again', async () => {
       const cookies = await reachTeamStep(server, await signIn(server))
       mockModelChoices({
-        deployments: [{ modelSlug: 'gpt-4o', status: 'removed' }]
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'removed', environment: 'infradev' }
+        ]
       })
 
       const { result } = await get(server, cookies, '/connect/team/model')
@@ -550,7 +592,13 @@ describe('#teamConnectController', () => {
         })
         mockModelChoices({
           models: [sampleModel, nanoModel],
-          deployments: [{ modelSlug: 'gpt-4-1-nano', status: 'active' }]
+          deployments: [
+            {
+              modelSlug: 'gpt-4-1-nano',
+              status: 'active',
+              environment: 'infradev'
+            }
+          ]
         })
 
         const skipped = await get(server, cookies, '/connect/team/model')
@@ -706,7 +754,7 @@ describe('#teamConnectController', () => {
       [
         'a model the team has been given since the page was shown',
         ['gpt-4o'],
-        [{ modelSlug: 'gpt-4o', status: 'active' }]
+        [{ modelSlug: 'gpt-4o', status: 'active', environment: 'infradev' }]
       ]
     ])('refuses %s', async (_name, modelSlugs, deployments) => {
       const cookies = await reachTeamStep(server, await signIn(server))

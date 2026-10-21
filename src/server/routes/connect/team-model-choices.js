@@ -17,8 +17,9 @@ function listedModels(models) {
 
 /**
  * What the model step offers a team: the models that run in the UK and that
- * the target environment can deploy, the models the team already has (any not
- * removed, which cannot be requested again), and the names of the models that
+ * the target environment can deploy, the models the team already has there
+ * (any not removed, which cannot be requested again), and the names of the
+ * models that
  * are not in the UK yet, so the page can say so.
  * @param {import('@hapi/hapi').Request} request
  * @param {{teamSlug: string, environment?: string}} journey
@@ -45,7 +46,11 @@ export async function loadModelChoices(request, { teamSlug, environment }) {
     ),
     held: new Set(
       deployments
-        .filter(({ status }) => status !== DEPLOYMENT_REMOVED_STATUS)
+        .filter(
+          ({ status, environment: deployed }) =>
+            status !== DEPLOYMENT_REMOVED_STATUS &&
+            (!environment || deployed === environment)
+        )
         .map(({ modelSlug }) => modelSlug)
     ),
     notInUkNames: listedModels(catalogue)
