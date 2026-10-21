@@ -5,6 +5,7 @@ const LABELS = {
   anthropic: 'Anthropic',
   meta: 'Meta',
   uksouth: 'UK South',
+  ukwest: 'UK West',
   active: 'Active',
   pending: 'Being created',
   revoked: 'Revoked',

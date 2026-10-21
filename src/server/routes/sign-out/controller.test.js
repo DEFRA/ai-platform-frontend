@@ -85,27 +85,24 @@ describe('#signOutController', () => {
   test('POST /sign-out ends the whole session, so a half-made journey is not there for the next person', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
     const headers = { cookie: cookieHeader(cookies) }
+    const models = { items: [{ slug: 'gpt-4o', displayName: 'GPT-4o' }] }
 
     const started = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers,
-      payload: {
-        accessType: 'team',
-        modelSlug: 'gpt-4o',
-        crumb: cookies.crumb
-      }
-    })
-
-    expect(started.statusCode).toBe(303)
-
-    const before = await server.inject({
       method: 'GET',
-      url: '/connect',
+      url: '/connect/shared/start?modelSlug=gpt-4o',
       headers
     })
 
-    expect(before.result).toContain('value="gpt-4o"')
+    expect(started.statusCode).toBe(302)
+
+    fetchMock.mockResponseOnce(JSON.stringify(models))
+    const before = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/model',
+      headers
+    })
+
+    expect(before.result).toContain('checked')
 
     await server.inject({
       method: 'POST',
@@ -114,14 +111,40 @@ describe('#signOutController', () => {
       payload: { crumb: cookies.crumb }
     })
 
-    // The old session is gone server-side, even for a cookie that was kept.
+    // The old session is gone server-side, even for a cookie that was kept:
+    // signing in again on it finds nothing of the earlier journey.
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: {
+          _id: 'user-2',
+          email: 'someone.else@defra.gov.uk',
+          displayName: 'Someone Else'
+        },
+        team: null
+      })
+    )
+    const jar = { ...cookies }
+    mergeCookies(
+      jar,
+      await server.inject({ method: 'GET', url: '/auth/login', headers })
+    )
+    mergeCookies(
+      jar,
+      await server.inject({
+        method: 'GET',
+        url: '/auth/callback?code=abc&state=state-123',
+        headers: { cookie: cookieHeader(jar) }
+      })
+    )
+
     const after = await server.inject({
       method: 'GET',
-      url: '/connect',
-      headers
+      url: '/connect/shared/model',
+      headers: { cookie: cookieHeader(jar) }
     })
 
-    expect(after.result).not.toContain('value="gpt-4o"')
+    expect(after.statusCode).toBe(302)
+    expect(after.headers.location).toBe('/models')
   })
 
   test('POST /sign-out works even without a signed-in session', async () => {

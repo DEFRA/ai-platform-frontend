@@ -5,3 +5,18 @@
   padding: govuk-spacing(3);
   background-color: govuk-colour("light-grey");
 }
+
+// "Copy code" sits above the code, at the right, as a link that is a button.
+.app-code-examples__actions {
+  margin: 0 0 govuk-spacing(2);
+  text-align: right;
+}
+
+.app-code-examples__copy {
+  @include govuk-font($size: 19);
+
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}

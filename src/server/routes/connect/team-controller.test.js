@@ -69,7 +69,7 @@ describe('#teamConnectController', () => {
     fetchMock.resetMocks()
   })
 
-  test('GET /connect/team/select redirects to /connect without a pending access type', async () => {
+  test('GET /connect/team/select redirects to /models without a pending access type', async () => {
     const cookies = await signIn(server)
 
     const { statusCode, headers } = await get(
@@ -79,14 +79,14 @@ describe('#teamConnectController', () => {
     )
 
     expect(statusCode).toBe(302)
-    expect(headers.location).toBe('/connect')
+    expect(headers.location).toBe('/models')
   })
 
   test('GET /connect/team/select redirects to /teams/new when the user has no teams', async () => {
     let cookies = await signIn(server)
     cookies = mergeCookies(
       cookies,
-      await post(server, cookies, '/connect', { accessType: 'team' })
+      await get(server, cookies, '/connect/team/start')
     )
     mockResponse({ items: [] })
 
@@ -106,7 +106,7 @@ describe('#teamConnectController', () => {
     let cookies = await signIn(server)
     cookies = mergeCookies(
       cookies,
-      await post(server, cookies, '/connect', { accessType: 'team' })
+      await get(server, cookies, '/connect/team/start')
     )
     mockResponse({ items: [sampleTeam] })
 
@@ -289,7 +289,7 @@ describe('#teamConnectController', () => {
       )
 
       expect(statusCode).toBe(302)
-      expect(headers.location).toBe('/connect')
+      expect(headers.location).toBe('/models')
     })
   })
 
@@ -525,8 +525,8 @@ describe('#teamConnectController', () => {
       const checkPage = await get(server, cookies, '/connect/team/check')
       const confirm = await post(server, cookies, '/connect/team/check', {})
 
-      expect(checkPage.headers.location).toBe('/connect')
-      expect(confirm.headers.location).toBe('/connect')
+      expect(checkPage.headers.location).toBe('/models')
+      expect(confirm.headers.location).toBe('/models')
     })
   })
 
@@ -544,11 +544,9 @@ describe('#teamConnectController', () => {
 
       const checkAgain = await get(server, cookies, '/connect/team/check')
       const modelAgain = await get(server, cookies, '/connect/team/model')
-      const start = await get(server, cookies, '/connect')
 
-      expect(checkAgain.headers.location).toBe('/connect')
-      expect(modelAgain.headers.location).toBe('/connect')
-      expect(start.result).not.toContain('value="gpt-4o"')
+      expect(checkAgain.headers.location).toBe('/models')
+      expect(modelAgain.headers.location).toBe('/models')
     })
 
     test('is dropped when someone else signs in on the same session', async () => {
@@ -582,8 +580,8 @@ describe('#teamConnectController', () => {
       const details = await get(server, cookies, '/connect/team/details')
       const model = await get(server, cookies, '/connect/team/model')
 
-      expect(details.headers.location).toBe('/connect')
-      expect(model.headers.location).toBe('/connect')
+      expect(details.headers.location).toBe('/models')
+      expect(model.headers.location).toBe('/models')
     })
   })
 })

@@ -222,7 +222,7 @@ export const teamsController = {
         }
 
         if (!sessionUser) {
-          return h.redirect('/connect').code(statusCodes.seeOther)
+          return h.redirect('/models').code(statusCodes.seeOther)
         }
 
         try {

@@ -4,7 +4,6 @@ import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   signInViaOidc,
-  mergeCookies,
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 
@@ -57,19 +56,31 @@ describe('#requireSignInGlobally', () => {
     expect(headers.location).toBe('/sign-in?returnTo=%2Fmanage')
   })
 
-  test('allows GET /connect without a session, but not POST /connect', async () => {
+  test('allows the Models pages without a session, but sends the start of a journey to sign in, keeping the model', async () => {
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    const models = await server.inject({ method: 'GET', url: '/models' })
+    expect(models.statusCode).toBe(statusCodes.ok)
+
+    const start = await server.inject({
+      method: 'GET',
+      url: '/connect/team/start?modelSlug=gpt-4o'
+    })
+    expect(start.statusCode).toBe(302)
+    expect(start.headers.location).toBe(
+      '/sign-in?returnTo=%2Fconnect%2Fteam%2Fstart%3FmodelSlug%3Dgpt-4o'
+    )
+  })
+
+  test('has no access-type step any more', async () => {
     const getConnect = await server.inject({ method: 'GET', url: '/connect' })
-    expect(getConnect.statusCode).toBe(statusCodes.ok)
-    const cookies = mergeCookies({}, getConnect)
+    expect(getConnect.statusCode).toBe(statusCodes.notFound)
 
     const postConnect = await server.inject({
       method: 'POST',
       url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, accessType: 'shared' }
+      payload: { accessType: 'shared' }
     })
-    expect(postConnect.statusCode).toBe(302)
-    expect(postConnect.headers.location).toBe('/sign-in?returnTo=%2Fconnect')
+    expect(postConnect.statusCode).toBe(statusCodes.notFound)
   })
 
   test('allows / and /about without a session', async () => {

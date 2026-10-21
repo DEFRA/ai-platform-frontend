@@ -47,13 +47,12 @@ async function signIn(server) {
 }
 
 async function reachDetailsStep(server, cookies) {
-  const postAccessType = await server.inject({
-    method: 'POST',
-    url: '/connect',
-    headers: { cookie: cookieHeader(cookies) },
-    payload: { crumb: cookies.crumb, accessType: 'shared' }
+  const startShared = await server.inject({
+    method: 'GET',
+    url: '/connect/shared/start',
+    headers: { cookie: cookieHeader(cookies) }
   })
-  cookies = mergeCookies(cookies, postAccessType)
+  cookies = mergeCookies(cookies, startShared)
 
   fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
   const getSelectModel = await server.inject({
@@ -106,93 +105,6 @@ describe('#connectController', () => {
 
   beforeEach(() => {
     fetchMock.resetMocks()
-  })
-
-  test('GET /connect renders the access type chooser when signed out', async () => {
-    const { statusCode, result } = await server.inject({
-      method: 'GET',
-      url: '/connect'
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('What access do you need?'))
-    expect(result).toEqual(
-      expect.stringContaining('Please sign in to continue')
-    )
-  })
-
-  test('GET /connect shows a plain Continue button once signed in', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, result } = await server.inject({
-      method: 'GET',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Continue'))
-    expect(result).not.toEqual(
-      expect.stringContaining('Please sign in to continue')
-    )
-  })
-
-  test('GET /connect offers team access as an OAuth client secret and research access as a key', async () => {
-    const { result } = await server.inject({ method: 'GET', url: '/connect' })
-
-    expect(result).toContain(
-      'An OAuth client secret the whole team shares. Admins can rotate or revoke it.'
-    )
-    expect(result).toContain(
-      'You can move to a team client secret later and keep the same sign-in.'
-    )
-    expect(result).toContain('A key that lasts 7 days in Development.')
-    expect(result).not.toContain('Sandbox')
-    expect(result).not.toContain('A key the whole team shares')
-    expect(result).not.toContain('team key')
-  })
-
-  test('POST /connect redirects to /sign-in when signed out', async () => {
-    const homeResponse = await server.inject({ method: 'GET', url: '/' })
-    const cookies = mergeCookies({}, homeResponse)
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, accessType: 'shared' }
-    })
-
-    expect(statusCode).toBe(302)
-    expect(headers.location).toBe('/sign-in?returnTo=%2Fconnect')
-  })
-
-  test('POST /connect with no access type re-renders the form with errors', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, result } = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb }
-    })
-
-    expect(statusCode).toBe(statusCodes.badRequest)
-    expect(result).toEqual(expect.stringContaining('There is a problem'))
-  })
-
-  test('POST /connect routes the team access type to /connect/team/select', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, accessType: 'team' }
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/connect/team/select')
   })
 
   test('GET /connect/shared/details says a team client secret follows the last research renewal', async () => {
@@ -326,7 +238,7 @@ describe('#connectController', () => {
     })
 
     expect(getCredentialAgain.statusCode).toBe(302)
-    expect(getCredentialAgain.headers.location).toBe('/connect')
+    expect(getCredentialAgain.headers.location).toBe('/models')
   })
 
   test('POST /connect/shared/check shows a message and a manage link for an existing active credential (409)', async () => {

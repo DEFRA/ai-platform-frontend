@@ -23,7 +23,7 @@ import {
 } from './team-request-view.js'
 
 function redirectToStart(h) {
-  return h.redirect('/connect').takeover()
+  return h.redirect('/models').takeover()
 }
 
 function notFoundView(h) {
@@ -222,7 +222,7 @@ export const teamRequestController = {
         const issued = takeIssuedCredential(request)
 
         if (!issued) {
-          return h.redirect('/connect')
+          return h.redirect('/models')
         }
 
         return h

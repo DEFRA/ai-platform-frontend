@@ -1,9 +1,16 @@
 import {
+  SHOW_OPTIONS,
   TEAM_AVAILABILITY,
   canTry,
+  filterByShow,
   groupModels,
   isCapacityDuplicate,
-  teamAvailability
+  isEligible,
+  teamAvailability,
+  teamUkRegion,
+  unavailableReason,
+  useCasesList,
+  useCasesSentence
 } from './model-availability.js'
 
 const UK_TEAM_SKU = { name: 'DataZoneStandard', tiers: ['team'] }
@@ -162,6 +169,121 @@ describe('model-availability', () => {
 
     test('copes with an empty list', () => {
       expect(groupModels([])).toEqual({ available: [], notAvailable: [] })
+    })
+  })
+
+  describe('isEligible and unavailableReason', () => {
+    test('a model is eligible unless the catalogue says it is not', () => {
+      expect(isEligible(model())).toBe(true)
+      expect(isEligible(model({ eligible: undefined }))).toBe(true)
+      expect(isEligible(model({ eligible: false }))).toBe(false)
+    })
+
+    test('gives the catalogue reason, else Retired for a retired model, else a plain one', () => {
+      expect(unavailableReason({ eligibilityReason: 'Not yet' })).toBe(
+        'Not yet'
+      )
+      expect(unavailableReason({ lifecycle: { status: 'retired' } })).toBe(
+        'Retired'
+      )
+      expect(unavailableReason({})).toBe('Not approved yet')
+    })
+  })
+
+  describe('teamUkRegion', () => {
+    test('is the region of a team SKU that runs in the UK', () => {
+      expect(teamUkRegion(model())).toBe('uksouth')
+    })
+
+    test('prefers the SKU’s own regions over the model’s', () => {
+      const skus = [{ ...UK_TEAM_SKU, regions: ['ukwest'] }]
+
+      expect(teamUkRegion(model({ skus }))).toBe('ukwest')
+    })
+
+    test('skips a team SKU outside the UK and finds one in it', () => {
+      const skus = [
+        { ...UK_TEAM_SKU, regions: ['swedencentral'] },
+        { name: 'Other', tiers: ['team'], regions: ['uksouth'] }
+      ]
+
+      expect(teamUkRegion(model({ skus }))).toBe('uksouth')
+    })
+
+    test.each([
+      ['only outside the UK', { regions: ['swedencentral'] }],
+      ['no team SKU', { skus: [{ name: 'X', tiers: ['research'] }] }],
+      ['no SKUs', { skus: undefined }]
+    ])('is undefined for %s', (_why, fields) => {
+      expect(teamUkRegion(model(fields))).toBeUndefined()
+    })
+  })
+
+  describe('filterByShow', () => {
+    const models = [
+      { slug: 'a', canTry: true, teamAvailability: 'Runs in the UK' },
+      { slug: 'b', canTry: true, teamAvailability: 'Not for teams yet' },
+      { slug: 'c', canTry: false, teamAvailability: 'Runs in the UK' },
+      { slug: 'd', canTry: true, teamAvailability: 'Not in the UK yet' }
+    ]
+    const slugs = (list) => list.map((item) => item.slug)
+
+    test('"all" keeps every model', () => {
+      expect(slugs(filterByShow(models, 'all'))).toEqual(['a', 'b', 'c', 'd'])
+    })
+
+    test('"team" keeps the models that run in the UK', () => {
+      expect(slugs(filterByShow(models, 'team'))).toEqual(['a', 'c'])
+    })
+
+    test('"research" keeps the models that can be tried', () => {
+      expect(slugs(filterByShow(models, 'research'))).toEqual(['a', 'b', 'd'])
+    })
+
+    test('names the three choices', () => {
+      expect(SHOW_OPTIONS).toEqual({
+        all: 'All models',
+        team: 'Models you can add to a team',
+        research: 'Models you can try on your own'
+      })
+    })
+  })
+
+  describe('use cases as words', () => {
+    const useCases = [
+      'Chat assistants',
+      'Summarising documents',
+      'Reading images'
+    ]
+
+    test('a list keeps the first as written and lowers the rest', () => {
+      expect(useCasesList(useCases)).toBe(
+        'Chat assistants, summarising documents, reading images'
+      )
+    })
+
+    test('a sentence lowers all and ends with "and"', () => {
+      expect(useCasesSentence(useCases)).toBe(
+        'chat assistants, summarising documents and reading images'
+      )
+      expect(useCasesSentence(useCases.slice(0, 2))).toBe(
+        'chat assistants and summarising documents'
+      )
+      expect(useCasesSentence(['Prototyping'])).toBe('prototyping')
+    })
+
+    test('keeps an acronym in capitals', () => {
+      expect(useCasesList(['Chat', 'OCR of scans'])).toBe('Chat, OCR of scans')
+      expect(useCasesSentence(['OCR of scans', 'Chat'])).toBe(
+        'OCR of scans and chat'
+      )
+    })
+
+    test('are empty when there are none', () => {
+      expect(useCasesList([])).toBe('')
+      expect(useCasesList(undefined)).toBe('')
+      expect(useCasesSentence([])).toBe('')
+      expect(useCasesSentence(undefined)).toBe('')
     })
   })
 })

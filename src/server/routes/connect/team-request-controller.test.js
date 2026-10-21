@@ -254,7 +254,7 @@ describe('#teamRequestController', () => {
 
       const again = await get(server, cookies, '/connect/team/credential')
 
-      expect(again.headers.location).toBe('/connect')
+      expect(again.headers.location).toBe('/models')
     })
 
     test('shows no placeholder notice for a client secret a real issuer made', async () => {
