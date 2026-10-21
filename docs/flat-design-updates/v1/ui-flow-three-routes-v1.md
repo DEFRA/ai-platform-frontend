@@ -3,6 +3,9 @@ title: 'UI flow: three routes to a credential'
 description: "Captured record of the finalized user journey diagrams (v5, 18 September 2026) that drove this repo's and ai-platform-backend-api's route plans, since the source images live outside version control."
 ---
 
+**Superseded.** There is a new plan for the v2 and v3 screens: [../v3/build-plan.md](../v3/build-plan.md). This file
+is kept for history; do not build from it.
+
 ## Purpose
 
 The source diagrams for this journey ("UI Flow - three routes to a credential") were authored as a

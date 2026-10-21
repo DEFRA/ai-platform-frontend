@@ -1,11 +1,14 @@
 # Build spec: Get AI model access
 
+**Superseded.** There is a new plan for the v2 and v3 screens: [../v3/build-plan.md](../v3/build-plan.md). This file
+is kept for history; do not build from it.
+
 Text version of the fifteen design sheets, so nothing has to be read off an image.
 
 Each page below lists the components in the order they appear, then the exact copy.
 Component names are GOV.UK Frontend macros. Copy is final, not placeholder.
 
-Pair this with `_govuk-frontend.scss` in the same folder, which does the theme.
+Pair this with `_govuk-frontend-v1.scss` in the same folder, which does the theme.
 
 ---
 
@@ -17,7 +20,7 @@ markup. This file is a few hundred tokens per page and names the macro.
 
 Suggested order, cheapest first:
 
-1. **Theme, once.** Drop in `_govuk-frontend.scss`. That is roughly 60% of the
+1. **Theme, once.** Drop in `_govuk-frontend-v1.scss`. That is roughly 60% of the
    visual change and it applies to every page at once. No AI needed.
 2. **Chrome, once.** Header, nav and footer (below). One layout file.
 3. **Content changes, no AI at all.** Every note tagged _Content_ on the sheets is a

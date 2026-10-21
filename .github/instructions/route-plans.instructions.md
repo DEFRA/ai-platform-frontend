@@ -1,6 +1,6 @@
 ---
 description: 'Use when building or modifying any part of the "three routes to a credential" journey — not just the route folders themselves, but the shared helpers, config, components, plugins and test-helpers a route implementation typically also touches. Points to the authoritative plan docs and cross-repo design context so new work builds on what is already decided/built rather than re-deriving it.'
-applyTo: 'src/**, test-helpers/**, docs/plans/**, docs/flat-design-updates/v1/ui-flow-three-routes.md'
+applyTo: 'src/**, test-helpers/**, docs/plans/**, docs/flat-design-updates/v3/build-plan.md'
 ---
 
 # The "three routes to a credential" journey
@@ -25,7 +25,7 @@ check whether the work is a refactor of something built rather than a new featur
 
 Cross-repo context:
 
-- [docs/flat-design-updates/v1/ui-flow-three-routes.md](../../docs/flat-design-updates/v1/ui-flow-three-routes.md): the source UI flow (route paths, API contract, known gaps).
+- [docs/flat-design-updates/v3/build-plan.md](../../docs/flat-design-updates/v3/build-plan.md): the source UI flow (route paths, API contract, known gaps).
 - [ai-platform-discovery-docs/docs/iac-baseline-plan.md](../../../ai-platform-discovery-docs/docs/iac-baseline-plan.md): the IaC baseline behind B15 and B16.
 - [ai-platform-discovery-docs/src/content/design-orchestration.md](../../../ai-platform-discovery-docs/src/content/design-orchestration.md): design C, the GitOps-versus-direct-API split behind `/connect/team/*`.
 - The matching backend work: [ai-platform-backend-api route-plans.instructions.md](../../../ai-platform-backend-api/.github/instructions/route-plans.instructions.md).
@@ -38,7 +38,7 @@ memory must not hold a competing copy). When a design change or a feature lands:
 1. Edit the matching `implemented/NN-*.md` file, or move the item out of `remaining.md` into it. Add a dated line; do not
    rewrite history (git keeps it).
 2. If the UI flow itself changes (new or renamed route, changed step order), update
-   [docs/flat-design-updates/v1/ui-flow-three-routes.md](../../docs/flat-design-updates/v1/ui-flow-three-routes.md) too.
+   [docs/flat-design-updates/v3/build-plan.md](../../docs/flat-design-updates/v3/build-plan.md) too.
 3. If the change comes from a design-pack update in `ai-platform-discovery-docs`, re-check the cross-repo links above.
 
 ### Whenever you touch a plan, keep the folders and the README in sync
