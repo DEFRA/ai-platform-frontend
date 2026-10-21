@@ -3,7 +3,7 @@
   A state that is not one of the three is shown as waiting.
 #}
 {% set stateText = { done: "Done", current: "In progress", waiting: "Not started" } %}
-<ol class="app-step-list{{ ' ' + params.classes if params.classes }}" data-testid="step-list">
+<ol role="list" class="app-step-list{{ ' ' + params.classes if params.classes }}" data-testid="step-list">
   {% for item in params.items %}
     {% set state = item.state if item.state in ["done", "current"] else "waiting" %}
     <li class="app-step-list__item app-step-list__item--{{ state }}" data-testid="step-list-item"{{ ' aria-current="step"' | safe if state == "current" }}>

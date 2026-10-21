@@ -43,7 +43,9 @@ $app-step-line-width: 2px;
   box-sizing: border-box;
   width: $app-step-marker-size;
   height: $app-step-marker-size;
-  border: $app-step-line-width solid govuk-colour("mid-grey");
+  // Dark enough (3:1) to be seen on white: it is the only mark of a step that
+  // has not started. The connecting line is decoration and stays light.
+  border: $app-step-line-width solid govuk-colour("dark-grey");
   border-radius: 50%;
 }
 

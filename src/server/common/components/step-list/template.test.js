@@ -17,6 +17,8 @@ describe('Step list component', () => {
     const $steps = renderComponent('step-list', { items })
 
     expect($steps('ol.app-step-list')).toHaveLength(1)
+    // Kept as a list for VoiceOver, which drops it when list-style is none.
+    expect($steps('ol').attr('role')).toBe('list')
     expect(labels($steps)).toEqual([
       'Done: Request recorded',
       'In progress: Setting up GPT-4o in Azure',
