@@ -288,8 +288,17 @@ describe('#teamConnectController', () => {
       expect(headers.location).toBe('/connect/team/model')
     })
 
-    test('"Create a team" goes to create one, and the new team comes back listed, not chosen', async () => {
-      let cookies = await reachTeamStep(server, await signIn(server))
+    test('"Create a team" goes to create one, and the new team comes back listed, not chosen, with the model the person came from still ticked', async () => {
+      let cookies = await reachTeamStep(server, await signIn(server), {
+        modelSlug: 'gpt-4-1-nano'
+      })
+      const newTeam = {
+        _id: 'team-9',
+        slug: 'fish-export-checks',
+        name: 'Fish export checks',
+        role: 'admin',
+        createdAt: new Date().toISOString()
+      }
 
       const create = await post(server, cookies, '/connect/team/select', {
         team: '+create'
@@ -299,11 +308,43 @@ describe('#teamConnectController', () => {
       expect(create.headers.location).toBe(NEW_TEAM_URL)
       cookies = mergeCookies(cookies, create)
 
-      mockTeamChoices({ teams: [sampleTeam] })
+      // Through the create-a-team pages, returning to this journey.
+      cookies = mergeCookies(
+        cookies,
+        await post(server, cookies, '/teams/new', {
+          name: 'Fish export checks',
+          serviceCode: 'FEC',
+          returnTo: '/connect/team/select'
+        })
+      )
+      mockResponse({ team: newTeam }, { status: 201 })
+      const created = await post(server, cookies, '/teams/new/check', {})
+
+      expect(created.statusCode).toBe(statusCodes.seeOther)
+      expect(created.headers.location).toBe('/connect/team/select')
+      cookies = mergeCookies(cookies, created)
+
+      mockTeamChoices({ teams: [sampleTeam, newTeam] })
       const { result } = await get(server, cookies, '/connect/team/select')
 
-      expect(result).toContain('value="flood-risk-team"')
+      expect(result).toContain('value="fish-export-checks"')
+      expect(result).toContain(
+        'You are an admin. Created today, no models yet.'
+      )
       expect(result).not.toMatch(/name="team"[^>]*checked/)
+
+      mockResponse(teamWithMembers('admin', newTeam))
+      cookies = mergeCookies(
+        cookies,
+        await post(server, cookies, '/connect/team/select', {
+          team: 'fish-export-checks'
+        })
+      )
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const models = await get(server, cookies, '/connect/team/model')
+
+      expect(models.result).toContain('Fish export checks')
+      expect(models.result).toMatch(/value="gpt-4-1-nano"[^>]*checked/)
     })
 
     test('chooses a team on the page it is changed from', async () => {
@@ -521,6 +562,12 @@ describe('#teamConnectController', () => {
         const { result } = await get(server, cookies, '/connect/team/details')
 
         expect(backLink(result, '/connect/team/select')).toBe(true)
+
+        // And from the team step, Back still goes to the model's own page.
+        mockTeamChoices()
+        const team = await get(server, cookies, '/connect/team/select')
+
+        expect(backLink(team.result, '/models/gpt-4o')).toBe(true)
       })
 
       test('does not skip it when the model came from the Models page, not its own', async () => {
@@ -574,6 +621,24 @@ describe('#teamConnectController', () => {
 
       expect(statusCode).toBe(statusCodes.seeOther)
       expect(headers.location).toBe('/connect/team/details')
+    })
+
+    test('goes back to the model page the person came from, whatever they chose', async () => {
+      let cookies = await reachTeamStep(server, await signIn(server), {
+        modelSlug: 'gpt-4o'
+      })
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      cookies = mergeCookies(
+        cookies,
+        await post(server, cookies, '/connect/team/model', {
+          modelSlugs: ['gpt-4-1-nano']
+        })
+      )
+
+      mockTeamChoices()
+      const { result } = await get(server, cookies, '/connect/team/select')
+
+      expect(backLink(result, '/models/gpt-4o')).toBe(true)
     })
 
     test('accepts several models sent as a form, one field each', async () => {

@@ -452,6 +452,23 @@ describe('#teamRequestController', () => {
       expect(result).not.toContain('Show the client secret')
     })
 
+    test('says the client secret was revoked, not that it is coming, when the only one for the environment is revoked', async () => {
+      mockPage({
+        deployments: [deployment()],
+        credentials: [{ ...teamCredential, status: 'revoked' }]
+      })
+
+      const { result } = await page()
+
+      expect(result).toContain('data-testid="secret-revoked"')
+      expect(result).toContain(
+        'The client secret for Development was revoked, so there is nothing to show.'
+      )
+      expect(result).toContain('href="/manage"')
+      expect(result).not.toContain('not ready yet')
+      expect(result).not.toContain('Show the client secret')
+    })
+
     test('a member is told to ask an admin, and is not offered the reveal', async () => {
       mockPage({ role: 'user', deployments: [deployment()] })
 

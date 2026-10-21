@@ -29,6 +29,7 @@ import {
 } from './team-request-view.js'
 
 const ACTIVE_STATUS = 'active'
+const REVOKED_STATUS = 'revoked'
 const TEST_ENVIRONMENT = 'qa'
 const REFRESH_SECONDS = 3
 
@@ -126,20 +127,26 @@ function waitView(h, { team, live, catalogue }) {
   })
 }
 
-// The team's client secret for the environment the models were set up in: the
-// backend grants the models to it when they turn active, so it exists by now.
-async function findTeamCredentialId(request, deployment) {
+// The team's client secret for the environment the models were set up in. The
+// backend grants the models to it when they turn active, so it exists by now,
+// unless an admin has revoked it since (which is final, so waiting will not
+// bring it back).
+async function findTeamCredential(request, deployment) {
   const { items } = await apiClient(request).get('/v1/credentials', {
     userId: getSessionUser(request).id
   })
-
-  return items.find(
+  const ofTeam = items.filter(
     (credential) =>
       credential.tier === 'team' &&
       credential.teamId === deployment.teamId &&
-      credential.environment === deployment.environment &&
-      credential.status === ACTIVE_STATUS
-  )?._id
+      credential.environment === deployment.environment
+  )
+  const active = ofTeam.find(({ status }) => status === ACTIVE_STATUS)
+
+  return {
+    id: active?._id ?? null,
+    revoked: !active && ofTeam.some(({ status }) => status === REVOKED_STATUS)
+  }
 }
 
 // "set it up in Test": only once Test can be set up, and not from Test itself.
@@ -156,9 +163,9 @@ function testSetUp(team, environment) {
 async function readyView(request, h, { team, isAdmin, ready, catalogue }) {
   const names = ready.map((deployment) => modelName(catalogue, deployment))
   const { environment } = ready[0]
-  const credentialId = isAdmin
-    ? await findTeamCredentialId(request, ready[0])
-    : undefined
+  const credential = isAdmin
+    ? await findTeamCredential(request, ready[0])
+    : { id: null, revoked: false }
   const heading = `${joinNames(names)} ${names.length > 1 ? 'are' : 'is'} ready`
 
   return h.view('connect/team/ready', {
@@ -169,9 +176,10 @@ async function readyView(request, h, { team, isAdmin, ready, catalogue }) {
     environmentName: environmentName(environment),
     modelNames: joinNames(names),
     isAdmin,
-    revealUrl: credentialId
-      ? `/manage/credentials/${encodeURIComponent(credentialId)}/view`
+    revealUrl: credential.id
+      ? `/manage/credentials/${encodeURIComponent(credential.id)}/view`
       : null,
+    secretRevoked: credential.revoked,
     testSetUp: testSetUp(team, environment)
   })
 }

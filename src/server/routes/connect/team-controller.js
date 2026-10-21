@@ -385,10 +385,8 @@ export const teamConnectController = {
         const change = isChange(request)
 
         if (!change && isSingleModelFromItsPage(pendingAccess, choices)) {
-          const { modelSlug, ...journey } = pendingAccess
-
           setPendingAccess(request, {
-            ...journey,
+            ...pendingAccess,
             modelSlugs: pickableSlugs(choices),
             modelStepSkipped: true
           })
@@ -461,13 +459,14 @@ export const teamConnectController = {
           }).code(statusCodes.badRequest)
         }
 
-        // `modelSlug` was only where the person came from; their choice replaces it.
-        const { modelSlug, ...journey } = pendingAccess
-
+        // `modelSlug` stays: it is where the person came from, which the Back
+        // link of the team step goes back to, and the choice made here takes
+        // precedence over it (preselectedModelSlugs).
+        //
         // From the check page the answers are already complete, so the new
         // models need only a fresh key: a changed answer makes a new request.
         setPendingAccess(request, {
-          ...journey,
+          ...pendingAccess,
           modelSlugs,
           modelStepSkipped: false,
           ...(change && { requestKey: randomUUID() })
