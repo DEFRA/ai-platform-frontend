@@ -139,7 +139,11 @@ const BACK_LINKS = {
 }
 
 function backHref(step, pendingAccess, change) {
-  return change ? CHECK_URL : BACK_LINKS[step](pendingAccess)
+  // The check page only takes a person back once every answer is there: after
+  // changing the team the models are asked for again.
+  return change && hasCompletedTeamJourney(pendingAccess)
+    ? CHECK_URL
+    : BACK_LINKS[step](pendingAccess)
 }
 
 // A form of a step posts back to its own address, `?change=check` included.

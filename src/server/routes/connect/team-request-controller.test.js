@@ -262,6 +262,23 @@ describe('#teamRequestController', () => {
       expect(result).toContain('about 2 minutes for each model')
     })
 
+    test('follows the whole request from a link that names the team by its id', async () => {
+      await afterRequest()
+      mockPage({
+        deployments: [
+          first({ status: 'active', progressSteps: STEPS }),
+          second({ status: 'deploying', progressSteps: STEPS })
+        ]
+      })
+
+      const { result } = await page('deployment-1', 'team-1')
+
+      expect(result).toContain(
+        'Setting up GPT-4o and GPT-4.1 nano for your team'
+      )
+      expect(result).toContain('http-equiv="refresh"')
+    })
+
     test('keeps waiting while any model is still being set up', async () => {
       await afterRequest()
       mockPage({

@@ -272,7 +272,9 @@ export const teamRequestController = {
         }
 
         const { team, isAdmin, deployments } = loaded
-        const asked = requestedIds(request, teamParam, id)
+        // The session remembers the team by its slug, which the address may
+        // not use (progress links elsewhere carry the team's id).
+        const asked = requestedIds(request, team.slug, id)
           .map((wanted) => deployments.find(({ _id }) => _id === wanted))
           .filter(Boolean)
 

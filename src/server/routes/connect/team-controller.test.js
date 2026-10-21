@@ -358,6 +358,22 @@ describe('#teamConnectController', () => {
       const check = await get(server, cookies, '/connect/team/check')
 
       expect(check.headers.location).toBe('/models')
+
+      // So Back from the models goes to the team, not to the check page.
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const models = await get(
+        server,
+        cookies,
+        '/connect/team/model?change=check'
+      )
+
+      expect(backLink(models.result, '/connect/team/select')).toBe(true)
+      expect(backLink(models.result, '/connect/team/check')).toBe(false)
+
+      mockTeamChoices({ teams: [other] })
+      const back = await get(server, cookies, '/connect/team/select')
+
+      expect(back.statusCode).toBe(statusCodes.ok)
     })
 
     test('refuses anything else in the address after change', async () => {
