@@ -599,7 +599,7 @@ describe('#manageController', () => {
     expect(result).toContain('href="/teams/team-1"')
     expect(result).not.toContain('/connect/team/request/team-1/deployment-r1')
     // The team credential's row names its environment, not a fixed one.
-    expect(result).toContain('Infradev')
+    expect(result).toContain('Development')
   })
 
   test('GET /manage shows a "ready to view" link for an active deployment with no credential yet', async () => {
@@ -716,7 +716,7 @@ describe('#manageController', () => {
     expect(result).toContain('Your models')
     expect(result).not.toContain('Being set up')
     expect(result).toContain('Flood Risk Team')
-    expect(result).toContain('Infradev')
+    expect(result).toContain('Development')
     expect(result).toContain('Setup failed')
     expect(result).toContain('The apply workflow failed')
     expect(result).toContain('See what happened')
@@ -972,7 +972,7 @@ describe('#manageController', () => {
   test.each([
     [
       'infradev',
-      'Infradev',
+      'Development',
       'https://apim-aip-infradev.azure-api.net/research/'
     ],
     ['sandbox', 'Sandbox', 'https://deploytestdefra.azure-api.net/research/'],
@@ -1233,7 +1233,7 @@ describe('#manageController', () => {
       headers: { cookie: cookieHeader(cookies) }
     })
 
-    expect(result).toContain('Infradev')
+    expect(result).toContain('Development')
     expect(result).not.toContain('Sandbox')
   })
 

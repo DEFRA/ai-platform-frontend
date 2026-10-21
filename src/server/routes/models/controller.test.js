@@ -262,7 +262,7 @@ describe('#modelsController', () => {
     )
     expect(result).toEqual(
       expect.stringContaining(
-        'request shape for the research tier in Infradev.'
+        'request shape for the research tier in Development.'
       )
     )
     expect(result).not.toEqual(

@@ -294,21 +294,48 @@ describe('#teamConnectController', () => {
   })
 
   describe('the environment on the details step', () => {
-    test('offers the configured environments, the first preselected, and says which are available', async () => {
+    const configured = config.get('teamEnvironments')
+
+    afterEach(() => {
+      config.set('teamEnvironments', configured)
+    })
+
+    test('states the environment the models are set up in, with nothing to choose', async () => {
       const cookies = await reachDetails(server, await signIn(server))
 
       const { result } = await get(server, cookies, '/connect/team/details')
 
-      expect(result).toContain('value="infradev"')
-      expect(result).toMatch(/value="infradev"[^>]*checked/)
-      expect(result).toContain('Only Infradev is available today.')
-      expect(result).not.toContain('value="sandbox"')
+      expect(result).toContain('Your models will be set up in Development.')
+      expect(result).not.toContain('name="environment"')
     })
 
-    test('refuses an environment this instance does not deploy to', async () => {
+    test('states the first available environment, in order, whatever is configured', async () => {
+      config.set('teamEnvironments', ['prod', 'qa'])
+      const cookies = await reachDetails(server, await signIn(server))
+
+      const { result } = await get(server, cookies, '/connect/team/details')
+
+      expect(result).toContain('Your models will be set up in Test.')
+    })
+
+    test('states the environment again when the purpose fails validation', async () => {
       const cookies = await reachDetails(server, await signIn(server))
 
       const { statusCode, result } = await post(
+        server,
+        cookies,
+        '/connect/team/details',
+        { purpose: 'x'.repeat(501) }
+      )
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain('Your models will be set up in Development.')
+    })
+
+    test('refuses an environment posted from the form, as it is not chosen', async () => {
+      const cookies = await reachDetails(server, await signIn(server))
+
+      const { statusCode } = await post(
         server,
         cookies,
         '/connect/team/details',
@@ -316,53 +343,8 @@ describe('#teamConnectController', () => {
       )
 
       expect(statusCode).toBe(statusCodes.badRequest)
-      expect(result).toContain('Select an available environment')
-    })
-
-    describe('with two environments on offer', () => {
-      const configured = config.get('teamEnvironments')
-
-      beforeEach(() => {
-        config.set('teamEnvironments', ['infradev', 'sandbox'])
-      })
-
-      afterEach(() => {
-        config.set('teamEnvironments', configured)
-      })
-
-      test('keeps the chosen environment selected when the purpose fails validation', async () => {
-        const cookies = await reachDetails(server, await signIn(server))
-
-        const { statusCode, result } = await post(
-          server,
-          cookies,
-          '/connect/team/details',
-          { purpose: 'x'.repeat(501), environment: 'sandbox' }
-        )
-
-        expect(statusCode).toBe(statusCodes.badRequest)
-        expect(result).toMatch(/value="sandbox"[^>]*checked/)
-        expect(result).not.toMatch(/value="infradev"[^>]*checked/)
-      })
-
-      test('shows the environment already chosen when the person comes back to the step', async () => {
-        let cookies = await reachDetails(server, await signIn(server))
-        cookies = mergeCookies(
-          cookies,
-          await post(server, cookies, '/connect/team/details', {
-            purpose: 'x',
-            environment: 'sandbox'
-          })
-        )
-
-        const { result } = await get(server, cookies, '/connect/team/details')
-
-        expect(result).toMatch(/value="sandbox"[^>]*checked/)
-        expect(result).not.toMatch(/value="infradev"[^>]*checked/)
-      })
     })
   })
-
   describe('the check step', () => {
     test('summarises every model chosen and requests them all on confirm', async () => {
       const cookies = await reachCheckStep(server, await signIn(server), [

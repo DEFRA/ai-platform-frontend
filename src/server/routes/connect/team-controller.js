@@ -13,12 +13,11 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import { errorMessageForCode } from './team-client-secret.js'
 import {
-  environmentHint,
-  environmentItems,
-  environmentValues
-} from './team-environments.js'
+  defaultTeamEnvironment,
+  environmentName
+} from '#/server/common/helpers/environment-names.js'
+import { errorMessageForCode } from './team-client-secret.js'
 import {
   MAX_MODELS_PER_REQUEST,
   hasCompletedTeamJourney,
@@ -59,15 +58,7 @@ const selectModelsSchema = Joi.object({
 const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
-  }),
-  // Checked against the configured list when the form is posted, not when
-  // the module loads, so configuration is read where it is used.
-  environment: Joi.string()
-    .custom((value, helpers) =>
-      environmentValues().includes(value) ? value : helpers.error('any.only')
-    )
-    .default(() => environmentValues()[0])
-    .messages({ 'any.only': 'Select an available environment' })
+  })
 })
 
 function redirectToStart(h) {
@@ -270,8 +261,7 @@ export const teamConnectController = {
           pageTitle: 'Say what it is for',
           heading: 'Say what it is for',
           values: { purpose: pendingAccess.purpose ?? '' },
-          environmentItems: environmentItems(pendingAccess.environment),
-          environmentHint: environmentHint(),
+          environmentName: environmentName(defaultTeamEnvironment()),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -287,10 +277,7 @@ export const teamConnectController = {
                 pageTitle: 'Error: Say what it is for',
                 heading: 'Say what it is for',
                 values: request.payload,
-                environmentItems: environmentItems(
-                  request.payload?.environment
-                ),
-                environmentHint: environmentHint(),
+                environmentName: environmentName(defaultTeamEnvironment()),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
               })
@@ -311,7 +298,7 @@ export const teamConnectController = {
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: request.payload.environment,
+          environment: defaultTeamEnvironment(),
           requestKey: randomUUID()
         })
 

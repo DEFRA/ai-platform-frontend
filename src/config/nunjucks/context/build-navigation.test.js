@@ -12,170 +12,66 @@ function mockRequest(options, { signedIn = false } = {}) {
   }
 }
 
+function currentItems(navigation) {
+  return navigation.filter((item) => item.current).map((item) => item.text)
+}
+
 describe('#buildNavigation', () => {
-  test('Should hide "Your access" when signed out', () => {
+  test('Should show Models and Help only, with no Home, when signed out', () => {
     expect(
       buildNavigation(mockRequest({ path: '/non-existent-path' }))
     ).toEqual([
-      {
-        current: false,
-        text: 'Home',
-        href: '/'
-      },
-      {
-        current: false,
-        text: 'Models',
-        href: '/models'
-      },
-      {
-        current: false,
-        text: 'Help',
-        href: '/about'
-      }
+      { text: 'Models', href: '/models', current: false },
+      { text: 'Help', href: '/about', current: false }
     ])
   })
 
-  test('Should provide expected navigation details when signed in', () => {
+  test('Should show Models, Your access, Teams and Help in order when signed in', () => {
     expect(
       buildNavigation(
         mockRequest({ path: '/non-existent-path' }, { signedIn: true })
       )
     ).toEqual([
-      {
-        current: false,
-        text: 'Home',
-        href: '/'
-      },
-      {
-        current: false,
-        text: 'Models',
-        href: '/models'
-      },
-      {
-        current: false,
-        text: 'Your access',
-        href: '/manage'
-      },
-      {
-        current: false,
-        text: 'Help',
-        href: '/about'
-      }
+      { text: 'Models', href: '/models', current: false },
+      { text: 'Your access', href: '/manage', current: false },
+      { text: 'Teams', href: '/teams', current: false },
+      { text: 'Help', href: '/about', current: false }
     ])
   })
 
-  test('Should highlight Home', () => {
+  test.each([
+    ['/models', 'Models'],
+    ['/models/gpt-4o', 'Models'],
+    ['/manage', 'Your access'],
+    ['/manage/credentials/1/revoke', 'Your access'],
+    ['/teams', 'Teams'],
+    ['/teams/flood-risk-mapping', 'Teams'],
+    ['/teams/flood-risk-mapping/members', 'Teams'],
+    ['/about', 'Help']
+  ])('Should highlight only the item for %s when signed in', (path, text) => {
     expect(
-      buildNavigation(mockRequest({ path: '/' }, { signedIn: true }))
-    ).toEqual([
-      {
-        current: true,
-        text: 'Home',
-        href: '/'
-      },
-      {
-        current: false,
-        text: 'Models',
-        href: '/models'
-      },
-      {
-        current: false,
-        text: 'Your access',
-        href: '/manage'
-      },
-      {
-        current: false,
-        text: 'Help',
-        href: '/about'
-      }
-    ])
+      currentItems(buildNavigation(mockRequest({ path }, { signedIn: true })))
+    ).toEqual([text])
   })
 
-  test('Should highlight Models for its sub-routes', () => {
+  test('Should highlight nothing on the home page, which has no item', () => {
     expect(
-      buildNavigation(
-        mockRequest({ path: '/models/gpt-4o' }, { signedIn: true })
+      currentItems(
+        buildNavigation(mockRequest({ path: '/' }, { signedIn: true }))
       )
-    ).toEqual([
-      {
-        current: false,
-        text: 'Home',
-        href: '/'
-      },
-      {
-        current: true,
-        text: 'Models',
-        href: '/models'
-      },
-      {
-        current: false,
-        text: 'Your access',
-        href: '/manage'
-      },
-      {
-        current: false,
-        text: 'Help',
-        href: '/about'
-      }
-    ])
+    ).toEqual([])
   })
 
-  test('Should highlight Your access for its sub-routes', () => {
-    expect(
-      buildNavigation(
-        mockRequest(
-          { path: '/manage/credentials/1/revoke' },
-          { signedIn: true }
-        )
-      )
-    ).toEqual([
-      {
-        current: false,
-        text: 'Home',
-        href: '/'
-      },
-      {
-        current: false,
-        text: 'Models',
-        href: '/models'
-      },
-      {
-        current: true,
-        text: 'Your access',
-        href: '/manage'
-      },
-      {
-        current: false,
-        text: 'Help',
-        href: '/about'
-      }
-    ])
+  test('Should not show Teams or Your access to a signed out person on a teams address', () => {
+    const navigation = buildNavigation(mockRequest({ path: '/teams' }))
+
+    expect(navigation.map((item) => item.text)).toEqual(['Models', 'Help'])
+    expect(currentItems(navigation)).toEqual([])
   })
 
-  test('Should highlight Help', () => {
+  test('Should cope with a request that has no path', () => {
     expect(
-      buildNavigation(mockRequest({ path: '/about' }, { signedIn: true }))
-    ).toEqual([
-      {
-        current: false,
-        text: 'Home',
-        href: '/'
-      },
-      {
-        current: false,
-        text: 'Models',
-        href: '/models'
-      },
-      {
-        current: false,
-        text: 'Your access',
-        href: '/manage'
-      },
-      {
-        current: true,
-        text: 'Help',
-        href: '/about'
-      }
-    ])
+      currentItems(buildNavigation(mockRequest({}, { signedIn: true })))
+    ).toEqual([])
   })
 })

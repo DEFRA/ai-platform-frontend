@@ -222,7 +222,7 @@ export const config = convict({
     env: 'API_BASE_URL'
   },
   teamEnvironments: {
-    doc: 'Comma-separated environments a team may deploy a model to from this instance (design C #control-plane, D1); must match the backend\u2019s TEAM_ENVIRONMENTS. The first is preselected',
+    doc: 'Comma-separated environments a team may deploy a model to from this instance (design C #control-plane, D1); must match the backend\u2019s TEAM_ENVIRONMENTS. Listed in any order; a new request goes to the first available of dev, qa, preprod, prod (infradev fills the dev slot)',
     format: Array,
     default: ['infradev'],
     env: 'TEAM_ENVIRONMENTS'

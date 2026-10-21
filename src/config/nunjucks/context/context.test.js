@@ -62,11 +62,6 @@ describe('context and cache', () => {
           getAssetPath: expect.any(Function),
           navigation: [
             {
-              current: true,
-              text: 'Home',
-              href: '/'
-            },
-            {
               current: false,
               text: 'Models',
               href: '/models'
@@ -156,11 +151,6 @@ describe('context and cache', () => {
           currentPath: '/',
           getAssetPath: expect.any(Function),
           navigation: [
-            {
-              current: true,
-              text: 'Home',
-              href: '/'
-            },
             {
               current: false,
               text: 'Models',

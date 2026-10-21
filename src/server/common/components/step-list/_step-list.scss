@@ -1,0 +1,111 @@
+@use "govuk-frontend" as *;
+@use "variables/colours" as *;
+
+$app-step-marker-size: 28px;
+$app-step-line-width: 2px;
+
+// Vertical steps: a circle per step joined by a line. Done is a green circle
+// with a white tick, current a blue ring spinner, waiting a grey ring.
+.app-step-list {
+  @include govuk-font($size: 19);
+
+  margin: 0 0 govuk-spacing(6);
+  padding: 0;
+  list-style: none;
+}
+
+.app-step-list__item {
+  position: relative;
+  min-height: $app-step-marker-size;
+  margin: 0;
+  padding: 0 0 govuk-spacing(5) ($app-step-marker-size + govuk-spacing(3));
+}
+
+.app-step-list__item:last-child {
+  padding-bottom: 0;
+}
+
+// The line runs from under this circle to the next one.
+.app-step-list__item:not(:last-child)::before {
+  position: absolute;
+  top: $app-step-marker-size;
+  bottom: 0;
+  left: ($app-step-marker-size - $app-step-line-width) * 0.5;
+  width: $app-step-line-width;
+  background-color: govuk-colour("mid-grey");
+  content: "";
+}
+
+.app-step-list__marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: $app-step-marker-size;
+  height: $app-step-marker-size;
+  border: $app-step-line-width solid govuk-colour("mid-grey");
+  border-radius: 50%;
+}
+
+.app-step-list__item--done .app-step-list__marker {
+  border-color: $defra-green;
+  background-color: $defra-green;
+}
+
+// The white tick.
+.app-step-list__item--done .app-step-list__marker::after {
+  position: absolute;
+  top: 4px;
+  left: 9px;
+  box-sizing: border-box;
+  width: 7px;
+  height: 13px;
+  transform: rotate(45deg);
+  border: solid govuk-colour("white");
+  border-width: 0 3px 3px 0;
+  content: "";
+}
+
+.app-step-list__item--current .app-step-list__marker {
+  border-color: govuk-colour("mid-grey");
+  border-top-color: govuk-colour("blue");
+  animation: app-step-spin 1s linear infinite;
+}
+
+.app-step-list__content {
+  min-height: $app-step-marker-size;
+}
+
+.app-step-list__label {
+  margin: 0;
+  padding-top: 2px;
+  color: govuk-colour("black");
+}
+
+.app-step-list__item--current .app-step-list__label {
+  font-weight: $govuk-font-weight-bold;
+}
+
+.app-step-list__item--waiting .app-step-list__label {
+  color: govuk-colour("dark-grey");
+}
+
+.app-step-list__hint {
+  @include govuk-font($size: 16);
+
+  margin: govuk-spacing(1) 0 0;
+  color: govuk-colour("dark-grey");
+}
+
+@keyframes app-step-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// A frozen ring still reads as "in progress" beside its hidden text.
+@media (prefers-reduced-motion: reduce) {
+  .app-step-list__item--current .app-step-list__marker {
+    animation: none;
+  }
+}
