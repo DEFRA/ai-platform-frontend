@@ -21,13 +21,10 @@ import {
   revokeConfirmSchema
 } from '#/server/common/helpers/credential-schemas.js'
 import {
-  buildKeyRows,
-  buildModelRows,
-  notificationBannerParams
-} from './access-view.js'
-
-// How often the page re-reads while any of the person's models is changing.
-const MODELS_CHANGING_REFRESH_SECONDS = 5
+  RESEARCH_CREDENTIAL_DAYS,
+  RESEARCH_RENEWAL_CAP
+} from '#/server/common/constants/research-access.js'
+import { buildKeyRows, notificationBannerParams } from './access-view.js'
 
 const SECRET_NAME = 'key'
 const TEAM_TIER = 'team'
@@ -87,70 +84,26 @@ export const manageController = {
   list: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const [{ items }, modelNames, { items: teamItems }] = await Promise.all(
-          [
-            apiClient(request).get('/v1/credentials', {
-              userId: sessionUser.id
-            }),
-            buildModelNameMap(request),
-            apiClient(request).get('/v1/teams', { userId: sessionUser.id })
-          ]
-        )
-
-        // Deployment listings are supplementary: a transient failure on one
-        // team must not take down the whole Manage page.
-        const deploymentResults = await Promise.allSettled(
-          teamItems.map((team) =>
-            apiClient(request).get(`/v1/teams/${team._id}/deployments`, {
-              userId: sessionUser.id
-            })
-          )
-        )
-
-        const deployments = deploymentResults.flatMap((result) => {
-          if (result.status === 'rejected') {
-            request.logger.warn(
-              { err: result.reason },
-              'Could not load team deployments for the manage page'
-            )
-            return []
-          }
-
-          return result.value.items
-        })
-
-        // teamId is stamped at issue time from the user's team and can go
-        // stale if they later change teams; tier is the reliable signal for
-        // personal vs shared, since teamId is never used for authorization.
-        const teamsById = new Map(teamItems.map((team) => [team._id, team]))
-        const modelRows = buildModelRows(
-          deployments,
-          items,
-          teamsById,
-          modelNames
-        )
+        const [{ items }, modelNames] = await Promise.all([
+          apiClient(request).get('/v1/credentials', {
+            userId: getSessionUser(request).id
+          }),
+          buildModelNameMap(request)
+        ])
 
         return h.view('manage/index', {
           pageTitle: 'Your access',
           heading: 'Your access',
+          researchDays: RESEARCH_CREDENTIAL_DAYS,
+          renewalCap: RESEARCH_RENEWAL_CAP,
           keyRows: buildKeyRows(items, modelNames),
-          modelRows,
-          modelsUnavailable: deploymentResults.some(
-            (result) => result.status === 'rejected'
-          ),
-          teams: teamItems,
           notificationBanner: notificationBannerParams(
             takeAccountNotification(request)
-          ),
-          refreshSeconds: modelRows.some((row) => row.inProgress)
-            ? MODELS_CHANGING_REFRESH_SECONDS
-            : undefined
+          )
         })
       }
     }
   },
-
   view: {
     get: {
       async handler(request, h) {

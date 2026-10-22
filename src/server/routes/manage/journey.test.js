@@ -156,7 +156,6 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
     // B07: the credential appears on /manage
     fetchMock.mockResponseOnce(JSON.stringify({ items: [issuedCredential] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const getManage = await server.inject({
       method: 'GET',
       url: '/manage',
@@ -190,7 +189,6 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
       })
     )
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const getManageAfterRenew = await server.inject({
       method: 'GET',
       url: '/manage',
@@ -229,7 +227,6 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
       })
     )
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const getManageAfterRevoke = await server.inject({
       method: 'GET',
       url: '/manage',
@@ -240,7 +237,7 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
       expect.stringContaining('Credential revoked')
     )
     expect(getManageAfterRevoke.result).toEqual(
-      expect.stringContaining('revoked')
+      expect.stringContaining('You do not have a key yet')
     )
   })
 })
