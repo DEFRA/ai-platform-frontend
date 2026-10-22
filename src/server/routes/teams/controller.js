@@ -55,17 +55,6 @@ const newTeamSchema = Joi.object({
 
 const serviceCodeSchema = Joi.object({ serviceCode: serviceCodeField })
 
-const memberRoleSchema = Joi.object({
-  role: Joi.string().valid('admin', 'user').required()
-})
-
-const addMemberSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    'string.email': 'Enter a valid email address',
-    'any.required': 'Enter an email address'
-  })
-})
-
 function errorMessageForCode(error) {
   if (error.code === 'team-exists') {
     return 'A team with this name already exists.'
@@ -74,29 +63,9 @@ function errorMessageForCode(error) {
   return error.message
 }
 
-// A member change the backend refused: the last-admin rule becomes a banner,
-// a refusal or a missing member is silent, and anything else is a fault.
-function handleMemberChangeError(request, error) {
-  if (!(error instanceof ApiError)) {
-    throw error
-  }
-
-  if (error.code === 'last-admin') {
-    setAccountNotification(request, {
-      type: 'error',
-      message: 'A team must keep at least one admin.'
-    })
-    return
-  }
-
-  if (!isForbidden(error) && !isNotFound(error)) {
-    throw error
-  }
-}
-
 // A form that has failed validation goes back to the team: the page has no
-// form for these (steps 9 and 10 give them their own pages), so only a
-// request made by hand gets here.
+// form for it (step 10 gives it its own page), so only a request made by
+// hand gets here.
 function backToTeam(request, h) {
   return h
     .redirect(`/teams/${encodeURIComponent(request.params.slug)}`)
@@ -111,6 +80,7 @@ export const teamsController = {
         return h.view('teams/index', {
           pageTitle: 'Teams',
           heading: 'Teams',
+          notification: takeAccountNotification(request),
           teams: await loadTeamRows(request)
         })
       }
@@ -275,62 +245,6 @@ export const teamsController = {
     }
   },
 
-  setMemberRole: {
-    post: {
-      options: {
-        validate: {
-          payload: memberRoleSchema,
-          failAction: backToTeam
-        }
-      },
-      async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { slug, memberId } = request.params
-
-        try {
-          await apiClient(request).patch(
-            `/v1/teams/${encodeURIComponent(slug)}/members/${encodeURIComponent(memberId)}`,
-            { role: request.payload.role },
-            { userId: sessionUser.id }
-          )
-        } catch (error) {
-          handleMemberChangeError(request, error)
-        }
-
-        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
-      }
-    }
-  },
-
-  addMember: {
-    post: {
-      options: {
-        validate: {
-          payload: addMemberSchema,
-          failAction: backToTeam
-        }
-      },
-      async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { slug } = request.params
-
-        try {
-          await apiClient(request).post(
-            `/v1/teams/${encodeURIComponent(slug)}/members`,
-            { email: request.payload.email },
-            { userId: sessionUser.id, idempotencyKey: randomUUID() }
-          )
-        } catch (error) {
-          if (!(error instanceof ApiError) || !isForbidden(error)) {
-            throw error
-          }
-        }
-
-        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
-      }
-    }
-  },
-
   setServiceCode: {
     post: {
       options: {
@@ -357,26 +271,6 @@ export const teamsController = {
           if (!(error instanceof ApiError) || !isForbidden(error)) {
             throw error
           }
-        }
-
-        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
-      }
-    }
-  },
-
-  removeMember: {
-    post: {
-      async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { slug, memberId } = request.params
-
-        try {
-          await apiClient(request).del(
-            `/v1/teams/${encodeURIComponent(slug)}/members/${encodeURIComponent(memberId)}`,
-            { userId: sessionUser.id }
-          )
-        } catch (error) {
-          handleMemberChangeError(request, error)
         }
 
         return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)

@@ -659,7 +659,7 @@ describe('#teamsController', () => {
     })
   })
 
-  describe('the member and service code changes the page no longer has forms for', () => {
+  describe('the service code change the page no longer has a form for', () => {
     test('POST /teams/{slug}/service-code saves a new code and returns to the team', async () => {
       fetchMock.mockResponseOnce(
         JSON.stringify({ team: { ...sampleTeam, serviceCode: 'XYZ' } })
@@ -683,129 +683,6 @@ describe('#teamsController', () => {
       const { statusCode, headers } = await post(`${TEAM_URL}/service-code`, {
         serviceCode: 'TOO-LONG'
       })
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
-    })
-
-    test('POST /teams/{slug}/members adds a member and redirects back to the team', async () => {
-      fetchMock.mockResponseOnce(
-        JSON.stringify({
-          member: {
-            email: 'invitee@defra.gov.uk',
-            role: 'user',
-            status: 'invited'
-          }
-        })
-      )
-
-      const { statusCode, headers } = await post(`${TEAM_URL}/members`, {
-        email: 'invitee@defra.gov.uk'
-      })
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
-    })
-
-    test('POST /teams/{slug}/members goes back to the team for an address that is not one', async () => {
-      const { statusCode, headers } = await post(`${TEAM_URL}/members`, {
-        email: 'not-an-address'
-      })
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
-    })
-
-    test('POST /teams/{slug}/members silently redirects back for a non-admin (403)', async () => {
-      fetchMock.mockResponseOnce(
-        JSON.stringify({
-          statusCode: 403,
-          error: 'Forbidden',
-          message: 'Only a team admin can add members',
-          code: 'admin-required'
-        }),
-        { status: 403 }
-      )
-
-      const { statusCode, headers } = await post(`${TEAM_URL}/members`, {
-        email: 'invitee@defra.gov.uk'
-      })
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
-    })
-
-    test('POST /teams/{slug}/members/{memberId}/role sends the new role and returns to the team', async () => {
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ member: { _id: 'member-2', role: 'admin' } })
-      )
-
-      const { statusCode, headers } = await post(
-        `${TEAM_URL}/members/member-2/role`,
-        { role: 'admin' }
-      )
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
-
-      const [url, options] = fetchMock.mock.calls.at(-1)
-
-      expect(url).toContain(`${TEAM_PATH}/members/member-2`)
-      expect(options).toMatchObject({ method: 'PATCH' })
-      expect(JSON.parse(options.body)).toEqual({ role: 'admin' })
-    })
-
-    test('POST /teams/{slug}/members/{memberId}/role goes back to the team for a role that is not one', async () => {
-      const { statusCode, headers } = await post(
-        `${TEAM_URL}/members/member-2/role`,
-        { role: 'owner' }
-      )
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
-    })
-
-    test('a change the backend refuses because the team must keep an admin shows a banner on the team page', async () => {
-      const lastAdmin = reply(409, {
-        statusCode: 409,
-        error: 'Conflict',
-        message: 'A team must keep at least one admin',
-        code: 'last-admin'
-      })
-
-      mockApi(fetchMock, {
-        [`PATCH ${TEAM_PATH}/members/member-1`]: lastAdmin,
-        [`DELETE ${TEAM_PATH}/members/member-1`]: lastAdmin,
-        [`GET ${TEAM_PATH}`]: { ...teamWithMembers('admin'), environments: [] },
-        [`GET ${TEAM_PATH}/deployments`]: { items: [] },
-        'GET /v1/models': { items: catalogue },
-        'GET /v1/credentials': { items: [] }
-      })
-
-      for (const change of [
-        () => post(`${TEAM_URL}/members/member-1/role`, { role: 'user' }),
-        () => post(`${TEAM_URL}/members/member-1/remove`)
-      ]) {
-        const response = await change()
-
-        expect(response.statusCode).toBe(statusCodes.seeOther)
-
-        const { result } = await server.inject({
-          method: 'GET',
-          url: TEAM_URL,
-          headers: { cookie: cookieHeader(mergeCookies(cookies, response)) }
-        })
-
-        expect(result).toContain('A team must keep at least one admin.')
-      }
-    })
-
-    test('POST /teams/{slug}/members/{memberId}/remove removes a member and redirects back', async () => {
-      fetchMock.mockResponseOnce(null, { status: 204 })
-
-      const { statusCode, headers } = await post(
-        `${TEAM_URL}/members/member-2/remove`
-      )
 
       expect(statusCode).toBe(statusCodes.seeOther)
       expect(headers.location).toBe(TEAM_URL)

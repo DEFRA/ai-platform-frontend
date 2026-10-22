@@ -1,5 +1,11 @@
 import { clientSecretsController } from './client-secrets-controller.js'
 import { teamsController } from './controller.js'
+import {
+  addMemberController,
+  memberRoleController,
+  membersController,
+  removeMemberController
+} from './members-controller.js'
 import { removeModelController } from './models-controller.js'
 
 const secrets = '/teams/{slug}/client-secrets/{credentialId}'
@@ -47,25 +53,41 @@ const routes = [
     handler: teamsController.setServiceCode.post.handler
   },
   {
-    method: 'POST',
+    method: 'GET',
     path: '/teams/{slug}/members',
-    options: {
-      validate: teamsController.addMember.post.options.validate
-    },
-    handler: teamsController.addMember.post.handler
+    handler: membersController.list.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/{slug}/members/add',
+    handler: addMemberController.get.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{slug}/members/add',
+    options: addMemberController.post.options,
+    handler: addMemberController.post.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/{slug}/members/{memberId}/role',
+    handler: memberRoleController.get.handler
   },
   {
     method: 'POST',
     path: '/teams/{slug}/members/{memberId}/role',
-    options: {
-      validate: teamsController.setMemberRole.post.options.validate
-    },
-    handler: teamsController.setMemberRole.post.handler
+    options: memberRoleController.post.options,
+    handler: memberRoleController.post.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/{slug}/members/{memberId}/remove',
+    handler: removeMemberController.get.handler
   },
   {
     method: 'POST',
     path: '/teams/{slug}/members/{memberId}/remove',
-    handler: teamsController.removeMember.post.handler
+    handler: removeMemberController.post.handler
   },
   {
     method: 'GET',
@@ -123,7 +145,7 @@ const routes = [
 
 /**
  * Sets up the routes for a person's teams (B08): the list, creating a team,
- * a team's Models tab, removing one of its models, and its client secrets.
+ * a team's Models and Members tabs, adding, changing and removing its members, removing one of its models, and its client secrets.
  * Protected by the global sign-in gate (src/server/plugins/require-sign-in-globally.js).
  * These routes are registered in src/server/plugins/router.js.
  */

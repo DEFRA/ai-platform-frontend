@@ -189,35 +189,13 @@ describe('#loadTeamForView', () => {
     expect(members[1].email).toBe('colleague@defra.gov.uk')
   })
 
-  test('lets an admin change and remove people, except the only admin', async () => {
+  test('says which member is the person', async () => {
     respondWith([admin({ _id: 'm-1' }), colleague({ _id: 'm-2' })])
 
     const [self, other] = (await loadTeamForView(requestFor('user-1'), 'x'))
       .members
 
-    expect(self).toMatchObject({ canRemove: false, canChangeRole: false })
-    expect(other).toMatchObject({
-      canRemove: true,
-      canChangeRole: true,
-      nextRole: 'admin'
-    })
-  })
-
-  test('lets an admin change one of two admins', async () => {
-    respondWith([admin(), colleague({ role: 'admin' })])
-
-    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
-
-    expect(members[0]).toMatchObject({ canRemove: true, nextRole: 'user' })
-  })
-
-  test('lets a member change nobody', async () => {
-    respondWith([admin({ role: 'user' }), colleague({ role: 'admin' })])
-
-    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
-
-    expect(
-      members.some(({ canRemove, canChangeRole }) => canRemove || canChangeRole)
-    ).toBe(false)
+    expect(self.isYou).toBe(true)
+    expect(other.isYou).toBe(false)
   })
 })

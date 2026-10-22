@@ -76,7 +76,10 @@ function maskEmail(email) {
 }
 
 /**
- * The team with its members shaped for the signed-in person's view.
+ * The team with its members shaped for the signed-in person's view: each
+ * says whether it is them, and colleagues' addresses are masked unless they
+ * are an admin. Whether the team's last admin may be changed is the
+ * backend's rule, answered when a change is tried.
  * @param {import('@hapi/hapi').Request} request
  * @param {string} teamRef - The team's slug (or id).
  * @returns {Promise<{team: object, members: object[], isAdmin: boolean, environments: Array<{environment: string, limits: object}>}>}
@@ -95,26 +98,21 @@ export async function loadTeamForView(request, teamRef) {
       member.status === 'active'
   )
 
-  const activeAdminCount = result.members.filter(
-    (member) => member.role === 'admin' && member.status === 'active'
-  ).length
-
   const members = result.members
     // Removed members are kept in the backend for audit purposes only.
     .filter((member) => member.status !== 'removed')
-    .map((member) => ({
-      ...member,
-      email:
-        member.email && !isAdmin && member.userId !== sessionUser.id
-          ? maskEmail(member.email)
-          : member.email,
-      // The team's last admin can be neither removed nor demoted; promote
-      // someone else first.
-      canRemove: isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
-      canChangeRole:
-        isAdmin && !(member.role === 'admin' && activeAdminCount <= 1),
-      nextRole: member.role === 'admin' ? 'user' : 'admin'
-    }))
+    .map((member) => {
+      const isYou = member.userId === sessionUser.id
+
+      return {
+        ...member,
+        isYou,
+        email:
+          member.email && !isAdmin && !isYou
+            ? maskEmail(member.email)
+            : member.email
+      }
+    })
 
   return { ...result, members, isAdmin }
 }
