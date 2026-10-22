@@ -31,7 +31,13 @@ function settled(read) {
   return Promise.allSettled([read]).then(([outcome]) => outcome)
 }
 
-function requestUrl(team, deployment) {
+/**
+ * Where a model's set-up is followed: its progress, or what went wrong.
+ * @param {{slug: string}} team
+ * @param {{_id: string}} deployment
+ * @returns {string}
+ */
+export function requestUrl(team, deployment) {
   return `/connect/team/request/${encodeURIComponent(team.slug)}/${encodeURIComponent(deployment._id)}`
 }
 
