@@ -3,7 +3,6 @@ import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
-import { requireSignIn } from '#/server/common/helpers/require-sign-in.js'
 import {
   getSessionUser,
   setAccountNotification,
@@ -13,6 +12,10 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import {
+  adminRequiredView as adminRequired,
+  loadAdminTeam as loadAdmin
+} from './admin-team.js'
 import {
   isForbidden,
   isNotFound,
@@ -62,15 +65,7 @@ function roleText(role) {
 }
 
 function adminRequiredView(h, team, action) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Admins only',
-      heading: 'Only a team admin can do that',
-      message: `Only an admin of ${team.name} can ${action}.`,
-      actionHref: membersUrl(team),
-      actionText: 'Back to the members'
-    })
-    .code(statusCodes.forbidden)
+  return adminRequired(h, team, action, 'members')
 }
 
 function memberNotFoundView(h, team) {
@@ -85,34 +80,8 @@ function memberNotFoundView(h, team) {
     .code(statusCodes.notFound)
 }
 
-// The team for a page only its admins may use, or the page to show instead:
-// a team that is not theirs is not found; a member is told it is for admins.
-async function loadAdminTeam(request, h, action) {
-  // A failed validation runs before the global sign-in gate, so a signed-out
-  // person (with a still-valid CSRF token) is sent to sign in here.
-  const signIn = requireSignIn(request, h)
-
-  if (signIn !== h.continue) {
-    return { page: signIn }
-  }
-
-  let loaded
-
-  try {
-    loaded = await loadTeamForView(request, request.params.slug)
-  } catch (error) {
-    if (isNotFound(error)) {
-      return { page: teamNotFoundView(h) }
-    }
-
-    throw error
-  }
-
-  if (!loaded.isAdmin) {
-    return { page: adminRequiredView(h, loaded.team, action) }
-  }
-
-  return { loaded }
+function loadAdminTeam(request, h, action) {
+  return loadAdmin(request, h, action, 'members')
 }
 
 // The member a page is about: `me` is the signed-in person.

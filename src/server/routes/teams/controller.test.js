@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
@@ -226,6 +227,48 @@ describe('#teamsController', () => {
   })
 
   describe('creating a team', () => {
+    test('GET /teams/new asks for the name, service code and what the team does, with a back link to Teams', async () => {
+      const { statusCode, result } = await get('/teams/new')
+      const $ = load(result)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect($('h1').text().trim()).toBe('Create a team')
+      expect($('.govuk-back-link').attr('href')).toBe('/teams')
+      expect($('label[for="name"]').text().trim()).toBe('Team name')
+      expect($('#name-hint').text().trim()).toBe(
+        'This also makes your team ID, which cannot be changed later.'
+      )
+      expect($('#serviceCode').hasClass('govuk-input--width-3')).toBe(true)
+      expect($('#serviceCode-hint').text().trim()).toBe(
+        '3 letters or numbers, for example FRM. Your team’s AI use is charged to this code.'
+      )
+      expect($('label[for="description"]').text().trim()).toBe(
+        'What the team does (optional)'
+      )
+      expect($('.govuk-character-count').attr('data-maxlength')).toBe('500')
+      expect($('main form button').text().trim()).toBe('Continue')
+    })
+
+    test('GET /teams/new is the form even for a team called New, whose ID would be new', async () => {
+      const { statusCode, result } = await get('/teams/new')
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('Create a team')
+      expect(
+        fetchMock.mock.calls.filter(([url]) => url.includes('/v1/teams/new'))
+      ).toHaveLength(0)
+    })
+
+    test('GET /teams/new from a journey goes back to that journey', async () => {
+      const { result } = await get(
+        '/teams/new?returnTo=%2Fconnect%2Fteam%2Fselect'
+      )
+
+      expect(load(result)('.govuk-back-link').attr('href')).toBe(
+        '/connect/team/select'
+      )
+    })
+
     test('POST /teams/new with an invalid name re-renders the form with errors', async () => {
       const { statusCode, result } = await post('/teams/new', {
         name: 'ab',
@@ -234,6 +277,7 @@ describe('#teamsController', () => {
 
       expect(statusCode).toBe(statusCodes.badRequest)
       expect(result).toEqual(expect.stringContaining('There is a problem'))
+      expect(load(result)('.govuk-back-link').attr('href')).toBe('/teams')
     })
 
     test('POST /teams/new asks for a service code of three letters or numbers', async () => {
@@ -246,10 +290,43 @@ describe('#teamsController', () => {
       expect(result).toContain('Enter your service code')
     })
 
-    test('POST /teams/new -> GET check -> POST check creates the team and opens it by its slug', async () => {
+    test('POST /teams/new refuses a service code that is not three letters or numbers', async () => {
+      const { statusCode, result } = await post('/teams/new', {
+        name: 'Bad Code Team',
+        serviceCode: 'TOO-LONG'
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain(
+        'Service code must be 3 letters or numbers, for example FRM'
+      )
+    })
+
+    test('POST /teams/new refuses a description over 500 characters', async () => {
+      const { statusCode, result } = await post('/teams/new', {
+        name: 'Wordy Team',
+        serviceCode: 'ABC',
+        description: 'x'.repeat(501)
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain(
+        'What the team does must be 500 characters or fewer'
+      )
+    })
+
+    test('GET /teams/new/check with nothing entered goes back to the form', async () => {
+      const { statusCode, headers } = await get('/teams/new/check')
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/teams/new')
+    })
+
+    test('POST /teams/new -> GET check -> POST check creates the team and opens its Members tab', async () => {
       const postNew = await post('/teams/new', {
         name: 'Flood Risk Team',
-        serviceCode: 'aip'
+        serviceCode: 'aip',
+        description: 'Checks flood models'
       })
 
       cookies = mergeCookies(cookies, postNew)
@@ -257,17 +334,69 @@ describe('#teamsController', () => {
       expect(postNew.headers.location).toBe('/teams/new/check')
 
       const getCheck = await get('/teams/new/check')
+      const $ = load(getCheck.result)
 
       cookies = mergeCookies(cookies, getCheck)
-      expect(getCheck.result).toContain('Flood Risk Team')
-      expect(getCheck.result).toContain('aip')
+      expect($('h1').text().trim()).toBe('Check your answers')
+
+      const rows = $('.govuk-summary-list__row')
+        .map((_, row) => ({
+          key: $(row).find('dt').text().trim(),
+          value: $(row).find('dd.govuk-summary-list__value').text().trim(),
+          change: $(row).find('a').attr('href') ?? null
+        }))
+        .get()
+
+      expect(rows).toEqual([
+        {
+          key: 'Team name',
+          value: 'Flood Risk Team',
+          change: '/teams/new#name'
+        },
+        {
+          key: 'Team ID',
+          value: expect.stringMatching(
+            /^flood-risk-team\s+Cannot be changed later$/
+          ),
+          change: null
+        },
+        { key: 'Service code', value: 'aip', change: '/teams/new#serviceCode' },
+        {
+          key: 'What the team does',
+          value: 'Checks flood models',
+          change: '/teams/new#description'
+        }
+      ])
+      expect(getCheck.result).toContain(
+        'You will be the team’s first admin. You can add other people, and other admins, once it is created.'
+      )
+      expect($('main form button').text().trim()).toBe('Create a team')
 
       fetchMock.mockResponseOnce(JSON.stringify({ team: sampleTeam }))
 
       const postCheck = await post('/teams/new/check')
 
       expect(postCheck.statusCode).toBe(statusCodes.seeOther)
-      expect(postCheck.headers.location).toBe(TEAM_URL)
+      expect(postCheck.headers.location).toBe(`${TEAM_URL}/members`)
+
+      const [, options] = fetchMock.mock.calls.at(-1)
+
+      expect(JSON.parse(options.body)).toEqual({
+        name: 'Flood Risk Team',
+        serviceCode: 'aip',
+        description: 'Checks flood models'
+      })
+    })
+
+    test('says a description was not given', async () => {
+      cookies = mergeCookies(
+        cookies,
+        await post('/teams/new', { name: 'Quiet Team', serviceCode: 'ABC' })
+      )
+
+      const { result } = await get('/teams/new/check')
+
+      expect(result).toContain('Not given')
     })
 
     test('POST /teams/new/check shows an error for a duplicate team name', async () => {
@@ -290,6 +419,7 @@ describe('#teamsController', () => {
 
       expect(postCheck.statusCode).toBe(statusCodes.conflict)
       expect(postCheck.result).toContain('A team with this name already exists')
+      expect(postCheck.result).toContain('Check your answers')
     })
   })
 
@@ -656,36 +786,6 @@ describe('#teamsController', () => {
       const { result } = await get(TEAM_URL)
 
       expect(result).not.toContain('not available yet')
-    })
-  })
-
-  describe('the service code change the page no longer has a form for', () => {
-    test('POST /teams/{slug}/service-code saves a new code and returns to the team', async () => {
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ team: { ...sampleTeam, serviceCode: 'XYZ' } })
-      )
-
-      const { statusCode, headers } = await post(`${TEAM_URL}/service-code`, {
-        serviceCode: 'xyz'
-      })
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
-
-      const [url, options] = fetchMock.mock.calls.at(-1)
-
-      expect(url).toContain(TEAM_PATH)
-      expect(options).toMatchObject({ method: 'PATCH' })
-      expect(JSON.parse(options.body)).toEqual({ serviceCode: 'xyz' })
-    })
-
-    test('POST /teams/{slug}/service-code goes back to the team for an invalid code', async () => {
-      const { statusCode, headers } = await post(`${TEAM_URL}/service-code`, {
-        serviceCode: 'TOO-LONG'
-      })
-
-      expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
     })
   })
 })
