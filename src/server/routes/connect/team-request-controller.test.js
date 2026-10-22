@@ -415,7 +415,9 @@ describe('#teamRequestController', () => {
         'Your team shares one client secret for Development. Have somewhere safe ready to paste it'
       )
       expect(result).toContain('Show the client secret')
-      expect(result).toContain('href="/manage/credentials/cred-1/view"')
+      expect(result).toContain(
+        'href="/teams/flood-risk-team/client-secrets/cred-1/view"'
+      )
       expect(result).toContain('What happens next')
       expect(result).toContain(
         'everyone in Flood Risk Team can use GPT-4o with it'
@@ -482,7 +484,9 @@ describe('#teamRequestController', () => {
         expect(result).toContain(
           'The client secret for Development was revoked, so there is nothing to show.'
         )
-        expect(result).toContain('href="/manage"')
+        expect(result).toContain(
+          'href="/teams/flood-risk-team">Go to Flood Risk Team'
+        )
         expect(result).not.toContain('not ready yet')
         expect(result).not.toContain('Show the client secret')
       })
@@ -529,7 +533,7 @@ describe('#teamRequestController', () => {
         expect(result).toContain('The client secret is not ready yet.')
         expect(result).not.toContain('secret-revoked')
         expect(result).not.toContain('Show the client secret')
-        expect(result).not.toContain('/manage/credentials/')
+        expect(result).not.toContain('/client-secrets/')
       })
 
       test('offers the newest credential once it is active and in the vault', async () => {
@@ -540,7 +544,9 @@ describe('#teamRequestController', () => {
 
         const { result } = await page()
 
-        expect(result).toContain('href="/manage/credentials/cred-new/view"')
+        expect(result).toContain(
+          'href="/teams/flood-risk-team/client-secrets/cred-new/view"'
+        )
       })
     })
 

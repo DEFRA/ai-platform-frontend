@@ -72,35 +72,12 @@ describe('Credential actions component', () => {
     expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(0)
   })
 
-  test('Should render Rotate and Revoke links for an active credential when showRotateRevoke is true', () => {
+  test('Should never render a Rotate link, because a team client secret is rotated from the team’s page', () => {
     const $actions = renderComponent('credential-actions', {
-      credential: { ...activeCredential, showRotateRevoke: true }
-    })
-    const $rotate = $actions('[data-testid="credential-action-rotate"]')
-    const $revoke = $actions('[data-testid="credential-action-revoke"]')
-
-    expect($rotate).toHaveLength(1)
-    expect($rotate.attr('href')).toBe('/manage/credentials/cred-1/rotate')
-    expect($rotate.hasClass('govuk-link')).toBe(true)
-    expect($rotate.hasClass('govuk-button')).toBe(false)
-    expect($revoke.attr('href')).toBe('/manage/credentials/cred-1/revoke')
-  })
-
-  test('Should not render Rotate or Revoke when showRotateRevoke is false', () => {
-    const $actions = renderComponent('credential-actions', {
-      credential: { ...activeCredential, showRotateRevoke: false }
+      credential: activeCredential,
+      showRenewRevoke: true
     })
 
     expect($actions('[data-testid="credential-action-rotate"]')).toHaveLength(0)
-    expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(0)
-  })
-
-  test('Should not render Rotate or Revoke for a revoked credential even when showRotateRevoke is true', () => {
-    const $actions = renderComponent('credential-actions', {
-      credential: { ...revokedCredential, showRotateRevoke: true }
-    })
-
-    expect($actions('[data-testid="credential-action-rotate"]')).toHaveLength(0)
-    expect($actions('[data-testid="credential-action-revoke"]')).toHaveLength(0)
   })
 })

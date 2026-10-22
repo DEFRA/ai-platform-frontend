@@ -1,32 +1,59 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
 {% block content %}
   {{ appHeading({
     text: heading
   }) }}
 
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+    <div class="govuk-grid-column-full">
+      <p class="govuk-body-l">A team shares its models, and has one client secret for each environment.</p>
+
+      {{ govukButton({
+        text: "Create a team",
+        href: "/teams/new",
+        attributes: { "data-testid": "teams-create" }
+      }) }}
+
       {% if teams.length == 0 %}
-        <p class="govuk-body">You are not a member of a team yet.</p>
+        <p class="govuk-body" data-testid="teams-empty">You are not a member of a team yet.</p>
       {% else %}
-        <ul class="govuk-list">
-          {% for team in teams %}
-            <li>
-              <a class="govuk-link" href="/teams/{{ team._id }}">{{ team.name }}</a>
-              {% if team.isCurrent %}
-                <strong class="govuk-tag govuk-tag--blue">Acting in this team</strong>
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-
-        <p class="govuk-hint">You act in one team at a time. Open a team to act in it.</p>
+        <table class="govuk-table" data-testid="teams-table">
+          <caption class="govuk-table__caption govuk-visually-hidden">Your teams</caption>
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th class="govuk-table__header" scope="col">Team</th>
+              <th class="govuk-table__header" scope="col">Your role</th>
+              <th class="govuk-table__header" scope="col">Members</th>
+              <th class="govuk-table__header" scope="col">Models</th>
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for team in teams %}
+              <tr class="govuk-table__row" data-testid="team-row">
+                <td class="govuk-table__cell"><a class="govuk-link" href="{{ team.href }}">{{ team.name }}</a></td>
+                <td class="govuk-table__cell">{{ team.role }}</td>
+                <td class="govuk-table__cell">{{ team.memberCount if team.memberCount !== null else "Not available" }}</td>
+                <td class="govuk-table__cell">
+                  {% if team.models === null %}
+                    Not available
+                  {% elif team.models.length == 0 %}
+                    None yet
+                  {% else %}
+                    <ul class="govuk-list">
+                      {% for model in team.models %}
+                        <li>{{ model.name }}{% if model.suffix %}{% if model.failed %}<strong>, {{ model.suffix }}</strong>{% else %}, {{ model.suffix }}{% endif %}{% endif %}</li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       {% endif %}
-
-      <p class="govuk-body">
-        <a class="govuk-link" href="/teams/new">Create a new team</a>
-      </p>
     </div>
   </div>
 {% endblock %}

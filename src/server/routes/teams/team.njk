@@ -1,212 +1,124 @@
 {% extends 'layouts/page.njk' %}
 
-{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
-{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
-{% from "govuk/components/tag/macro.njk" import govukTag %}
-{% from "govuk/components/input/macro.njk" import govukInput %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "sub-navigation/macro.njk" import appSubNavigation %}
 
-{% block beforeContent %}
+{% block head %}
   {{ super() }}
-  {{ govukBackLink({ text: "Back to your access", href: "/manage" }) }}
+  {% if refreshSeconds %}
+    <meta http-equiv="refresh" content="{{ refreshSeconds }}">
+  {% endif %}
 {% endblock %}
 
 {% block content %}
+  {% if notification %}
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+        {% set bannerHtml %}
+          {% if notification.heading %}
+            <h3 class="govuk-notification-banner__heading">{{ notification.heading }}</h3>
+          {% endif %}
+          <p class="govuk-body">{{ notification.message }}</p>
+        {% endset %}
+        {{ govukNotificationBanner({
+          html: bannerHtml,
+          type: "success" if notification.type == "success" else "",
+          attributes: { "data-testid": "team-notification" }
+        }) }}
+      </div>
+    </div>
+  {% endif %}
+
   {{ appHeading({
-    text: heading
+    text: heading,
+    caption: "Team",
+    captionAbove: true
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      {% if notification %}
-        {{ govukNotificationBanner({
-          text: notification.message,
-          type: "success" if notification.type == "success" else ""
-        }) }}
-      {% endif %}
+      {{ appSubNavigation({ items: tabs, label: "Team" }) }}
 
-      {% if errorSummary %}
-        {{ govukErrorSummary({
-          titleText: "There is a problem",
-          errorList: errorSummary
-        }) }}
-      {% endif %}
-
-      {% set serviceCodeHtml %}
-        {{ team.serviceCode or "Not given" }}
-        {% if not team.verified %}
-          {{ govukTag({ text: "To be verified", classes: "govuk-tag--yellow" }) }}
-        {% endif %}
-      {% endset %}
-
-      {% set teamIdHtml %}
-        {{ team.slug }}
-        <p class="govuk-hint govuk-!-margin-bottom-0">Used in your team's address on the AI gateway. It is set from the team name and cannot be changed.</p>
-      {% endset %}
-
-      {{ govukSummaryList({
-        rows: [
-          {
-            key: { text: "Team ID" },
-            value: { html: teamIdHtml }
-          },
-          {
-            key: { text: "Service code" },
-            value: { html: serviceCodeHtml }
-          },
-          {
-            key: { text: "What the team does" },
-            value: { text: team.description or "Not given" }
-          },
-          {
-            key: { text: "Your role" },
-            value: { text: "Admin" if isAdmin else "Member" }
-          }
-        ]
-      }) }}
-
-      <h2 class="govuk-heading-m">Models</h2>
-
-      {% if modelsUnavailable %}
-        <p class="govuk-body" data-testid="team-models-unavailable">We could not list this team’s models just now. <a class="govuk-link" href="/teams/{{ team._id }}">Try again</a>.</p>
-      {% elif models.length %}
-        {% if modelsChanging %}
-          <p class="govuk-body" data-testid="team-models-changing">A model is changing. <a class="govuk-link" href="/teams/{{ team._id }}">Refresh this page</a> to see the latest status.</p>
-        {% endif %}
-        <table class="govuk-table" data-testid="team-models">
-          <thead class="govuk-table__head">
-            <tr class="govuk-table__row">
-              <th class="govuk-table__header" scope="col">Model</th>
-              <th class="govuk-table__header" scope="col">Environment</th>
-              <th class="govuk-table__header" scope="col">Status</th>
-              <th class="govuk-table__header" scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="govuk-table__body">
-            {% for model in models %}
-              <tr class="govuk-table__row">
-                <td class="govuk-table__cell">{{ model.modelDisplayName }}</td>
-                <td class="govuk-table__cell">{{ model.environment }}</td>
-                <td class="govuk-table__cell">
-                  {{ govukTag({ text: model.statusText, classes: model.tagClass }) }}
-                  {% if model.failureReason %}
-                    <p class="govuk-hint govuk-!-margin-bottom-0">{{ model.failureReason }}</p>
-                  {% endif %}
-                </td>
-                <td class="govuk-table__cell">
-                  {% if model.canRemove %}
-                    <a class="govuk-link" href="{{ model.removeUrl }}" data-testid="model-remove">Remove<span class="govuk-visually-hidden"> {{ model.modelDisplayName }}</span></a>
-                  {% elif model.inProgress and model.status != "removing" %}
-                    <a class="govuk-link" href="{{ model.requestUrl }}">Check progress<span class="govuk-visually-hidden"> of {{ model.modelDisplayName }}</span></a>
-                  {% elif model.failed %}
-                    <a class="govuk-link" href="{{ model.requestUrl }}">See what happened<span class="govuk-visually-hidden"> to {{ model.modelDisplayName }}</span></a>
-                  {% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-
-        {% for model in models %}
-          {% if model.resourceRows.length %}
-            <h3 class="govuk-heading-s" data-testid="model-resources">What was set up for {{ model.modelDisplayName }}</h3>
-            {{ govukSummaryList({ rows: model.resourceRows }) }}
-          {% endif %}
-        {% endfor %}
+      {% if unavailable %}
+        <p class="govuk-body" data-testid="team-models-unavailable">We could not list this team’s models just now. <a class="govuk-link" href="{{ teamUrl }}">Try again</a>.</p>
       {% else %}
-        <p class="govuk-body">This team has no models yet. <a class="govuk-link" href="/models">Connect to a model</a> to add one.</p>
-      {% endif %}
+        {% for card in cards %}
+          <div class="govuk-summary-card" data-testid="environment-card">
+            <div class="govuk-summary-card__title-wrapper">
+              <h2 class="govuk-summary-card__title">{{ card.name }}</h2>
+              {% if card.addModelUrl %}
+                <ul class="govuk-summary-card__actions">
+                  <li class="govuk-summary-card__action">
+                    <a class="govuk-link" href="{{ card.addModelUrl }}" data-testid="add-model">Add a model<span class="govuk-visually-hidden"> to {{ team.name }} in {{ card.name }}</span></a>
+                  </li>
+                </ul>
+              {% endif %}
+            </div>
+            <div class="govuk-summary-card__content">
+              {% if card.models %}
+                <dl class="govuk-summary-list">
+                  {% for model in card.models %}
+                    <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not model.removeUrl }}" data-testid="model-row">
+                      <dt class="govuk-summary-list__key">{{ model.name }}</dt>
+                      <dd class="govuk-summary-list__value">
+                        {{ govukTag({ text: model.statusText, classes: model.tagClass }) }}
+                        {% if model.detail %}
+                          <a class="govuk-link govuk-!-margin-left-2" href="{{ model.detail.href }}">{{ model.detail.text }}<span class="govuk-visually-hidden"> for {{ model.name }}</span></a>
+                        {% endif %}
+                        {% if model.reason %}
+                          <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0" data-testid="model-reason">{{ model.reason }}</p>
+                        {% endif %}
+                      </dd>
+                      {% if model.removeUrl %}
+                        <dd class="govuk-summary-list__actions">
+                          <a class="govuk-link" href="{{ model.removeUrl }}" data-testid="model-remove">Remove<span class="govuk-visually-hidden"> {{ model.name }} from {{ card.name }}</span></a>
+                        </dd>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
 
-      <h2 class="govuk-heading-m">Members</h2>
+                  <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (card.secret.actions.length or card.secret.askAnAdmin) }}" data-testid="secret-row">
+                    <dt class="govuk-summary-list__key">Client secret</dt>
+                    <dd class="govuk-summary-list__value">{{ card.secret.text }}</dd>
+                    {% if card.secret.actions.length %}
+                      <dd class="govuk-summary-list__actions">
+                        <ul class="govuk-summary-list__actions-list">
+                          {% for action in card.secret.actions %}
+                            <li class="govuk-summary-list__actions-list-item">
+                              <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ card.name }} client secret</span></a>
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      </dd>
+                    {% elif card.secret.askAnAdmin %}
+                      <dd class="govuk-summary-list__actions" data-testid="ask-an-admin">Ask an admin for it</dd>
+                    {% endif %}
+                  </div>
 
-      <table class="govuk-table">
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            <th class="govuk-table__header" scope="col">Name</th>
-            <th class="govuk-table__header" scope="col">Email</th>
-            <th class="govuk-table__header" scope="col">Role</th>
-            <th class="govuk-table__header" scope="col">Status</th>
-            <th class="govuk-table__header" scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body">
-          {% for member in members %}
-            <tr class="govuk-table__row">
-              <td class="govuk-table__cell">{{ member.displayName or "Not signed in yet" }}</td>
-              <td class="govuk-table__cell">{{ member.email or "Team creator" }}</td>
-              <td class="govuk-table__cell">{{ "Admin" if member.role == "admin" else "Member" }}</td>
-              <td class="govuk-table__cell">
-                {{ govukTag({
-                  text: "Active" if member.status == "active" else "Invited",
-                  classes: "govuk-tag--green" if member.status == "active" else "govuk-tag--blue"
-                }) }}
-              </td>
-              <td class="govuk-table__cell">
-                {% if member.canChangeRole %}
-                  <form method="post" action="/teams/{{ team._id }}/members/{{ member._id }}/role" novalidate>
-                    <input type="hidden" name="crumb" value="{{ crumb }}">
-                    <input type="hidden" name="role" value="{{ member.nextRole }}">
-                    <button type="submit" class="govuk-link app-link-button" data-testid="member-role">
-                      {{ "Make a member" if member.role == "admin" else "Make an admin" }}
-                    </button>
-                  </form>
-                {% endif %}
-                {% if member.canRemove %}
-                  <form method="post" action="/teams/{{ team._id }}/members/{{ member._id }}/remove" novalidate>
-                    <input type="hidden" name="crumb" value="{{ crumb }}">
-                    <button type="submit" class="govuk-link app-link-button" data-testid="member-remove">Remove</button>
-                  </form>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+                  {% if card.limits %}
+                    <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="limits-row">
+                      <dt class="govuk-summary-list__key">Limits</dt>
+                      <dd class="govuk-summary-list__value">{{ card.limits }}</dd>
+                    </div>
+                  {% endif %}
+                </dl>
+              {% elif card.empty %}
+                <p class="govuk-body" data-testid="no-models">No models in {{ card.name }}</p>
+              {% else %}
+                <p class="govuk-body" data-testid="not-set-up">Not set up. {{ card.name }} gets its own deployments, client secret and limits.</p>
+                <p class="govuk-body"><a class="govuk-link" href="{{ card.setUpUrl }}" data-testid="set-up-environment">Set up {{ card.name }}</a></p>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
 
-      {% if isAdmin %}
-        <h2 class="govuk-heading-m">Change the service code</h2>
+        {% if notAvailableYet %}
+          <p class="govuk-body govuk-hint" data-testid="not-available-yet">{{ notAvailableYet }}</p>
+        {% endif %}
 
-        <form method="post" action="/teams/{{ team._id }}/service-code" novalidate>
-          <input type="hidden" name="crumb" value="{{ crumb }}">
-
-          {{ govukInput({
-            id: "serviceCode",
-            name: "serviceCode",
-            value: serviceCodeValue,
-            classes: "govuk-input--width-3",
-            label: { text: "Service code" },
-            hint: { text: "Three letters or numbers. Your team's AI use is charged to this service." },
-            errorMessage: fieldErrors.serviceCode
-          }) }}
-
-          {{ govukButton({ text: "Save service code", classes: "govuk-button--secondary" }) }}
-        </form>
-
-        <h2 class="govuk-heading-m">Add a member</h2>
-
-        <form method="post" action="/teams/{{ team._id }}/members" novalidate>
-          <input type="hidden" name="crumb" value="{{ crumb }}">
-
-          {{ govukInput({
-            id: "email",
-            name: "email",
-            type: "email",
-            label: { text: "Email address" },
-            errorMessage: fieldErrors.email
-          }) }}
-
-          {{ govukButton({ text: "Add member" }) }}
-        </form>
-
-        {{ govukWarningText({
-          text: "Removing someone does not change the team client secret. Rotate it if they had a copy.",
-          iconFallbackText: "Warning"
-        }) }}
+        <p class="govuk-body govuk-hint">To change your limits, <a class="govuk-link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">contact the AI Platform team</a>.</p>
       {% endif %}
     </div>
   </div>
 {% endblock %}
-

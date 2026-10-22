@@ -9,8 +9,6 @@ import {
   getPendingTeam,
   setPendingTeam,
   clearPendingTeam,
-  getCurrentTeamId,
-  setCurrentTeamId,
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
@@ -18,13 +16,15 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import { loadModelsTab } from './models-tab.js'
+import { loadTeamRows } from './team-list.js'
 import {
-  TEAM_VIEW,
   isForbidden,
   isNotFound,
   loadTeamForView,
-  loadTeamModels,
-  teamPageContext
+  teamNotFoundView,
+  teamTabs,
+  teamUrl
 } from './team-view.js'
 
 const serviceCodeField = Joi.string()
@@ -94,25 +94,13 @@ function handleMemberChangeError(request, error) {
   }
 }
 
-// The team page again with the errors of a form on it, and what the person
-// typed still in that form: the saved service code stays in the summary,
-// the attempted one in the input.
-async function rerenderTeamPage(request, h, error) {
-  const { id } = request.params
-  const result = await loadTeamForView(request, id)
-  const listing = await loadTeamModels(request, id, result.isAdmin)
-  const attempted = request.payload?.serviceCode
-
+// A form that has failed validation goes back to the team: the page has no
+// form for these (steps 9 and 10 give them their own pages), so only a
+// request made by hand gets here.
+function backToTeam(request, h) {
   return h
-    .view(
-      TEAM_VIEW,
-      teamPageContext(result, listing, {
-        errorSummary: buildErrorSummary(error),
-        fieldErrors: buildFieldErrors(error),
-        ...(typeof attempted === 'string' && { serviceCodeValue: attempted })
-      })
-    )
-    .code(statusCodes.badRequest)
+    .redirect(`/teams/${encodeURIComponent(request.params.slug)}`)
+    .code(statusCodes.seeOther)
     .takeover()
 }
 
@@ -120,19 +108,10 @@ export const teamsController = {
   list: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { items } = await apiClient(request).get('/v1/teams', {
-          userId: sessionUser.id
-        })
-        const currentTeamId = getCurrentTeamId(request)
-
         return h.view('teams/index', {
-          pageTitle: 'Your teams',
-          heading: 'Your teams',
-          teams: items.map((team) => ({
-            ...team,
-            isCurrent: team._id === currentTeamId
-          }))
+          pageTitle: 'Teams',
+          heading: 'Teams',
+          teams: await loadTeamRows(request)
         })
       }
     }
@@ -239,13 +218,11 @@ export const teamsController = {
           if (pendingTeam.returnTo) {
             // Back to the journey it came from, which lists the new team.
             return h
-              .redirect(
-                safeReturnTo(pendingTeam.returnTo, `/teams/${team._id}`)
-              )
+              .redirect(safeReturnTo(pendingTeam.returnTo, teamUrl(team)))
               .code(statusCodes.seeOther)
           }
 
-          return h.redirect(`/teams/${team._id}`).code(statusCodes.seeOther)
+          return h.redirect(teamUrl(team)).code(statusCodes.seeOther)
         } catch (error) {
           if (error instanceof ApiError) {
             return h
@@ -267,39 +244,33 @@ export const teamsController = {
   team: {
     get: {
       async handler(request, h) {
-        const { id } = request.params
-
-        let result
+        let loaded
         try {
-          result = await loadTeamForView(request, id)
+          loaded = await loadTeamForView(request, request.params.slug)
         } catch (error) {
-          if (
-            error instanceof ApiError &&
-            error.statusCode === statusCodes.notFound
-          ) {
-            return h
-              .view('error/index', {
-                pageTitle: 'Team not found',
-                heading: 'Team not found',
-                message: 'This team does not exist, or you are not a member.'
-              })
-              .code(statusCodes.notFound)
+          if (isNotFound(error)) {
+            return teamNotFoundView(h)
           }
 
           throw error
         }
 
-        // Opening a team is what makes it the one you are acting in.
-        setCurrentTeamId(request, id)
+        const { team, isAdmin, environments } = loaded
+        const tab = await loadModelsTab(request, {
+          team,
+          isAdmin,
+          environments
+        })
 
-        const listing = await loadTeamModels(request, id, result.isAdmin)
-
-        return h.view(
-          TEAM_VIEW,
-          teamPageContext(result, listing, {
-            notification: takeAccountNotification(request)
-          })
-        )
+        return h.view('teams/team', {
+          pageTitle: team.name,
+          heading: team.name,
+          team,
+          teamUrl: teamUrl(team),
+          tabs: teamTabs(team, 'models'),
+          notification: takeAccountNotification(request),
+          ...tab
+        })
       }
     }
   },
@@ -309,20 +280,16 @@ export const teamsController = {
       options: {
         validate: {
           payload: memberRoleSchema,
-          failAction: (request, h) =>
-            h
-              .redirect(`/teams/${request.params.id}`)
-              .code(statusCodes.seeOther)
-              .takeover()
+          failAction: backToTeam
         }
       },
       async handler(request, h) {
         const sessionUser = getSessionUser(request)
-        const { id, memberId } = request.params
+        const { slug, memberId } = request.params
 
         try {
           await apiClient(request).patch(
-            `/v1/teams/${id}/members/${memberId}`,
+            `/v1/teams/${encodeURIComponent(slug)}/members/${encodeURIComponent(memberId)}`,
             { role: request.payload.role },
             { userId: sessionUser.id }
           )
@@ -330,7 +297,7 @@ export const teamsController = {
           handleMemberChangeError(request, error)
         }
 
-        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
       }
     }
   },
@@ -340,16 +307,16 @@ export const teamsController = {
       options: {
         validate: {
           payload: addMemberSchema,
-          failAction: rerenderTeamPage
+          failAction: backToTeam
         }
       },
       async handler(request, h) {
         const sessionUser = getSessionUser(request)
-        const { id } = request.params
+        const { slug } = request.params
 
         try {
           await apiClient(request).post(
-            `/v1/teams/${id}/members`,
+            `/v1/teams/${encodeURIComponent(slug)}/members`,
             { email: request.payload.email },
             { userId: sessionUser.id, idempotencyKey: randomUUID() }
           )
@@ -359,7 +326,7 @@ export const teamsController = {
           }
         }
 
-        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
       }
     }
   },
@@ -369,16 +336,16 @@ export const teamsController = {
       options: {
         validate: {
           payload: serviceCodeSchema,
-          failAction: rerenderTeamPage
+          failAction: backToTeam
         }
       },
       async handler(request, h) {
         const sessionUser = getSessionUser(request)
-        const { id } = request.params
+        const { slug } = request.params
 
         try {
           await apiClient(request).patch(
-            `/v1/teams/${id}`,
+            `/v1/teams/${encodeURIComponent(slug)}`,
             { serviceCode: request.payload.serviceCode },
             { userId: sessionUser.id }
           )
@@ -392,7 +359,7 @@ export const teamsController = {
           }
         }
 
-        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
       }
     }
   },
@@ -401,17 +368,18 @@ export const teamsController = {
     post: {
       async handler(request, h) {
         const sessionUser = getSessionUser(request)
-        const { id, memberId } = request.params
+        const { slug, memberId } = request.params
 
         try {
-          await apiClient(request).del(`/v1/teams/${id}/members/${memberId}`, {
-            userId: sessionUser.id
-          })
+          await apiClient(request).del(
+            `/v1/teams/${encodeURIComponent(slug)}/members/${encodeURIComponent(memberId)}`,
+            { userId: sessionUser.id }
+          )
         } catch (error) {
           handleMemberChangeError(request, error)
         }
 
-        return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
       }
     }
   }

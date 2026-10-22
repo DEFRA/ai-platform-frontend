@@ -11,11 +11,5 @@
 
     <a class="govuk-link app-link--revoke" href="/manage/credentials/{{ params.credential._id }}/revoke" data-testid="credential-action-revoke">Revoke</a>
   {% endif %}
-
-  {% if params.credential.showRotateRevoke and params.credential.status != "revoked" %}
-    <a class="govuk-link app-link--rotate" href="/manage/credentials/{{ params.credential._id }}/rotate" data-testid="credential-action-rotate">Rotate</a>
-
-    <a class="govuk-link app-link--revoke" href="/manage/credentials/{{ params.credential._id }}/revoke" data-testid="credential-action-revoke">Revoke</a>
-  {% endif %}
 </div>
 
