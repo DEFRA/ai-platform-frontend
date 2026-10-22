@@ -1,0 +1,17 @@
+{#
+  params.items: [{ text, href, current? }]
+  params.label: accessible name of the navigation (default "Sub navigation")
+#}
+<nav class="app-sub-navigation{{ ' ' + params.classes if params.classes }}" aria-label="{{ params.label or 'Sub navigation' }}" data-testid="sub-navigation">
+  <ul class="app-sub-navigation__list">
+    {% for item in params.items %}
+      <li class="app-sub-navigation__item{{ ' app-sub-navigation__item--current' if item.current }}">
+        {% if item.current %}
+          <a class="app-sub-navigation__link app-sub-navigation__link--current" href="{{ item.href }}" aria-current="page">{{ item.text }}</a>
+        {% else %}
+          <a class="govuk-link govuk-link--no-visited-state app-sub-navigation__link" href="{{ item.href }}">{{ item.text }}</a>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</nav>

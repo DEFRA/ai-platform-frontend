@@ -1,0 +1,40 @@
+@use "govuk-frontend" as *;
+@use "variables/colours" as *;
+
+$app-sub-navigation-bar: 4px;
+
+// A row of links under the H1 with a grey rule beneath. The current link is
+// bold black with a green bar over the rule; the others are blue, underlined.
+.app-sub-navigation {
+  margin-bottom: govuk-spacing(6);
+}
+
+.app-sub-navigation__list {
+  @include govuk-font($size: 19);
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 govuk-spacing(6);
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid govuk-colour("mid-grey");
+  list-style: none;
+}
+
+.app-sub-navigation__item {
+  margin: 0 0 -1px;
+  padding: govuk-spacing(2) 0;
+  border-bottom: $app-sub-navigation-bar solid transparent;
+}
+
+.app-sub-navigation__item--current {
+  border-bottom-color: $defra-green;
+}
+
+.app-sub-navigation__link--current {
+  @include govuk-link-common;
+  @include govuk-link-style-text;
+  @include govuk-typography-weight-bold;
+
+  text-decoration: none;
+}

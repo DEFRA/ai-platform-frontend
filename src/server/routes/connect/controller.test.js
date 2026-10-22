@@ -146,7 +146,7 @@ describe('#connectController', () => {
     expect(result).toContain(
       'You can move to a team client secret later and keep the same sign-in.'
     )
-    expect(result).toContain('A key that lasts 7 days in Infradev.')
+    expect(result).toContain('A key that lasts 7 days in Development.')
     expect(result).not.toContain('Sandbox')
     expect(result).not.toContain('A key the whole team shares')
     expect(result).not.toContain('team key')
@@ -253,7 +253,7 @@ describe('#connectController', () => {
       expect.stringContaining('60 requests a minute')
     )
     expect(getCheck.result).toMatch(
-      /Environment\s*<\/dt>\s*<dd[^>]*>\s*Infradev/
+      /Environment\s*<\/dt>\s*<dd[^>]*>\s*Development/
     )
 
     fetchMock.mockResponseOnce(
@@ -301,7 +301,7 @@ describe('#connectController', () => {
       )
     )
     expect(getCredential.result).toEqual(
-      expect.stringContaining(', in Infradev')
+      expect.stringContaining(', in Development')
     )
     expect(getCredential.result).not.toEqual(
       expect.stringContaining('deploytestdefra')

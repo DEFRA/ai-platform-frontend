@@ -61,10 +61,12 @@ describe('#homeController', () => {
     const { result } = await server.inject({ method: 'GET', url: '/' })
 
     expect(result).toEqual(
-      expect.stringContaining('A key that works for 7 days, in the Infradev')
+      expect.stringContaining('A key that works for 7 days, in the Development')
     )
     expect(result).toEqual(
-      expect.stringContaining('Infradev is for building and trying things out.')
+      expect.stringContaining(
+        'Development is for building and trying things out.'
+      )
     )
     expect(result).not.toEqual(expect.stringContaining('Sandbox'))
   })

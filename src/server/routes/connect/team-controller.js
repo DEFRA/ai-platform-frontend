@@ -13,12 +13,11 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import { errorMessageForCode } from './team-client-secret.js'
 import {
-  environmentHint,
-  environmentItems,
-  environmentValues
-} from './team-environments.js'
+  defaultTeamEnvironment,
+  environmentName
+} from '#/server/common/helpers/environment-names.js'
+import { errorMessageForCode } from './team-client-secret.js'
 import {
   MAX_MODELS_PER_REQUEST,
   hasCompletedTeamJourney,
@@ -59,19 +58,26 @@ const selectModelsSchema = Joi.object({
 const detailsSchema = Joi.object({
   purpose: Joi.string().trim().max(500).allow('').optional().messages({
     'string.max': 'Purpose must be 500 characters or fewer'
-  }),
-  // Checked against the configured list when the form is posted, not when
-  // the module loads, so configuration is read where it is used.
-  environment: Joi.string()
-    .custom((value, helpers) =>
-      environmentValues().includes(value) ? value : helpers.error('any.only')
-    )
-    .default(() => environmentValues()[0])
-    .messages({ 'any.only': 'Select an available environment' })
+  })
 })
 
 function redirectToStart(h) {
   return h.redirect('/connect').takeover()
+}
+
+// No environment is configured for teams to deploy to, so there is nothing
+// to state or save on the details step: say so rather than lose the journey.
+function environmentUnavailableView(h) {
+  return h
+    .view('error/index', {
+      pageTitle: 'No environment is available yet',
+      heading: 'No environment is available yet',
+      message:
+        'Models cannot be set up for a team in any environment yet. Try again later.',
+      actionHref: '/models',
+      actionText: 'Browse models'
+    })
+    .code(statusCodes.serviceUnavailable)
 }
 
 function buildTeamItems(teamsList, selectedTeamId) {
@@ -266,12 +272,15 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        if (!defaultTeamEnvironment()) {
+          return environmentUnavailableView(h)
+        }
+
         return h.view('connect/team/details', {
           pageTitle: 'Say what it is for',
           heading: 'Say what it is for',
           values: { purpose: pendingAccess.purpose ?? '' },
-          environmentItems: environmentItems(pendingAccess.environment),
-          environmentHint: environmentHint(),
+          environmentName: environmentName(defaultTeamEnvironment()),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -282,20 +291,19 @@ export const teamConnectController = {
         validate: {
           payload: detailsSchema,
           failAction: (request, h, error) =>
-            h
-              .view('connect/team/details', {
-                pageTitle: 'Error: Say what it is for',
-                heading: 'Say what it is for',
-                values: request.payload,
-                environmentItems: environmentItems(
-                  request.payload?.environment
-                ),
-                environmentHint: environmentHint(),
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
-              })
-              .code(statusCodes.badRequest)
-              .takeover()
+            (defaultTeamEnvironment()
+              ? h
+                  .view('connect/team/details', {
+                    pageTitle: 'Error: Say what it is for',
+                    heading: 'Say what it is for',
+                    values: request.payload,
+                    environmentName: environmentName(defaultTeamEnvironment()),
+                    errorSummary: buildErrorSummary(error),
+                    fieldErrors: buildFieldErrors(error)
+                  })
+                  .code(statusCodes.badRequest)
+              : environmentUnavailableView(h)
+            ).takeover()
         }
       },
       handler(request, h) {
@@ -305,13 +313,17 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        if (!defaultTeamEnvironment()) {
+          return environmentUnavailableView(h)
+        }
+
         // A fresh key for each time the answers are confirmed from here: a
         // double click on "Confirm" replays one request, a changed answer
         // makes a new one.
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: request.payload.environment,
+          environment: defaultTeamEnvironment(),
           requestKey: randomUUID()
         })
 
