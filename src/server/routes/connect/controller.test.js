@@ -119,7 +119,9 @@ describe('#connectController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toContain('A research key comes with limits:')
+    expect(result).toContain(
+      'A key for using a model on your own comes with limits:'
+    )
     expect(result).toContain(
       'you can renew it 3 times, then you need a team client secret'
     )
@@ -167,6 +169,10 @@ describe('#connectController', () => {
     expect(getCheck.result).toMatch(
       /Environment\s*<\/dt>\s*<dd[^>]*>\s*Development/
     )
+    expect(getCheck.result).toMatch(
+      /Access for\s*<\/dt>\s*<dd[^>]*>\s*Just me, on your own/
+    )
+    expect(getCheck.result).not.toMatch(/research/i)
 
     fetchMock.mockResponseOnce(
       JSON.stringify({
@@ -310,6 +316,40 @@ describe('#connectController', () => {
       expect.stringContaining('has expired. Renew it instead')
     )
     expect(postCheck.result).toEqual(expect.stringContaining('/manage'))
+  })
+
+  test('POST /connect/shared/check says a model that cannot be tried on your own is not available', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getCheck = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, getCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'model-not-eligible',
+        message: 'Model is not eligible'
+      }),
+      { status: 422 }
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postCheck.result).toEqual(
+      expect.stringContaining('This model is not available to try on your own.')
+    )
+    expect(postCheck.result).not.toMatch(/research tier/i)
   })
 
   test('POST /connect/shared/check shows a safe error when the issuer fails (502)', async () => {

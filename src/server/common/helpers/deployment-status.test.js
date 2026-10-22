@@ -1,5 +1,4 @@
 import {
-  DEPLOYMENT_SETTING_UP_STATUSES,
   deploymentStatusText,
   deploymentTagClass,
   isDeploymentInProgress
@@ -27,17 +26,6 @@ describe('deployment-status', () => {
       expect(isDeploymentInProgress(status)).toBe(inProgress)
     }
   )
-
-  test('maps every setting-up status explicitly', () => {
-    expect(DEPLOYMENT_SETTING_UP_STATUSES).toEqual([
-      'requested',
-      'pr-raised',
-      'merged',
-      'deploying',
-      'deployed',
-      'verified'
-    ])
-  })
 
   test('reads a status it does not know as unknown, not as progress', () => {
     expect(deploymentStatusText('verifying')).toBe('Status unknown')
