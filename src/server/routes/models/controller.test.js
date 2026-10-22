@@ -466,10 +466,12 @@ describe('#modelsController', () => {
   })
 
   describe('GET /models/{slug}', () => {
-    // The model's page reads the model, then the list, which carries whether
-    // it can be tried on your own.
+    // The model's page reads the model, then the list. The real single-model
+    // answer has no `researchAvailable`; only the list carries it.
     async function getDetail(model = sampleModel, cookies) {
-      fetchMock.mockResponseOnce(JSON.stringify(model))
+      const { researchAvailable, ...detail } = model
+
+      fetchMock.mockResponseOnce(JSON.stringify(detail))
       fetchMock.mockResponseOnce(JSON.stringify({ items: [model] }))
 
       return server.inject({
