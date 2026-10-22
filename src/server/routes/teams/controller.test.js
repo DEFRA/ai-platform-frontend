@@ -399,6 +399,26 @@ describe('#teamsController', () => {
       expect(result).toContain('Not given')
     })
 
+    test('opens the Members tab of the ID the backend gave, which is numbered when the first choice was taken', async () => {
+      cookies = mergeCookies(
+        cookies,
+        await post('/teams/new', {
+          name: 'Flood Risk Team',
+          serviceCode: 'ABC'
+        })
+      )
+
+      fetchMock.mockResponseOnce(
+        JSON.stringify({ team: { ...sampleTeam, slug: 'flood-risk-team-2' } })
+      )
+
+      const postCheck = await post('/teams/new/check')
+
+      expect(postCheck.headers.location).toBe(
+        '/teams/flood-risk-team-2/members'
+      )
+    })
+
     test('POST /teams/new/check shows an error for a duplicate team name', async () => {
       cookies = mergeCookies(
         cookies,
