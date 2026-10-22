@@ -10,6 +10,7 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import { requireSignIn } from '#/server/common/helpers/require-sign-in.js'
 import {
   getSessionUser,
   setPendingAccess
@@ -209,6 +210,15 @@ export const environmentSetUpController = {
       validate: {
         payload: setUpSchema,
         async failAction(request, h, error) {
+          // A failed validation runs before the global sign-in gate, so a
+          // signed-out person (with a still-valid CSRF token) is sent to sign
+          // in here, before anything is read for them.
+          const signIn = requireSignIn(request, h)
+
+          if (signIn !== h.continue) {
+            return signIn
+          }
+
           const result = await loadSetUp(request, h)
 
           return (
