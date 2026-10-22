@@ -289,6 +289,15 @@ describe('#clientSecretsController', () => {
         mergeCookies(cookies, revealed)
       )
 
+      expect(page.statusCode).toBe(statusCodes.notFound)
+      expect(page.result).not.toContain('full_client_secret')
+    })
+
+    test('does not show a secret revealed for the same address with no result pending', async () => {
+      backend()
+
+      const page = await get(`${SECRET_URL}/revealed`)
+
       expect(page.statusCode).toBe(statusCodes.seeOther)
       expect(page.headers.location).toBe(TEAM_URL)
     })
@@ -429,7 +438,8 @@ describe('#clientSecretsController', () => {
         mergeCookies(cookies, rotated)
       )
 
-      expect(page.statusCode).toBe(statusCodes.seeOther)
+      expect(page.statusCode).toBe(statusCodes.notFound)
+      expect(page.result).not.toContain('new_client_secret')
     })
 
     test('says so on the Models tab when the backend refuses a person who is no longer an admin', async () => {
@@ -449,6 +459,124 @@ describe('#clientSecretsController', () => {
       expect(page.result).toContain(
         'Only a team admin can rotate this client secret.'
       )
+    })
+  })
+
+  describe('the once-only result pages decide who may see it again', () => {
+    const secrets = {
+      revealed: {
+        issue: () => post(`${SECRET_URL}/view`, { reason: 'Testing' }),
+        routes: {
+          [`POST ${CREDENTIAL_PATH}/reveal`]: { secret: 'team_secret' }
+        }
+      },
+      rotated: {
+        issue: () => post(`${SECRET_URL}/rotate`),
+        routes: {
+          [`POST ${CREDENTIAL_PATH}/rotate`]: {
+            credential,
+            secret: 'team_secret'
+          }
+        }
+      }
+    }
+
+    test.each(['revealed', 'rotated'])(
+      'a team secret is not shown on the %s page of another team',
+      async (step) => {
+        backend(secrets[step].routes)
+
+        const issued = await secrets[step].issue()
+
+        backend({
+          ...secrets[step].routes,
+          'GET /v1/teams/coastal-team': {
+            ...teamWithMembers('admin'),
+            team: { _id: 'team-2', slug: 'coastal-team', name: 'Coastal Team' }
+          }
+        })
+
+        const page = await get(
+          '/teams/coastal-team/client-secrets/cred-1/' + step,
+          mergeCookies(cookies, issued)
+        )
+
+        expect(page.statusCode).toBe(statusCodes.notFound)
+        expect(page.result).not.toContain('team_secret')
+      }
+    )
+
+    test.each(['revealed', 'rotated'])(
+      'a team secret is not shown on the %s page once the person is no longer an admin',
+      async (step) => {
+        backend(secrets[step].routes)
+
+        const issued = await secrets[step].issue()
+
+        backend({ role: 'user', ...secrets[step].routes })
+
+        const page = await get(
+          `${SECRET_URL}/${step}`,
+          mergeCookies(cookies, issued)
+        )
+
+        expect(page.statusCode).toBe(statusCodes.notFound)
+        expect(page.result).not.toContain('team_secret')
+      }
+    )
+
+    test.each(['revealed', 'rotated'])(
+      'a personal key just shown is not shown on the %s page of a team',
+      async (step) => {
+        const key = {
+          _id: 'cred-key',
+          tier: 'research',
+          modelSlug: 'gpt-4o',
+          status: 'active'
+        }
+
+        backend({
+          'GET /v1/credentials/cred-key': key,
+          'POST /v1/credentials/cred-key/reveal': { secret: 'personal_key' }
+        })
+
+        const issued = await post('/manage/credentials/cred-key/view', {
+          reason: 'Testing'
+        })
+
+        expect(issued.statusCode).toBe(statusCodes.seeOther)
+
+        const page = await get(
+          `${TEAM_URL}/client-secrets/cred-key/${step}`,
+          mergeCookies(cookies, issued)
+        )
+
+        expect(page.statusCode).toBe(statusCodes.notFound)
+        expect(page.result).not.toContain('personal_key')
+
+        // The refusal leaves the personal key for the person's own page.
+        const own = await get(
+          '/manage/credentials/cred-key/revealed',
+          mergeCookies(cookies, page)
+        )
+
+        expect(own.statusCode).toBe(statusCodes.ok)
+        expect(own.result).toContain('personal_key')
+      }
+    )
+
+    test('a team secret just shown is not shown on the personal keys’ page', async () => {
+      backend(secrets.revealed.routes)
+
+      const issued = await secrets.revealed.issue()
+      const page = await get(
+        '/manage/credentials/cred-1/revealed',
+        mergeCookies(cookies, issued)
+      )
+
+      expect(page.statusCode).toBe(statusCodes.seeOther)
+      expect(page.headers.location).toBe('/manage')
+      expect(page.result).not.toContain('team_secret')
     })
   })
 

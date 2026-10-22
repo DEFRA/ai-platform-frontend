@@ -16,7 +16,9 @@ export function mockApi(fetchMock, routes) {
       `${request.method} ${pathname}`
     ].find((candidate) => candidate in routes)
     const answer =
-      typeof routes[key] === 'function' ? routes[key](request) : routes[key]
+      typeof routes[key] === 'function'
+        ? await routes[key](request)
+        : routes[key]
 
     if (key === undefined) {
       return reply(404, { code: 'not-found', message: 'Not Found' }).init()

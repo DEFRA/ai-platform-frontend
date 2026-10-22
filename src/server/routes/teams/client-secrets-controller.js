@@ -235,8 +235,16 @@ export const clientSecretsController = {
 
   revealed: {
     get: {
-      handler(request, h) {
+      async handler(request, h) {
         const { slug, credentialId } = request.params
+
+        // Who may see it is decided again here, before the one-time result is
+        // taken: the session slot is shared with personal keys and other
+        // teams, and the person may have lost admin since they asked.
+        if (!(await loadClientSecret(request))) {
+          return clientSecretNotFound(h, slug)
+        }
+
         const issued = takeIssuedCredential(request)
 
         if (!issued || issued.credentialId !== credentialId) {
@@ -317,8 +325,15 @@ export const clientSecretsController = {
 
   rotated: {
     get: {
-      handler(request, h) {
+      async handler(request, h) {
         const { slug, credentialId } = request.params
+
+        // As for the revealed secret: decided again before the one-time
+        // result is taken.
+        if (!(await loadClientSecret(request))) {
+          return clientSecretNotFound(h, slug)
+        }
+
         const issued = takeIssuedCredential(request)
 
         if (!issued?.credential || issued.credential._id !== credentialId) {

@@ -26,6 +26,11 @@ export const MODELS_CHANGING_REFRESH_SECONDS = 5
 
 const numberFormat = new Intl.NumberFormat('en-GB')
 
+// A read's outcome, however it went, so one that fails does not stop another.
+function settled(read) {
+  return Promise.allSettled([read]).then(([outcome]) => outcome)
+}
+
 function requestUrl(team, deployment) {
   return `/connect/team/request/${encodeURIComponent(team.slug)}/${encodeURIComponent(deployment._id)}`
 }
@@ -218,16 +223,25 @@ export function buildModelsTab(params) {
 export async function loadModelsTab(request, { team, isAdmin, environments }) {
   const client = apiClient(request)
   const userId = getSessionUser(request).id
-  const [deployments, catalogue, credentials] = await Promise.allSettled([
+  // The names can be read alongside the deployments. The credentials are read
+  // only once the deployments are: reading them lists the deployments afresh,
+  // and a model that has just turned active has its team secret granted then,
+  // so an earlier read of the credentials would miss it and the tab would
+  // show a ready model beside a secret that is "not ready".
+  const catalogueRead = settled(client.get('/v1/models?includeIneligible=true'))
+  const deployments = await settled(
     client.get(`/v1/teams/${encodeURIComponent(team.slug)}/deployments`, {
       userId
-    }),
-    client.get('/v1/models?includeIneligible=true'),
-    client.get('/v1/credentials', { userId })
-  ])
+    })
+  )
+  const credentials =
+    deployments.status === 'fulfilled'
+      ? await settled(client.get('/v1/credentials', { userId }))
+      : null
+  const catalogue = await catalogueRead
 
   for (const failed of [deployments, catalogue, credentials]) {
-    if (failed.status === 'rejected') {
+    if (failed?.status === 'rejected') {
       request.logger.warn(
         { err: failed.reason },
         'Could not read part of the team Models tab'

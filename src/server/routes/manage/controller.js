@@ -406,7 +406,13 @@ export const manageController = {
       handler(request, h) {
         const issued = takeIssuedCredential(request)
 
-        if (!issued) {
+        // The slot is shared with a team's secrets, which are shown only
+        // on the team's own routes.
+        if (
+          !issued ||
+          issued.credentialId !== request.params.id ||
+          issued.secretName !== SECRET_NAME
+        ) {
           return h.redirect('/manage').code(statusCodes.seeOther)
         }
 

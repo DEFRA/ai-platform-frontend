@@ -552,6 +552,41 @@ describe('#teamsController', () => {
       expect(result).toContain('We could not check this just now.')
     })
 
+    test('reads the credentials only after the deployments, which is what grants a model that just turned active its team secret', async () => {
+      let granted = false
+
+      backend({
+        [`GET ${TEAM_PATH}/deployments`]: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          granted = true
+
+          return { items: [deployment()] }
+        },
+        'GET /v1/credentials': () => ({
+          items: granted ? [teamCredential] : []
+        })
+      })
+
+      const { result } = await get(TEAM_URL)
+
+      expect(result).toContain('Expires 19 October 2027')
+      expect(result).not.toContain('Ready once a model has been set up.')
+    })
+
+    test('does not read the credentials when the models could not be listed', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/deployments`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+
+      await get(TEAM_URL)
+
+      expect(
+        fetchMock.mock.calls.some(([url]) => url.includes('/v1/credentials'))
+      ).toBe(false)
+    })
+
     test('says so, rather than showing an empty team, when the models cannot be listed', async () => {
       backend({
         [`GET ${TEAM_PATH}/deployments`]: reply(502, {
