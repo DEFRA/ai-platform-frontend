@@ -3,6 +3,7 @@ import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { requireSignIn } from '#/server/common/helpers/require-sign-in.js'
 import {
   getSessionUser,
   setAccountNotification,
@@ -87,6 +88,14 @@ function memberNotFoundView(h, team) {
 // The team for a page only its admins may use, or the page to show instead:
 // a team that is not theirs is not found; a member is told it is for admins.
 async function loadAdminTeam(request, h, action) {
+  // A failed validation runs before the global sign-in gate, so a signed-out
+  // person (with a still-valid CSRF token) is sent to sign in here.
+  const signIn = requireSignIn(request, h)
+
+  if (signIn !== h.continue) {
+    return { page: signIn }
+  }
+
   let loaded
 
   try {

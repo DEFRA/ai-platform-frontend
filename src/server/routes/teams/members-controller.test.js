@@ -233,6 +233,31 @@ describe('#members', () => {
       )
     })
 
+    test('masks a colleague’s name when it is their address, for a member but not for an admin', async () => {
+      const members = [
+        you('user'),
+        { ...priya(), displayName: 'priya.raman@defra.gov.uk' }
+      ]
+      const team = { team: sampleTeam, members, environments: [] }
+
+      mockApi(fetchMock, { [`GET ${TEAM_PATH}`]: team })
+
+      const asMember = await get(MEMBERS_URL)
+
+      expect(asMember.result).not.toContain('priya.raman@defra.gov.uk')
+      expect(asMember.result).toContain('p**********@defra.gov.uk')
+
+      mockApi(fetchMock, {
+        [`GET ${TEAM_PATH}`]: {
+          ...team,
+          members: [you('admin'), members[1]]
+        }
+      })
+
+      const asAdmin = await get(MEMBERS_URL)
+
+      expect(asAdmin.result).toContain('priya.raman@defra.gov.uk')
+    })
     test('names a person who has not signed in by their address for a screen reader', async () => {
       backend('admin')
 
@@ -294,6 +319,34 @@ describe('#members', () => {
     })
   })
 
+  describe('signed out, with a valid CSRF token', () => {
+    test.each([
+      ['adding a member', `${MEMBERS_URL}/add`, { email: 'nope' }],
+      ['changing a role', `${MEMBERS_URL}/member-2/role`, { role: 'owner' }]
+    ])(
+      'sends an invalid submission for %s to sign in, without reading the team',
+      async (_name, url, payload) => {
+        backend('admin')
+
+        const { statusCode, headers } = await server.inject({
+          method: 'POST',
+          url,
+          headers: { cookie: cookieHeader({ crumb: cookies.crumb }) },
+          payload: { crumb: cookies.crumb, ...payload }
+        })
+
+        expect(statusCode).toBe(302)
+        expect(headers.location).toBe(
+          `/sign-in?returnTo=${encodeURIComponent(url)}`
+        )
+        expect(
+          fetchMock.mock.calls.filter(([target]) =>
+            target.includes('/v1/teams')
+          )
+        ).toHaveLength(0)
+      }
+    )
+  })
   describe('adding a member', () => {
     test('for a person with only their own keys: is not found', async () => {
       backend(null)

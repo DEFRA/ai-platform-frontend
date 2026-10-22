@@ -181,6 +181,31 @@ describe('#loadTeamForView', () => {
     ])
   })
 
+  test('masks a colleague’s name that is an address, but not a name or one’s own', async () => {
+    respondWith([
+      admin({ userId: 'user-1', role: 'user', displayName: 'me@defra.gov.uk' }),
+      colleague({ displayName: 'colleague@defra.gov.uk' }),
+      colleague({ userId: 'user-3', displayName: 'Priya Raman' }),
+      colleague({ userId: 'user-4', displayName: null })
+    ])
+
+    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
+
+    expect(members.map(({ displayName }) => displayName)).toEqual([
+      'me@defra.gov.uk',
+      'c********@defra.gov.uk',
+      'Priya Raman',
+      null
+    ])
+  })
+
+  test('shows an admin every name as it is', async () => {
+    respondWith([admin(), colleague({ displayName: 'colleague@defra.gov.uk' })])
+
+    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
+
+    expect(members[1].displayName).toBe('colleague@defra.gov.uk')
+  })
   test('shows every address to an admin', async () => {
     respondWith([admin(), colleague()])
 

@@ -75,10 +75,17 @@ function maskEmail(email) {
   return `${localPart.slice(0, 1)}${'*'.repeat(Math.max(localPart.length - 1, 1))}@${domain}`
 }
 
+// A name is an address when Entra gave no name and sign-in fell back to the
+// email, so it is masked the same way.
+function maskIfAddress(name) {
+  return name?.includes('@') ? maskEmail(name) : name
+}
+
 /**
  * The team with its members shaped for the signed-in person's view: each
- * says whether it is them, and colleagues' addresses are masked unless they
- * are an admin. Whether the team's last admin may be changed is the
+ * says whether it is them, and colleagues' names and addresses are masked
+ * when they are addresses, unless the person is an admin. Whether the team's
+ * last admin may be changed is the
  * backend's rule, answered when a change is tried.
  * @param {import('@hapi/hapi').Request} request
  * @param {string} teamRef - The team's slug (or id).
@@ -103,14 +110,17 @@ export async function loadTeamForView(request, teamRef) {
     .filter((member) => member.status !== 'removed')
     .map((member) => {
       const isYou = member.userId === sessionUser.id
+      // Only an admin, or the person themselves, sees a full address.
+      const shouldMask = !isAdmin && !isYou
 
       return {
         ...member,
         isYou,
+        displayName: shouldMask
+          ? maskIfAddress(member.displayName)
+          : member.displayName,
         email:
-          member.email && !isAdmin && !isYou
-            ? maskEmail(member.email)
-            : member.email
+          shouldMask && member.email ? maskEmail(member.email) : member.email
       }
     })
 
