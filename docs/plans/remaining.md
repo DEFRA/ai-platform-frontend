@@ -87,27 +87,46 @@ audience and reuses them unchanged.
 
 **Backend enforcement, route by route**
 
-| Route                                                               | Token                                                | Right                                                          |
-| ------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------- |
-| `GET /health`                                                       | None                                                 | None (CDP's probe)                                             |
-| `POST /maintenance/expire-credentials`                              | None; its own `x-maintenance-token`, as B04 built it | None                                                           |
-| `GET /v1/models`, `GET /v1/models/{slug}`                           | A person's, or the frontend's app token              | None                                                           |
-| `PUT /v1/users/me`, replacing `POST /v1/users`                      | A person's                                           | Themselves only, from the token's claims; no body              |
-| `GET /v1/users/me`                                                  | A person's                                           | Themselves only                                                |
-| `POST /v1/credentials`                                              | A person's                                           | Research: any eligible person. Team: an active member          |
-| `GET /v1/credentials`, `GET /v1/credentials/{id}`                   | A person's                                           | The research credential's owner, or a member of its team       |
-| `POST /v1/credentials/{id}/renew`                                   | A person's                                           | The research credential's owner; team credentials do not renew |
-| `POST .../rotate`, `POST .../reveal`, `DELETE /v1/credentials/{id}` | A person's                                           | The research credential's owner, or an Admin of its team       |
-| `POST /v1/teams`, `GET /v1/teams`                                   | A person's                                           | Any person; the list holds only their teams                    |
-| `GET /v1/teams/{id}`                                                | A person's                                           | A member                                                       |
-| `PATCH /v1/teams/{id}`; `POST`, `PATCH` and `DELETE` on its members | A person's                                           | An Admin; the last Admin is never removed or demoted           |
-| `POST` and `GET /v1/teams/{teamId}/deployments`, `GET .../{id}`     | A person's                                           | A member                                                       |
-| `DELETE /v1/teams/{teamId}/deployments/{id}`                        | A person's                                           | An Admin                                                       |
-| Platform Admin retry and reconcile (service only, no route yet)     | A person's                                           | Platform Admin, the database role                              |
-| `/example`, `/example/{exampleId}`                                  | Removed                                              | Removed                                                        |
+| Route                                                                   | Token                                                | Right                                                          |
+| ----------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------- |
+| `GET /health`                                                           | None                                                 | None (CDP's probe)                                             |
+| `POST /maintenance/expire-credentials`                                  | None; its own `x-maintenance-token`, as B04 built it | None                                                           |
+| `GET /v1/models`, `GET /v1/models/{slug}`                               | A person's, or the frontend's app token              | None                                                           |
+| `PUT /v1/users/me`, replacing `POST /v1/users`                          | A person's                                           | Themselves only, from the token's claims; no body              |
+| `GET /v1/users/me`                                                      | A person's                                           | Themselves only                                                |
+| `POST /v1/credentials`                                                  | A person's                                           | Research: any eligible person. Team: an active member          |
+| `GET /v1/credentials`, `GET /v1/credentials/{id}`                       | A person's                                           | The research credential's owner, or a member of its team       |
+| `POST /v1/credentials/{id}/renew`                                       | A person's                                           | The research credential's owner; team credentials do not renew |
+| `POST .../rotate`, `POST .../reveal`, `DELETE /v1/credentials/{id}`     | A person's                                           | The research credential's owner, or an Admin of its team       |
+| `POST /v1/teams`, `GET /v1/teams`                                       | A person's                                           | Any person; the list holds only their teams                    |
+| `GET /v1/teams/{id}`                                                    | A person's                                           | A member                                                       |
+| `PATCH /v1/teams/{id}`; `POST`, `PATCH` and `DELETE` on its members     | A person's                                           | An Admin; the last Admin is never removed or demoted           |
+| `POST` and `GET /v1/teams/{teamId}/deployments`, `GET .../{id}`         | A person's                                           | A member                                                       |
+| `DELETE /v1/teams/{teamId}/deployments/{id}`                            | A person's                                           | An Admin                                                       |
+| `POST /v1/admin/team-deployments/{id}/retry`, `POST .../{id}/reconcile` | A person's                                           | Platform Admin, the database role                              |
+| `/example`, `/example/{exampleId}`                                      | Removed                                              | Removed                                                        |
 
 The rights are the ones the services enforce today; B27 adds the token and moves the checks into `access.js`. A test
 lists every route with its declared access, so a new route fails until it declares one.
+
+**Team invitations.** An Admin invites a member by Defra email, and the membership binds to the person at their next
+sign-in (design F `#membership`). Today `addMember` stores the invitation with `userId: null` and `upsertUser`
+activates it from whatever email `POST /v1/users` is sent. P1 keeps the binding but makes it safe:
+
+- It runs only inside `PUT /v1/users/me`, after a valid token from a member of the Defra tenant (`tid`, `acct: 0`), and
+  only for invitations whose email equals the token's `email` claim.
+- Each invitation binds once: one atomic update moves it from `invited` with no `userId` to `active` with the person's
+  `userId`, and the binding is audited with the team and `uti`. A bound invitation never moves to another person, and
+  the email grants nothing after that.
+- Two members cannot hold the same address at once: Entra keeps `proxyAddresses` unique across a tenant's users,
+  groups and contacts and refuses a clashing `mail`
+  ([user resource](https://learn.microsoft.com/en-us/graph/api/resources/user), checked 22 October 2026). The
+  remaining risk is a directory administrator reassigning an address while an invitation is still pending; the Admin
+  sees who joined and can remove them.
+- Not chosen: resolving the invitee's `oid` through Microsoft Graph when the invitation is made. It binds on an
+  immutable ID, but needs a tenant-wide directory read permission and admin consent for the backend identity.
+
+This is separate from finding 6: the legacy bind of a whole person record by email is removed.
 
 **Review of the built code (22 October 2026)**
 
@@ -176,11 +195,20 @@ right gets a stable 403 code such as `admin-required`; audit with a 30-day TTL; 
   services in CDP ([CDP proxy guide](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/proxy.md)).
 - **P1 Backend: the API enforces it.** Findings 1 to 7. Add `@hapi/jwt` and the backend modules above, give every route
   its access from the route table, and take the actor from `request.auth.credentials` in every service. Remove
-  `x-user-id` from every route schema, `POST /v1/users`, the `/example` routes, `allowedEmailDomains` and the email bind,
-  with a dated backfill deleting person records without `oid`. Tests: a helper mints tokens with a test RSA key and
+  `x-user-id` from every route schema, `POST /v1/users`, the `/example` routes, `allowedEmailDomains` and the legacy
+  person-record email bind (finding 6), with a dated backfill deleting person records without `oid`; invitation
+  binding moves into `PUT /v1/users/me` as set out above. Tests: a helper mints tokens with a test RSA key and
   serves its JWKS through `nock`; one table-driven test sends every bad token in B27 to a protected route and expects
   401; `access.js` tests cover 404, 403 and the refusal audit; the route-table test above; route tests send a bearer
-  token. Done when B27's acceptance criteria pass against the test keys.
+  token. Invitation tests:
+  - an invitee's first sign-in joins the team once, with an audit record;
+  - a second team's pending invitation for the same email binds to the same person;
+  - a guest's or another tenant's token with the same email binds nothing;
+  - a different `oid` with the same email after binding gets nothing;
+  - a sign-in with no matching invitation changes no membership.
+
+  Done when B27's acceptance criteria pass against the test keys.
+
 - **P2 Frontend: the UI sends it.** Findings 9 to 12 through the frontend modules above; the call sites drop `userId`. The mock
   provider (`dev/mock-oidc-provider.js`) issues Entra-shaped JWT access tokens for the API (`oidc-provider`'s
   `resourceIndicators` with a default resource and `extraTokenClaims`), accepts the client-credentials grant, and the
