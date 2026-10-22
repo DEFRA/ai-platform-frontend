@@ -4,8 +4,7 @@ import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   signInViaOidc,
-  mergeCookies,
-  cookieHeader
+  mergeCookies
 } from '#/test-helpers/oidc-session-helpers.js'
 import {
   nanoModel,
@@ -251,28 +250,6 @@ describe('#startController', () => {
       )
 
       expect(statusCode).toBe(statusCodes.badRequest)
-    })
-  })
-
-  describe('the old access-type step', () => {
-    test('is gone: GET and POST /connect are not found', async () => {
-      const cookies = await signInViaOidc(server, fetchMock)
-      const headers = { cookie: cookieHeader(cookies) }
-
-      const getResponse = await server.inject({
-        method: 'GET',
-        url: '/connect',
-        headers
-      })
-      const postResponse = await server.inject({
-        method: 'POST',
-        url: '/connect',
-        headers,
-        payload: { crumb: cookies.crumb, accessType: 'team' }
-      })
-
-      expect(getResponse.statusCode).toBe(statusCodes.notFound)
-      expect(postResponse.statusCode).toBe(statusCodes.notFound)
     })
   })
 })

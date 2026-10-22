@@ -116,7 +116,7 @@ function buildCheckAnswersRows(model, purpose) {
     },
     {
       key: { text: 'Access for' },
-      value: { text: 'Just me, research' }
+      value: { text: 'Just me, on your own' }
     },
     {
       key: { text: 'What you will use it for' },
@@ -414,7 +414,7 @@ function errorMessageForCode(error) {
   }
 
   if (error.code === 'model-not-eligible') {
-    return 'This model is not available for the research tier.'
+    return 'This model is not available to try on your own.'
   }
 
   if (error.code === 'model-not-granted') {

@@ -649,6 +649,10 @@ describe('#manageController', () => {
       expect.stringContaining('/manage/credentials/cred-1/view')
     )
     expect(result).toContain('View full key')
+    expect(result).toMatch(
+      /Access\s*<\/dt>\s*<dd[^>]*>\s*On your own \(free trial\)/
+    )
+    expect(result).not.toContain('Research (free trial)')
     expect(result).not.toContain('View full client secret')
   })
 

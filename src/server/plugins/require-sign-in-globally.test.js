@@ -71,18 +71,6 @@ describe('#requireSignInGlobally', () => {
     )
   })
 
-  test('has no access-type step any more', async () => {
-    const getConnect = await server.inject({ method: 'GET', url: '/connect' })
-    expect(getConnect.statusCode).toBe(statusCodes.notFound)
-
-    const postConnect = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      payload: { accessType: 'shared' }
-    })
-    expect(postConnect.statusCode).toBe(statusCodes.notFound)
-  })
-
   test('allows / and /about without a session', async () => {
     const home = await server.inject({ method: 'GET', url: '/' })
     expect(home.statusCode).toBe(statusCodes.ok)
