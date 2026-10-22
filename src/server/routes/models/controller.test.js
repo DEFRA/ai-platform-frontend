@@ -42,6 +42,7 @@ const sampleModel = {
   regions: ['uksouth'],
   dataZone: 'uk',
   eligible: true,
+  researchAvailable: true,
   tiers: ['research', 'team'],
   skus: [
     { name: 'Standard', tiers: ['team'], regions: ['uksouth'] },
@@ -74,6 +75,7 @@ const worldwideOnlyModel = {
   ...sampleModel,
   slug: 'gpt-5-nano',
   displayName: 'GPT-5 nano',
+  researchAvailable: false,
   skus: [
     {
       name: 'GlobalStandard',
@@ -88,6 +90,7 @@ const swedenModel = {
   ...sampleModel,
   slug: 'gpt-4-1-nano',
   displayName: 'GPT-4.1 nano',
+  researchAvailable: false,
   tiers: ['team'],
   skus: [{ name: 'Standard', tiers: ['team'], regions: ['swedencentral'] }],
   regions: ['swedencentral'],
@@ -98,6 +101,7 @@ const usModel = {
   ...sampleModel,
   slug: 'gpt-4-1-mini',
   displayName: 'GPT-4.1 mini',
+  researchAvailable: false,
   tiers: ['team'],
   skus: [{ name: 'Standard', tiers: ['team'], regions: ['eastus'] }],
   regions: ['eastus'],
@@ -108,7 +112,17 @@ const teamOnlyModel = {
   ...sampleModel,
   slug: 'team-only',
   displayName: 'Team only model',
+  researchAvailable: false,
   tiers: ['team']
+}
+
+// Offered to research by the catalogue, in the UK, but research has not deployed it.
+const notDeployedModel = {
+  ...sampleModel,
+  slug: 'o3-mini',
+  displayName: 'o3-mini',
+  researchAvailable: false,
+  useCases: ['Reasoning']
 }
 
 const duplicateModel = {
@@ -122,6 +136,7 @@ const embeddingModel = {
   slug: 'text-embedding-ada-002',
   displayName: 'text-embedding-ada-002',
   eligible: false,
+  researchAvailable: false,
   eligibilityReason: 'Embeddings are not supported on the platform yet.',
   tiers: [],
   skus: [],
@@ -135,6 +150,7 @@ const catalogue = {
     worldwideOnlyModel,
     swedenModel,
     usModel,
+    notDeployedModel,
     duplicateModel,
     embeddingModel
   ]
@@ -333,14 +349,36 @@ describe('#modelsController', () => {
       expect(result).toMatch(/<option value="team"[^>]*selected/)
     })
 
-    test('"Models you can try on your own" lists only those with a usable research SKU', async () => {
+    test('"Models you can try on your own" lists only those the backend says are research available', async () => {
       const { result } = await getModels('/models?show=research')
 
       expect(result).toContain('>GPT-4o</a>')
       expect(result).toContain('>GPT-5 mini</a>')
       expect(result).not.toContain('>GPT-4.1 nano</a>')
       expect(result).not.toContain('>GPT-5 nano</a>')
+      expect(result).not.toContain('>o3-mini</a>')
       expect(result).toMatch(/<option value="research"[^>]*selected/)
+    })
+
+    test('says "Not available" with no "Try it" link for an eligible model research has not deployed', async () => {
+      const { result } = await getModels()
+      const row = rowFor(result, 'o3-mini')
+
+      expect(row).toContain('Not available')
+      expect(row).not.toContain('/connect/shared/start')
+      expect(row).toContain('href="/connect/team/start?modelSlug=o3-mini"')
+    })
+
+    test('does not work research availability out from the catalogue', async () => {
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          items: [{ ...sampleModel, researchAvailable: undefined }]
+        })
+      )
+
+      const { result } = await server.inject({ method: 'GET', url: '/models' })
+
+      expect(rowFor(result, 'GPT-4o')).not.toContain('/connect/shared/start')
     })
 
     test('"Models you can try on your own" leaves out a model not offered to research', async () => {
@@ -355,6 +393,24 @@ describe('#modelsController', () => {
 
       expect(result).toContain('>GPT-4o</a>')
       expect(result).not.toContain('>Team only model</a>')
+    })
+
+    test('follows the existing error handling when the backend cannot read what research has deployed (502)', async () => {
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          code: 'research-deployments-unavailable',
+          message: 'Cannot read'
+        }),
+        { status: 502 }
+      )
+
+      const { statusCode, result } = await server.inject({
+        method: 'GET',
+        url: '/models'
+      })
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
+      expect(result).toContain('Something went wrong')
     })
 
     test('says so when nothing matches', async () => {
@@ -410,8 +466,11 @@ describe('#modelsController', () => {
   })
 
   describe('GET /models/{slug}', () => {
+    // The model's page reads the model, then the list, which carries whether
+    // it can be tried on your own.
     async function getDetail(model = sampleModel, cookies) {
       fetchMock.mockResponseOnce(JSON.stringify(model))
+      fetchMock.mockResponseOnce(JSON.stringify({ items: [model] }))
 
       return server.inject({
         method: 'GET',
@@ -526,6 +585,43 @@ describe('#modelsController', () => {
       expect(result).not.toContain('/connect/shared/start')
       expect(result).toContain('Add to a team')
       expect(result).toContain('Not available to try on your own yet.')
+    })
+
+    test('has no "Try it on your own" link for an eligible model research has not deployed', async () => {
+      const { statusCode, result } = await getDetail(notDeployedModel)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).not.toContain('/connect/shared/start')
+      expect(result).not.toContain('Try it on your own')
+      expect(result).toContain('Not available to try on your own yet.')
+      expect(result).toContain('/connect/team/start?modelSlug=o3-mini')
+    })
+
+    test('asks the list for whether the model can be tried', async () => {
+      await getDetail()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/\/v1\/models\?includeIneligible=true$/),
+        expect.anything()
+      )
+    })
+
+    test('does not hide a failed read of the list, whatever its code', async () => {
+      fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          code: 'research-deployments-unavailable',
+          message: 'Cannot read'
+        }),
+        { status: 502 }
+      )
+
+      const { statusCode } = await server.inject({
+        method: 'GET',
+        url: '/models/gpt-4o'
+      })
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
     })
 
     test('has neither action, and says why, for a model that is not available', async () => {

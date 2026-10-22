@@ -21,6 +21,7 @@ function model(fields = {}) {
   return {
     slug: 'gpt-4o',
     eligible: true,
+    researchAvailable: true,
     tiers: ['research', 'team'],
     regions: ['uksouth'],
     skus: [UK_TEAM_SKU, RESEARCH_SKU],
@@ -30,7 +31,7 @@ function model(fields = {}) {
 
 describe('model-availability', () => {
   describe('canTry', () => {
-    test('is true for an eligible model offered to research', () => {
+    test('is true for an eligible model the backend says is research available', () => {
       expect(canTry(model())).toBe(true)
     })
 
@@ -38,67 +39,31 @@ describe('model-availability', () => {
       expect(canTry(model({ eligible: undefined }))).toBe(true)
     })
 
-    test.each(['swedencentral', 'northeurope', 'westeurope', 'ukwest'])(
-      'is true for a research SKU in %s, such as DataZoneStandard',
-      (region) => {
-        const skus = [
-          { name: 'DataZoneStandard', tiers: ['research'], regions: [region] }
-        ]
-
-        expect(canTry(model({ skus }))).toBe(true)
-      }
-    )
-
     test.each([
-      ['is not eligible', { eligible: false }],
-      ['is not offered to research', { tiers: ['team'] }],
-      ['has no tiers', { tiers: undefined }],
-      ['has no SKUs', { skus: undefined }],
-      ['has only a team SKU', { skus: [UK_TEAM_SKU] }],
-      [
-        'has a research SKU only in the US',
-        { skus: [{ ...RESEARCH_SKU, regions: ['eastus'] }] }
-      ],
-      [
-        'has a research SKU in the UK and the US',
-        { skus: [{ ...RESEARCH_SKU, regions: ['uksouth', 'eastus'] }] }
-      ],
-      [
-        'has a research SKU with no regions',
-        { regions: [], skus: [RESEARCH_SKU] }
-      ],
-      [
-        'has only a worldwide SKU, even in the UK',
-        {
-          skus: [
-            {
-              name: 'GlobalStandard',
-              tiers: ['research'],
-              regions: ['uksouth']
-            }
-          ]
-        }
-      ],
-      [
-        'has only a worldwide SKU, in lower or mixed case of region',
-        { skus: [{ ...WORLDWIDE_SKU, regions: ['UKSouth'] }] }
-      ]
+      ['is not deployed in research', { researchAvailable: false }],
+      ['does not say', { researchAvailable: undefined }],
+      ['says it as text', { researchAvailable: 'true' }],
+      ['says it as null', { researchAvailable: null }],
+      ['is not eligible, even if research available', { eligible: false }]
     ])('is false for a model that %s', (_why, fields) => {
       expect(canTry(model(fields))).toBe(false)
     })
 
-    test('is true when a usable research SKU sits beside a worldwide one', () => {
-      expect(canTry(model({ skus: [WORLDWIDE_SKU, RESEARCH_SKU] }))).toBe(true)
+    test('is false for a catalogue-eligible model with research SKUs that research has not deployed', () => {
+      expect(
+        canTry(
+          model({
+            tiers: ['research'],
+            skus: [RESEARCH_SKU],
+            researchAvailable: false
+          })
+        )
+      ).toBe(false)
     })
 
-    test.each(['globalstandard', 'GLOBALStandard', 'GlobalBatch'])(
-      'is false for only a worldwide SKU named %s, in any case',
-      (name) => {
-        const skus = [{ name, tiers: ['research'], regions: ['uksouth'] }]
-
-        expect(canTry(model({ skus }))).toBe(false)
-      }
-    )
+    test('trusts the backend rather than the catalogue SKUs and tiers', () => {
+      expect(canTry(model({ tiers: [], skus: [], regions: [] }))).toBe(true)
+    })
   })
 
   describe('teamAvailability', () => {
@@ -232,11 +197,13 @@ describe('model-availability', () => {
     test('says whether each available model can be tried and what teams are told', () => {
       const nano = model({
         slug: 'gpt-4-1-nano',
+        researchAvailable: false,
         tiers: ['team'],
         skus: [{ ...UK_TEAM_SKU, regions: ['eastus'] }]
       })
       const worldwideOnly = model({
         slug: 'gpt-5-nano',
+        researchAvailable: false,
         skus: [{ ...WORLDWIDE_SKU, regions: ['uksouth'] }]
       })
       const { available } = groupModels([model(), nano, worldwideOnly])

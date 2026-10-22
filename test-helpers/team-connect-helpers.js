@@ -23,6 +23,8 @@ export const sampleModel = {
   provider: 'openai',
   description: 'Multimodal OpenAI model.',
   useCases: ['Chat assistants', 'Summarising documents'],
+  eligible: true,
+  researchAvailable: true,
   tiers: ['research', 'team'],
   regions: ['uksouth'],
   skus: [{ name: 'DataZoneStandard', tiers: ['team'] }],

@@ -24,6 +24,7 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
+import { listTryableModels } from './research-models.js'
 
 const selectModelSchema = Joi.object({
   modelSlug: Joi.string()
@@ -171,9 +172,7 @@ export const connectController = {
           return redirectToStart(h)
         }
 
-        const { items } = await apiClient(request).get(
-          '/v1/models?tier=research'
-        )
+        const items = await listTryableModels(request)
 
         return h.view('connect/shared/model', {
           pageTitle: 'Choose a model',
@@ -189,9 +188,7 @@ export const connectController = {
         validate: {
           payload: selectModelSchema,
           failAction: async (request, h, error) => {
-            const { items } = await apiClient(request).get(
-              '/v1/models?tier=research'
-            )
+            const items = await listTryableModels(request)
 
             return h
               .view('connect/shared/model', {
@@ -364,7 +361,7 @@ export const connectController = {
                   pendingAccess.purpose
                 ),
                 purpose: pendingAccess.purpose,
-                errorMessage: errorMessageForCode(error),
+                errorMessage: errorMessageForCode(error, model),
                 errorAction:
                   error.code === 'active-credential-exists' ||
                   error.code === 'credential-expired-use-renew'
@@ -404,7 +401,7 @@ export const connectController = {
   }
 }
 
-function errorMessageForCode(error) {
+function errorMessageForCode(error, model) {
   if (error.code === 'active-credential-exists') {
     return 'You already have an active credential for this model.'
   }
@@ -417,11 +414,18 @@ function errorMessageForCode(error) {
     return 'This model is not available to try on your own.'
   }
 
+  if (error.code === 'model-not-deployed') {
+    return `${model.displayName} is not available to try on your own yet.`
+  }
+
   if (error.code === 'model-not-granted') {
     return 'You do not have access to this model.'
   }
 
-  if (error.code === 'upstream-unavailable') {
+  if (
+    error.code === 'upstream-unavailable' ||
+    error.code === 'research-deployments-unavailable'
+  ) {
     return 'We could not issue a credential right now. Please try again.'
   }
 

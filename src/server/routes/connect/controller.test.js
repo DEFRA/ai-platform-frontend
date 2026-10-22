@@ -36,6 +36,8 @@ const sampleModel = {
   displayName: 'GPT-4o',
   provider: 'openai',
   description: 'Multimodal OpenAI model.',
+  eligible: true,
+  researchAvailable: true,
   deploymentName: 'gpt-4o',
   apiVersion: '2024-05-01-preview',
   endpoint: 'https://mock-gateway.ai-platform.defra.gov.uk/openai/gpt-4o',
@@ -384,6 +386,156 @@ describe('#connectController', () => {
     expect(postCheck.result).toEqual(
       expect.stringContaining('We could not issue a credential')
     )
+  })
+
+  test('POST /connect/shared/check names the model when research has not deployed it (403 model-not-deployed)', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getCheck = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, getCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'model-not-deployed',
+        message: 'Backend wording that must not be shown'
+      }),
+      { status: 403 }
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postCheck.statusCode).toBe(statusCodes.forbidden)
+    expect(postCheck.result).toContain(
+      'GPT-4o is not available to try on your own yet.'
+    )
+    expect(postCheck.result).not.toContain('Backend wording')
+  })
+
+  test('POST /connect/shared/check shows the safe error when research deployments cannot be read (502 research-deployments-unavailable)', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getCheck = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, getCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'research-deployments-unavailable',
+        message: 'Backend wording that must not be shown'
+      }),
+      { status: 502 }
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postCheck.statusCode).toBe(502)
+    expect(postCheck.result).toContain(
+      'We could not issue a credential right now. Please try again.'
+    )
+    expect(postCheck.result).not.toContain('Backend wording')
+  })
+
+  test('GET /connect/shared/model offers only the models the backend says can be tried on your own', async () => {
+    let cookies = await signIn(server)
+    const start = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/start',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, start)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          sampleModel,
+          { ...sampleModel, slug: 'gpt-4o-2', displayName: 'GPT-4o (copy)' },
+          {
+            ...sampleModel,
+            slug: 'gpt-5-nano',
+            displayName: 'GPT-5 nano',
+            researchAvailable: false
+          },
+          {
+            ...sampleModel,
+            slug: 'o3-mini',
+            displayName: 'o3-mini',
+            researchAvailable: undefined
+          }
+        ]
+      })
+    )
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/model',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toContain('value="gpt-4o"')
+    expect(result).not.toContain('gpt-4o-2')
+    expect(result).not.toContain('GPT-5 nano')
+    expect(result).not.toContain('o3-mini')
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/v1\/models$/),
+      expect.anything()
+    )
+  })
+
+  test('POST /connect/shared/model re-renders only the models that can be tried when nothing is chosen', async () => {
+    let cookies = await signIn(server)
+    const start = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/start',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, start)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          sampleModel,
+          {
+            ...sampleModel,
+            slug: 'gpt-5-nano',
+            displayName: 'GPT-5 nano',
+            researchAvailable: false
+          }
+        ]
+      })
+    )
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/model',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toContain('value="gpt-4o"')
+    expect(result).not.toContain('GPT-5 nano')
   })
 
   test('POST /connect/shared/check redirects to sign in if the session expired mid-journey', async () => {

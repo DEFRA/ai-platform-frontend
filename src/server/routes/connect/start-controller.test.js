@@ -82,6 +82,10 @@ describe('#startController', () => {
   })
 
   describe('Try it on your own', () => {
+    function mockResearchModels(models) {
+      mockResponse({ items: models })
+    }
+
     test('GET /connect/shared/start goes to the model step when no model is given', async () => {
       const cookies = await signInViaOidc(server, fetchMock)
 
@@ -98,6 +102,7 @@ describe('#startController', () => {
     test('GET /connect/shared/start skips to the details when a model is given, and keeps it', async () => {
       let cookies = await signInViaOidc(server, fetchMock)
 
+      mockResearchModels([sampleModel])
       const start = await get(
         server,
         cookies,
@@ -107,12 +112,69 @@ describe('#startController', () => {
 
       expect(start.statusCode).toBe(statusCodes.found)
       expect(start.headers.location).toBe('/connect/shared/details')
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/\/v1\/models$/),
+        expect.anything()
+      )
 
       mockResponse(sampleModel)
       const details = await get(server, cookies, '/connect/shared/details')
 
       expect(details.statusCode).toBe(statusCodes.ok)
       expect(details.result).toContain('What will you use GPT-4o for?')
+    })
+
+    test('GET /connect/shared/start?modelSlug= refuses a model research has not deployed, and starts no journey', async () => {
+      let cookies = await signInViaOidc(server, fetchMock)
+
+      mockResearchModels([{ ...sampleModel, researchAvailable: false }])
+      const start = await get(
+        server,
+        cookies,
+        '/connect/shared/start?modelSlug=gpt-4o'
+      )
+      cookies = mergeCookies(cookies, start)
+
+      expect(start.statusCode).toBe(statusCodes.notFound)
+      expect(start.result).toContain(
+        'This model is not available to try on your own yet.'
+      )
+
+      const details = await get(server, cookies, '/connect/shared/details')
+
+      expect(details.headers.location).toBe('/models')
+    })
+
+    test('GET /connect/shared/start?modelSlug= refuses a model the catalogue does not list', async () => {
+      const cookies = await signInViaOidc(server, fetchMock)
+
+      mockResearchModels([sampleModel])
+      const { statusCode } = await get(
+        server,
+        cookies,
+        '/connect/shared/start?modelSlug=gpt-5-nano'
+      )
+
+      expect(statusCode).toBe(statusCodes.notFound)
+    })
+
+    test('GET /connect/shared/start?modelSlug= does not hide a failed read of what research has deployed', async () => {
+      const cookies = await signInViaOidc(server, fetchMock)
+
+      mockResponse(
+        {
+          code: 'research-deployments-unavailable',
+          message: 'Cannot read'
+        },
+        { status: 502 }
+      )
+      const { statusCode } = await get(
+        server,
+        cookies,
+        '/connect/shared/start?modelSlug=gpt-4o'
+      )
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
     })
 
     test('GET /connect/shared/start leaves no model ticked on the model step when none was given', async () => {

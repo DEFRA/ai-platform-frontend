@@ -85,8 +85,13 @@ describe('#signOutController', () => {
   test('POST /sign-out ends the whole session, so a half-made journey is not there for the next person', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
     const headers = { cookie: cookieHeader(cookies) }
-    const models = { items: [{ slug: 'gpt-4o', displayName: 'GPT-4o' }] }
+    const models = {
+      items: [
+        { slug: 'gpt-4o', displayName: 'GPT-4o', researchAvailable: true }
+      ]
+    }
 
+    fetchMock.mockResponseOnce(JSON.stringify(models))
     const started = await server.inject({
       method: 'GET',
       url: '/connect/shared/start?modelSlug=gpt-4o',

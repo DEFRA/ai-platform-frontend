@@ -95,6 +95,16 @@ function buildUseRows(model) {
   ]
 }
 
+// The model's page reads one model, which does not say whether it can be tried
+// on your own; the list does, so ask it for the same model.
+async function researchAvailableOf(request, slug) {
+  const { items } = await apiClient(request).get(
+    '/v1/models?includeIneligible=true'
+  )
+
+  return items.find((item) => item.slug === slug)?.researchAvailable
+}
+
 export const modelsController = {
   list: {
     get: {
@@ -157,6 +167,10 @@ export const modelsController = {
         }
 
         const eligible = isEligible(model)
+        const tryable = {
+          ...model,
+          researchAvailable: await researchAvailableOf(request, slug)
+        }
 
         return h.view('models/detail', {
           pageTitle: model.displayName,
@@ -168,9 +182,9 @@ export const modelsController = {
           canAddToTeam:
             eligible && teamAvailability(model) === TEAM_AVAILABILITY.inRegions,
           addToTeamUrl: teamStartUrl(model.slug),
-          canTry: canTry(model),
+          canTry: canTry(tryable),
           tryUrl: sharedStartUrl(model.slug),
-          useRows: buildUseRows(model),
+          useRows: buildUseRows(tryable),
           ...buildGatewayRequest(model, researchEnvironment())
         })
       }
