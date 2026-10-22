@@ -61,12 +61,14 @@ export function teamConnectHelpers(fetchMock) {
     })
   }
 
-  // Starts a team journey from the access-type page, as Connect on a model's
-  // page does when it carries that model along.
+  // Starts a team journey the way Add to a team does, carrying the model it
+  // was pressed on when there is one.
   async function reachTeamStep(server, cookies, { modelSlug } = {}) {
+    const query = modelSlug ? `?modelSlug=${modelSlug}` : ''
+
     cookies = mergeCookies(
       cookies,
-      await post(server, cookies, '/connect', { accessType: 'team', modelSlug })
+      await get(server, cookies, `/connect/team/start${query}`)
     )
     mockResponse({ items: [sampleTeam] })
     cookies = mergeCookies(

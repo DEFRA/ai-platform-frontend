@@ -62,7 +62,7 @@ const detailsSchema = Joi.object({
 })
 
 function redirectToStart(h) {
-  return h.redirect('/connect').takeover()
+  return h.redirect('/models').takeover()
 }
 
 // No environment is configured for teams to deploy to, so there is nothing

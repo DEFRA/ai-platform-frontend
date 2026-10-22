@@ -172,7 +172,7 @@ export const authController = {
         displayName: user.displayName
       })
 
-      const returnTo = safeReturnTo(pending.returnTo, '/connect')
+      const returnTo = safeReturnTo(pending.returnTo, '/')
 
       return h.redirect(returnTo).code(statusCodes.seeOther)
     }

@@ -70,15 +70,15 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
     // B03: sign in (no team step)
     let cookies = await signInViaOidc(server, fetchMock)
 
-    // B06: choose access type, choose a model
-    const postAccessType = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, accessType: 'shared' }
+    // B06: start from Try it on your own, choose a model
+    const startShared = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/start',
+      headers: { cookie: cookieHeader(cookies) }
     })
-    cookies = mergeCookies(cookies, postAccessType)
-    expect(postAccessType.statusCode).toBe(303)
+    cookies = mergeCookies(cookies, startShared)
+    expect(startShared.statusCode).toBe(302)
+    expect(startShared.headers.location).toBe('/connect/shared/model')
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
     const getSelectModel = await server.inject({

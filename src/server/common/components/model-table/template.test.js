@@ -1,59 +1,106 @@
 import { renderComponent } from '#/test-helpers/component-helpers.js'
 
-const eligibleModel = {
+const ukModel = {
   slug: 'gpt-4o',
   displayName: 'GPT-4o',
-  provider: 'openai',
-  contextWindow: '128,000 tokens',
-  eligible: true
+  goodFor: 'Chat assistants, summarising documents',
+  canTry: true,
+  tryUrl: '/connect/shared/start?modelSlug=gpt-4o',
+  teamAvailability: 'Runs in the UK',
+  canAddToTeam: true,
+  addToTeamUrl: '/connect/team/start?modelSlug=gpt-4o'
 }
 
-const ineligibleModel = {
-  slug: 'claude-3',
-  displayName: 'Claude 3',
-  provider: 'anthropic',
-  contextWindow: '200,000 tokens',
-  eligible: false,
-  statusReason: 'Not approved'
+const notForTeamsModel = {
+  ...ukModel,
+  slug: 'gpt-5-mini',
+  displayName: 'GPT-5 mini',
+  teamAvailability: 'Not for teams yet',
+  canAddToTeam: false
 }
 
 describe('Model table component', () => {
+  test('Should have the four columns of the design', () => {
+    const $table = renderComponent('model-table', { models: [ukModel] })
+    const headings = $table('th')
+      .map((_, th) => $table(th).text().trim())
+      .get()
+
+    expect(headings).toEqual([
+      'Model',
+      'Good for',
+      'Try on your own',
+      'Add to a team'
+    ])
+  })
+
   test('Should render a row per model', () => {
     const $table = renderComponent('model-table', {
-      models: [eligibleModel, ineligibleModel]
+      models: [ukModel, notForTeamsModel]
     })
 
     expect($table('[data-testid="model-table-row"]')).toHaveLength(2)
   })
 
-  test('Should link to the model detail page for an eligible model', () => {
-    const $table = renderComponent('model-table', { models: [eligibleModel] })
+  test('Should link the name to the model page and show what it is good for', () => {
+    const $table = renderComponent('model-table', { models: [ukModel] })
     const $link = $table('[data-testid="model-table-link"]')
 
     expect($link.attr('href')).toBe('/models/gpt-4o')
     expect($link.text().trim()).toBe('GPT-4o')
-  })
-
-  test('Should grey out and mark an ineligible model as aria-disabled, with its reason', () => {
-    const $table = renderComponent('model-table', {
-      models: [ineligibleModel]
-    })
-    const $row = $table('[data-testid="model-table-row"]')
-
-    expect($row.attr('aria-disabled')).toBe('true')
-    expect($table('[data-testid="model-table-name"]').text().trim()).toBe(
-      'Claude 3'
+    expect($table('[data-testid="model-table-good-for"]').text().trim()).toBe(
+      'Chat assistants, summarising documents'
     )
-    expect($table('[data-testid="model-table-link"]')).toHaveLength(0)
-    expect($table.text()).toEqual(expect.stringContaining('Not approved'))
   })
 
-  test('Should fall back to the data zone for a model with no region', () => {
+  test('Should link "Try it" into the research journey with the model', () => {
+    const $table = renderComponent('model-table', { models: [ukModel] })
+    const $try = $table('[data-testid="model-table-try"] a')
+
+    expect($try.attr('href')).toBe('/connect/shared/start?modelSlug=gpt-4o')
+    expect($try.text()).toContain('Try it')
+  })
+
+  test('Should link "Add to a team" into the team journey with the model, with the hint "Runs in the UK"', () => {
+    const $table = renderComponent('model-table', { models: [ukModel] })
+    const $cell = $table('[data-testid="model-table-team"]')
+
+    expect($cell.find('a').attr('href')).toBe(
+      '/connect/team/start?modelSlug=gpt-4o'
+    )
+    expect($cell.find('a').text()).toContain('Add to a team')
+    expect($cell.find('.govuk-hint').text().trim()).toBe('Runs in the UK')
+  })
+
+  test.each(['Not for teams yet', 'Not in the UK yet'])(
+    'Should say "%s" in plain words, with no link',
+    (teamAvailability) => {
+      const $table = renderComponent('model-table', {
+        models: [{ ...ukModel, teamAvailability, canAddToTeam: false }]
+      })
+      const $cell = $table('[data-testid="model-table-team"]')
+
+      expect($cell.text().trim()).toBe(teamAvailability)
+      expect($cell.find('a')).toHaveLength(0)
+    }
+  )
+
+  test('Should not offer "Try it" for a model that cannot be tried', () => {
     const $table = renderComponent('model-table', {
-      models: [{ ...eligibleModel, tiers: ['research'], dataZone: 'uk' }]
+      models: [{ ...ukModel, canTry: false }]
+    })
+    const $cell = $table('[data-testid="model-table-try"]')
+
+    expect($cell.find('a')).toHaveLength(0)
+    expect($cell.text().trim()).toBe('Not available')
+  })
+
+  test('Should use no tags', () => {
+    const $table = renderComponent('model-table', {
+      models: [ukModel, notForTeamsModel]
     })
 
-    expect($table('td').eq(3).text().trim()).toBe('UK')
+    expect($table('.govuk-tag')).toHaveLength(0)
   })
 
   test('Should show an empty state when there are no models', () => {

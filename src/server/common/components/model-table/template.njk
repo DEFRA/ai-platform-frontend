@@ -1,42 +1,33 @@
-{% from "govuk/components/tag/macro.njk" import govukTag %}
-
 <table class="govuk-table app-model-table" data-testid="model-table">
-  <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Available models</caption>
+  <caption class="govuk-table__caption govuk-table__caption--m govuk-visually-hidden">Models you can use</caption>
   <thead class="govuk-table__head">
     <tr class="govuk-table__row">
       <th scope="col" class="govuk-table__header">Model</th>
-      <th scope="col" class="govuk-table__header">Provider</th>
-      <th scope="col" class="govuk-table__header">Tier</th>
-      <th scope="col" class="govuk-table__header">Where it runs</th>
-      <th scope="col" class="govuk-table__header govuk-table__header--numeric">Context window</th>
-      <th scope="col" class="govuk-table__header">Status</th>
+      <th scope="col" class="govuk-table__header">Good for</th>
+      <th scope="col" class="govuk-table__header">Try on your own</th>
+      <th scope="col" class="govuk-table__header">Add to a team</th>
     </tr>
   </thead>
   <tbody class="govuk-table__body">
     {% for model in params.models %}
-      <tr class="govuk-table__row{{ ' app-model-table__row--disabled' if not model.eligible }}"
-          data-testid="model-table-row"
-          {{ 'aria-disabled="true"' | safe if not model.eligible }}>
+      <tr class="govuk-table__row" data-testid="model-table-row">
         <td class="govuk-table__cell">
-          {% if model.eligible %}
-            <a class="govuk-link" href="/models/{{ model.slug }}" data-testid="model-table-link">{{ model.displayName }}</a>
+          <a class="govuk-link" href="/models/{{ model.slug }}" data-testid="model-table-link">{{ model.displayName }}</a>
+        </td>
+        <td class="govuk-table__cell" data-testid="model-table-good-for">{{ model.goodFor }}</td>
+        <td class="govuk-table__cell" data-testid="model-table-try">
+          {% if model.canTry %}
+            <a class="govuk-link" href="{{ model.tryUrl }}">Try it<span class="govuk-visually-hidden"> {{ model.displayName }} on your own</span></a>
           {% else %}
-            <span data-testid="model-table-name">{{ model.displayName }}</span>
+            <span class="app-model-table__unavailable">Not available</span>
           {% endif %}
         </td>
-        <td class="govuk-table__cell">{{ model.provider | formatLabel }}</td>
-        {% if model.eligible %}
-          <td class="govuk-table__cell">{{ model.tiers | formatLabelList }}</td>
-          <td class="govuk-table__cell">{{ model.region | formatLabel if model.region else (model.dataZone | formatDataZone) }}</td>
-          <td class="govuk-table__cell govuk-table__cell--numeric">{{ model.contextWindow }}</td>
-        {% else %}
-          <td class="govuk-table__cell" colspan="3">{{ model.statusReason or "Not approved" }}</td>
-        {% endif %}
-        <td class="govuk-table__cell">
-          {% if model.eligible %}
-            {{ govukTag({ text: "Approved", classes: "govuk-tag--green" }) }}
+        <td class="govuk-table__cell" data-testid="model-table-team">
+          {% if model.canAddToTeam %}
+            <a class="govuk-link govuk-!-font-weight-bold" href="{{ model.addToTeamUrl }}">Add to a team<span class="govuk-visually-hidden">: {{ model.displayName }}</span></a>
+            <div class="govuk-hint govuk-!-margin-bottom-0">{{ model.teamAvailability }}</div>
           {% else %}
-            {{ govukTag({ text: "Not approved", classes: "govuk-tag--grey" }) }}
+            <span class="app-model-table__unavailable">{{ model.teamAvailability }}</span>
           {% endif %}
         </td>
       </tr>
@@ -45,6 +36,5 @@
 </table>
 
 {% if params.models.length == 0 %}
-  <p class="govuk-body" data-testid="model-table-empty">No models match your filters.</p>
+  <p class="govuk-body" data-testid="model-table-empty">No models match this choice.</p>
 {% endif %}
-

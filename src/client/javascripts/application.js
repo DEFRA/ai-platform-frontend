@@ -19,14 +19,15 @@ createAll(ServiceNavigation)
 createAll(SkipLink)
 createAll(Tabs)
 
-// Progressive enhancement: reveal and wire up "Copy key" buttons (hidden by
-// default so the readonly key field still works with no JavaScript).
+// Progressive enhancement: reveal and wire up "Copy key" and "Copy code"
+// buttons (hidden by default so the readonly key field and the code still
+// work with no JavaScript). A field is copied by its value, code by its text.
 document.querySelectorAll('[data-copy-target]').forEach((button) => {
   button.hidden = false
   button.addEventListener('click', () => {
-    const input = document.getElementById(button.dataset.copyTarget)
-    if (input) {
-      navigator.clipboard?.writeText(input.value)
+    const source = document.getElementById(button.dataset.copyTarget)
+    if (source) {
+      navigator.clipboard?.writeText(source.value ?? source.textContent)
     }
   })
 })
