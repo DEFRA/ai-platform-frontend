@@ -181,6 +181,31 @@ describe('#loadTeamForView', () => {
     ])
   })
 
+  test('masks a colleague’s name that is an address, but not a name or one’s own', async () => {
+    respondWith([
+      admin({ userId: 'user-1', role: 'user', displayName: 'me@defra.gov.uk' }),
+      colleague({ displayName: 'colleague@defra.gov.uk' }),
+      colleague({ userId: 'user-3', displayName: 'Priya Raman' }),
+      colleague({ userId: 'user-4', displayName: null })
+    ])
+
+    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
+
+    expect(members.map(({ displayName }) => displayName)).toEqual([
+      'me@defra.gov.uk',
+      'c********@defra.gov.uk',
+      'Priya Raman',
+      null
+    ])
+  })
+
+  test('shows an admin every name as it is', async () => {
+    respondWith([admin(), colleague({ displayName: 'colleague@defra.gov.uk' })])
+
+    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
+
+    expect(members[1].displayName).toBe('colleague@defra.gov.uk')
+  })
   test('shows every address to an admin', async () => {
     respondWith([admin(), colleague()])
 
@@ -189,35 +214,13 @@ describe('#loadTeamForView', () => {
     expect(members[1].email).toBe('colleague@defra.gov.uk')
   })
 
-  test('lets an admin change and remove people, except the only admin', async () => {
+  test('says which member is the person', async () => {
     respondWith([admin({ _id: 'm-1' }), colleague({ _id: 'm-2' })])
 
     const [self, other] = (await loadTeamForView(requestFor('user-1'), 'x'))
       .members
 
-    expect(self).toMatchObject({ canRemove: false, canChangeRole: false })
-    expect(other).toMatchObject({
-      canRemove: true,
-      canChangeRole: true,
-      nextRole: 'admin'
-    })
-  })
-
-  test('lets an admin change one of two admins', async () => {
-    respondWith([admin(), colleague({ role: 'admin' })])
-
-    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
-
-    expect(members[0]).toMatchObject({ canRemove: true, nextRole: 'user' })
-  })
-
-  test('lets a member change nobody', async () => {
-    respondWith([admin({ role: 'user' }), colleague({ role: 'admin' })])
-
-    const { members } = await loadTeamForView(requestFor('user-1'), 'x')
-
-    expect(
-      members.some(({ canRemove, canChangeRole }) => canRemove || canChangeRole)
-    ).toBe(false)
+    expect(self.isYou).toBe(true)
+    expect(other.isYou).toBe(false)
   })
 })

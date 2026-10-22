@@ -1,0 +1,24 @@
+{#
+  The banner for a change a person has just made to a team, taken from the
+  session by the controller: { type: "success" | "error", heading?, message }.
+  Shown above the heading, on the team's tabs and on the Teams list.
+#}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% if notification %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% set bannerHtml %}
+        {% if notification.heading %}
+          <h3 class="govuk-notification-banner__heading">{{ notification.heading }}</h3>
+        {% endif %}
+        <p class="govuk-body">{{ notification.message }}</p>
+      {% endset %}
+      {{ govukNotificationBanner({
+        html: bannerHtml,
+        type: "success" if notification.type == "success" else "",
+        attributes: { "data-testid": "team-notification" }
+      }) }}
+    </div>
+  </div>
+{% endif %}
