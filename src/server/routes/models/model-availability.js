@@ -1,9 +1,9 @@
-// What a person can do with a model, from the catalogue entry alone. The
-// backend applies the same rules (D4) when it lists and refuses models, for
-// teams and for people trying a model on their own: UK or EU regions only, and
-// no SKU whose name starts with the prefix of a worldwide deployment.
+// What a person can do with a model. Whether they can try it on their own is
+// the backend's `researchAvailable`; for teams the catalogue entry says (the
+// backend applies the same rules (D4) when it lists and refuses models: UK or
+// EU regions only, and no SKU whose name starts with the prefix of a
+// worldwide deployment).
 
-const RESEARCH_TIER = 'research'
 const TEAM_TIER = 'team'
 const ALLOWED_REGIONS = [
   'uksouth',
@@ -75,17 +75,14 @@ function usableSkuOf(model, tier) {
 }
 
 /**
- * Whether a person can try the model on their own: it is eligible, offered to
- * the research tier, and has a research SKU that runs only in the UK or EU.
- * @param {{eligible?: boolean, tiers?: string[], skus?: object[], regions?: string[]}} model
+ * Whether a person can try the model on their own. The backend decides: it
+ * sets `researchAvailable` only for a model the catalogue offers to research
+ * (UK or EU, not worldwide) that research has actually deployed.
+ * @param {{eligible?: boolean, researchAvailable?: boolean}} model
  * @returns {boolean}
  */
 export function canTry(model) {
-  return (
-    isEligible(model) &&
-    Boolean(model.tiers?.includes(RESEARCH_TIER)) &&
-    usableSkuOf(model, RESEARCH_TIER) !== undefined
-  )
+  return isEligible(model) && model.researchAvailable === true
 }
 
 /**

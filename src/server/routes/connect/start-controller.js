@@ -1,6 +1,8 @@
 import Joi from 'joi'
 
+import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { setPendingAccess } from '#/server/common/helpers/session.js'
+import { findTryableModel } from './research-models.js'
 
 // The model a person came from on a model's page. A badly formed one is
 // refused rather than carried into the journey.
@@ -12,6 +14,18 @@ const startQuerySchema = Joi.object({
 
 const startOptions = { validate: { query: startQuerySchema } }
 
+function notTryableView(h) {
+  return h
+    .view('error/index', {
+      pageTitle: 'Model not available',
+      heading: 'Model not available',
+      message: 'This model is not available to try on your own yet.',
+      actionHref: '/models',
+      actionText: 'Browse models'
+    })
+    .code(statusCodes.notFound)
+}
+
 /**
  * The two ways into a journey, from the Models page and a model's page. Each
  * starts a fresh journey (anything left from an earlier one is dropped) and
@@ -21,8 +35,14 @@ export const startController = {
   shared: {
     get: {
       options: startOptions,
-      handler(request, h) {
+      async handler(request, h) {
         const { modelSlug } = request.query
+
+        // The backend decides what can be tried on your own, so a model it
+        // does not offer is refused here rather than carried into the journey.
+        if (modelSlug && !(await findTryableModel(request, modelSlug))) {
+          return notTryableView(h)
+        }
 
         setPendingAccess(request, { accessType: 'shared', modelSlug })
 

@@ -139,9 +139,10 @@ One pull request per step, each green and merged before the next. Steps 1 to 3 (
   `environmentSetUpUrl(teamSlug, environment)` returns `/teams/{slug}/{name in lower case}`, e.g. `/teams/flood-risk-mapping/test`.
 - **Model availability** (helper beside the models controller): the backend's one rule, mirrored: a SKU is usable when it
   lists the tier, its name does not start `Global` (in any case), and every region (its own, else the model's) is UK South, UK West,
-  Sweden Central, North Europe or West Europe, in any case. `canTry` (eligible, the `research` tier and a usable research
-  SKU); team wording "Runs in the UK or EU" (a usable team SKU), "Not in the UK or EU yet" (team SKUs, none usable) or
-  "Not for teams yet" (no team SKU); hide slugs ending `-2` (capacity duplicates); ineligible models (for example
+  Sweden Central, North Europe or West Europe, in any case. Team wording: "Runs in the UK or EU" (a usable team SKU),
+  "Not in the UK or EU yet" (team SKUs, none usable) or "Not for teams yet" (no team SKU). `canTry` is eligible and the
+  backend's `researchAvailable` (research availability comes from the backend, deployed models only; no research SKU
+  logic in the frontend); hide slugs ending `-2` (capacity duplicates); ineligible models (for example
   embeddings) go under "Not available yet" with their `eligibilityReason`.
 - **Step list** component (`common/components/step-list`): vertical circles joined by a line; done is a green circle with
   a white tick, current a blue ring spinner with a bold label, waiting a grey ring with a grey label; an optional hint
@@ -169,7 +170,9 @@ Python and JavaScript tabs and "Copy code", then one line "You need a client sec
 
 **Entry routes**: `GET /connect/shared/start` and `GET /connect/team/start` (optional validated `modelSlug`) set the
 journey and redirect to `/connect/shared/model` (or `/connect/shared/details` when a model is given) and
-`/connect/team/select`. Remove `GET` and `POST /connect`, `connect/index.njk` and the access-type step.
+`/connect/team/select`. The shared model step and a `modelSlug` follow `researchAvailable` (a slug that is not available
+gets a 404). Remove `GET` and
+`POST /connect`, `connect/index.njk` and the access-type step.
 
 ### 6. Team request journey (03 to 09)
 
