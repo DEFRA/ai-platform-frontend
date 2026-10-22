@@ -1,5 +1,7 @@
+import { load } from 'cheerio'
 import createFetchMock from 'vitest-fetch-mock'
 
+import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
@@ -51,8 +53,6 @@ async function signIn(server) {
   return signInViaOidc(server, fetchMock)
 }
 
-const PLACEHOLDER_NOTICE = 'data-testid="placeholder-credential-notice"'
-
 describe('#manageController', () => {
   let server
 
@@ -79,597 +79,303 @@ describe('#manageController', () => {
     expect(headers.location).toBe('/sign-in?returnTo=%2Fmanage')
   })
 
-  test('GET /manage lists credentials with model names', async () => {
-    const cookies = await signIn(server)
+  describe('GET /manage (Your access)', () => {
+    const DAY_MS = 24 * 60 * 60 * 1000
+    const HOUR_MS = 60 * 60 * 1000
+    const NOW = new Date('2026-10-22T12:00:00.000Z')
 
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleCredential] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
+    // Only Date is frozen, so the sign-in and request timers stay real and
+    // the day counts cannot change under the test (even near midnight).
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'], now: NOW })
     })
 
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('GPT-4o'))
-    expect(result).toEqual(expect.stringContaining('ab12'))
-  })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
 
-  test('GET /manage lists only the person’s own keys, never a team client secret, which is on the team’s page', async () => {
-    const cookies = await signIn(server)
-    const teamCredential = {
-      ...sampleCredential,
-      _id: 'cred-team',
-      teamId: 'team-1',
-      tier: 'team',
-      credentialType: 'oauth',
-      issuerKey: 'mock',
-      allowedDeployments: ['gpt-4o'],
-      expiresAt: null
+    function inDays(days) {
+      return new Date(NOW.getTime() + days * DAY_MS).toISOString()
     }
 
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [sampleCredential, teamCredential] })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    function longDate(iso) {
+      return formatDate(iso)
+    }
 
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
+    function ownKey(overrides = {}) {
+      return {
+        ...sampleCredential,
+        tier: 'research',
+        expiresAt: inDays(5),
+        ...overrides
+      }
+    }
+
+    async function getManage(items, models = [sampleModel]) {
+      const cookies = await signIn(server)
+
+      fetchMock.resetMocks()
+      fetchMock.mockResponseOnce(JSON.stringify({ items }))
+      fetchMock.mockResponseOnce(JSON.stringify({ items: models }))
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/manage',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      return { ...response, $: load(response.result) }
+    }
+
+    test('redirects to /sign-in when signed out', async () => {
+      const { statusCode, headers } = await server.inject({
+        method: 'GET',
+        url: '/manage'
+      })
+
+      expect(statusCode).toBe(302)
+      expect(headers.location).toBe('/sign-in?returnTo=%2Fmanage')
     })
 
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result.split('data-testid="keys-table-row"')).toHaveLength(2)
-    expect(result).not.toContain('cred-team')
-    expect(result).not.toContain('/rotate')
-    expect(result).not.toContain(PLACEHOLDER_NOTICE)
-  })
+    test('has the heading and lead, with the days and renewals the platform allows', async () => {
+      const { $, statusCode } = await getManage([ownKey()])
 
-  test('GET /manage says there is no key when the only credential is a team client secret', async () => {
-    const cookies = await signIn(server)
+      expect(statusCode).toBe(statusCodes.ok)
+      expect($('h1').text().trim()).toBe('Your access')
+      expect($('[data-testid="access-lead"]').text().trim()).toBe(
+        'Keys for trying models on your own. A key works for 7 days, and you can renew it up to 3 times.'
+      )
+    })
 
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
+    test('for a person with only their own key: the model, the date and days left, and View, Renew and Revoke, with no tag', async () => {
+      const expiresAt = inDays(5)
+      const { $ } = await getManage([ownKey({ expiresAt })])
+      const rows = $('[data-testid="keys-table-row"]')
+
+      expect($('th[scope="col"]').first().text()).toBe('Model')
+      expect($('th[scope="col"]').eq(1).text()).toBe('Expires')
+      expect(rows).toHaveLength(1)
+      expect(rows.find('td').eq(0).text().trim()).toBe('GPT-4o')
+      expect(rows.find('td').eq(1).text().trim()).toBe(
+        `${longDate(expiresAt)}, in 5 days`
+      )
+      expect(rows.find('[data-testid="key-renewed-hint"]')).toHaveLength(0)
+      expect(rows.find('.govuk-tag')).toHaveLength(0)
+      expect(
+        rows.find('[data-testid="credential-action-view"]').attr('href')
+      ).toBe('/manage/credentials/cred-1')
+      expect(rows.find('[data-testid="credential-action-renew"]')).toHaveLength(
+        1
+      )
+      expect(
+        rows.find('[data-testid="credential-action-revoke"]')
+      ).toHaveLength(1)
+    })
+
+    test('says "in 1 day" and "today" at the end of the key’s life', async () => {
+      const { $ } = await getManage([
+        ownKey({ _id: 'cred-1', expiresAt: inDays(1) }),
+        ownKey({
+          _id: 'cred-2',
+          expiresAt: new Date(NOW.getTime() + HOUR_MS).toISOString()
+        })
+      ])
+      const cells = $('[data-testid="keys-table-row"]').find('td:nth-child(2)')
+
+      expect(cells.eq(0).text()).toContain(', in 1 day')
+      expect(cells.eq(0).text()).not.toContain('days')
+      expect(cells.eq(1).text()).toContain(', today')
+    })
+
+    test('hints "Renewed once" and "Renewed {n} times" when a key has been renewed', async () => {
+      const { $ } = await getManage([
+        ownKey({ _id: 'cred-1', renewalCount: 1, renewalsRemaining: 2 }),
+        ownKey({ _id: 'cred-2', renewalCount: 2, renewalsRemaining: 1 })
+      ])
+      const hints = $('[data-testid="key-renewed-hint"]')
+
+      expect(hints.eq(0).text()).toBe('Renewed once')
+      expect(hints.eq(1).text()).toBe('Renewed 2 times')
+    })
+
+    test('an expired key says when it expired, and can still be renewed while renewals remain', async () => {
+      const expiresAt = inDays(-2)
+      const { $ } = await getManage([
+        ownKey({
+          status: 'expired',
+          expiresAt,
+          renewalCount: 1,
+          renewalsRemaining: 2
+        })
+      ])
+      const row = $('[data-testid="keys-table-row"]')
+
+      expect(row.find('td').eq(1).text()).toContain(
+        `Expired on ${longDate(expiresAt)}`
+      )
+      expect(row.find('td').eq(1).text()).not.toContain(' in ')
+      expect(row.find('[data-testid="key-renewed-hint"]').text()).toBe(
+        'Renewed once'
+      )
+      expect(row.find('[data-testid="credential-action-renew"]')).toHaveLength(
+        1
+      )
+      expect(row.find('[data-testid="key-get-new"]')).toHaveLength(0)
+      expect(row.find('.govuk-tag')).toHaveLength(0)
+    })
+
+    test('an expired key renewed as often as allowed says so, and offers "Get a new key" instead of any other action', async () => {
+      const { $ } = await getManage([
+        ownKey({
+          status: 'expired',
+          expiresAt: inDays(-1),
+          renewalCount: 3,
+          renewalsRemaining: 0
+        })
+      ])
+      const row = $('[data-testid="keys-table-row"]')
+
+      expect(row.find('[data-testid="key-renewed-hint"]').text()).toBe(
+        'Renewed 3 times, so it cannot be renewed again'
+      )
+      expect(row.find('[data-testid="key-get-new"]').attr('href')).toBe(
+        '/connect/shared/start?modelSlug=gpt-4o'
+      )
+      expect(row.find('[data-testid="credential-actions"]')).toHaveLength(0)
+    })
+
+    test('an active key with no renewals left shows no Renew, and no “cannot be renewed again” hint', async () => {
+      const { $ } = await getManage([
+        ownKey({ renewalCount: 3, renewalsRemaining: 0 })
+      ])
+      const row = $('[data-testid="keys-table-row"]')
+
+      expect(row.find('[data-testid="credential-action-renew"]')).toHaveLength(
+        0
+      )
+      expect(row.find('[data-testid="credential-action-revoke"]')).toHaveLength(
+        1
+      )
+      expect(row.find('[data-testid="key-renewed-hint"]').text()).toBe(
+        'Renewed 3 times'
+      )
+    })
+
+    test('links to try another model on their own, and to Teams in an inset', async () => {
+      const { $ } = await getManage([ownKey()])
+
+      expect($('[data-testid="access-try-another"]').attr('href')).toBe(
+        '/connect/shared/start'
+      )
+      expect($('[data-testid="access-try-another"]').text()).toBe(
+        'Try another model on your own'
+      )
+      expect($('[data-testid="access-teams-inset"]').text()).toContain(
+        'Your teams’ models and client secrets are on each team’s page.'
+      )
+      expect($('[data-testid="access-go-to-teams"]').attr('href')).toBe(
+        '/teams'
+      )
+      expect($('[data-testid="access-go-to-teams"]').text()).toBe('Go to Teams')
+    })
+
+    test('shows no key yet, still with both links, when there is nothing to list', async () => {
+      const { $, statusCode } = await getManage([])
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect($('[data-testid="keys-empty"]').text()).toBe(
+        'You do not have a key yet.'
+      )
+      expect($('[data-testid="keys-table"]')).toHaveLength(0)
+      expect($('[data-testid="access-try-another"]')).toHaveLength(1)
+      expect($('[data-testid="access-go-to-teams"]')).toHaveLength(1)
+    })
+
+    test('hides failed, pending and revoked keys, which were never or are no longer usable', async () => {
+      const { $ } = await getManage([
+        ownKey({ _id: 'cred-failed-1', status: 'failed' }),
+        ownKey({ _id: 'cred-failed-2', status: 'failed' }),
+        ownKey({ _id: 'cred-pending', status: 'pending' }),
+        ownKey({ _id: 'cred-revoked', status: 'revoked' })
+      ])
+
+      expect($('[data-testid="keys-table-row"]')).toHaveLength(0)
+      expect($('[data-testid="keys-empty"]')).toHaveLength(1)
+    })
+
+    test.each([
+      ['a team member', 'member'],
+      ['a team admin', 'admin']
+    ])(
+      'for %s, shows only their own key: no team row, no team model, no client secret, and no team lookup',
+      async (_who, role) => {
+        const { $, result } = await getManage([
+          ownKey(),
           {
             ...sampleCredential,
-            teamId: 'team-3',
+            _id: `cred-team-${role}`,
+            teamId: 'team-1',
             tier: 'team',
-            allowedDeployments: ['gpt-4o']
+            credentialType: 'oauth',
+            allowedDeployments: ['gpt-4o'],
+            expiresAt: null
           }
-        ]
-      })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+        ])
 
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
+        expect($('[data-testid="keys-table-row"]')).toHaveLength(1)
+        expect(result).not.toContain(`cred-team-${role}`)
+        expect(result).not.toContain('/rotate')
+        expect(result).not.toContain('Your models')
+        expect(result).not.toContain('Your teams</h2>')
+        expect(result).not.toContain('Flood Risk Team')
+        expect(result).not.toContain('Manage in')
+        expect(result).not.toContain('http-equiv="refresh"')
+        expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+          expect.stringContaining('/v1/credentials'),
+          expect.stringContaining('/v1/models')
+        ])
+      }
+    )
+
+    test('says there is no key when the only credential is a team client secret', async () => {
+      const { $ } = await getManage([
+        {
+          ...sampleCredential,
+          teamId: 'team-3',
+          tier: 'team',
+          allowedDeployments: ['gpt-4o']
+        }
+      ])
+
+      expect($('[data-testid="keys-empty"]')).toHaveLength(1)
+      expect($('[data-testid="keys-table-row"]')).toHaveLength(0)
     })
 
-    expect(result).toContain('You do not have a key or client secret yet')
-    expect(result).not.toContain('data-testid="keys-table-row"')
-  })
+    test('keeps a research key personal even when its stamped teamId no longer matches any current team', async () => {
+      const { $ } = await getManage([
+        ownKey({ _id: 'cred-stale-team', teamId: 'team-old' })
+      ])
 
-  test('GET /manage still renders when a team deployment lookup fails', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleCredential] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ message: 'boom' }), {
-      status: statusCodes.internalServerError
+      expect($('[data-testid="keys-table-row"]')).toHaveLength(1)
+      expect($('[data-testid="keys-empty"]')).toHaveLength(0)
     })
 
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
+    test('shows no date for a key without an expiry, rather than failing', async () => {
+      const { $, statusCode } = await getManage([ownKey({ expiresAt: null })])
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect($('[data-testid="keys-table-row"] td').eq(1).text().trim()).toBe(
+        ''
+      )
     })
 
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('GPT-4o'))
-    expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
-    expect(result).toContain('data-testid="models-unavailable"')
-    expect(result).not.toContain('data-testid="models-placeholder"')
-  })
+    test('falls back to the model slug when the catalogue does not list the model', async () => {
+      const { $ } = await getManage([ownKey()], [])
 
-  test('GET /manage shows the empty state with no credentials', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
+      expect($('[data-testid="keys-table-row"] td').first().text().trim()).toBe(
+        'gpt-4o'
+      )
     })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(
-      expect.stringContaining('You do not have a key or client secret yet')
-    )
-  })
-
-  test('GET /manage hides failed and pending credentials, including repeated failures for the same model, from the key list', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          { ...sampleCredential, _id: 'cred-failed-1', status: 'failed' },
-          { ...sampleCredential, _id: 'cred-failed-2', status: 'failed' },
-          { ...sampleCredential, _id: 'cred-pending-1', status: 'pending' }
-        ]
-      })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(
-      expect.stringContaining('You do not have a key or client secret yet')
-    )
-  })
-
-  test('GET /manage shows a "Your teams" placeholder with no team memberships', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(
-      expect.stringContaining('You are not a member of a team yet')
-    )
-    expect(result).toContain(
-      'Teams share an OAuth client secret that lasts longer and can be rotated.'
-    )
-    expect(result).not.toContain('Team keys')
-  })
-
-  test('GET /manage keeps a research credential personal even when its stamped teamId no longer matches any current team', async () => {
-    const cookies = await signIn(server)
-    const staleTeamCredential = {
-      ...sampleCredential,
-      _id: 'cred-stale-team',
-      teamId: 'team-old-no-longer-member',
-      tier: 'research'
-    }
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [staleTeamCredential] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).not.toEqual(
-      expect.stringContaining('You do not have a key or client secret yet')
-    )
-    expect(result).toEqual(expect.stringContaining('ab12'))
-    expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
-  })
-
-  test('GET /manage shows a "check progress" link for an in-progress team deployment', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-1',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            status: 'deploying'
-          }
-        ]
-      })
-    )
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Setting up'))
-    expect(result).toEqual(
-      expect.stringContaining('/connect/team/request/team-1/deployment-1')
-    )
-  })
-
-  test('GET /manage shows a status the frontend does not know as unknown, never as setting up', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-u',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            status: 'brand-new-status'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('Status unknown')
-    expect(result).not.toContain('Setting up')
-    expect(result).not.toContain('brand-new-status')
-    expect(result).not.toContain('Check progress')
-    expect(result).not.toContain('Finish setting up')
-    expect(result).not.toContain('http-equiv="refresh"')
-  })
-
-  test('GET /manage shows a queued team request as waiting for another change and keeps refreshing', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-q',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            status: 'queued'
-          }
-        ]
-      })
-    )
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toContain('Waiting for another change')
-    expect(result).toContain('govuk-tag--grey')
-    expect(result).not.toContain('Setting up')
-    expect(result).toContain('/connect/team/request/team-1/deployment-q')
-    expect(result).toContain('http-equiv="refresh"')
-  })
-
-  test('GET /manage shows a "setup failed" status for a failed team deployment', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-2',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            status: 'checks-failed'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(expect.stringContaining('Setup failed'))
-  })
-
-  test('GET /manage lists a model being removed, keeps refreshing, and leaves a removed one out', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-r1',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            status: 'removing'
-          },
-          {
-            _id: 'deployment-r2',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            status: 'removed'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('Removing')
-    expect(result).toContain('http-equiv="refresh" content="5"')
-    expect(result).not.toContain('deployment-r2')
-    expect(result).not.toContain('>Removed<')
-  })
-
-  test('GET /manage lists a model being removed with its own environment, and sends it to the team page', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          { _id: 'team-1', slug: 'flood-risk-team', name: 'Flood Risk Team' }
-        ]
-      })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-r1',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            environment: 'infradev',
-            status: 'removing'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('Removing')
-    // A removal is the team page's to follow; the request page would only send the person there.
-    expect(result).toContain('href="/teams/flood-risk-team"')
-    expect(result).not.toContain('/connect/team/request/team-1/deployment-r1')
-    expect(result).toContain('Development')
-  })
-
-  test('GET /manage shows a "ready to view" link for an active deployment with no credential yet', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-3',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            status: 'active'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(expect.stringContaining('Ready to use'))
-    expect(result).not.toContain('Ready to view')
-    expect(result).toContain('Finish setting up')
-    expect(result).toEqual(
-      expect.stringContaining('/connect/team/request/team-1/deployment-3')
-    )
-  })
-
-  test('GET /manage sends a ready model to its team page once the team secret has been issued, even if since revoked', async () => {
-    const cookies = await signIn(server)
-    const revokedTeamCredential = {
-      ...sampleCredential,
-      _id: 'cred-team-revoked',
-      teamId: 'team-1',
-      tier: 'team',
-      environment: 'infradev',
-      status: 'revoked',
-      allowedDeployments: ['gpt-4o']
-    }
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [revokedTeamCredential] })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-5',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            environment: 'infradev',
-            status: 'active'
-          }
-        ]
-      })
-    )
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toContain('Ready to use')
-    expect(result).toContain('Manage in Flood Risk Team')
-    expect(result).not.toContain('Finish setting up')
-    expect(result).not.toContain('/connect/team/request/team-1/deployment-5')
-  })
-
-  test('GET /manage lists every model with its team, environment and failure reason', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-f',
-            teamId: 'team-1',
-            modelSlug: 'gpt-4o',
-            environment: 'infradev',
-            status: 'deploy-failed',
-            failureReason: 'The apply workflow failed'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('data-testid="models-table"')
-    expect(result).toContain('Your models')
-    expect(result).not.toContain('Being set up')
-    expect(result).toContain('Flood Risk Team')
-    expect(result).toContain('Development')
-    expect(result).toContain('Setup failed')
-    expect(result).toContain('The apply workflow failed')
-    expect(result).toContain('See what happened')
-    expect(result).not.toContain('http-equiv="refresh"')
-  })
-
-  test('GET /manage says when none of the person’s teams has a model', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ items: [{ _id: 'team-1', name: 'Flood Risk Team' }] })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('data-testid="models-placeholder"')
-    expect(result).not.toContain('data-testid="models-table"')
-  })
-
-  test('GET /manage sorts a team with a request in progress before other teams, so a refresh keeps showing it', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          { _id: 'team-1', name: 'Flood Risk Team' },
-          { _id: 'team-2', name: 'Coastal Erosion Team' }
-        ]
-      })
-    )
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          {
-            _id: 'deployment-4',
-            teamId: 'team-2',
-            modelSlug: 'gpt-4o',
-            status: 'deploying'
-          }
-        ]
-      })
-    )
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/manage',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result.indexOf('Coastal Erosion Team')).toBeLessThan(
-      result.indexOf('Flood Risk Team')
-    )
   })
 
   test('POST /manage/credentials/{id}/renew shows a success banner', async () => {
@@ -690,7 +396,6 @@ describe('#manageController', () => {
     expect(postRenew.headers.location).toBe('/manage')
 
     const redirectCookies = mergeCookies(cookies, postRenew)
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
@@ -726,7 +431,6 @@ describe('#manageController', () => {
     expect(postRenew.statusCode).toBe(303)
 
     const redirectCookies = mergeCookies(cookies, postRenew)
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
@@ -789,7 +493,6 @@ describe('#manageController', () => {
     expect(postRevoke.statusCode).toBe(303)
 
     const redirectCookies = mergeCookies(cookies, postRevoke)
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
 
@@ -1057,7 +760,6 @@ describe('#manageController', () => {
     expect(postReveal.headers.location).toBe('/manage')
 
     const redirectCookies = mergeCookies(cookies, postReveal)
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const getManage = await server.inject({
