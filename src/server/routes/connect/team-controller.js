@@ -37,7 +37,7 @@ import {
   buildModelCheckboxes,
   joinNames,
   loadModelChoices,
-  notInUkSentence,
+  notInRegionsSentence,
   pickableSlugs,
   unavailableSlugs
 } from './team-model-choices.js'
@@ -178,7 +178,7 @@ function modelStepView(
     teamName: pendingAccess.teamName,
     backLink: backHref('model', pendingAccess, change),
     modelItems: buildModelCheckboxes(choices, selected),
-    notInUkText: notInUkSentence(choices.notInUkNames),
+    notInRegionsText: notInRegionsSentence(choices.notInRegionsNames),
     errorSummary: problem.errorSummary ?? null,
     fieldErrors: problem.fieldErrors ?? {}
   })

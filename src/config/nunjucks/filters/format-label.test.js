@@ -7,6 +7,9 @@ describe('#formatLabel', () => {
     expect(formatLabel('meta')).toBe('Meta')
     expect(formatLabel('uksouth')).toBe('UK South')
     expect(formatLabel('ukwest')).toBe('UK West')
+    expect(formatLabel('swedencentral')).toBe('Sweden Central')
+    expect(formatLabel('northeurope')).toBe('North Europe')
+    expect(formatLabel('westeurope')).toBe('West Europe')
   })
 
   test('Returns an unknown value unchanged', () => {

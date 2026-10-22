@@ -13,8 +13,10 @@ import {
   nanoModel,
   sampleModel,
   sampleTeam,
+  swedenModel,
   teamConnectHelpers,
-  teamWithMembers
+  teamWithMembers,
+  worldwideModel
 } from '#/test-helpers/team-connect-helpers.js'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
@@ -431,7 +433,7 @@ describe('#teamConnectController', () => {
   })
 
   describe('the model step', () => {
-    test('offers the team models that run in the UK as checkboxes, with their use cases', async () => {
+    test('offers the team models that run in the UK or EU as checkboxes, with their use cases', async () => {
       const cookies = await reachTeamStep(server, await signIn(server))
       mockModelChoices({ models: [sampleModel, nanoModel] })
 
@@ -451,7 +453,7 @@ describe('#teamConnectController', () => {
       expect(result).toContain('Chat assistants, summarising documents')
       expect(result).toContain('Classifying text')
       expect(result).not.toMatch(/value="gpt-4o"[^>]*checked/)
-      expect(result).not.toContain('data-testid="not-in-uk"')
+      expect(result).not.toContain('data-testid="not-in-regions"')
       expect(backLink(result, '/connect/team/select')).toBe(true)
     })
 
@@ -468,7 +470,7 @@ describe('#teamConnectController', () => {
       ).toBe(true)
     })
 
-    test('leaves out a model that does not run in the UK, and names it in an inset with a link to all models', async () => {
+    test('leaves out a model that does not run in the UK or EU, and names it in an inset with a link to all models', async () => {
       const cookies = await reachTeamStep(server, await signIn(server))
       mockModelChoices({
         models: [sampleModel, abroadModel],
@@ -479,9 +481,27 @@ describe('#teamConnectController', () => {
 
       expect(result).not.toContain('value="gpt-5-mini"')
       expect(result).toContain(
-        'GPT-5 mini is not available to teams in the UK yet.'
+        'GPT-5 mini is not available to teams in the UK or EU yet.'
       )
+      expect(result).toContain('data-testid="not-in-regions"')
       expect(result).toContain('href="/models">See all models</a>')
+    })
+
+    test('offers a model that runs in Sweden Central, and leaves out one with only a worldwide SKU', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      mockModelChoices({
+        models: [sampleModel, swedenModel, worldwideModel],
+        catalogue: [sampleModel, swedenModel, worldwideModel]
+      })
+
+      const { result } = await get(server, cookies, '/connect/team/model')
+
+      expect(result).toContain('value="gpt-4-1-mini"')
+      expect(result).not.toContain('value="gpt-5-nano"')
+      expect(result).toContain(
+        'GPT-5 nano is not available to teams in the UK or EU yet.'
+      )
+      expect(result).not.toContain('GPT-4.1 mini is not available')
     })
 
     test('names several models together in the inset', async () => {
@@ -495,7 +515,7 @@ describe('#teamConnectController', () => {
       const { result } = await get(server, cookies, '/connect/team/model')
 
       expect(result).toContain(
-        'GPT-5 mini and GPT-5 are not available to teams in the UK yet.'
+        'GPT-5 mini and GPT-5 are not available to teams in the UK or EU yet.'
       )
     })
 

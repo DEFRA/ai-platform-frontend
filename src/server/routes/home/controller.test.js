@@ -153,7 +153,7 @@ describe('#homeController', () => {
       expect($('h3')).toHaveLength(2)
       expect($('h3').first().text()).toBe('For your team’s service')
       expect($('main').text()).toContain(
-        'Your team gets its own deployment of a model in the UK, set up in Development first. Everyone in the team uses it through one client secret.'
+        'Your team gets its own deployment of a model in the UK or EU, set up in Development first. Everyone in the team uses it through one client secret.'
       )
       expect($('h3').last().text()).toBe('To try a model on your own')
       expect($('main').text()).toContain(

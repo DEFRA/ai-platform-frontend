@@ -201,8 +201,8 @@ function failureSentence(model, deployment, team) {
     return `${name} was created for ${team.name}, but we could not confirm it is working.`
   }
 
-  if (model && teamAvailability(model) !== TEAM_AVAILABILITY.inUk) {
-    return `${name} is not available to teams in the UK yet, so it could not be set up. It should not have been offered to you.`
+  if (model && teamAvailability(model) !== TEAM_AVAILABILITY.inRegions) {
+    return `${name} is not available to teams in the UK or EU yet, so it could not be set up. It should not have been offered to you.`
   }
 
   return `${name} could not be set up for ${team.name}.`

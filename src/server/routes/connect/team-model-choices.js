@@ -17,14 +17,13 @@ function listedModels(models) {
 }
 
 /**
- * What the model step offers a team: the models that run in the UK and that
- * the target environment can deploy, the models the team already has there
+ * What the model step offers a team: the models that run in the UK or EU and
+ * that the target environment can deploy, the models the team already has there
  * (any not removed, which cannot be requested again), and the names of the
- * models that
- * are not in the UK yet, so the page can say so.
+ * models that are not in the UK or EU yet, so the page can say so.
  * @param {import('@hapi/hapi').Request} request
  * @param {{teamSlug: string, environment?: string, readyIn?: string}} journey - `readyIn` is the environment a model must be ready in for the team to be offered it (setting up another environment from the first).
- * @returns {Promise<{models: object[], held: Set<string>, notInUkNames: string[]}>}
+ * @returns {Promise<{models: object[], held: Set<string>, notInRegionsNames: string[]}>}
  */
 export async function loadModelChoices(
   request,
@@ -55,7 +54,7 @@ export async function loadModelChoices(
     models: listedModels(offered).filter(
       (model) =>
         isEligible(model) &&
-        teamAvailability(model) === TEAM_AVAILABILITY.inUk &&
+        teamAvailability(model) === TEAM_AVAILABILITY.inRegions &&
         (!readyIn || ready.has(model.slug))
     ),
     held: new Set(
@@ -67,11 +66,11 @@ export async function loadModelChoices(
         )
         .map(({ modelSlug }) => modelSlug)
     ),
-    notInUkNames: listedModels(catalogue)
+    notInRegionsNames: listedModels(catalogue)
       .filter(
         (model) =>
           isEligible(model) &&
-          teamAvailability(model) === TEAM_AVAILABILITY.notInUk
+          teamAvailability(model) === TEAM_AVAILABILITY.notInRegions
       )
       .map(({ displayName }) => displayName)
   }
@@ -129,17 +128,17 @@ export function unavailableSlugs(choices, chosen) {
 }
 
 /**
- * The names of the models not in the UK yet, as the model step's inset says
- * it, or null when there are none.
+ * The names of the models not in the UK or EU yet, as the model step's inset
+ * says it, or null when there are none.
  * @param {string[]} names
  * @returns {string | null}
  */
-export function notInUkSentence(names) {
+export function notInRegionsSentence(names) {
   if (names.length === 0) {
     return null
   }
 
-  return `${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} not available to teams in the UK yet.`
+  return `${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} not available to teams in the UK or EU yet.`
 }
 
 /**

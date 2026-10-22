@@ -128,7 +128,7 @@ infra code and the story, then record which of the layers are built; do not infe
   the CDP platform team). The identity roles for the backend, `id-aip-backend-{env}`, are in design E.
 - **Retire the hand-built sandbox** (`SNDAIEEXPRGP1401`, `DEPLOYTESTDEFRA`, `kv-aip-sandbox-tenants`) once the last key
   issued there has expired, and drop the `sandbox` entry from `AIP_ENVIRONMENTS`.
-- Add `swedencentral` to Infradev's `foundry.regions` if Defra policy allows, so the nano models can join `research.json`.
+- Add `swedencentral` to Infradev's `foundry.regions` if Defra policy allows, so models with a Sweden Central SKU can join `research.json`.
 - The model step does not yet hide models an environment cannot deploy.
 - A real `ServiceCodeVerifier` once an authoritative source is agreed.
 

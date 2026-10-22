@@ -14,7 +14,7 @@ import {
   groupModels,
   isEligible,
   teamAvailability,
-  teamUkRegion,
+  teamRegion,
   unavailableReason,
   useCasesList,
   useCasesSentence
@@ -58,7 +58,7 @@ function buildModelRow(model) {
     canTry: model.canTry,
     tryUrl: sharedStartUrl(model.slug),
     teamAvailability: model.teamAvailability,
-    canAddToTeam: model.teamAvailability === TEAM_AVAILABILITY.inUk,
+    canAddToTeam: model.teamAvailability === TEAM_AVAILABILITY.inRegions,
     addToTeamUrl: teamStartUrl(model.slug)
   }
 }
@@ -68,16 +68,16 @@ function forATeamText(model) {
     return 'Not available to add to a team yet.'
   }
 
-  const region = teamUkRegion(model)
+  const region = teamRegion(model)
 
   return region
-    ? `A deployment just for your team, in ${formatLabel(region)}. Shared by the team through one client secret.`
+    ? `A deployment just for your team, in ${formatLabel(region.toLowerCase())}. Shared by the team through one client secret.`
     : teamAvailability(model)
 }
 
 function onYourOwnText(model) {
   return canTry(model)
-    ? `A personal key for ${RESEARCH_CREDENTIAL_DAYS} days. Requests can be processed outside the UK, so do not use OFFICIAL-SENSITIVE data.`
+    ? `A personal key for ${RESEARCH_CREDENTIAL_DAYS} days. Requests can be processed in the UK or the EU, so do not use OFFICIAL-SENSITIVE data.`
     : 'Not available to try on your own yet.'
 }
 
@@ -166,7 +166,7 @@ export const modelsController = {
           eligible,
           statusReason: eligible ? undefined : unavailableReason(model),
           canAddToTeam:
-            eligible && teamAvailability(model) === TEAM_AVAILABILITY.inUk,
+            eligible && teamAvailability(model) === TEAM_AVAILABILITY.inRegions,
           addToTeamUrl: teamStartUrl(model.slug),
           canTry: canTry(model),
           tryUrl: sharedStartUrl(model.slug),

@@ -41,11 +41,11 @@
           items: modelItems
         }) }}
 
-        {% if notInUkText %}
-          {% set notInUkHtml %}
-            {{ notInUkText }} <a class="govuk-link" href="/models">See all models</a>
+        {% if notInRegionsText %}
+          {% set notInRegionsHtml %}
+            {{ notInRegionsText }} <a class="govuk-link" href="/models">See all models</a>
           {% endset %}
-          {{ govukInsetText({ html: notInUkHtml, attributes: { "data-testid": "not-in-uk" } }) }}
+          {{ govukInsetText({ html: notInRegionsHtml, attributes: { "data-testid": "not-in-regions" } }) }}
         {% endif %}
 
         {{ govukButton({ text: "Continue" }) }}
