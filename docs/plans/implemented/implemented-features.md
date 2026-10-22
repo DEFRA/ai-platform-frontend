@@ -28,7 +28,8 @@ Last updated: 20 Oct 2026.
 
 ## Not built yet
 
-Team client secrets and federations (B18), limits (B17), usage and chargeback (B19), observability (B20 to B22), the gateway
+Team client secrets and federations (B18), federated portal sign-in with token validation on the backend (B27), limits
+(B17), usage and chargeback (B19), observability (B20 to B22), the gateway
 authorisation layers' built state (B23), research-tier journey tests and the liveness reconcile, and the delivery-quality
 work. See [remaining.md](../remaining.md).
 

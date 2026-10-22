@@ -20,7 +20,7 @@ What is built, and what is left, in two places only.
 
 ## Remaining
 
-[remaining.md](remaining.md): identity and credentials (B18), limits and reporting (B17, B19), observability (B20 to B22),
+[remaining.md](remaining.md): identity and credentials (B18, B27 portal sign-in and API access), limits and reporting (B17, B19), observability (B20 to B22),
 gateway authorisation (B23), research tier follow-ups, quality and delivery, platform operations, and the discovery-docs
 record.
 
