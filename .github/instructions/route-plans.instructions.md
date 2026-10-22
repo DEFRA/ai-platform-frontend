@@ -49,7 +49,9 @@ Do all of this in the same change, without being asked.
    lives in the single file `docs/plans/remaining.md`. Do not add plan files anywhere else.
 2. **Move, do not copy.** When something is built, remove its entry from `remaining.md` and put it in the matching
    `implemented/` file (add a new numbered file for a new category). A deliberately deferred item stays in `remaining.md`
-   marked "deferred, not removed".
+   marked "deferred, not removed". A story-related item also keeps `remaining.md`'s "At a glance" table and discovery-docs
+   `build-stories.md#status` in agreement (see the mirror bullet in
+   [copilot-instructions.md](../copilot-instructions.md#how-copilot-should-respond)).
 3. **README matches.** Update the tables in [docs/plans/README.md](../../docs/plans/README.md) and
    [docs/plans/implemented/implemented-features.md](../../docs/plans/implemented/implemented-features.md) in the same change.
 4. **Links follow.** Repoint every inbound link (both repos' instructions, READMEs, code comments) and check every relative
