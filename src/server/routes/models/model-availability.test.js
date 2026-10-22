@@ -7,13 +7,15 @@ import {
   isCapacityDuplicate,
   isEligible,
   teamAvailability,
-  teamUkRegion,
+  teamRegion,
   unavailableReason,
   useCasesList,
   useCasesSentence
 } from './model-availability.js'
 
 const UK_TEAM_SKU = { name: 'DataZoneStandard', tiers: ['team'] }
+const RESEARCH_SKU = { name: 'Standard', tiers: ['research'] }
+const WORLDWIDE_SKU = { name: 'GlobalStandard', tiers: ['research', 'team'] }
 
 function model(fields = {}) {
   return {
@@ -21,7 +23,7 @@ function model(fields = {}) {
     eligible: true,
     tiers: ['research', 'team'],
     regions: ['uksouth'],
-    skus: [UK_TEAM_SKU],
+    skus: [UK_TEAM_SKU, RESEARCH_SKU],
     ...fields
   }
 }
@@ -36,68 +38,161 @@ describe('model-availability', () => {
       expect(canTry(model({ eligible: undefined }))).toBe(true)
     })
 
+    test.each(['swedencentral', 'northeurope', 'westeurope', 'ukwest'])(
+      'is true for a research SKU in %s, such as DataZoneStandard',
+      (region) => {
+        const skus = [
+          { name: 'DataZoneStandard', tiers: ['research'], regions: [region] }
+        ]
+
+        expect(canTry(model({ skus }))).toBe(true)
+      }
+    )
+
     test.each([
       ['is not eligible', { eligible: false }],
       ['is not offered to research', { tiers: ['team'] }],
-      ['has no tiers', { tiers: undefined }]
+      ['has no tiers', { tiers: undefined }],
+      ['has no SKUs', { skus: undefined }],
+      ['has only a team SKU', { skus: [UK_TEAM_SKU] }],
+      [
+        'has a research SKU only in the US',
+        { skus: [{ ...RESEARCH_SKU, regions: ['eastus'] }] }
+      ],
+      [
+        'has a research SKU in the UK and the US',
+        { skus: [{ ...RESEARCH_SKU, regions: ['uksouth', 'eastus'] }] }
+      ],
+      [
+        'has a research SKU with no regions',
+        { regions: [], skus: [RESEARCH_SKU] }
+      ],
+      [
+        'has only a worldwide SKU, even in the UK',
+        {
+          skus: [
+            {
+              name: 'GlobalStandard',
+              tiers: ['research'],
+              regions: ['uksouth']
+            }
+          ]
+        }
+      ],
+      [
+        'has only a worldwide SKU, in lower or mixed case of region',
+        { skus: [{ ...WORLDWIDE_SKU, regions: ['UKSouth'] }] }
+      ]
     ])('is false for a model that %s', (_why, fields) => {
       expect(canTry(model(fields))).toBe(false)
     })
+
+    test('is true when a usable research SKU sits beside a worldwide one', () => {
+      expect(canTry(model({ skus: [WORLDWIDE_SKU, RESEARCH_SKU] }))).toBe(true)
+    })
+
+    test.each(['globalstandard', 'GLOBALStandard', 'GlobalBatch'])(
+      'is false for only a worldwide SKU named %s, in any case',
+      (name) => {
+        const skus = [{ name, tiers: ['research'], regions: ['uksouth'] }]
+
+        expect(canTry(model({ skus }))).toBe(false)
+      }
+    )
   })
 
   describe('teamAvailability', () => {
-    test('says "Runs in the UK" for a team SKU that takes the model’s UK regions', () => {
-      expect(teamAvailability(model())).toBe(TEAM_AVAILABILITY.inUk)
-      expect(TEAM_AVAILABILITY.inUk).toBe('Runs in the UK')
+    test('says "Runs in the UK or EU" for a team SKU that takes the model’s UK regions', () => {
+      expect(teamAvailability(model())).toBe(TEAM_AVAILABILITY.inRegions)
+      expect(TEAM_AVAILABILITY.inRegions).toBe('Runs in the UK or EU')
     })
 
-    test('says "Runs in the UK" for a team SKU whose own regions are all in the UK, in any case', () => {
+    test('says "Runs in the UK or EU" for a team SKU whose own regions are all allowed, in any case', () => {
       const skus = [{ ...UK_TEAM_SKU, regions: ['UKSouth', 'ukwest'] }]
 
-      expect(
-        teamAvailability(model({ skus, regions: ['swedencentral'] }))
-      ).toBe(TEAM_AVAILABILITY.inUk)
+      expect(teamAvailability(model({ skus, regions: ['eastus'] }))).toBe(
+        TEAM_AVAILABILITY.inRegions
+      )
     })
 
-    test('says "Runs in the UK" when any one team SKU is in the UK', () => {
+    test.each(['swedencentral', 'northeurope', 'westeurope'])(
+      'says "Runs in the UK or EU" for a team SKU in %s',
+      (region) => {
+        const skus = [{ ...UK_TEAM_SKU, regions: [region] }]
+
+        expect(teamAvailability(model({ skus }))).toBe(
+          TEAM_AVAILABILITY.inRegions
+        )
+      }
+    )
+
+    test('says "Runs in the UK or EU" when any one team SKU qualifies', () => {
       const skus = [
-        { ...UK_TEAM_SKU, regions: ['swedencentral'] },
+        { ...UK_TEAM_SKU, regions: ['eastus'] },
         { name: 'Other', tiers: ['team'], regions: ['uksouth'] }
       ]
 
-      expect(teamAvailability(model({ skus }))).toBe(TEAM_AVAILABILITY.inUk)
+      expect(teamAvailability(model({ skus }))).toBe(
+        TEAM_AVAILABILITY.inRegions
+      )
     })
 
-    test('says "Not in the UK yet" for a team SKU only outside the UK (GPT-4.1 nano)', () => {
-      const skus = [{ ...UK_TEAM_SKU, regions: ['swedencentral'] }]
+    test('says "Not in the UK or EU yet" for a team SKU only in the US', () => {
+      const skus = [{ ...UK_TEAM_SKU, regions: ['eastus'] }]
 
-      expect(teamAvailability(model({ skus }))).toBe(TEAM_AVAILABILITY.notInUk)
-      expect(TEAM_AVAILABILITY.notInUk).toBe('Not in the UK yet')
+      expect(teamAvailability(model({ skus }))).toBe(
+        TEAM_AVAILABILITY.notInRegions
+      )
+      expect(TEAM_AVAILABILITY.notInRegions).toBe('Not in the UK or EU yet')
     })
 
-    test('says "Not in the UK yet" when a team SKU mixes UK and other regions', () => {
-      const skus = [{ ...UK_TEAM_SKU, regions: ['uksouth', 'swedencentral'] }]
+    test('says "Not in the UK or EU yet" when a team SKU mixes allowed and other regions', () => {
+      const skus = [{ ...UK_TEAM_SKU, regions: ['uksouth', 'eastus'] }]
 
-      expect(teamAvailability(model({ skus }))).toBe(TEAM_AVAILABILITY.notInUk)
+      expect(teamAvailability(model({ skus }))).toBe(
+        TEAM_AVAILABILITY.notInRegions
+      )
     })
 
-    test('says "Not in the UK yet" when a team SKU has no regions anywhere', () => {
+    test('says "Not in the UK or EU yet" when a team SKU has no regions anywhere', () => {
       expect(teamAvailability(model({ regions: undefined }))).toBe(
-        TEAM_AVAILABILITY.notInUk
+        TEAM_AVAILABILITY.notInRegions
       )
       expect(teamAvailability(model({ regions: [] }))).toBe(
-        TEAM_AVAILABILITY.notInUk
+        TEAM_AVAILABILITY.notInRegions
       )
+    })
+
+    test.each(['globalstandard', 'GLOBALStandard', 'GlobalBatch'])(
+      'never counts a worldwide SKU named %s, in any case',
+      (name) => {
+        const skus = [{ name, tiers: ['team'], regions: ['uksouth'] }]
+
+        expect(teamAvailability(model({ skus }))).toBe(
+          TEAM_AVAILABILITY.notInRegions
+        )
+      }
+    )
+
+    test('never counts a worldwide SKU, even in an allowed region', () => {
+      const skus = [{ ...WORLDWIDE_SKU, regions: ['uksouth'] }]
+
+      expect(teamAvailability(model({ skus }))).toBe(
+        TEAM_AVAILABILITY.notInRegions
+      )
+    })
+
+    test('counts a usable team SKU beside a worldwide one', () => {
+      expect(
+        teamAvailability(model({ skus: [WORLDWIDE_SKU, UK_TEAM_SKU] }))
+      ).toBe(TEAM_AVAILABILITY.inRegions)
     })
 
     test.each([
       ['no SKUs', { skus: undefined }],
       ['an empty SKU list', { skus: [] }],
-      [
-        'only research SKUs',
-        { skus: [{ name: 'GlobalStandard', tiers: ['research'] }] }
-      ],
-      ['a SKU with no tiers', { skus: [{ name: 'GlobalStandard' }] }]
+      ['only research SKUs', { skus: [RESEARCH_SKU] }],
+      ['a SKU with no tiers', { skus: [{ name: 'Standard' }] }]
     ])('says "Not for teams yet" for %s', (_why, fields) => {
       expect(teamAvailability(model(fields))).toBe(
         TEAM_AVAILABILITY.notForTeams
@@ -138,15 +233,20 @@ describe('model-availability', () => {
       const nano = model({
         slug: 'gpt-4-1-nano',
         tiers: ['team'],
-        skus: [{ ...UK_TEAM_SKU, regions: ['swedencentral'] }]
+        skus: [{ ...UK_TEAM_SKU, regions: ['eastus'] }]
       })
-      const { available } = groupModels([model(), nano])
+      const worldwideOnly = model({
+        slug: 'gpt-5-nano',
+        skus: [{ ...WORLDWIDE_SKU, regions: ['uksouth'] }]
+      })
+      const { available } = groupModels([model(), nano, worldwideOnly])
 
       expect(
         available.map((item) => [item.slug, item.canTry, item.teamAvailability])
       ).toEqual([
-        ['gpt-4o', true, 'Runs in the UK'],
-        ['gpt-4-1-nano', false, 'Not in the UK yet']
+        ['gpt-4o', true, 'Runs in the UK or EU'],
+        ['gpt-4-1-nano', false, 'Not in the UK or EU yet'],
+        ['gpt-5-nano', false, 'Not in the UK or EU yet']
       ])
     })
 
@@ -190,41 +290,56 @@ describe('model-availability', () => {
     })
   })
 
-  describe('teamUkRegion', () => {
-    test('is the region of a team SKU that runs in the UK', () => {
-      expect(teamUkRegion(model())).toBe('uksouth')
+  describe('teamRegion', () => {
+    test('is the region of a team SKU that runs in the UK or EU', () => {
+      expect(teamRegion(model())).toBe('uksouth')
     })
 
     test('prefers the SKU’s own regions over the model’s', () => {
-      const skus = [{ ...UK_TEAM_SKU, regions: ['ukwest'] }]
+      const skus = [{ ...UK_TEAM_SKU, regions: ['swedencentral'] }]
 
-      expect(teamUkRegion(model({ skus }))).toBe('ukwest')
+      expect(teamRegion(model({ skus }))).toBe('swedencentral')
     })
 
-    test('skips a team SKU outside the UK and finds one in it', () => {
+    test('skips a team SKU that does not qualify and finds one that does', () => {
       const skus = [
-        { ...UK_TEAM_SKU, regions: ['swedencentral'] },
-        { name: 'Other', tiers: ['team'], regions: ['uksouth'] }
+        { ...UK_TEAM_SKU, regions: ['eastus'] },
+        { ...WORLDWIDE_SKU, regions: ['uksouth'] },
+        {
+          name: 'Other',
+          tiers: ['team'],
+          regions: ['westeurope', 'northeurope']
+        }
       ]
 
-      expect(teamUkRegion(model({ skus }))).toBe('uksouth')
+      expect(teamRegion(model({ skus }))).toBe('westeurope')
     })
 
+    test.each(['globalstandard', 'GLOBALStandard'])(
+      'is undefined for a worldwide SKU named %s',
+      (name) => {
+        const skus = [{ name, tiers: ['team'], regions: ['uksouth'] }]
+
+        expect(teamRegion(model({ skus }))).toBeUndefined()
+      }
+    )
+
     test.each([
-      ['only outside the UK', { regions: ['swedencentral'] }],
-      ['no team SKU', { skus: [{ name: 'X', tiers: ['research'] }] }],
+      ['only in the US', { regions: ['eastus'] }],
+      ['only a worldwide SKU', { skus: [WORLDWIDE_SKU] }],
+      ['no team SKU', { skus: [RESEARCH_SKU] }],
       ['no SKUs', { skus: undefined }]
-    ])('is undefined for %s', (_why, fields) => {
-      expect(teamUkRegion(model(fields))).toBeUndefined()
+    ])('is undefined for a model with %s', (_why, fields) => {
+      expect(teamRegion(model(fields))).toBeUndefined()
     })
   })
 
   describe('filterByShow', () => {
     const models = [
-      { slug: 'a', canTry: true, teamAvailability: 'Runs in the UK' },
+      { slug: 'a', canTry: true, teamAvailability: 'Runs in the UK or EU' },
       { slug: 'b', canTry: true, teamAvailability: 'Not for teams yet' },
-      { slug: 'c', canTry: false, teamAvailability: 'Runs in the UK' },
-      { slug: 'd', canTry: true, teamAvailability: 'Not in the UK yet' }
+      { slug: 'c', canTry: false, teamAvailability: 'Runs in the UK or EU' },
+      { slug: 'd', canTry: true, teamAvailability: 'Not in the UK or EU yet' }
     ]
     const slugs = (list) => list.map((item) => item.slug)
 
@@ -232,7 +347,7 @@ describe('model-availability', () => {
       expect(slugs(filterByShow(models, 'all'))).toEqual(['a', 'b', 'c', 'd'])
     })
 
-    test('"team" keeps the models that run in the UK', () => {
+    test('"team" keeps the models that run in the UK or EU', () => {
       expect(slugs(filterByShow(models, 'team'))).toEqual(['a', 'c'])
     })
 

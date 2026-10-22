@@ -6,7 +6,7 @@ const ukModel = {
   goodFor: 'Chat assistants, summarising documents',
   canTry: true,
   tryUrl: '/connect/shared/start?modelSlug=gpt-4o',
-  teamAvailability: 'Runs in the UK',
+  teamAvailability: 'Runs in the UK or EU',
   canAddToTeam: true,
   addToTeamUrl: '/connect/team/start?modelSlug=gpt-4o'
 }
@@ -61,7 +61,7 @@ describe('Model table component', () => {
     expect($try.text()).toContain('Try it')
   })
 
-  test('Should link "Add to a team" into the team journey with the model, with the hint "Runs in the UK"', () => {
+  test('Should link "Add to a team" into the team journey with the model, with the hint "Runs in the UK or EU"', () => {
     const $table = renderComponent('model-table', { models: [ukModel] })
     const $cell = $table('[data-testid="model-table-team"]')
 
@@ -69,10 +69,10 @@ describe('Model table component', () => {
       '/connect/team/start?modelSlug=gpt-4o'
     )
     expect($cell.find('a').text()).toContain('Add to a team')
-    expect($cell.find('.govuk-hint').text().trim()).toBe('Runs in the UK')
+    expect($cell.find('.govuk-hint').text().trim()).toBe('Runs in the UK or EU')
   })
 
-  test.each(['Not for teams yet', 'Not in the UK yet'])(
+  test.each(['Not for teams yet', 'Not in the UK or EU yet'])(
     'Should say "%s" in plain words, with no link',
     (teamAvailability) => {
       const $table = renderComponent('model-table', {

@@ -610,8 +610,7 @@ describe('#teamRequestController', () => {
             modelSlug: 'gpt-5-mini',
             status: 'deploy-failed',
             operationId: 'op-1234567-7f3k2',
-            failureReason:
-              'Apply: gpt-5-mini is not available in swedencentral',
+            failureReason: 'Apply: gpt-5-mini is not available in eastus',
             links: {
               pullRequest: 'https://github.com/DEFRA/tenants/pull/214',
               applyRun: 'https://github.com/DEFRA/tenants/actions/runs/9',
@@ -633,7 +632,7 @@ describe('#teamRequestController', () => {
       expect(statusCode).toBe(statusCodes.ok)
       expect(result).toContain('We could not set up GPT-5 mini')
       expect(result).toContain(
-        'GPT-5 mini is not available to teams in the UK yet, so it could not be set up. It should not have been offered to you. GPT-4o is not affected.'
+        'GPT-5 mini is not available to teams in the UK or EU yet, so it could not be set up. It should not have been offered to you. GPT-4o is not affected.'
       )
       expect(result).not.toContain('http-equiv="refresh"')
     })
@@ -675,9 +674,7 @@ describe('#teamRequestController', () => {
       expect(result).toContain('Reference')
       expect(result).toContain('AIP-7F3K2')
       expect(result).toContain('What failed')
-      expect(result).toContain(
-        'Apply: gpt-5-mini is not available in swedencentral'
-      )
+      expect(result).toContain('Apply: gpt-5-mini is not available in eastus')
       expect(result).toContain(
         '<a class="govuk-link" href="https://github.com/DEFRA/tenants/pull/214">Pull request</a>'
       )
@@ -696,7 +693,7 @@ describe('#teamRequestController', () => {
       expect(result).not.toContain('Pull request')
     })
 
-    test('says a model in the UK could not be set up, without blaming the offer', async () => {
+    test('says a model in the UK or EU could not be set up, without blaming the offer', async () => {
       mockPage({
         deployments: [deployment({ status: 'checks-failed' })]
       })

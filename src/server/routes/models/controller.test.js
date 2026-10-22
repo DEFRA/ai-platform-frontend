@@ -43,7 +43,10 @@ const sampleModel = {
   dataZone: 'uk',
   eligible: true,
   tiers: ['research', 'team'],
-  skus: [{ name: 'Standard', tiers: ['team'], regions: ['uksouth'] }],
+  skus: [
+    { name: 'Standard', tiers: ['team'], regions: ['uksouth'] },
+    { name: 'Standard', tiers: ['research'], regions: ['uksouth'] }
+  ],
   useCases: ['Chat assistants', 'Summarising documents', 'Reading images'],
   deploymentName: 'gpt-4o',
   apiVersion: '2024-05-01-preview',
@@ -55,17 +58,50 @@ const researchOnlyModel = {
   slug: 'gpt-5-mini',
   displayName: 'GPT-5 mini',
   tiers: ['research'],
-  skus: [{ name: 'GlobalStandard', tiers: ['research'], regions: ['uksouth'] }],
+  regions: ['swedencentral'],
+  skus: [
+    {
+      name: 'DataZoneStandard',
+      tiers: ['research'],
+      regions: ['swedencentral']
+    }
+  ],
   useCases: ['Chat assistants', 'Writing code']
+}
+
+// Only a worldwide deployment, so it is never usable, even in a UK region.
+const worldwideOnlyModel = {
+  ...sampleModel,
+  slug: 'gpt-5-nano',
+  displayName: 'GPT-5 nano',
+  skus: [
+    {
+      name: 'GlobalStandard',
+      tiers: ['research', 'team'],
+      regions: ['uksouth']
+    }
+  ],
+  useCases: ['Simple chat']
 }
 
 const swedenModel = {
   ...sampleModel,
   slug: 'gpt-4-1-nano',
   displayName: 'GPT-4.1 nano',
+  tiers: ['team'],
   skus: [{ name: 'Standard', tiers: ['team'], regions: ['swedencentral'] }],
   regions: ['swedencentral'],
   useCases: ['Prototyping', 'Simple chat']
+}
+
+const usModel = {
+  ...sampleModel,
+  slug: 'gpt-4-1-mini',
+  displayName: 'GPT-4.1 mini',
+  tiers: ['team'],
+  skus: [{ name: 'Standard', tiers: ['team'], regions: ['eastus'] }],
+  regions: ['eastus'],
+  useCases: ['Summarising documents']
 }
 
 const teamOnlyModel = {
@@ -96,7 +132,9 @@ const catalogue = {
   items: [
     sampleModel,
     researchOnlyModel,
+    worldwideOnlyModel,
     swedenModel,
+    usModel,
     duplicateModel,
     embeddingModel
   ]
@@ -193,16 +231,24 @@ describe('#modelsController', () => {
       )
     })
 
-    test('offers "Try it" and "Add to a team" with the model for one that runs in the UK', async () => {
+    test('offers "Try it" and "Add to a team" with the model for one that runs in the UK or EU', async () => {
       const { result } = await getModels()
       const row = rowFor(result, 'GPT-4o')
 
       expect(row).toContain('href="/connect/shared/start?modelSlug=gpt-4o"')
       expect(row).toContain('href="/connect/team/start?modelSlug=gpt-4o"')
-      expect(row).toContain('Runs in the UK')
+      expect(row).toContain('Runs in the UK or EU')
     })
 
-    test('says "Not for teams yet" with no link for a model with no team SKU', async () => {
+    test('says "Runs in the UK or EU" and links to add it for a team SKU in Sweden Central', async () => {
+      const { result } = await getModels()
+      const row = rowFor(result, 'GPT-4.1 nano')
+
+      expect(row).toContain('Runs in the UK or EU')
+      expect(row).toContain('href="/connect/team/start?modelSlug=gpt-4-1-nano"')
+    })
+
+    test('says "Not for teams yet" with no link for a model with no team SKU, and offers it to try in Sweden Central', async () => {
       const { result } = await getModels()
       const row = rowFor(result, 'GPT-5 mini')
 
@@ -211,11 +257,21 @@ describe('#modelsController', () => {
       expect(row).not.toContain('/connect/team/start')
     })
 
-    test('says "Not in the UK yet" with no link for a model whose team SKU is outside the UK', async () => {
+    test('says "Not in the UK or EU yet" with no link for a model whose team SKU is in the US', async () => {
       const { result } = await getModels()
-      const row = rowFor(result, 'GPT-4.1 nano')
+      const row = rowFor(result, 'GPT-4.1 mini')
 
-      expect(row).toContain('Not in the UK yet')
+      expect(row).toContain('Not in the UK or EU yet')
+      expect(row).not.toContain('/connect/team/start')
+    })
+
+    test('offers a model with only a worldwide SKU to nobody, and says "Not available" to try it', async () => {
+      const { result } = await getModels()
+      const row = rowFor(result, 'GPT-5 nano')
+
+      expect(row).toContain('Not available')
+      expect(row).not.toContain('/connect/shared/start')
+      expect(row).toContain('Not in the UK or EU yet')
       expect(row).not.toContain('/connect/team/start')
     })
 
@@ -265,17 +321,29 @@ describe('#modelsController', () => {
       expect(result).toMatch(/govuk-summary-list__value[^>]*>\s*Retired\s*</)
     })
 
-    test('"Models you can add to a team" lists only those that run in the UK', async () => {
+    test('"Models you can add to a team" lists only those that run in the UK or EU', async () => {
       const { result } = await getModels('/models?show=team')
 
       expect(result).toContain('>GPT-4o</a>')
+      expect(result).toContain('>GPT-4.1 nano</a>')
       expect(result).not.toContain('>GPT-5 mini</a>')
-      expect(result).not.toContain('>GPT-4.1 nano</a>')
+      expect(result).not.toContain('>GPT-4.1 mini</a>')
+      expect(result).not.toContain('>GPT-5 nano</a>')
       expect(result).not.toContain('Not available yet')
       expect(result).toMatch(/<option value="team"[^>]*selected/)
     })
 
-    test('"Models you can try on your own" lists only those that can be tried', async () => {
+    test('"Models you can try on your own" lists only those with a usable research SKU', async () => {
+      const { result } = await getModels('/models?show=research')
+
+      expect(result).toContain('>GPT-4o</a>')
+      expect(result).toContain('>GPT-5 mini</a>')
+      expect(result).not.toContain('>GPT-4.1 nano</a>')
+      expect(result).not.toContain('>GPT-5 nano</a>')
+      expect(result).toMatch(/<option value="research"[^>]*selected/)
+    })
+
+    test('"Models you can try on your own" leaves out a model not offered to research', async () => {
       fetchMock.mockResponseOnce(
         JSON.stringify({ items: [sampleModel, teamOnlyModel] })
       )
@@ -287,7 +355,6 @@ describe('#modelsController', () => {
 
       expect(result).toContain('>GPT-4o</a>')
       expect(result).not.toContain('>Team only model</a>')
-      expect(result).toMatch(/<option value="research"[^>]*selected/)
     })
 
     test('says so when nothing matches', async () => {
@@ -366,7 +433,7 @@ describe('#modelsController', () => {
       )
     })
 
-    test('offers "Add to a team" and "Try it on your own" with the model for one that runs in the UK', async () => {
+    test('offers "Add to a team" and "Try it on your own" with the model for one that runs in the UK or EU', async () => {
       const { result } = await getDetail()
 
       expect(result).toMatch(
@@ -394,12 +461,39 @@ describe('#modelsController', () => {
         'A deployment just for your team, in UK South. Shared by the team through one client secret.'
       )
       expect(result).toContain(
-        'A personal key for 7 days. Requests can be processed outside the UK, so do not use OFFICIAL-SENSITIVE data.'
+        'A personal key for 7 days. Requests can be processed in the UK or the EU, so do not use OFFICIAL-SENSITIVE data.'
       )
+      expect(result).not.toContain('outside the UK')
       expect(result).toContain(
         '2024-08-06. Pinned, so it will not change under you.'
       )
     })
+
+    test.each([
+      ['swedencentral', 'Sweden Central'],
+      ['northeurope', 'North Europe'],
+      ['westeurope', 'West Europe'],
+      ['ukwest', 'UK West'],
+      ['SwedenCentral', 'Sweden Central']
+    ])(
+      'names the region, %s, a team deployment would run in',
+      async (region, label) => {
+        const { result } = await getDetail({
+          ...swedenModel,
+          regions: undefined,
+          skus: [
+            { name: 'DataZoneStandard', tiers: ['team'], regions: [region] }
+          ]
+        })
+
+        expect(result).toContain(
+          `A deployment just for your team, in ${label}. Shared by the team through one client secret.`
+        )
+        expect(result).toMatch(
+          /href="\/connect\/team\/start\?modelSlug=gpt-4-1-nano"[^>]*>\s*Add to a team\s*<\/a>/
+        )
+      }
+    )
 
     test('has no "Add to a team" button, and says "Not for teams yet", for a model with no team SKU', async () => {
       const { result } = await getDetail(researchOnlyModel)
@@ -409,11 +503,21 @@ describe('#modelsController', () => {
       expect(result).toContain('Try it on your own')
     })
 
-    test('has no "Add to a team" button, and says "Not in the UK yet", for a model whose team SKU is outside the UK', async () => {
-      const { result } = await getDetail(swedenModel)
+    test('has no "Add to a team" button, and says "Not in the UK or EU yet", for a model whose team SKU is in the US', async () => {
+      const { result } = await getDetail(usModel)
 
       expect(result).not.toContain('/connect/team/start')
-      expect(result).toContain('Not in the UK yet')
+      expect(result).toContain('Not in the UK or EU yet')
+    })
+
+    test('offers neither action for a model with only a worldwide SKU', async () => {
+      const { result } = await getDetail(worldwideOnlyModel)
+
+      expect(result).not.toContain('/connect/team/start')
+      expect(result).not.toContain('/connect/shared/start')
+      expect(result).not.toContain('Try it on your own')
+      expect(result).toContain('Not in the UK or EU yet')
+      expect(result).toContain('Not available to try on your own yet.')
     })
 
     test('has no "Try it on your own" link for a model that cannot be tried', async () => {
@@ -435,7 +539,7 @@ describe('#modelsController', () => {
       )
     })
 
-    test('does not promise a team deployment for an ineligible model that keeps its UK team SKU', async () => {
+    test('does not promise a team deployment for an ineligible model that keeps its team SKU', async () => {
       const { result } = await getDetail({
         ...sampleModel,
         eligible: false,

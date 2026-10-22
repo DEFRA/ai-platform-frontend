@@ -40,11 +40,28 @@ export const nanoModel = {
   deploymentName: 'gpt-4-1-nano'
 }
 
-// Offered to teams, but only outside the UK.
+// Offered to teams, but only in a US region.
 export const abroadModel = {
   ...sampleModel,
   slug: 'gpt-5-mini',
   displayName: 'GPT-5 mini',
+  regions: ['eastus']
+}
+
+// Offered to teams only as a worldwide SKU, which is never usable, even in a
+// UK region.
+export const worldwideModel = {
+  ...sampleModel,
+  slug: 'gpt-5-nano',
+  displayName: 'GPT-5 nano',
+  skus: [{ name: 'GlobalStandard', tiers: ['team'] }]
+}
+
+// Runs in Sweden Central, which is allowed.
+export const swedenModel = {
+  ...sampleModel,
+  slug: 'gpt-4-1-mini',
+  displayName: 'GPT-4.1 mini',
   regions: ['swedencentral']
 }
 

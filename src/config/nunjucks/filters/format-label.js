@@ -5,7 +5,10 @@ const LABELS = {
   anthropic: 'Anthropic',
   meta: 'Meta',
   uksouth: 'UK South',
-  ukwest: 'UK West'
+  ukwest: 'UK West',
+  swedencentral: 'Sweden Central',
+  northeurope: 'North Europe',
+  westeurope: 'West Europe'
 }
 
 export function formatLabel(value) {

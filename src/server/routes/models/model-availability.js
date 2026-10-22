@@ -1,14 +1,23 @@
 // What a person can do with a model, from the catalogue entry alone. The
-// backend applies the same rules (D4) when it lists and refuses team models.
+// backend applies the same rules (D4) when it lists and refuses models, for
+// teams and for people trying a model on their own: UK or EU regions only, and
+// no SKU whose name starts with the prefix of a worldwide deployment.
 
 const RESEARCH_TIER = 'research'
 const TEAM_TIER = 'team'
-const UK_REGION_PREFIX = 'uk'
+const ALLOWED_REGIONS = [
+  'uksouth',
+  'ukwest',
+  'swedencentral',
+  'northeurope',
+  'westeurope'
+]
+const WORLDWIDE_SKU_PREFIX = 'global'
 const CAPACITY_DUPLICATE_SUFFIX = '-2'
 
 export const TEAM_AVAILABILITY = {
-  inUk: 'Runs in the UK',
-  notInUk: 'Not in the UK yet',
+  inRegions: 'Runs in the UK or EU',
+  notInRegions: 'Not in the UK or EU yet',
   notForTeams: 'Not for teams yet'
 }
 
@@ -37,64 +46,84 @@ export function isEligible(model) {
   return model.eligible !== false
 }
 
-function isInUk(regions) {
+function inAllowedRegions(regions) {
   return (
     Array.isArray(regions) &&
     regions.length > 0 &&
-    regions.every((region) => region.toLowerCase().startsWith(UK_REGION_PREFIX))
+    regions.every((region) =>
+      ALLOWED_REGIONS.includes(String(region).toLowerCase())
+    )
+  )
+}
+
+function isWorldwideSku(sku) {
+  return String(sku.name ?? '')
+    .toLowerCase()
+    .startsWith(WORLDWIDE_SKU_PREFIX)
+}
+
+// The first SKU the tier can use: it lists the tier, is not a worldwide
+// deployment, and every region it is offered in (its own, else the model's) is
+// in the UK or EU.
+function usableSkuOf(model, tier) {
+  return (model.skus ?? []).find(
+    (sku) =>
+      sku.tiers?.includes(tier) &&
+      !isWorldwideSku(sku) &&
+      inAllowedRegions(sku.regions ?? model.regions)
   )
 }
 
 /**
- * Whether a person can try the model on their own: it is eligible and offered
- * to the research tier.
- * @param {{eligible?: boolean, tiers?: string[]}} model
+ * Whether a person can try the model on their own: it is eligible, offered to
+ * the research tier, and has a research SKU that runs only in the UK or EU.
+ * @param {{eligible?: boolean, tiers?: string[], skus?: object[], regions?: string[]}} model
  * @returns {boolean}
  */
 export function canTry(model) {
-  return isEligible(model) && Boolean(model.tiers?.includes(RESEARCH_TIER))
+  return (
+    isEligible(model) &&
+    Boolean(model.tiers?.includes(RESEARCH_TIER)) &&
+    usableSkuOf(model, RESEARCH_TIER) !== undefined
+  )
 }
 
 /**
  * What a team is told about a model. A SKU with no regions of its own takes
  * the model's.
- * - "Runs in the UK": a SKU offered to the team tier, every region in the UK.
- * - "Not in the UK yet": team SKUs, but only outside the UK.
+ * - "Runs in the UK or EU": a SKU offered to the team tier that is not a
+ *   worldwide deployment and runs only in the UK or EU (UK South, UK West,
+ *   Sweden Central, North Europe, West Europe).
+ * - "Not in the UK or EU yet": team SKUs, but none that qualify.
  * - "Not for teams yet": no team SKU.
- * @param {{skus?: Array<{tiers?: string[], regions?: string[]}>, regions?: string[]}} model
+ * @param {{skus?: Array<{name?: string, tiers?: string[], regions?: string[]}>, regions?: string[]}} model
  * @returns {string}
  */
 export function teamAvailability(model) {
-  const teamSkus = (model.skus ?? []).filter((sku) =>
+  const hasTeamSku = (model.skus ?? []).some((sku) =>
     sku.tiers?.includes(TEAM_TIER)
   )
 
-  if (teamSkus.length === 0) {
+  if (!hasTeamSku) {
     return TEAM_AVAILABILITY.notForTeams
   }
 
-  return teamSkus.some((sku) => isInUk(sku.regions ?? model.regions))
-    ? TEAM_AVAILABILITY.inUk
-    : TEAM_AVAILABILITY.notInUk
+  return usableSkuOf(model, TEAM_TIER)
+    ? TEAM_AVAILABILITY.inRegions
+    : TEAM_AVAILABILITY.notInRegions
 }
 
 /**
- * The first UK region a team deployment of the model would run in, as it is
- * written in the catalogue, or undefined when it does not run in the UK. A SKU
+ * The first region a team deployment of the model would run in, as it is
+ * written in the catalogue, or undefined when no team SKU qualifies. A SKU
  * with no regions of its own takes the model's.
- * @param {{skus?: Array<{tiers?: string[], regions?: string[]}>, regions?: string[]}} model
+ * @param {{skus?: Array<{name?: string, tiers?: string[], regions?: string[]}>, regions?: string[]}} model
  * @returns {string | undefined}
  */
-export function teamUkRegion(model) {
-  for (const sku of model.skus ?? []) {
-    const regions = sku.regions ?? model.regions
+export function teamRegion(model) {
+  const sku = usableSkuOf(model, TEAM_TIER)
 
-    if (sku.tiers?.includes(TEAM_TIER) && isInUk(regions)) {
-      return regions[0]
-    }
-  }
-
-  return undefined
+  return sku ? (sku.regions ?? model.regions)[0] : undefined
 }
 
 /**
@@ -141,7 +170,7 @@ export const SHOW_OPTIONS = {
 
 /**
  * Narrows the models that can be had to the ones a "Show" choice names:
- * "team" keeps those that run in the UK, "research" those that can be tried.
+ * "team" keeps those that run in the UK or EU, "research" those that can be tried.
  * @param {Array<{canTry: boolean, teamAvailability: string}>} models
  * @param {'all' | 'team' | 'research'} show
  * @returns {object[]}
@@ -149,7 +178,7 @@ export const SHOW_OPTIONS = {
 export function filterByShow(models, show) {
   if (show === 'team') {
     return models.filter(
-      (model) => model.teamAvailability === TEAM_AVAILABILITY.inUk
+      (model) => model.teamAvailability === TEAM_AVAILABILITY.inRegions
     )
   }
 
