@@ -90,6 +90,15 @@ describe('model-availability', () => {
     test('is true when a usable research SKU sits beside a worldwide one', () => {
       expect(canTry(model({ skus: [WORLDWIDE_SKU, RESEARCH_SKU] }))).toBe(true)
     })
+
+    test.each(['globalstandard', 'GLOBALStandard', 'GlobalBatch'])(
+      'is false for only a worldwide SKU named %s, in any case',
+      (name) => {
+        const skus = [{ name, tiers: ['research'], regions: ['uksouth'] }]
+
+        expect(canTry(model({ skus }))).toBe(false)
+      }
+    )
   })
 
   describe('teamAvailability', () => {
@@ -153,6 +162,17 @@ describe('model-availability', () => {
         TEAM_AVAILABILITY.notInRegions
       )
     })
+
+    test.each(['globalstandard', 'GLOBALStandard', 'GlobalBatch'])(
+      'never counts a worldwide SKU named %s, in any case',
+      (name) => {
+        const skus = [{ name, tiers: ['team'], regions: ['uksouth'] }]
+
+        expect(teamAvailability(model({ skus }))).toBe(
+          TEAM_AVAILABILITY.notInRegions
+        )
+      }
+    )
 
     test('never counts a worldwide SKU, even in an allowed region', () => {
       const skus = [{ ...WORLDWIDE_SKU, regions: ['uksouth'] }]
@@ -294,6 +314,15 @@ describe('model-availability', () => {
 
       expect(teamRegion(model({ skus }))).toBe('westeurope')
     })
+
+    test.each(['globalstandard', 'GLOBALStandard'])(
+      'is undefined for a worldwide SKU named %s',
+      (name) => {
+        const skus = [{ name, tiers: ['team'], regions: ['uksouth'] }]
+
+        expect(teamRegion(model({ skus }))).toBeUndefined()
+      }
+    )
 
     test.each([
       ['only in the US', { regions: ['eastus'] }],

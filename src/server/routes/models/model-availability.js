@@ -12,7 +12,7 @@ const ALLOWED_REGIONS = [
   'northeurope',
   'westeurope'
 ]
-const WORLDWIDE_SKU_PREFIX = 'Global'
+const WORLDWIDE_SKU_PREFIX = 'global'
 const CAPACITY_DUPLICATE_SUFFIX = '-2'
 
 export const TEAM_AVAILABILITY = {
@@ -57,7 +57,9 @@ function inAllowedRegions(regions) {
 }
 
 function isWorldwideSku(sku) {
-  return String(sku.name ?? '').startsWith(WORLDWIDE_SKU_PREFIX)
+  return String(sku.name ?? '')
+    .toLowerCase()
+    .startsWith(WORLDWIDE_SKU_PREFIX)
 }
 
 // The first SKU the tier can use: it lists the tier, is not a worldwide
