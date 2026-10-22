@@ -1,43 +1,67 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: "/teams/new" }) }}
+{% endblock %}
+
 {% block content %}
+  {% set teamIdHtml %}
+    <span data-testid="team-id">{{ teamId }}</span>
+    <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0">Cannot be changed later</p>
+  {% endset %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorMessage %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: [{ text: errorMessage, href: "/teams/new#name" }]
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+
   {{ appHeading({
     text: heading
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      {% if errorMessage %}
-        {{ govukErrorSummary({
-          titleText: "There is a problem",
-          errorList: [{ text: errorMessage }]
-        }) }}
-      {% endif %}
-
       {{ govukSummaryList({
         rows: [
           {
             key: { text: "Team name" },
-            value: { text: pendingTeam.name }
+            value: { text: pendingTeam.name },
+            actions: { items: [{ href: "/teams/new#name", text: "Change", visuallyHiddenText: "team name" }] }
+          },
+          {
+            key: { text: "Team ID" },
+            value: { html: teamIdHtml },
+            classes: "govuk-summary-list__row--no-actions"
           },
           {
             key: { text: "Service code" },
-            value: { text: pendingTeam.serviceCode }
+            value: { text: pendingTeam.serviceCode },
+            actions: { items: [{ href: "/teams/new#serviceCode", text: "Change", visuallyHiddenText: "service code" }] }
           },
           {
-            key: { text: "Description" },
-            value: { text: pendingTeam.description or "Not given" }
+            key: { text: "What the team does" },
+            value: { text: pendingTeam.description or "Not given" },
+            actions: { items: [{ href: "/teams/new#description", text: "Change", visuallyHiddenText: "what the team does" }] }
           }
         ]
       }) }}
 
+      <p class="govuk-body">You will be the team’s first admin. You can add other people, and other admins, once it is created.</p>
+
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
-        {{ govukButton({ text: "Confirm and create team" }) }}
+        {{ govukButton({ text: "Create a team" }) }}
       </form>
     </div>
   </div>

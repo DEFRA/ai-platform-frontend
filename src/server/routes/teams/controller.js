@@ -9,7 +9,6 @@ import {
   getPendingTeam,
   setPendingTeam,
   clearPendingTeam,
-  setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
 import {
@@ -18,8 +17,9 @@ import {
 } from '#/server/common/helpers/govuk-errors.js'
 import { loadModelsTab } from './models-tab.js'
 import { loadTeamRows } from './team-list.js'
+import { descriptionField, serviceCodeField } from './team-fields.js'
+import { deriveTeamSlug } from './team-slug.js'
 import {
-  isForbidden,
   isNotFound,
   loadTeamForView,
   teamNotFoundView,
@@ -27,33 +27,21 @@ import {
   teamUrl
 } from './team-view.js'
 
-const serviceCodeField = Joi.string()
-  .trim()
-  .pattern(/^[A-Za-z0-9]{3}$/)
-  .required()
-  .messages({
-    'string.pattern.base':
-      'Service code must be 3 letters or numbers, for example AIP',
-    'string.empty': 'Enter your service code',
-    'any.required': 'Enter your service code'
-  })
-
 const newTeamSchema = Joi.object({
   name: Joi.string().trim().min(3).max(60).required().messages({
     'string.min': 'Team name must be 3 characters or more',
     'string.max': 'Team name must be 60 characters or fewer',
+    'string.empty': 'Enter a team name',
     'any.required': 'Enter a team name'
   }),
   serviceCode: serviceCodeField,
-  description: Joi.string().trim().max(500).allow('').optional(),
+  description: descriptionField,
   // Same-origin paths only - this value is redirected to after team creation.
   returnTo: Joi.string()
     .pattern(/^\/(?![/\\])[\w\-/%?=&.#]*$/)
     .allow('')
     .optional()
 })
-
-const serviceCodeSchema = Joi.object({ serviceCode: serviceCodeField })
 
 function errorMessageForCode(error) {
   if (error.code === 'team-exists') {
@@ -63,14 +51,20 @@ function errorMessageForCode(error) {
   return error.message
 }
 
-// A form that has failed validation goes back to the team: the page has no
-// form for it (step 10 gives it its own page), so only a request made by
-// hand gets here.
-function backToTeam(request, h) {
-  return h
-    .redirect(`/teams/${encodeURIComponent(request.params.slug)}`)
-    .code(statusCodes.seeOther)
-    .takeover()
+// Back from the form goes to where it was opened from: a step of a request
+// journey, or the list of teams.
+function newTeamBackUrl(returnTo) {
+  return safeReturnTo(returnTo, '/teams')
+}
+
+function checkView(h, { pendingTeam, errorMessage = null }) {
+  return h.view('teams/check', {
+    pageTitle: `${errorMessage ? 'Error: ' : ''}Check your answers`,
+    heading: 'Check your answers',
+    pendingTeam,
+    teamId: deriveTeamSlug(pendingTeam.name),
+    errorMessage
+  })
 }
 
 export const teamsController = {
@@ -104,6 +98,9 @@ export const teamsController = {
             request.query.returnTo ?? pendingTeam.returnTo,
             ''
           ),
+          backUrl: newTeamBackUrl(
+            request.query.returnTo ?? pendingTeam.returnTo
+          ),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -120,6 +117,7 @@ export const teamsController = {
                 heading: 'Create a team',
                 values: request.payload,
                 returnTo: request.payload.returnTo ?? '',
+                backUrl: newTeamBackUrl(request.payload.returnTo),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
               })
@@ -151,12 +149,7 @@ export const teamsController = {
           return h.redirect('/teams/new').code(statusCodes.seeOther)
         }
 
-        return h.view('teams/check', {
-          pageTitle: 'Check your answers',
-          heading: 'Check your answers',
-          pendingTeam,
-          errorMessage: null
-        })
+        return checkView(h, { pendingTeam })
       }
     },
     post: {
@@ -192,17 +185,15 @@ export const teamsController = {
               .code(statusCodes.seeOther)
           }
 
-          return h.redirect(teamUrl(team)).code(statusCodes.seeOther)
+          return h
+            .redirect(`${teamUrl(team)}/members`)
+            .code(statusCodes.seeOther)
         } catch (error) {
           if (error instanceof ApiError) {
-            return h
-              .view('teams/check', {
-                pageTitle: 'Check your answers',
-                heading: 'Check your answers',
-                pendingTeam,
-                errorMessage: errorMessageForCode(error)
-              })
-              .code(error.statusCode)
+            return checkView(h, {
+              pendingTeam,
+              errorMessage: errorMessageForCode(error)
+            }).code(error.statusCode)
           }
 
           throw error
@@ -241,39 +232,6 @@ export const teamsController = {
           notification: takeAccountNotification(request),
           ...tab
         })
-      }
-    }
-  },
-
-  setServiceCode: {
-    post: {
-      options: {
-        validate: {
-          payload: serviceCodeSchema,
-          failAction: backToTeam
-        }
-      },
-      async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { slug } = request.params
-
-        try {
-          await apiClient(request).patch(
-            `/v1/teams/${encodeURIComponent(slug)}`,
-            { serviceCode: request.payload.serviceCode },
-            { userId: sessionUser.id }
-          )
-          setAccountNotification(request, {
-            type: 'success',
-            message: 'Service code updated.'
-          })
-        } catch (error) {
-          if (!(error instanceof ApiError) || !isForbidden(error)) {
-            throw error
-          }
-        }
-
-        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
       }
     }
   }

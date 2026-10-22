@@ -1,5 +1,6 @@
 import { clientSecretsController } from './client-secrets-controller.js'
 import { teamsController } from './controller.js'
+import { detailsController } from './details-controller.js'
 import {
   addMemberController,
   memberRoleController,
@@ -45,12 +46,31 @@ const routes = [
     handler: teamsController.team.get.handler
   },
   {
+    method: 'GET',
+    path: '/teams/{slug}/details',
+    handler: detailsController.show.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/{slug}/details/service-code',
+    handler: detailsController.serviceCode.get.handler
+  },
+  {
     method: 'POST',
-    path: '/teams/{slug}/service-code',
-    options: {
-      validate: teamsController.setServiceCode.post.options.validate
-    },
-    handler: teamsController.setServiceCode.post.handler
+    path: '/teams/{slug}/details/service-code',
+    options: detailsController.serviceCode.post.options,
+    handler: detailsController.serviceCode.post.handler
+  },
+  {
+    method: 'GET',
+    path: '/teams/{slug}/details/description',
+    handler: detailsController.description.get.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{slug}/details/description',
+    options: detailsController.description.post.options,
+    handler: detailsController.description.post.handler
   },
   {
     method: 'GET',
@@ -145,7 +165,7 @@ const routes = [
 
 /**
  * Sets up the routes for a person's teams (B08): the list, creating a team,
- * a team's Models and Members tabs, adding, changing and removing its members, removing one of its models, and its client secrets.
+ * a team's Models, Members and Details tabs, adding, changing and removing its members, changing its service code and description, removing one of its models, and its client secrets.
  * Protected by the global sign-in gate (src/server/plugins/require-sign-in-globally.js).
  * These routes are registered in src/server/plugins/router.js.
  */

@@ -1,0 +1,59 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "sub-navigation/macro.njk" import appSubNavigation %}
+
+{% block content %}
+  {% include "partials/team-notification.njk" %}
+
+  {{ appHeading({
+    text: heading,
+    caption: "Team",
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {{ appSubNavigation({ items: tabs, label: "Team" }) }}
+
+      <dl class="govuk-summary-list" data-testid="team-details">
+        <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="detail-name">
+          <dt class="govuk-summary-list__key">Team name</dt>
+          <dd class="govuk-summary-list__value">{{ team.name }}</dd>
+        </div>
+
+        <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="detail-team-id">
+          <dt class="govuk-summary-list__key">Team ID</dt>
+          <dd class="govuk-summary-list__value">
+            {{ team.slug }}
+            <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0">Part of your team’s address on the gateway. It cannot change.</p>
+          </dd>
+        </div>
+
+        <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not isAdmin }}" data-testid="detail-service-code">
+          <dt class="govuk-summary-list__key">Service code</dt>
+          <dd class="govuk-summary-list__value">
+            {{ team.serviceCode }}
+            {% if not serviceCodeChecked %}
+              <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0" data-testid="service-code-unchecked">Not checked yet</p>
+            {% endif %}
+          </dd>
+          {% if isAdmin %}
+            <dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="{{ serviceCodeUrl }}" data-testid="change-service-code">Change<span class="govuk-visually-hidden"> the service code</span></a>
+            </dd>
+          {% endif %}
+        </div>
+
+        <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not isAdmin }}" data-testid="detail-description">
+          <dt class="govuk-summary-list__key">What the team does</dt>
+          <dd class="govuk-summary-list__value">{{ team.description or "Not given" }}</dd>
+          {% if isAdmin %}
+            <dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="{{ descriptionUrl }}" data-testid="change-description">Change<span class="govuk-visually-hidden"> what the team does</span></a>
+            </dd>
+          {% endif %}
+        </div>
+      </dl>
+    </div>
+  </div>
+{% endblock %}
