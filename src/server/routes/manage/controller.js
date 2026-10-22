@@ -6,7 +6,7 @@ import {
   setAccountNotification,
   takeAccountNotification,
   setIssuedCredential,
-  takeIssuedCredential
+  takeIssuedCredentialIf
 } from '#/server/common/helpers/session.js'
 import {
   buildErrorSummary,
@@ -404,15 +404,16 @@ export const manageController = {
   revealed: {
     get: {
       handler(request, h) {
-        const issued = takeIssuedCredential(request)
+        // The slot is shared with a team's secrets, which are shown only on
+        // the team's own routes; a result for another page is left for it.
+        const issued = takeIssuedCredentialIf(
+          request,
+          (result) =>
+            result.credentialId === request.params.id &&
+            result.secretName === SECRET_NAME
+        )
 
-        // The slot is shared with a team's secrets, which are shown only
-        // on the team's own routes.
-        if (
-          !issued ||
-          issued.credentialId !== request.params.id ||
-          issued.secretName !== SECRET_NAME
-        ) {
+        if (!issued) {
           return h.redirect('/manage').code(statusCodes.seeOther)
         }
 

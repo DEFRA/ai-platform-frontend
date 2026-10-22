@@ -565,6 +565,107 @@ describe('#clientSecretsController', () => {
       }
     )
 
+    test.each(['revealed', 'rotated'])(
+      'a pending %s result for one client secret is left for its own page when another’s is opened, and shown there once',
+      async (step) => {
+        const other = { ...credential, _id: 'cred-2' }
+        const issueFor = {
+          revealed: () =>
+            post(`${TEAM_URL}/client-secrets/cred-2/view`, {
+              reason: 'Testing'
+            }),
+          rotated: () => post(`${TEAM_URL}/client-secrets/cred-2/rotate`)
+        }
+
+        backend({
+          'GET /v1/credentials/cred-2': other,
+          'POST /v1/credentials/cred-2/reveal': { secret: 'secret_for_b' },
+          'POST /v1/credentials/cred-2/rotate': {
+            credential: other,
+            secret: 'secret_for_b'
+          }
+        })
+
+        let jar = mergeCookies(cookies, await issueFor[step]())
+        const wrongPage = await get(`${SECRET_URL}/${step}`, jar)
+
+        expect(wrongPage.statusCode).toBe(statusCodes.seeOther)
+        expect(wrongPage.headers.location).toBe(TEAM_URL)
+        expect(wrongPage.result).not.toContain('secret_for_b')
+
+        jar = mergeCookies(jar, wrongPage)
+
+        const rightPage = await get(
+          `${TEAM_URL}/client-secrets/cred-2/${step}`,
+          jar
+        )
+
+        expect(rightPage.statusCode).toBe(statusCodes.ok)
+        expect(rightPage.result).toContain('secret_for_b')
+
+        const again = await get(
+          `${TEAM_URL}/client-secrets/cred-2/${step}`,
+          mergeCookies(jar, rightPage)
+        )
+
+        expect(again.statusCode).toBe(statusCodes.seeOther)
+      }
+    )
+
+    test('a personal key just shown is left for its own page when a team secret’s result page is opened, and the other way round', async () => {
+      const key = {
+        _id: 'cred-key',
+        tier: 'research',
+        modelSlug: 'gpt-4o',
+        status: 'active'
+      }
+
+      backend({
+        'GET /v1/credentials/cred-key': key,
+        'POST /v1/credentials/cred-key/reveal': { secret: 'personal_key' },
+        ...secrets.revealed.routes
+      })
+
+      // A personal key is pending; the team secret's page does not take it.
+      let jar = mergeCookies(
+        cookies,
+        await post('/manage/credentials/cred-key/view', { reason: 'Testing' })
+      )
+      const teamPage = await get(`${SECRET_URL}/revealed`, jar)
+
+      expect(teamPage.statusCode).toBe(statusCodes.seeOther)
+
+      jar = mergeCookies(jar, teamPage)
+
+      const keyPage = await get('/manage/credentials/cred-key/revealed', jar)
+
+      expect(keyPage.statusCode).toBe(statusCodes.ok)
+      expect(keyPage.result).toContain('personal_key')
+
+      // A team secret is pending; the personal key's page does not take it.
+      jar = mergeCookies(jar, keyPage)
+      jar = mergeCookies(
+        jar,
+        await post(`${SECRET_URL}/view`, { reason: 'Testing' })
+      )
+
+      const wrongKeyPage = await get(
+        '/manage/credentials/cred-key/revealed',
+        jar
+      )
+
+      expect(wrongKeyPage.statusCode).toBe(statusCodes.seeOther)
+      expect(wrongKeyPage.result).not.toContain('team_secret')
+
+      const secretPage = await get(
+        `${SECRET_URL}/revealed`,
+        mergeCookies(jar, wrongKeyPage)
+      )
+
+      expect(secretPage.statusCode).toBe(statusCodes.ok)
+      expect(secretPage.result).toContain('team_secret')
+    })
+
     test('a team secret just shown is not shown on the personal keys’ page', async () => {
       backend(secrets.revealed.routes)
 

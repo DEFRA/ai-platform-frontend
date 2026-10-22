@@ -74,6 +74,19 @@ export function takeIssuedCredential(request) {
   return credential
 }
 
+// One-render only, and only for the page it is for: a result that `matches`
+// is returned and cleared; any other is left in the session for its own page.
+export function takeIssuedCredentialIf(request, matches) {
+  const credential = request.yar.get(ISSUED_CREDENTIAL_KEY)
+
+  if (!credential || !matches(credential)) {
+    return undefined
+  }
+
+  request.yar.clear(ISSUED_CREDENTIAL_KEY)
+  return credential
+}
+
 export function setOidcLoginState(request, value) {
   request.yar.set(OIDC_LOGIN_KEY, value)
 }

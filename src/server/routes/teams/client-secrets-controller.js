@@ -14,7 +14,7 @@ import {
   getSessionUser,
   setAccountNotification,
   setIssuedCredential,
-  takeIssuedCredential
+  takeIssuedCredentialIf
 } from '#/server/common/helpers/session.js'
 import { joinNames } from '#/server/routes/connect/team-model-choices.js'
 import { isNotFound, loadTeamForView, teamUrl } from './team-view.js'
@@ -245,9 +245,12 @@ export const clientSecretsController = {
           return clientSecretNotFound(h, slug)
         }
 
-        const issued = takeIssuedCredential(request)
+        const issued = takeIssuedCredentialIf(
+          request,
+          (result) => result.credentialId === credentialId
+        )
 
-        if (!issued || issued.credentialId !== credentialId) {
+        if (!issued) {
           return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
         }
 
@@ -334,9 +337,12 @@ export const clientSecretsController = {
           return clientSecretNotFound(h, slug)
         }
 
-        const issued = takeIssuedCredential(request)
+        const issued = takeIssuedCredentialIf(
+          request,
+          (result) => result.credential?._id === credentialId
+        )
 
-        if (!issued?.credential || issued.credential._id !== credentialId) {
+        if (!issued) {
           return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
         }
 

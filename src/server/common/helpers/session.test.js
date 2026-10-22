@@ -8,7 +8,8 @@ import {
   setRequestedDeployments,
   resetSession,
   setIssuedCredential,
-  takeIssuedCredential
+  takeIssuedCredential,
+  takeIssuedCredentialIf
 } from './session.js'
 
 function mockRequest() {
@@ -82,5 +83,26 @@ describe('#session helpers', () => {
     setIssuedCredential(request, { secret: 'mock_secret' })
     expect(takeIssuedCredential(request)).toEqual({ secret: 'mock_secret' })
     expect(takeIssuedCredential(request)).toBeUndefined()
+  })
+
+  test('takeIssuedCredentialIf returns and clears only a result that matches', () => {
+    const request = mockRequest()
+
+    setIssuedCredential(request, { secret: 'mock_secret', credentialId: 'a' })
+
+    expect(
+      takeIssuedCredentialIf(
+        request,
+        ({ credentialId }) => credentialId === 'b'
+      )
+    ).toBeUndefined()
+    // The result for another page is still there for its own.
+    expect(
+      takeIssuedCredentialIf(
+        request,
+        ({ credentialId }) => credentialId === 'a'
+      )
+    ).toEqual({ secret: 'mock_secret', credentialId: 'a' })
+    expect(takeIssuedCredentialIf(request, () => true)).toBeUndefined()
   })
 })
