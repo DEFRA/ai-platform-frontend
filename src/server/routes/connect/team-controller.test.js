@@ -9,10 +9,12 @@ import {
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 import {
+  abroadModel,
   nanoModel,
   sampleModel,
   sampleTeam,
-  teamConnectHelpers
+  teamConnectHelpers,
+  teamWithMembers
 } from '#/test-helpers/team-connect-helpers.js'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
@@ -40,6 +42,7 @@ fetchMock.enableMocks()
 
 const {
   mockResponse,
+  mockTeamChoices,
   mockModelChoices,
   post,
   get,
@@ -49,8 +52,27 @@ const {
   lastRequest
 } = teamConnectHelpers(fetchMock)
 
+const NEW_TEAM_URL = '/teams/new?returnTo=%2Fconnect%2Fteam%2Fselect'
+
+const NOT_FOUND = { statusCode: 404, error: 'Not Found', message: 'Not Found' }
+
 async function signIn(server) {
   return signInViaOidc(server, fetchMock)
+}
+
+function backLink(result, href) {
+  return result.includes(`href="${href}" class="govuk-back-link"`)
+}
+
+function isDeploymentPost([url, init]) {
+  return (
+    url.endsWith('/v1/teams/flood-risk-team/deployments') &&
+    init.method === 'POST'
+  )
+}
+
+function lastKey([, init]) {
+  return init.headers['idempotency-key']
 }
 
 describe('#teamConnectController', () => {
@@ -69,60 +91,347 @@ describe('#teamConnectController', () => {
     fetchMock.resetMocks()
   })
 
-  test('GET /connect/team/select redirects to /models without a pending access type', async () => {
-    const cookies = await signIn(server)
+  describe('the team step', () => {
+    async function started(modelSlug) {
+      const query = modelSlug ? `?modelSlug=${modelSlug}` : ''
+      const cookies = await signIn(server)
 
-    const { statusCode, headers } = await get(
-      server,
-      cookies,
-      '/connect/team/select'
-    )
+      return mergeCookies(
+        cookies,
+        await get(server, cookies, `/connect/team/start${query}`)
+      )
+    }
 
-    expect(statusCode).toBe(302)
-    expect(headers.location).toBe('/models')
-  })
+    test('redirects to /models without a journey', async () => {
+      const cookies = await signIn(server)
 
-  test('GET /connect/team/select redirects to /teams/new when the user has no teams', async () => {
-    let cookies = await signIn(server)
-    cookies = mergeCookies(
-      cookies,
-      await get(server, cookies, '/connect/team/start')
-    )
-    mockResponse({ items: [] })
+      const { statusCode, headers } = await get(
+        server,
+        cookies,
+        '/connect/team/select'
+      )
 
-    const { statusCode, headers } = await get(
-      server,
-      cookies,
-      '/connect/team/select'
-    )
+      expect(statusCode).toBe(302)
+      expect(headers.location).toBe('/models')
+    })
 
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe(
-      '/teams/new?returnTo=%2Fconnect%2Fteam%2Fselect'
-    )
-  })
+    test('sends a person with only their own keys, who is in no team, to create one', async () => {
+      const cookies = await started()
+      mockTeamChoices({ teams: [] })
 
-  test('POST /connect/team/select with no team re-renders with an error', async () => {
-    let cookies = await signIn(server)
-    cookies = mergeCookies(
-      cookies,
-      await get(server, cookies, '/connect/team/start')
-    )
-    mockResponse({ items: [sampleTeam] })
+      const { statusCode, headers } = await get(
+        server,
+        cookies,
+        '/connect/team/select'
+      )
 
-    const { statusCode, result } = await post(
-      server,
-      cookies,
-      '/connect/team/select',
-      {}
-    )
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe(NEW_TEAM_URL)
+    })
 
-    expect(statusCode).toBe(statusCodes.badRequest)
-    expect(result).toEqual(expect.stringContaining('There is a problem'))
+    test('asks which team, one radio each with the role and what the team has, then "or" and "Create a team"', async () => {
+      const cookies = await started()
+      const memberTeam = {
+        ...sampleTeam,
+        _id: 'team-2',
+        slug: 'plant-health-data',
+        name: 'Plant health data',
+        role: 'user'
+      }
+      const newTeam = {
+        ...sampleTeam,
+        _id: 'team-3',
+        slug: 'fish-export-checks',
+        name: 'Fish export checks',
+        createdAt: new Date().toISOString()
+      }
+      const quietTeam = {
+        ...sampleTeam,
+        _id: 'team-4',
+        slug: 'old-team',
+        name: 'Old team'
+      }
+      mockTeamChoices({
+        teams: [sampleTeam, memberTeam, newTeam, quietTeam],
+        deployments: [
+          [
+            {
+              modelSlug: 'gpt-4o',
+              status: 'active',
+              environment: 'infradev'
+            },
+            {
+              modelSlug: 'gpt-4-1-nano',
+              status: 'deploying',
+              environment: 'infradev'
+            },
+            {
+              modelSlug: 'gpt-5-mini',
+              status: 'removed',
+              environment: 'infradev'
+            }
+          ],
+          [{ modelSlug: 'gpt-4o', status: 'active', environment: 'infradev' }],
+          [],
+          [{ modelSlug: 'gpt-4o', status: 'active', environment: 'qa' }]
+        ]
+      })
+
+      const { statusCode, result } = await get(
+        server,
+        cookies,
+        '/connect/team/select'
+      )
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('Which team is this for?')
+      expect(result).toContain('name="team"')
+      expect(result).toContain(
+        'You are an admin. Has GPT-4o and GPT-4.1 nano in Development.'
+      )
+      expect(result).toContain('You are a member. Has GPT-4o in Development.')
+      expect(result).toContain(
+        'You are an admin. Created today, no models yet.'
+      )
+      expect(result).toContain('You are an admin. No models yet.')
+      expect(result).toContain('value="plant-health-data"')
+      expect(result).toContain('govuk-radios__divider')
+      expect(result).toContain('>or<')
+      expect(result).toMatch(/Create a team\s*<\/label>/)
+      expect(result).not.toMatch(/name="team"[^>]*checked/)
+      expect(backLink(result, '/models')).toBe(true)
+    })
+
+    test('goes back to the model page the person came from', async () => {
+      const cookies = await started('gpt-4o')
+      mockTeamChoices()
+
+      const { result } = await get(server, cookies, '/connect/team/select')
+
+      expect(backLink(result, '/models/gpt-4o')).toBe(true)
+    })
+
+    test('says what is wrong when no team is chosen', async () => {
+      const cookies = await started()
+      mockTeamChoices()
+
+      const { statusCode, result } = await post(
+        server,
+        cookies,
+        '/connect/team/select',
+        {}
+      )
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain('There is a problem')
+      expect(result).toContain('Select a team')
+      expect(result).toContain('Error: Which team is this for?')
+    })
+
+    test('refuses a team name that is not a team address', async () => {
+      const cookies = await started()
+      mockTeamChoices()
+
+      const { statusCode, result } = await post(
+        server,
+        cookies,
+        '/connect/team/select',
+        { team: 'Not A Team' }
+      )
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain('Select a team from the list')
+    })
+
+    test('refuses a team the person does not belong to', async () => {
+      const cookies = await started()
+      mockResponse(NOT_FOUND, { status: 404 })
+      mockTeamChoices()
+
+      const { statusCode, result } = await post(
+        server,
+        cookies,
+        '/connect/team/select',
+        { team: 'someone-elses-team' }
+      )
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain('Select a team from the list')
+    })
+
+    test('does not hide a fault in finding the team', async () => {
+      const cookies = await started()
+      mockResponse({ message: 'Broken', code: 'error' }, { status: 500 })
+
+      const { statusCode } = await post(
+        server,
+        cookies,
+        '/connect/team/select',
+        { team: 'flood-risk-team' }
+      )
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
+    })
+
+    test('goes on to the models once a team is chosen', async () => {
+      const cookies = await started()
+      mockResponse(teamWithMembers())
+
+      const { statusCode, headers } = await post(
+        server,
+        cookies,
+        '/connect/team/select',
+        { team: 'flood-risk-team' }
+      )
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/connect/team/model')
+    })
+
+    test('"Create a team" goes to create one, and the new team comes back listed, not chosen, with the model the person came from still ticked', async () => {
+      let cookies = await reachTeamStep(server, await signIn(server), {
+        modelSlug: 'gpt-4-1-nano'
+      })
+      const newTeam = {
+        _id: 'team-9',
+        slug: 'fish-export-checks',
+        name: 'Fish export checks',
+        role: 'admin',
+        createdAt: new Date().toISOString()
+      }
+
+      const create = await post(server, cookies, '/connect/team/select', {
+        team: '+create'
+      })
+
+      expect(create.statusCode).toBe(statusCodes.seeOther)
+      expect(create.headers.location).toBe(NEW_TEAM_URL)
+      cookies = mergeCookies(cookies, create)
+
+      // Through the create-a-team pages, returning to this journey.
+      cookies = mergeCookies(
+        cookies,
+        await post(server, cookies, '/teams/new', {
+          name: 'Fish export checks',
+          serviceCode: 'FEC',
+          returnTo: '/connect/team/select'
+        })
+      )
+      mockResponse({ team: newTeam }, { status: 201 })
+      const created = await post(server, cookies, '/teams/new/check', {})
+
+      expect(created.statusCode).toBe(statusCodes.seeOther)
+      expect(created.headers.location).toBe('/connect/team/select')
+      cookies = mergeCookies(cookies, created)
+
+      mockTeamChoices({ teams: [sampleTeam, newTeam] })
+      const { result } = await get(server, cookies, '/connect/team/select')
+
+      expect(result).toContain('value="fish-export-checks"')
+      expect(result).toContain(
+        'You are an admin. Created today, no models yet.'
+      )
+      expect(result).not.toMatch(/name="team"[^>]*checked/)
+
+      mockResponse(teamWithMembers('admin', newTeam))
+      cookies = mergeCookies(
+        cookies,
+        await post(server, cookies, '/connect/team/select', {
+          team: 'fish-export-checks'
+        })
+      )
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const models = await get(server, cookies, '/connect/team/model')
+
+      expect(models.result).toContain('Fish export checks')
+      expect(models.result).toMatch(/value="gpt-4-1-nano"[^>]*checked/)
+    })
+
+    test('chooses a team on the page it is changed from', async () => {
+      const cookies = await reachCheckStep(server, await signIn(server))
+      mockTeamChoices()
+
+      const { result } = await get(
+        server,
+        cookies,
+        '/connect/team/select?change=check'
+      )
+
+      expect(result).toMatch(/value="flood-risk-team"[^>]*checked/)
+      expect(backLink(result, '/connect/team/check')).toBe(true)
+    })
+
+    test('returns to the check page when the same team is chosen again', async () => {
+      const cookies = await reachCheckStep(server, await signIn(server))
+      mockResponse(teamWithMembers())
+
+      const { headers } = await post(
+        server,
+        cookies,
+        '/connect/team/select?change=check',
+        { team: 'flood-risk-team' }
+      )
+
+      expect(headers.location).toBe('/connect/team/check')
+    })
+
+    test('asks for the models again when another team is chosen, then returns to the check page', async () => {
+      let cookies = await reachCheckStep(server, await signIn(server))
+      const other = {
+        ...sampleTeam,
+        _id: 'team-2',
+        slug: 'plant-health-data',
+        name: 'Plant health data'
+      }
+      mockResponse(teamWithMembers('admin', other))
+
+      const chosen = await post(
+        server,
+        cookies,
+        '/connect/team/select?change=check',
+        { team: 'plant-health-data' }
+      )
+
+      expect(chosen.headers.location).toBe('/connect/team/model?change=check')
+      cookies = mergeCookies(cookies, chosen)
+
+      // The answers are no longer complete: the old models were the old team's.
+      const check = await get(server, cookies, '/connect/team/check')
+
+      expect(check.headers.location).toBe('/models')
+
+      // So Back from the models goes to the team, not to the check page.
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const models = await get(
+        server,
+        cookies,
+        '/connect/team/model?change=check'
+      )
+
+      expect(backLink(models.result, '/connect/team/select')).toBe(true)
+      expect(backLink(models.result, '/connect/team/check')).toBe(false)
+
+      mockTeamChoices({ teams: [other] })
+      const back = await get(server, cookies, '/connect/team/select')
+
+      expect(back.statusCode).toBe(statusCodes.ok)
+    })
+
+    test('refuses anything else in the address after change', async () => {
+      const cookies = await started()
+
+      const { statusCode } = await get(
+        server,
+        cookies,
+        '/connect/team/select?change=elsewhere'
+      )
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+    })
   })
 
   describe('the model step', () => {
-    test('offers every team model as a checkbox', async () => {
+    test('offers the team models that run in the UK as checkboxes, with their use cases', async () => {
       const cookies = await reachTeamStep(server, await signIn(server))
       mockModelChoices({ models: [sampleModel, nanoModel] })
 
@@ -133,21 +442,76 @@ describe('#teamConnectController', () => {
       )
 
       expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('Which models does your team need?')
+      expect(result).toContain('Flood Risk Team')
+      expect(result).toContain('Your team gets its own deployment of each one.')
       expect(result).toContain('type="checkbox"')
       expect(result).toContain('value="gpt-4o"')
       expect(result).toContain('value="gpt-4-1-nano"')
-      expect(result).toContain('Select all that apply')
+      expect(result).toContain('Chat assistants, summarising documents')
+      expect(result).toContain('Classifying text')
       expect(result).not.toMatch(/value="gpt-4o"[^>]*checked/)
+      expect(result).not.toContain('data-testid="not-in-uk"')
+      expect(backLink(result, '/connect/team/select')).toBe(true)
     })
 
-    test('ticks the model the person came from on its page', async () => {
+    test('asks the backend for the models the target environment can deploy', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      mockModelChoices()
+
+      await get(server, cookies, '/connect/team/model')
+
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          url.endsWith('/v1/models?tier=team&environment=infradev')
+        )
+      ).toBe(true)
+    })
+
+    test('leaves out a model that does not run in the UK, and names it in an inset with a link to all models', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      mockModelChoices({
+        models: [sampleModel, abroadModel],
+        catalogue: [sampleModel, abroadModel]
+      })
+
+      const { result } = await get(server, cookies, '/connect/team/model')
+
+      expect(result).not.toContain('value="gpt-5-mini"')
+      expect(result).toContain(
+        'GPT-5 mini is not available to teams in the UK yet.'
+      )
+      expect(result).toContain('href="/models">See all models</a>')
+    })
+
+    test('names several models together in the inset', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      const another = { ...abroadModel, slug: 'gpt-5', displayName: 'GPT-5' }
+      mockModelChoices({
+        models: [sampleModel],
+        catalogue: [sampleModel, abroadModel, another]
+      })
+
+      const { result } = await get(server, cookies, '/connect/team/model')
+
+      expect(result).toContain(
+        'GPT-5 mini and GPT-5 are not available to teams in the UK yet.'
+      )
+    })
+
+    test('ticks the model the person came from on its page when there are others', async () => {
       const cookies = await reachTeamStep(server, await signIn(server), {
         modelSlug: 'gpt-4-1-nano'
       })
       mockModelChoices({ models: [sampleModel, nanoModel] })
 
-      const { result } = await get(server, cookies, '/connect/team/model')
+      const { statusCode, result } = await get(
+        server,
+        cookies,
+        '/connect/team/model'
+      )
 
+      expect(statusCode).toBe(statusCodes.ok)
       expect(result).toMatch(/value="gpt-4-1-nano"[^>]*checked/)
       expect(result).not.toMatch(/value="gpt-4o"[^>]*checked/)
     })
@@ -158,7 +522,9 @@ describe('#teamConnectController', () => {
       })
       mockModelChoices({
         models: [sampleModel, nanoModel],
-        deployments: [{ modelSlug: 'gpt-4o', status: 'active' }]
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'active', environment: 'infradev' }
+        ]
       })
 
       const { result } = await get(server, cookies, '/connect/team/model')
@@ -168,15 +534,123 @@ describe('#teamConnectController', () => {
       expect(result).toContain('Already set up for this team')
     })
 
-    test('offers a model the team removed again', async () => {
+    test('offers a model the team has only in another environment, but not one it has there', async () => {
       const cookies = await reachTeamStep(server, await signIn(server))
       mockModelChoices({
-        deployments: [{ modelSlug: 'gpt-4o', status: 'removed' }]
+        models: [sampleModel, nanoModel],
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'active', environment: 'qa' },
+          {
+            modelSlug: 'gpt-4-1-nano',
+            status: 'active',
+            environment: 'infradev'
+          }
+        ]
       })
 
       const { result } = await get(server, cookies, '/connect/team/model')
 
       expect(result).not.toMatch(/value="gpt-4o"[^>]*disabled/)
+      expect(result).toMatch(/value="gpt-4-1-nano"[^>]*disabled/)
+    })
+
+    test('accepts a model the team has only in another environment', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      mockModelChoices({
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'active', environment: 'qa' }
+        ]
+      })
+
+      const { statusCode } = await post(
+        server,
+        cookies,
+        '/connect/team/model',
+        { modelSlugs: ['gpt-4o'] }
+      )
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+    })
+
+    test('offers a model the team removed again', async () => {
+      const cookies = await reachTeamStep(server, await signIn(server))
+      mockModelChoices({
+        deployments: [
+          { modelSlug: 'gpt-4o', status: 'removed', environment: 'infradev' }
+        ]
+      })
+
+      const { result } = await get(server, cookies, '/connect/team/model')
+
+      expect(result).not.toMatch(/value="gpt-4o"[^>]*disabled/)
+    })
+
+    describe('when exactly one model is offered and it came from its page', () => {
+      test('skips the page, and the details step goes back to the team step', async () => {
+        let cookies = await reachTeamStep(server, await signIn(server), {
+          modelSlug: 'gpt-4o'
+        })
+        mockModelChoices({
+          models: [sampleModel, nanoModel],
+          deployments: [
+            {
+              modelSlug: 'gpt-4-1-nano',
+              status: 'active',
+              environment: 'infradev'
+            }
+          ]
+        })
+
+        const skipped = await get(server, cookies, '/connect/team/model')
+
+        expect(skipped.statusCode).toBe(statusCodes.seeOther)
+        expect(skipped.headers.location).toBe('/connect/team/details')
+        cookies = mergeCookies(cookies, skipped)
+
+        const { result } = await get(server, cookies, '/connect/team/details')
+
+        expect(backLink(result, '/connect/team/select')).toBe(true)
+
+        // And from the team step, Back still goes to the model's own page.
+        mockTeamChoices()
+        const team = await get(server, cookies, '/connect/team/select')
+
+        expect(backLink(team.result, '/models/gpt-4o')).toBe(true)
+      })
+
+      test('does not skip it when the model came from the Models page, not its own', async () => {
+        const cookies = await reachTeamStep(server, await signIn(server))
+        mockModelChoices({ models: [sampleModel] })
+
+        const { statusCode } = await get(server, cookies, '/connect/team/model')
+
+        expect(statusCode).toBe(statusCodes.ok)
+      })
+
+      test('does not skip it when the one model is not the one the person came from', async () => {
+        const cookies = await reachTeamStep(server, await signIn(server), {
+          modelSlug: 'gpt-4-1-nano'
+        })
+        mockModelChoices({ models: [sampleModel] })
+
+        const { statusCode } = await get(server, cookies, '/connect/team/model')
+
+        expect(statusCode).toBe(statusCodes.ok)
+      })
+
+      test('does not skip it when opened from Change on the check page', async () => {
+        const cookies = await reachCheckStep(server, await signIn(server))
+        mockModelChoices({ models: [sampleModel] })
+
+        const { statusCode, result } = await get(
+          server,
+          cookies,
+          '/connect/team/model?change=check'
+        )
+
+        expect(statusCode).toBe(statusCodes.ok)
+        expect(backLink(result, '/connect/team/check')).toBe(true)
+      })
     })
 
     test.each([
@@ -195,6 +669,24 @@ describe('#teamConnectController', () => {
 
       expect(statusCode).toBe(statusCodes.seeOther)
       expect(headers.location).toBe('/connect/team/details')
+    })
+
+    test('goes back to the model page the person came from, whatever they chose', async () => {
+      let cookies = await reachTeamStep(server, await signIn(server), {
+        modelSlug: 'gpt-4o'
+      })
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      cookies = mergeCookies(
+        cookies,
+        await post(server, cookies, '/connect/team/model', {
+          modelSlugs: ['gpt-4-1-nano']
+        })
+      )
+
+      mockTeamChoices()
+      const { result } = await get(server, cookies, '/connect/team/select')
+
+      expect(backLink(result, '/models/gpt-4o')).toBe(true)
     })
 
     test('accepts several models sent as a form, one field each', async () => {
@@ -227,7 +719,7 @@ describe('#teamConnectController', () => {
 
       expect(statusCode).toBe(statusCodes.badRequest)
       expect(result).toContain('Select at least one model')
-      expect(result).toContain('Error: Choose your models')
+      expect(result).toContain('Error: Which models does your team need?')
     })
 
     test.each([
@@ -262,7 +754,7 @@ describe('#teamConnectController', () => {
       [
         'a model the team has been given since the page was shown',
         ['gpt-4o'],
-        [{ modelSlug: 'gpt-4o', status: 'active' }]
+        [{ modelSlug: 'gpt-4o', status: 'active', environment: 'infradev' }]
       ]
     ])('refuses %s', async (_name, modelSlugs, deployments) => {
       const cookies = await reachTeamStep(server, await signIn(server))
@@ -282,31 +774,107 @@ describe('#teamConnectController', () => {
     test('sends someone with no team chosen back to the start', async () => {
       const cookies = await signIn(server)
 
-      const { statusCode, headers } = await get(
+      const page = await get(server, cookies, '/connect/team/model')
+      const posted = await post(server, cookies, '/connect/team/model', {
+        modelSlugs: ['gpt-4o']
+      })
+
+      expect(page.statusCode).toBe(302)
+      expect(page.headers.location).toBe('/models')
+      expect(posted.headers.location).toBe('/models')
+    })
+
+    test('sends someone with no team chosen back to the start when the form is wrong', async () => {
+      const cookies = await signIn(server)
+
+      const { headers } = await post(server, cookies, '/connect/team/model', {})
+
+      expect(headers.location).toBe('/models')
+    })
+
+    test('returns to the check page, with a new key, when the models are changed from there', async () => {
+      let cookies = await reachCheckStep(server, await signIn(server))
+      const conflict = {
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'x',
+        code: 'deployment-exists',
+        existingId: 'deployment-1'
+      }
+
+      mockResponse(conflict, { status: 409 })
+      mockResponse(sampleModel)
+      await post(server, cookies, '/connect/team/check', {})
+      const first = lastKey(fetchMock.mock.calls.find(isDeploymentPost))
+
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const changed = await post(
         server,
         cookies,
-        '/connect/team/model'
+        '/connect/team/model?change=check',
+        { modelSlugs: ['gpt-4-1-nano'] }
       )
 
-      expect(statusCode).toBe(302)
-      expect(headers.location).toBe('/models')
+      expect(changed.statusCode).toBe(statusCodes.seeOther)
+      expect(changed.headers.location).toBe('/connect/team/check')
+      cookies = mergeCookies(cookies, changed)
+
+      mockResponse(conflict, { status: 409 })
+      mockResponse(nanoModel)
+      await post(server, cookies, '/connect/team/check', {})
+      const second = fetchMock.mock.calls.findLast(isDeploymentPost)
+
+      expect(JSON.parse(second[1].body).modelSlugs).toEqual(['gpt-4-1-nano'])
+      expect(lastKey(second)).not.toBe(first)
+    })
+
+    test('says what is wrong, still on the change, when nothing is chosen there', async () => {
+      const cookies = await reachCheckStep(server, await signIn(server))
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+
+      const { statusCode, result } = await post(
+        server,
+        cookies,
+        '/connect/team/model?change=check',
+        {}
+      )
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(backLink(result, '/connect/team/check')).toBe(true)
     })
   })
 
-  describe('the environment on the details step', () => {
+  describe('the details step', () => {
     const configured = config.get('teamEnvironments')
 
     afterEach(() => {
       config.set('teamEnvironments', configured)
     })
 
-    test('states the environment the models are set up in, with nothing to choose', async () => {
+    test('asks what the team will use it for, under the team name, with the environment stated and nothing to choose', async () => {
       const cookies = await reachDetails(server, await signIn(server))
 
-      const { result } = await get(server, cookies, '/connect/team/details')
+      const { statusCode, result } = await get(
+        server,
+        cookies,
+        '/connect/team/details'
+      )
 
-      expect(result).toContain('Your models will be set up in Development.')
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('What will your team use it for? (optional)')
+      expect(result).toContain('Flood Risk Team')
+      expect(result).toContain(
+        'For example, the service or piece of work it supports. This helps us plan capacity.'
+      )
+      expect(result).toContain(
+        '<strong>It will be set up in Development.</strong>'
+      )
+      expect(result).toContain(
+        'When it is working, you can set it up in Test and other environments from your team'
+      )
+      expect(result).toContain('data-maxlength="500"')
       expect(result).not.toContain('name="environment"')
+      expect(backLink(result, '/connect/team/model')).toBe(true)
     })
 
     test('states the first available environment, in order, whatever is configured', async () => {
@@ -315,7 +883,47 @@ describe('#teamConnectController', () => {
 
       const { result } = await get(server, cookies, '/connect/team/details')
 
-      expect(result).toContain('Your models will be set up in Test.')
+      expect(result).toContain('<strong>It will be set up in Test.</strong>')
+    })
+
+    test('goes back to the check page when opened from Change there', async () => {
+      const cookies = await reachCheckStep(server, await signIn(server))
+
+      const { result } = await get(
+        server,
+        cookies,
+        '/connect/team/details?change=check'
+      )
+
+      expect(backLink(result, '/connect/team/check')).toBe(true)
+      expect(result).toContain('Journey test')
+    })
+
+    test('goes on to the check page', async () => {
+      const cookies = await reachDetails(server, await signIn(server))
+
+      const { statusCode, headers } = await post(
+        server,
+        cookies,
+        '/connect/team/details',
+        { purpose: 'Mapping' }
+      )
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/connect/team/check')
+    })
+
+    test('accepts no answer, as it is optional', async () => {
+      const cookies = await reachDetails(server, await signIn(server))
+
+      const { statusCode } = await post(
+        server,
+        cookies,
+        '/connect/team/details',
+        { purpose: '' }
+      )
+
+      expect(statusCode).toBe(statusCodes.seeOther)
     })
 
     test('states the environment again when the purpose fails validation', async () => {
@@ -329,7 +937,24 @@ describe('#teamConnectController', () => {
       )
 
       expect(statusCode).toBe(statusCodes.badRequest)
-      expect(result).toContain('Your models will be set up in Development.')
+      expect(result).toContain('Purpose must be 500 characters or fewer')
+      expect(result).toContain('It will be set up in Development.')
+    })
+
+    test('sends someone without a finished team and model choice back to the start', async () => {
+      const cookies = await signIn(server)
+
+      const page = await get(server, cookies, '/connect/team/details')
+      const posted = await post(server, cookies, '/connect/team/details', {
+        purpose: 'x'
+      })
+      const invalid = await post(server, cookies, '/connect/team/details', {
+        purpose: 'x'.repeat(501)
+      })
+
+      expect(page.headers.location).toBe('/models')
+      expect(posted.headers.location).toBe('/models')
+      expect(invalid.headers.location).toBe('/models')
     })
 
     describe('when no environment is available to teams', () => {
@@ -393,8 +1018,9 @@ describe('#teamConnectController', () => {
       expect(statusCode).toBe(statusCodes.badRequest)
     })
   })
+
   describe('the check step', () => {
-    test('summarises every model chosen and requests them all on confirm', async () => {
+    test('summarises the answers, each with Change but the environment, and requests every model on confirm', async () => {
       const cookies = await reachCheckStep(server, await signIn(server), [
         'gpt-4o',
         'gpt-4-1-nano'
@@ -404,9 +1030,28 @@ describe('#teamConnectController', () => {
       mockResponse(nanoModel)
       const getCheck = await get(server, cookies, '/connect/team/check')
 
-      expect(getCheck.result).toContain('GPT-4o')
-      expect(getCheck.result).toContain('GPT-4.1 nano')
-      expect(getCheck.result).toContain('They are set up one after another.')
+      expect(getCheck.statusCode).toBe(statusCodes.ok)
+      expect(getCheck.result).toContain('Check your answers')
+      expect(getCheck.result).toContain('Flood Risk Team')
+      expect(getCheck.result).toContain('GPT-4o and GPT-4.1 nano')
+      expect(getCheck.result).toContain('Journey test')
+      expect(getCheck.result).toContain('Development')
+      expect(getCheck.result).toContain('Now request access')
+      expect(getCheck.result).toContain(
+        'We will set up a deployment of GPT-4o and GPT-4.1 nano for your team. It usually takes about 2 minutes, and you can leave the page while it happens.'
+      )
+      expect(getCheck.result).toContain('Request access')
+      expect(getCheck.result).toContain(
+        'href="/connect/team/select?change=check"'
+      )
+      expect(getCheck.result).toContain(
+        'href="/connect/team/model?change=check"'
+      )
+      expect(getCheck.result).toContain(
+        'href="/connect/team/details?change=check"'
+      )
+      expect(getCheck.result.match(/>\s*Change/g)).toHaveLength(3)
+      expect(backLink(getCheck.result, '/connect/team/details')).toBe(true)
 
       mockResponse({
         deployments: [
@@ -419,11 +1064,11 @@ describe('#teamConnectController', () => {
       expect(postCheck.statusCode).toBe(statusCodes.seeOther)
       // The first model's page follows the whole request.
       expect(postCheck.headers.location).toBe(
-        '/connect/team/request/team-1/deployment-1'
+        '/connect/team/request/flood-risk-team/deployment-1'
       )
       const { url, init, body } = lastRequest()
 
-      expect(url).toContain('/v1/teams/team-1/deployments')
+      expect(url).toContain('/v1/teams/flood-risk-team/deployments')
       expect(body).toEqual({
         modelSlugs: ['gpt-4o', 'gpt-4-1-nano'],
         environment: 'infradev'
@@ -431,13 +1076,21 @@ describe('#teamConnectController', () => {
       expect(init.headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/)
     })
 
-    test('says nothing about ordering for a single model', async () => {
-      const cookies = await reachCheckStep(server, await signIn(server))
+    test('shows what the person left the purpose as when it was not given', async () => {
+      const cookies = await reachDetails(server, await signIn(server))
+      const withoutPurpose = mergeCookies(
+        cookies,
+        await post(server, cookies, '/connect/team/details', { purpose: '' })
+      )
 
       mockResponse(sampleModel)
-      const { result } = await get(server, cookies, '/connect/team/check')
+      const { result } = await get(
+        server,
+        withoutPurpose,
+        '/connect/team/check'
+      )
 
-      expect(result).not.toContain('one after another')
+      expect(result).toContain('Not given')
     })
 
     test('replays one request, not a second, when the same answers are confirmed again', async () => {
@@ -515,8 +1168,62 @@ describe('#teamConnectController', () => {
         'Your team already has one of these models.'
       )
       expect(postCheck.result).toContain(
-        '/connect/team/request/team-1/deployment-1'
+        '/connect/team/request/flood-risk-team/deployment-1'
       )
+    })
+
+    test.each([
+      [
+        'model-not-eligible',
+        'One of these models is not available for your team.'
+      ],
+      [
+        'model-not-granted',
+        'Your team does not have access to one of these models.'
+      ],
+      ['environment-not-available', 'This environment is not available yet.'],
+      ['something-new', 'The backend said so']
+    ])('words the backend code %s in plain English', async (code, message) => {
+      const cookies = await reachCheckStep(server, await signIn(server))
+
+      mockResponse(
+        {
+          statusCode: 422,
+          error: 'Unprocessable',
+          message: 'The backend said so',
+          code
+        },
+        { status: 422 }
+      )
+      mockResponse(sampleModel)
+
+      const { statusCode, result } = await post(
+        server,
+        cookies,
+        '/connect/team/check',
+        {}
+      )
+
+      expect(statusCode).toBe(422)
+      expect(result).toContain(message)
+      expect(result).not.toContain('View the existing request')
+    })
+
+    test('says so, on the check page, when the backend cannot be reached', async () => {
+      const cookies = await reachCheckStep(server, await signIn(server))
+      fetchMock.mockRejectOnce(new Error('boom'))
+      mockResponse(sampleModel)
+
+      const { statusCode, result } = await post(
+        server,
+        cookies,
+        '/connect/team/check',
+        {}
+      )
+
+      expect(statusCode).toBe(502)
+      expect(result).toContain('There is a problem')
+      expect(result).toContain('Check your answers')
     })
 
     test('sends a journey that is not finished back to the start', async () => {
@@ -585,11 +1292,3 @@ describe('#teamConnectController', () => {
     })
   })
 })
-
-function isDeploymentPost([url, init]) {
-  return url.endsWith('/v1/teams/team-1/deployments') && init.method === 'POST'
-}
-
-function lastKey([, init]) {
-  return init.headers['idempotency-key']
-}

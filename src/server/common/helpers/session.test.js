@@ -6,7 +6,6 @@ import {
   clearPendingAccess,
   getRequestedDeployments,
   setRequestedDeployments,
-  clearRequestedDeployments,
   resetSession,
   setIssuedCredential,
   takeIssuedCredential
@@ -51,17 +50,14 @@ describe('#session helpers', () => {
     expect(getPendingAccess(request)).toBeUndefined()
   })
 
-  test('sets, gets and clears the deployments a team request made', () => {
+  test('sets and gets the deployments a team request made', () => {
     const request = mockRequest()
 
-    setRequestedDeployments(request, { teamId: 't1', ids: ['a', 'b'] })
+    setRequestedDeployments(request, { teamSlug: 't1', ids: ['a', 'b'] })
     expect(getRequestedDeployments(request)).toEqual({
-      teamId: 't1',
+      teamSlug: 't1',
       ids: ['a', 'b']
     })
-
-    clearRequestedDeployments(request)
-    expect(getRequestedDeployments(request)).toBeUndefined()
   })
 
   test('resetSession drops everything a person left in the session', () => {

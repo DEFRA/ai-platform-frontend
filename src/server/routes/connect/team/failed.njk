@@ -1,0 +1,66 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading,
+    caption: teamName,
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="govuk-body-l" data-testid="failure-reason">{{ reason }}</p>
+
+      <h2 class="govuk-heading-m">What you can do</h2>
+      <p class="govuk-body">You can:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        {% if isAdmin %}
+          {% for removal in removals %}
+            <li><a class="govuk-link" href="{{ removal.href }}">{{ removal.text }} from your team</a></li>
+          {% endfor %}
+        {% else %}
+          <li>ask an admin of {{ teamName }} to remove {{ "them" if removals.length > 1 else "it" }} from your team</li>
+        {% endif %}
+        {% if others %}
+          <li data-testid="use-others">use {{ others }}, which your team already has</li>
+        {% endif %}
+        <li>
+          <a class="govuk-link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">ask the AI Platform team for help</a>{% if references %}, quoting reference <strong data-testid="support-reference">{{ references }}</strong>{% endif %}
+        </li>
+      </ul>
+
+      {% set technicalHtml %}
+        {% for item in technical %}
+          {% if item.title %}
+            <h3 class="govuk-heading-s">{{ item.title }}</h3>
+          {% endif %}
+          {% set linksHtml %}
+            {% for link in item.links %}
+              <a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a>{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+          {% endset %}
+          {% set rows = [] %}
+          {% if item.reference %}
+            {% set _ = rows.push({ key: { text: "Reference" }, value: { text: item.reference } }) %}
+          {% endif %}
+          {% if item.failureReason %}
+            {% set _ = rows.push({ key: { text: "What failed" }, value: { text: item.failureReason } }) %}
+          {% endif %}
+          {% if item.links.length %}
+            {% set _ = rows.push({ key: { text: "Links" }, value: { html: linksHtml } }) %}
+          {% endif %}
+          {{ govukSummaryList({ rows: rows }) }}
+        {% endfor %}
+      {% endset %}
+
+      {{ govukDetails({
+        summaryText: "Technical details for the AI Platform team",
+        html: technicalHtml,
+        attributes: { "data-testid": "technical-details" }
+      }) }}
+    </div>
+  </div>
+{% endblock %}

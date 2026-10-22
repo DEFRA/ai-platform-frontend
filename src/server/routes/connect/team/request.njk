@@ -1,124 +1,36 @@
 {% extends 'layouts/page.njk' %}
 
-{% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/details/macro.njk" import govukDetails %}
-{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
-{% from "placeholder-credential-notice/macro.njk" import appPlaceholderCredentialNotice %}
+{% from "step-list/macro.njk" import appStepList %}
 
+{# Without JavaScript the page still checks again by itself. #}
 {% block head %}
   {{ super() }}
-  {% if refreshSeconds %}
-    <meta http-equiv="refresh" content="{{ refreshSeconds }}" id="app-auto-refresh">
-    <script>
-      (function () {
-        var meta = document.getElementById('app-auto-refresh')
-        if (meta) { meta.remove() }
-        var timer = window.setTimeout(function () {
-          window.location.reload()
-        }, {{ refreshSeconds }} * 1000)
-        window.appStopAutoRefresh = function () {
-          window.clearTimeout(timer)
-        }
-      })()
-    </script>
-  {% endif %}
+  <meta http-equiv="refresh" content="{{ refreshSeconds }}">
 {% endblock %}
 
 {% block content %}
   {{ appHeading({
-    text: heading
+    text: heading,
+    caption: teamName,
+    captionAbove: true
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      {% if failed %}
-        <p class="govuk-body">Something went wrong while setting up your team's dedicated model access.</p>
-        {% if verificationFailed %}
-          <p class="govuk-body" data-testid="verification-failed">Your team's resources were created, but we could not confirm they are working. Ask the AI Platform team to check and retry. The reason is in the details below.</p>
-        {% endif %}
-        {% if requests.length > 1 %}
-          <ul class="govuk-list govuk-list--bullet">
-            {% for item in requests %}
-              <li>{{ item.title }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-        <p class="govuk-body">
-          <a class="govuk-link" href="/models">Start again</a>
-        </p>
-        <p class="govuk-body">
-          <a class="govuk-link" href="/manage">Go to your access</a>
-        </p>
-      {% else %}
-        {% if queued %}
-          {{ govukNotificationBanner({
-            text: "Changes to a team are made one at a time. Yours starts when the one before it finishes. You can leave this page and come back.",
-            titleText: "Waiting"
-          }) }}
-        {% else %}
-          {{ govukNotificationBanner({
-            text: "This usually takes about 2 minutes" + (" for each model" if requests.length > 1 else "") + ". You can leave this page and come back.",
-            titleText: "In progress"
-          }) }}
-        {% endif %}
-
-        {% if placeholderCredential %}
-          {{ appPlaceholderCredentialNotice() }}
-        {% endif %}
-
-        <h2 class="govuk-heading-m">Progress</h2>
-        {% for item in requests %}
-          {% if item.title %}
-            <h3 class="govuk-heading-s">{{ item.title }}</h3>
-          {% endif %}
-          <ol class="govuk-list govuk-list--spaced" aria-live="polite">
-            {% for stage in item.stages %}
-              <li style="padding: 0.25rem 0;">
-                {% if stage.state == "done" %}
-                  <strong class="govuk-tag govuk-tag--green">Done:</strong> {{ stage.label }}
-                {% elif stage.state == "current" %}
-                  <strong class="govuk-tag govuk-tag--blue">Doing now:</strong> {{ stage.label }}
-                {% else %}
-                  <strong class="govuk-tag govuk-tag--grey">To do:</strong> {{ stage.label }}
-                {% endif %}
-              </li>
-            {% endfor %}
-          </ol>
-        {% endfor %}
-
-        <p class="govuk-body">Last checked at {{ lastCheckedAt }}. This page checks again every {{ refreshSeconds }} seconds.</p>
-
-        {% if refreshSeconds %}
-          <button type="button" class="govuk-button govuk-button--secondary" id="app-stop-refresh" data-testid="stop-checking" hidden>Stop checking</button>
-        {% endif %}
-
-        <p class="govuk-body">
-          <a class="govuk-link" href="">Check now</a> ·
-          <a class="govuk-link" href="/manage">Go to your access</a>
-        </p>
-      {% endif %}
+      <p class="govuk-body-l" data-testid="request-lead">{{ lead }}</p>
 
       {% for item in requests %}
-        {% if item.pipelineLinks.length or item.failureReason %}
-          {% set supportDetailsHtml %}
-            {% if item.failureReason %}
-              <p class="govuk-body">{{ item.failureReason }}</p>
-            {% endif %}
-            {% if item.pipelineLinks.length %}
-              <ul class="govuk-list">
-                {% for link in item.pipelineLinks %}
-                  <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          {% endset %}
-          {{ govukDetails({
-            summaryText: "Details for the AI Platform team" + (": " + item.title if item.title else ""),
-            html: supportDetailsHtml
-          }) }}
+        {% if item.title %}
+          <h2 class="govuk-heading-m">{{ item.title }}</h2>
         {% endif %}
+        {{ appStepList({ items: item.steps }) }}
       {% endfor %}
+
+      <p class="govuk-body govuk-hint" data-testid="last-checked">This page updates by itself. Last checked at {{ lastCheckedAt }}.</p>
+
+      <p class="govuk-body">
+        <a class="govuk-link" href="{{ teamUrl }}">Go to {{ teamName }}</a>
+      </p>
     </div>
   </div>
 {% endblock %}
-
