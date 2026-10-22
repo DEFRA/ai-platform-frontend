@@ -2,8 +2,7 @@
 
 Everything not yet built, in one place. What is built is in [implemented/](implemented/). Story identifiers (B01 to B27)
 are those of `ai-platform-discovery-docs` `build-stories.md`, the authority for acceptance criteria; the design pack
-(`design-*.md`) is the authority for direction. State on 22 Oct 2026. The table mirrors `build-stories.md#status`: every story not fully built there has a row here with
-the same state.
+(`design-*.md`) is the authority for direction. State on 22 Oct 2026. The table mirrors `build-stories.md#status`: every story not fully built there, and each unbuilt part of a built story, has a row here stating the same.
 
 ## At a glance
 
