@@ -1,0 +1,61 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/checkboxes/macro.njk" import govukCheckboxes %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+
+      <span class="govuk-caption-xl" data-testid="app-heading-caption">{{ teamName }}</span>
+
+      {% if modelItems.length %}
+        <form method="post" novalidate>
+          <input type="hidden" name="crumb" value="{{ crumb }}">
+
+          {{ govukCheckboxes({
+            idPrefix: "modelSlugs",
+            name: "modelSlugs",
+            fieldset: {
+              legend: {
+                text: heading,
+                isPageHeading: true,
+                classes: "govuk-fieldset__legend--xl"
+              }
+            },
+            hint: { text: "These are the models your team has in " + sourceName + "." },
+            errorMessage: fieldErrors.modelSlugs,
+            items: modelItems
+          }) }}
+
+          <h2 class="govuk-heading-m">What happens next</h2>
+          <p class="govuk-body">When you continue:</p>
+          <ul class="govuk-list govuk-list--bullet">
+            <li>we set up a separate deployment of each model in {{ targetName }}</li>
+            <li>your team gets a separate client secret for {{ targetName }}</li>
+            <li>{{ targetName }} starts with the same limits as {{ sourceName }}</li>
+          </ul>
+
+          {{ govukButton({ text: "Continue" }) }}
+        </form>
+      {% else %}
+        <h1 class="govuk-heading-xl">{{ heading }}</h1>
+        <p class="govuk-body" data-testid="nothing-to-set-up">There are no models to set up in {{ targetName }}. Either your team has no models ready in {{ sourceName }}, or each one is already in {{ targetName }} or cannot run there yet.</p>
+        <p class="govuk-body"><a class="govuk-link" href="{{ backLink }}">Back to the team</a></p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

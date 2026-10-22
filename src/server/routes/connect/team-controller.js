@@ -15,7 +15,8 @@ import {
 } from '#/server/common/helpers/govuk-errors.js'
 import {
   defaultTeamEnvironment,
-  environmentName
+  environmentName,
+  environmentSetUpUrl
 } from '#/server/common/helpers/environment-names.js'
 import {
   MAX_MODELS_PER_REQUEST,
@@ -138,6 +139,15 @@ const BACK_LINKS = {
     pendingAccess.modelStepSkipped ? SELECT_URL : MODEL_URL
 }
 
+// The page before the check page: the details step, or for models set up in
+// another environment, that environment's own page, which skips the rest.
+function checkBackLink(pendingAccess) {
+  return pendingAccess.environment &&
+    pendingAccess.environment !== defaultTeamEnvironment()
+    ? environmentSetUpUrl(pendingAccess.teamSlug, pendingAccess.environment)
+    : DETAILS_URL
+}
+
 function backHref(step, pendingAccess, change) {
   // The check page only takes a person back once every answer is there: after
   // changing the team the models are asked for again.
@@ -181,7 +191,9 @@ function detailsView(h, { pendingAccess, change, values, problem = {} }) {
     teamName: pendingAccess.teamName,
     backLink: backHref('details', pendingAccess, change),
     values,
-    environmentName: environmentName(defaultTeamEnvironment()),
+    environmentName: environmentName(
+      pendingAccess.environment ?? defaultTeamEnvironment()
+    ),
     errorSummary: problem.errorSummary ?? null,
     fieldErrors: problem.fieldErrors ?? {}
   })
@@ -198,7 +210,7 @@ async function checkAnswersView(request, h, pendingAccess, problem = {}) {
     pageTitle: 'Check your answers',
     heading: 'Check your answers',
     teamName: pendingAccess.teamName,
-    backLink: DETAILS_URL,
+    backLink: checkBackLink(pendingAccess),
     teamChangeUrl: stepUrl(SELECT_URL, true),
     modelsChangeUrl: stepUrl(MODEL_URL, true),
     purposeChangeUrl: stepUrl(DETAILS_URL, true),
@@ -545,7 +557,9 @@ export const teamConnectController = {
         setPendingAccess(request, {
           ...pendingAccess,
           purpose: request.payload.purpose ?? '',
-          environment: defaultTeamEnvironment(),
+          // Set up from another environment's page, the journey already
+          // names the environment it is for.
+          environment: pendingAccess.environment ?? defaultTeamEnvironment(),
           requestKey: randomUUID()
         })
 

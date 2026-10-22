@@ -1,6 +1,7 @@
 import { clientSecretsController } from './client-secrets-controller.js'
 import { teamsController } from './controller.js'
 import { detailsController } from './details-controller.js'
+import { environmentSetUpController } from './environment-set-up-controller.js'
 import {
   addMemberController,
   memberRoleController,
@@ -121,6 +122,17 @@ const routes = [
   },
   {
     method: 'GET',
+    path: '/teams/{slug}/{environment}',
+    handler: environmentSetUpController.get.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{slug}/{environment}',
+    options: environmentSetUpController.post.options,
+    handler: environmentSetUpController.post.handler
+  },
+  {
+    method: 'GET',
     path: `${secrets}/view`,
     handler: clientSecretsController.reveal.get.handler
   },
@@ -165,7 +177,7 @@ const routes = [
 
 /**
  * Sets up the routes for a person's teams (B08): the list, creating a team,
- * a team's Models, Members and Details tabs, adding, changing and removing its members, changing its service code and description, removing one of its models, and its client secrets.
+ * a team's Models, Members and Details tabs, adding, changing and removing its members, changing its service code and description, removing one of its models, setting up another environment from its models in the first (`/teams/{slug}/{environment}`), and its client secrets.
  * Protected by the global sign-in gate (src/server/plugins/require-sign-in-globally.js).
  * These routes are registered in src/server/plugins/router.js.
  */
