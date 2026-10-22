@@ -265,6 +265,29 @@ describe('#environmentSetUpController', () => {
     })
   })
 
+  describe('signed out, with a valid CSRF token', () => {
+    test('sends an invalid choice to sign in, without reading the team', async () => {
+      backend()
+
+      const { statusCode, headers } = await server.inject({
+        method: 'POST',
+        url: TEST_URL,
+        headers: { cookie: cookieHeader({ crumb: cookies.crumb }) },
+        payload: { crumb: cookies.crumb }
+      })
+
+      expect(statusCode).toBe(statusCodes.found)
+      expect(headers.location).toBe(
+        `/sign-in?returnTo=${encodeURIComponent(TEST_URL)}`
+      )
+      expect(
+        fetchMock.mock.calls.filter(([target]) =>
+          (target.url ?? target).includes('/v1/teams')
+        )
+      ).toHaveLength(0)
+    })
+  })
+
   describe('which environments it answers for', () => {
     test.each([
       ['preprod', 'pre-production'],
