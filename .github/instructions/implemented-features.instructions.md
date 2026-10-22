@@ -47,3 +47,6 @@ without being asked and add what is missing:
    claimed as deployed unless it is.
 4. If nothing needs changing, say "build status checked, no change" in your summary rather than
    skipping the check.
+5. Keep the mirror: every story not fully built in `build-stories.md#status` has a row with the same state in
+   `docs/plans/remaining.md` "At a glance"; update both together (see the mirror bullet in
+   [copilot-instructions.md](../copilot-instructions.md#how-copilot-should-respond)).
