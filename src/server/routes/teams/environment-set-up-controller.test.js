@@ -378,6 +378,106 @@ describe('#environmentSetUpController', () => {
     })
   })
 
+  describe('coming back from the check page', () => {
+    async function toCheck(payload) {
+      const chosen = await post(payload)
+
+      return mergeCookies(cookies, chosen)
+    }
+
+    test('keeps what was ticked, so Back and Continue add only those', async () => {
+      backend()
+
+      const jar = await toCheck({ modelSlugs: 'gpt-4o' })
+      const { result } = await get(TEST_URL, jar)
+
+      expect(result).toMatch(/value="gpt-4o"[^>]*checked/)
+      expect(result).toContain('value="gpt-4-1-nano"')
+      expect(result).not.toMatch(/value="gpt-4-1-nano"[^>]*checked/)
+    })
+
+    test('keeps the purpose entered on the check page', async () => {
+      backend({ 'GET /v1/models/gpt-4o': sampleModel })
+
+      let jar = await toCheck({ modelSlugs: 'gpt-4o' })
+      const saved = await server.inject({
+        method: 'POST',
+        url: '/connect/team/details?change=check',
+        headers: { cookie: cookieHeader(jar) },
+        payload: { crumb: jar.crumb, purpose: 'Testing flood alerts' }
+      })
+
+      jar = mergeCookies(jar, saved)
+
+      const again = await post({ modelSlugs: 'gpt-4o' }, TEST_URL, jar)
+      const check = await get('/connect/team/check', mergeCookies(jar, again))
+
+      expect(check.result).toContain('Testing flood alerts')
+    })
+
+    test('starts with every model ticked and no purpose for a journey for another team or environment', async () => {
+      backend()
+
+      const jar = await toCheck({ modelSlugs: 'gpt-4o' })
+
+      config.set('teamEnvironments', ['infradev', 'qa', 'preprod'])
+      backend({
+        'GET /v1/models?tier=team&environment=preprod': {
+          items: [sampleModel, nanoModel]
+        }
+      })
+
+      const { result } = await get(
+        `/teams/${sampleTeam.slug}/pre-production`,
+        jar
+      )
+
+      expect(result).toMatch(/value="gpt-4-1-nano"[^>]*checked/)
+    })
+
+    test('offers only what is ready in Development when the models are changed from the check page', async () => {
+      backend({
+        [`GET ${TEST_MODELS_PATH}`]: {
+          items: [sampleModel, nanoModel, cohereModel]
+        },
+        [`GET ${TEAM_PATH}/deployments`]: {
+          items: [
+            deployment(),
+            deployment({
+              _id: 'deployment-2',
+              modelSlug: 'gpt-4-1-nano',
+              status: 'deploying'
+            })
+          ]
+        }
+      })
+
+      const jar = await toCheck({ modelSlugs: 'gpt-4o' })
+      const { result } = await get('/connect/team/model?change=check', jar)
+
+      expect(result).toContain('value="gpt-4o"')
+      expect(result).not.toContain('value="gpt-4-1-nano"')
+      expect(result).not.toContain('value="cohere-command"')
+    })
+
+    test('refuses a model that is not ready in Development when it is posted from the change page', async () => {
+      backend({
+        [`GET ${TEST_MODELS_PATH}`]: { items: [sampleModel, nanoModel] },
+        [`GET ${TEAM_PATH}/deployments`]: { items: [deployment()] }
+      })
+
+      const jar = await toCheck({ modelSlugs: 'gpt-4o' })
+      const { statusCode, result } = await server.inject({
+        method: 'POST',
+        url: '/connect/team/model?change=check',
+        headers: { cookie: cookieHeader(jar) },
+        payload: { crumb: jar.crumb, modelSlugs: ['gpt-4-1-nano'] }
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain('Select models from the list')
+    })
+  })
   describe('from the check page to the models being set up in Test', () => {
     test('checks the answers for Test, requests them for qa, then follows the set-up in Test', async () => {
       let requested

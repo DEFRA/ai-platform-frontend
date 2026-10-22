@@ -250,9 +250,17 @@ function modelEnvironment(pendingAccess) {
 }
 
 function loadChoicesFor(request, pendingAccess) {
+  const environment = modelEnvironment(pendingAccess)
+
   return loadModelChoices(request, {
     teamSlug: pendingAccess.teamSlug,
-    environment: modelEnvironment(pendingAccess)
+    environment,
+    // Another environment is set up from the models the team has ready in the
+    // first one, so changing the models or the team offers the same ones.
+    readyIn:
+      environment === defaultTeamEnvironment()
+        ? undefined
+        : defaultTeamEnvironment()
   })
 }
 

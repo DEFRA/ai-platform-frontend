@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
-import { apiClient } from '#/server/common/helpers/api-client.js'
 import {
   defaultTeamEnvironment,
   teamEnvironmentList
@@ -15,7 +14,10 @@ import {
   getSessionUser,
   setPendingAccess
 } from '#/server/common/helpers/session.js'
-import { MAX_MODELS_PER_REQUEST } from '#/server/routes/connect/team-journey.js'
+import {
+  MAX_MODELS_PER_REQUEST,
+  teamJourneyOf
+} from '#/server/routes/connect/team-journey.js'
 import { loadModelChoices } from '#/server/routes/connect/team-model-choices.js'
 import {
   isForbidden,
@@ -25,7 +27,6 @@ import {
   teamUrl
 } from './team-view.js'
 
-const ACTIVE_STATUS = 'active'
 const CHECK_URL = '/connect/team/check'
 const START_URL = '/connect/team/start'
 
@@ -85,38 +86,46 @@ async function loadTeam(request, slug) {
   }
 }
 
-// The models the team has ready where it starts (the first available
-// environment), by slug.
-async function readySourceSlugs(request, { slug, source }) {
-  const { items } = await apiClient(request).get(
-    `/v1/teams/${encodeURIComponent(slug)}/deployments`,
-    { userId: getSessionUser(request).id }
-  )
-
-  return new Set(
-    items
-      .filter(
-        ({ environment, status }) =>
-          environment === source && status === ACTIVE_STATUS
-      )
-      .map(({ modelSlug }) => modelSlug)
-  )
-}
-
 /**
  * What the page offers: the models the team has ready where it starts, that
  * the target environment can deploy and the team does not already have there.
  * @returns {Promise<Array<{slug: string, displayName: string}>>}
  */
 async function loadOffered(request, { slug, source, target }) {
-  const [ready, choices] = await Promise.all([
-    readySourceSlugs(request, { slug, source }),
-    loadModelChoices(request, { teamSlug: slug, environment: target })
-  ])
+  const choices = await loadModelChoices(request, {
+    teamSlug: slug,
+    environment: target,
+    readyIn: source
+  })
 
-  return choices.models.filter(
-    (model) => ready.has(model.slug) && !choices.held.has(model.slug)
-  )
+  return choices.models.filter(({ slug: model }) => !choices.held.has(model))
+}
+
+/**
+ * What the person already answered for this team and environment, when they
+ * come back here from the check page, so going Back and Continue keeps it.
+ * @param {import('@hapi/hapi').Request} request
+ * @param {{slug: string}} team
+ * @param {{environment: string}} target
+ * @returns {{modelSlugs: string[], purpose: string} | undefined}
+ */
+function savedAnswers(request, team, target) {
+  const journey = teamJourneyOf(request)
+
+  return journey?.accessType === 'team' &&
+    journey.teamSlug === team.slug &&
+    journey.environment === target.environment &&
+    journey.modelSlugs?.length
+    ? { modelSlugs: journey.modelSlugs, purpose: journey.purpose ?? '' }
+    : undefined
+}
+// A new journey ticks every model offered; one come back to from the check
+// page keeps what was ticked there (of what is still on offer).
+function initialSelection(request, { team, target, offered }) {
+  const saved = savedAnswers(request, team, target)
+  const slugs = offered.map(({ slug }) => slug)
+
+  return saved ? slugs.filter((slug) => saved.modelSlugs.includes(slug)) : slugs
 }
 
 function setUpView(h, { team, target, source, offered, selected, problem }) {
@@ -191,7 +200,7 @@ export const environmentSetUpController = {
 
       return setUpView(h, {
         ...result,
-        selected: result.offered.map(({ slug }) => slug)
+        selected: initialSelection(request, result)
       })
     }
   },
@@ -249,7 +258,7 @@ export const environmentSetUpController = {
         teamSlug: team.slug,
         teamName: team.name,
         modelSlugs,
-        purpose: '',
+        purpose: savedAnswers(request, team, target)?.purpose ?? '',
         environment: target.environment,
         requestKey: randomUUID(),
         userId: getSessionUser(request).id
