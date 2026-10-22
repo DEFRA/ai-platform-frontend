@@ -81,9 +81,21 @@ describe('#manageController', () => {
 
   describe('GET /manage (Your access)', () => {
     const DAY_MS = 24 * 60 * 60 * 1000
+    const HOUR_MS = 60 * 60 * 1000
+    const NOW = new Date('2026-10-22T12:00:00.000Z')
+
+    // Only Date is frozen, so the sign-in and request timers stay real and
+    // the day counts cannot change under the test (even near midnight).
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'], now: NOW })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
 
     function inDays(days) {
-      return new Date(Date.now() + days * DAY_MS).toISOString()
+      return new Date(NOW.getTime() + days * DAY_MS).toISOString()
     }
 
     function longDate(iso) {
@@ -165,7 +177,7 @@ describe('#manageController', () => {
         ownKey({ _id: 'cred-1', expiresAt: inDays(1) }),
         ownKey({
           _id: 'cred-2',
-          expiresAt: new Date(Date.now() + 1000).toISOString()
+          expiresAt: new Date(NOW.getTime() + HOUR_MS).toISOString()
         })
       ])
       const cells = $('[data-testid="keys-table-row"]').find('td:nth-child(2)')
