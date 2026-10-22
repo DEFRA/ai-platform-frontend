@@ -420,6 +420,9 @@ describe('#teamsController', () => {
       expect(postCheck.statusCode).toBe(statusCodes.conflict)
       expect(postCheck.result).toContain('A team with this name already exists')
       expect(postCheck.result).toContain('Check your answers')
+      expect(
+        load(postCheck.result)('.govuk-error-summary__list a').attr('href')
+      ).toBe('/teams/new#name')
     })
   })
 
