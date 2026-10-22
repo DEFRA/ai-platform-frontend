@@ -10,6 +10,7 @@ import {
 } from '#/server/routes/models/model-availability.js'
 
 const ALREADY_SET_UP_HINT = 'Already set up for this team'
+const ACTIVE_STATUS = 'active'
 
 function listedModels(models) {
   return models.filter((model) => !isCapacityDuplicate(model))
@@ -22,10 +23,13 @@ function listedModels(models) {
  * models that
  * are not in the UK yet, so the page can say so.
  * @param {import('@hapi/hapi').Request} request
- * @param {{teamSlug: string, environment?: string}} journey
+ * @param {{teamSlug: string, environment?: string, readyIn?: string}} journey - `readyIn` is the environment a model must be ready in for the team to be offered it (setting up another environment from the first).
  * @returns {Promise<{models: object[], held: Set<string>, notInUkNames: string[]}>}
  */
-export async function loadModelChoices(request, { teamSlug, environment }) {
+export async function loadModelChoices(
+  request,
+  { teamSlug, environment, readyIn }
+) {
   const client = apiClient(request)
   const teamModels = environment
     ? `/v1/models?tier=team&environment=${encodeURIComponent(environment)}`
@@ -38,11 +42,21 @@ export async function loadModelChoices(request, { teamSlug, environment }) {
         userId: getSessionUser(request).id
       })
     ])
+  const ready = new Set(
+    deployments
+      .filter(
+        ({ status, environment: deployed }) =>
+          deployed === readyIn && status === ACTIVE_STATUS
+      )
+      .map(({ modelSlug }) => modelSlug)
+  )
 
   return {
     models: listedModels(offered).filter(
       (model) =>
-        isEligible(model) && teamAvailability(model) === TEAM_AVAILABILITY.inUk
+        isEligible(model) &&
+        teamAvailability(model) === TEAM_AVAILABILITY.inUk &&
+        (!readyIn || ready.has(model.slug))
     ),
     held: new Set(
       deployments

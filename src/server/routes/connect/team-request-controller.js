@@ -10,6 +10,7 @@ import {
   DEPLOYMENT_REMOVING_STATUS
 } from '#/server/common/helpers/deployment-status.js'
 import {
+  defaultTeamEnvironment,
   environmentName,
   environmentSetUpUrl,
   teamEnvironmentList
@@ -104,9 +105,16 @@ function modelName(catalogue, deployment) {
 function waitView(h, { team, live, catalogue }) {
   const queued = live.every(({ status }) => status === QUEUED_STATUS)
   const names = live.map((deployment) => modelName(catalogue, deployment))
+  const { environment } = live[0]
+  // The first environment is where a team starts, so it reads "for your
+  // team"; another one is named, as the team's models there are the same ones.
+  const where =
+    environment === defaultTeamEnvironment()
+      ? 'for your team'
+      : `in ${environmentName(environment)}`
   const heading = queued
     ? `Waiting for another change to ${team.name} to finish`
-    : `Setting up ${joinNames(names)} for your team`
+    : `Setting up ${joinNames(names)} ${where}`
   const duration = `This usually takes about 2 minutes${live.length > 1 ? ' for each model' : ''}.`
 
   return h.view('connect/team/request', {
