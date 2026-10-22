@@ -2,6 +2,7 @@
 
 {% from "govuk/components/select/macro.njk" import govukSelect %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "model-table/macro.njk" import appModelTable %}
 
 {% block content %}
@@ -11,45 +12,36 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-      <p class="govuk-body">Models you can use, and the ones you cannot use yet.</p>
+      <p class="govuk-body-l">Add a model to your team, or try one on your own first.</p>
+
+      <div class="govuk-button-group">
+        {{ govukButton({
+          text: "Add models to a team",
+          href: "/connect/team/start",
+          attributes: { "data-testid": "models-add-to-team" }
+        }) }}
+        <a class="govuk-link" href="/connect/shared/start" data-testid="models-try-on-your-own">Try a model on your own for {{ researchDays }} days</a>
+      </div>
 
       <form method="get" novalidate>
-        <div class="govuk-grid-row">
-          <div class="govuk-grid-column-one-third">
-            {{ govukSelect({
-              id: "provider",
-              name: "provider",
-              label: { text: "Provider" },
-              items: [
-                { value: "", text: "All providers", selected: filters.provider == "" },
-                { value: "openai", text: "OpenAI", selected: filters.provider == "openai" }
-              ]
-            }) }}
-          </div>
-          <div class="govuk-grid-column-one-third">
-            {{ govukSelect({
-              id: "tier",
-              name: "tier",
-              label: { text: "Tier" },
-              items: [
-                { value: "", text: "All tiers", selected: filters.tier == "" },
-                { value: "research", text: "Research", selected: filters.tier == "research" },
-                { value: "team", text: "Team", selected: filters.tier == "team" }
-              ]
-            }) }}
-          </div>
-          <div class="govuk-grid-column-one-third">
-            {{ govukButton({ text: "Apply filters", classes: "govuk-button--secondary govuk-!-margin-top-6" }) }}
-            <p class="govuk-body">
-              <a class="govuk-link" href="/models" data-testid="models-clear-filters">Clear filters</a>
-            </p>
-          </div>
+        <div class="app-filter-row">
+          {{ govukSelect({
+            id: "show",
+            name: "show",
+            label: { text: "Show", classes: "govuk-label--s" },
+            items: showItems
+          }) }}
+          {{ govukButton({ text: "Apply", classes: "govuk-button--secondary" }) }}
+          <a class="govuk-link" href="/models" data-testid="models-clear-filters">Clear</a>
         </div>
       </form>
 
-      <p class="govuk-body" data-testid="models-result-count">Showing {{ resultCount }} models</p>
-
       {{ appModelTable({ models: models }) }}
+
+      {% if notAvailableRows.length > 0 %}
+        <h2 class="govuk-heading-l" data-testid="models-not-available-heading">Not available yet</h2>
+        {{ govukSummaryList({ rows: notAvailableRows, attributes: { "data-testid": "models-not-available" } }) }}
+      {% endif %}
     </div>
   </div>
 {% endblock %}

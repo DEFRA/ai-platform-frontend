@@ -19,30 +19,18 @@ createAll(ServiceNavigation)
 createAll(SkipLink)
 createAll(Tabs)
 
-// Progressive enhancement: reveal and wire up "Copy key" buttons (hidden by
-// default so the readonly key field still works with no JavaScript).
+// Progressive enhancement: reveal and wire up "Copy key" and "Copy code"
+// buttons (hidden by default so the readonly key field and the code still
+// work with no JavaScript). A field is copied by its value, code by its text.
 document.querySelectorAll('[data-copy-target]').forEach((button) => {
   button.hidden = false
   button.addEventListener('click', () => {
-    const input = document.getElementById(button.dataset.copyTarget)
-    if (input) {
-      navigator.clipboard?.writeText(input.value)
+    const source = document.getElementById(button.dataset.copyTarget)
+    if (source) {
+      navigator.clipboard?.writeText(source.value ?? source.textContent)
     }
   })
 })
-
-// Progressive enhancement: let people stop the team-request page's
-// auto-refresh (WCAG 2.2 SC 2.2.1 Timing Adjustable) - the meta-refresh
-// removal and JS-driven timer live inline in connect/team/request.njk.
-const stopRefreshButton = document.getElementById('app-stop-refresh')
-if (stopRefreshButton) {
-  stopRefreshButton.hidden = false
-  stopRefreshButton.addEventListener('click', () => {
-    window.appStopAutoRefresh?.()
-    stopRefreshButton.disabled = true
-    stopRefreshButton.textContent = 'Checking stopped'
-  })
-}
 
 // Progressive enhancement: disable a submit button and show a spinner while
 // its form is submitting, so a slow backend call (renew, revoke, issue a

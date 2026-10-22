@@ -1,48 +1,68 @@
-// The wait page groups every intermediate GitOps state into one friendly
-// "being set up" message - it never shows raw GitOps jargon to the user (B09).
-// GitOps applies one change per team file at a time, so a request made while
-// another is in flight waits as `queued`, which gets its own wording.
-import { DEPLOYMENT_SETTING_UP_STATUSES } from '#/server/common/helpers/deployment-status.js'
+// What the pages that follow a team request say about it. GitOps applies one
+// change per team file at a time, so a request made while another is in
+// flight waits as `queued`, which gets its own wording; the raw GitOps states
+// are never shown (B09).
+import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 
-export { DEPLOYMENT_FAILURE_STATUSES as FAILURE_STATUSES } from '#/server/common/helpers/deployment-status.js'
+export {
+  DEPLOYMENT_FAILURE_STATUSES as FAILURE_STATUSES,
+  DEPLOYMENT_QUEUED_STATUS as QUEUED_STATUS
+} from '#/server/common/helpers/deployment-status.js'
 
-export const QUEUED_STATUS = 'queued'
-export const IN_PROGRESS_STATUSES = [
-  QUEUED_STATUS,
-  ...DEPLOYMENT_SETTING_UP_STATUSES
-]
+const REFERENCE_PREFIX = 'AIP-'
+const REFERENCE_LENGTH = 5
 
-// The states in which the team's client secret is being prepared: the apply
-// has finished and what remains is the check and activation.
-const SECRET_STEP_STATUSES = ['deployed', 'verified']
+// Only these two links help support on a failure, and only https ones are shown.
+const PIPELINE_LINK_LABELS = {
+  pullRequest: 'Pull request',
+  applyRun: 'Apply run'
+}
 
 /**
- * The heading of the wait page, from the statuses of the deployments it
- * is waiting on: the client secret is promised only once every one of
- * them has reached that step.
- * @param {string[]} statuses
- * @returns {string}
+ * The reference a person quotes to the AI Platform team (D8): `AIP-` and the
+ * last five characters of the deployment's operation id, in upper case.
+ * @param {string | null | undefined} operationId
+ * @returns {string | null}
  */
-export function waitPageHeading(statuses) {
-  if (statuses.every((status) => status === QUEUED_STATUS)) {
-    return 'Waiting for another change to this team to finish'
+export function supportReference(operationId) {
+  if (typeof operationId !== 'string' || operationId.length === 0) {
+    return null
   }
 
-  return statuses.every((status) => SECRET_STEP_STATUSES.includes(status))
-    ? 'Setting up your team client secret'
-    : 'Setting up your model access'
+  return `${REFERENCE_PREFIX}${operationId.slice(-REFERENCE_LENGTH).toUpperCase()}`
 }
 
-// Support links to the GitOps runs and pull request behind a team request,
-// when the backend has them. Labelled here, and only https links are shown.
-const PIPELINE_LINK_LABELS = {
-  submitRun: 'Submit workflow run',
-  pullRequest: 'Pull request',
-  applyRun: 'Apply workflow run'
+function timeOf(at) {
+  return at ? formatDate(at, 'HH:mm') : null
+}
+
+function stepHint(step) {
+  const time = timeOf(step.at)
+
+  if (!time) {
+    return undefined
+  }
+
+  return step.state === 'current' ? `Started at ${time}` : time
 }
 
 /**
- * The GitOps links worth showing for a request, labelled and https only.
+ * The backend's progress steps as step list items: a step the backend calls
+ * `pending` is waiting, and each one with a time carries it as its hint
+ * ("10:41", or "Started at 10:42" for the one in progress).
+ * @param {Array<{label: string, state: string, at?: string | null}> | null | undefined} progressSteps
+ * @returns {Array<{text: string, state: string, hint?: string}>}
+ */
+export function buildStepItems(progressSteps) {
+  return (progressSteps ?? []).map((step) => ({
+    text: step.label,
+    state: step.state === 'pending' ? 'waiting' : step.state,
+    hint: stepHint(step)
+  }))
+}
+
+/**
+ * The GitOps links worth showing for a failure, labelled and https only.
  * @param {Record<string, unknown>} [links]
  * @returns {Array<{href: string, text: string}>}
  */

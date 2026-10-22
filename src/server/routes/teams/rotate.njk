@@ -4,11 +4,10 @@
 {% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
 {% block beforeContent %}
   {{ super() }}
-  {{ govukBackLink({ text: "Back to your access", href: "/manage" }) }}
+  {{ govukBackLink({ text: "Back to " + teamName, href: teamUrl }) }}
 {% endblock %}
 
 {% block content %}
@@ -18,13 +17,6 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      {% if errorSummary %}
-        {{ govukErrorSummary({
-          titleText: "There is a problem",
-          errorList: errorSummary
-        }) }}
-      {% endif %}
-
       {{ govukWarningText({
         text: "Anything using the old client secret stops working straight away.",
         iconFallbackText: "Warning"
@@ -59,13 +51,12 @@
 
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
-        <input type="hidden" name="confirmRevoke" value="yes">
 
         {{ govukButton({ text: "Yes, rotate the client secret", classes: "govuk-button--warning" }) }}
       </form>
 
       <p class="govuk-body">
-        <a class="govuk-link" href="/manage">No, keep the client secret I have</a>
+        <a class="govuk-link" href="{{ teamUrl }}">No, keep the client secret I have</a>
       </p>
     </div>
   </div>

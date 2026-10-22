@@ -1,13 +1,20 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
-{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
 
 {% block content %}
   {{ appHeading({
-    text: heading
+    text: heading,
+    caption: teamName,
+    captionAbove: true
   }) }}
 
   <div class="govuk-grid-row">
@@ -19,44 +26,37 @@
         }) }}
       {% endif %}
 
-      {% set modelsHtml %}
-        <ul class="govuk-list">
-          {% for model in models %}
-            <li>{{ model.displayName }} <span class="govuk-hint govuk-!-display-inline">({{ model.provider }})</span></li>
-          {% endfor %}
-        </ul>
-      {% endset %}
-
       {{ govukSummaryList({
         rows: [
           {
-            key: { text: "Models" if models.length > 1 else "Model" },
-            value: { html: modelsHtml }
+            key: { text: "Team" },
+            value: { text: teamName },
+            actions: { items: [{ href: teamChangeUrl, text: "Change", visuallyHiddenText: "team" }] }
           },
           {
-            key: { text: "Tier" },
-            value: { text: "Team (dedicated deployment)" }
+            key: { text: "Models" if models.length > 1 else "Model" },
+            value: { text: modelNames },
+            actions: { items: [{ href: modelsChangeUrl, text: "Change", visuallyHiddenText: "models" }] }
+          },
+          {
+            key: { text: "What it is for" },
+            value: { text: purpose or "Not given" },
+            actions: { items: [{ href: purposeChangeUrl, text: "Change", visuallyHiddenText: "what it is for" }] }
           },
           {
             key: { text: "Environment" },
-            value: { text: environment }
-          },
-          {
-            key: { text: "Purpose" },
-            value: { text: purpose or "Not given" }
+            value: { text: environmentName }
           }
         ]
       }) }}
 
-      {{ govukWarningText({
-        text: "Setting up a dedicated deployment for each model can take a few minutes." + (" They are set up one after another." if models.length > 1 else ""),
-        iconFallbackText: "Warning"
-      }) }}
+      <h2 class="govuk-heading-m">Now request access</h2>
+      <p class="govuk-body">We will set up a deployment of {{ modelNames }} for your team. It usually takes about 2 minutes, and you can leave the page while it happens.</p>
 
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
-        {{ govukButton({ text: "Confirm and request access" }) }}
+        {{ govukButton({ text: "Request access" }) }}
 
         {% if existingRequestUrl %}
           <p class="govuk-body">

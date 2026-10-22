@@ -1,0 +1,66 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backUrl }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+
+  {{ appHeading({
+    text: heading,
+    caption: team.name,
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {% if field == "serviceCode" %}
+          {{ govukInput({
+            id: "serviceCode",
+            name: "serviceCode",
+            value: value,
+            classes: "govuk-input--width-3",
+            spellcheck: false,
+            label: { text: "Service code", classes: "govuk-label--m" },
+            hint: { text: "3 letters or numbers, for example FRM. Your team’s AI use is charged to this code." },
+            errorMessage: fieldErrors.serviceCode
+          }) }}
+        {% else %}
+          {{ govukCharacterCount({
+            id: "description",
+            name: "description",
+            maxlength: 500,
+            value: value,
+            label: { text: "What the team does (optional)", classes: "govuk-label--m" },
+            errorMessage: fieldErrors.description
+          }) }}
+        {% endif %}
+
+        {{ govukButton({
+          text: "Save",
+          attributes: { "data-testid": "save-detail" }
+        }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

@@ -88,9 +88,10 @@ describe('#signInController', () => {
   test('nav shows "Sign out" instead of "Sign in" on the very next page after finishing sign-in', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
 
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const { statusCode, result } = await server.inject({
       method: 'GET',
-      url: '/connect',
+      url: '/models',
       headers: { cookie: cookieHeader(cookies) }
     })
 

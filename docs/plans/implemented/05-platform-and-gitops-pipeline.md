@@ -45,7 +45,8 @@ Applied in Infradev from 15 Oct 2026; CDP dev runs the portal against it from 20
 - `entra.enabled` is `false` (the deploy identity has no Graph permission) and the interim flag `entra.teamRegistrations`
   skips only the per-team Entra registration.
 - Teams: `cool-team`, `bobs-team`, `dans-team`, `team-test-1` to `team-test-5`, `team-dev-1`, and the `research` file.
-- `gpt-4o` has a UK South `Standard` team SKU and runs at capacity 1; the nano models are Global-only in UK South.
+- `gpt-4o` has a UK South `Standard` team SKU and runs at capacity 1; the nano models have no SKU there that the UK or EU
+  rule allows, so they are not offered.
 
 ## CDP dev
 

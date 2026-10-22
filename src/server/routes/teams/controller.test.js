@@ -1,12 +1,21 @@
+import { load } from 'cheerio'
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
+import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
+import { mockApi, reply } from '#/test-helpers/api-mock.js'
 import {
   signInViaOidc,
   mergeCookies,
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
+import {
+  nanoModel,
+  sampleModel,
+  sampleTeam,
+  teamWithMembers
+} from '#/test-helpers/team-connect-helpers.js'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
   getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
@@ -31,19 +40,36 @@ vi.mock('openid-client', () => ({
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
-const sampleTeam = {
-  _id: 'team-1',
-  name: 'Flood Risk Team',
-  slug: 'flood-risk-team',
-  verified: false
+const TEAM_PATH = `/v1/teams/${sampleTeam.slug}`
+const TEAM_URL = `/teams/${sampleTeam.slug}`
+const NOT_FOUND = reply(404, { code: 'not-found', message: 'Not Found' })
+
+const catalogue = [sampleModel, nanoModel]
+
+function deployment(overrides = {}) {
+  return {
+    _id: 'deployment-1',
+    teamId: 'team-1',
+    modelSlug: 'gpt-4o',
+    environment: 'infradev',
+    status: 'active',
+    ...overrides
+  }
 }
 
-async function signIn(server) {
-  return signInViaOidc(server, fetchMock)
+const teamCredential = {
+  _id: 'cred-1',
+  tier: 'team',
+  teamId: 'team-1',
+  environment: 'infradev',
+  status: 'active',
+  expiresAt: '2027-10-19T00:00:00.000Z',
+  createdAt: '2026-10-21T10:45:00.000Z'
 }
 
 describe('#teamsController', () => {
   let server
+  let cookies
 
   beforeAll(async () => {
     server = await createServer()
@@ -54,1100 +80,735 @@ describe('#teamsController', () => {
     await server.stop({ timeout: 0 })
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     fetchMock.resetMocks()
+    cookies = await signInViaOidc(server, fetchMock)
   })
 
-  test('GET /teams redirects to /sign-in when signed out', async () => {
-    const { statusCode, headers } = await server.inject({
+  function get(url) {
+    return server.inject({
       method: 'GET',
-      url: '/teams'
-    })
-
-    expect(statusCode).toBe(302)
-    expect(headers.location).toBe('/sign-in?returnTo=%2Fteams')
-  })
-
-  test('GET /teams lists the teams for the signed-in user', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleTeam] }))
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/teams',
+      url,
       headers: { cookie: cookieHeader(cookies) }
     })
+  }
 
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Flood Risk Team'))
-  })
-
-  test('GET /teams shows the empty state', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(
-      expect.stringContaining('You are not a member of a team yet')
-    )
-  })
-
-  test('POST /teams/new with an invalid name re-renders the form with errors', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, result } = await server.inject({
+  function post(url, payload = {}) {
+    return server.inject({
       method: 'POST',
-      url: '/teams/new',
+      url,
       headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'ab', serviceCode: 'ABC' }
+      payload: { crumb: cookies.crumb, ...payload }
     })
-
-    expect(statusCode).toBe(statusCodes.badRequest)
-    expect(result).toEqual(expect.stringContaining('There is a problem'))
-  })
-
-  test('POST /teams/new asks for a service code of three letters or numbers', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, result } = await server.inject({
-      method: 'POST',
-      url: '/teams/new',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, name: 'No Code Team', serviceCode: '' }
-    })
-
-    expect(statusCode).toBe(statusCodes.badRequest)
-    expect(result).toContain('Enter your service code')
-  })
-
-  test('POST /teams/new -> GET check -> POST check creates the team', async () => {
-    let cookies = await signIn(server)
-
-    const postNew = await server.inject({
-      method: 'POST',
-      url: '/teams/new',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: {
-        crumb: cookies.crumb,
-        name: 'Flood Risk Team',
-        serviceCode: 'aip'
-      }
-    })
-    cookies = mergeCookies(cookies, postNew)
-    expect(postNew.statusCode).toBe(statusCodes.seeOther)
-    expect(postNew.headers.location).toBe('/teams/new/check')
-
-    const getCheck = await server.inject({
-      method: 'GET',
-      url: '/teams/new/check',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-    cookies = mergeCookies(cookies, getCheck)
-    expect(getCheck.result).toEqual(expect.stringContaining('Flood Risk Team'))
-    expect(getCheck.result).toContain('aip')
-
-    fetchMock.mockResponseOnce(JSON.stringify({ team: sampleTeam }))
-
-    const postCheck = await server.inject({
-      method: 'POST',
-      url: '/teams/new/check',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb }
-    })
-
-    expect(postCheck.statusCode).toBe(statusCodes.seeOther)
-    expect(postCheck.headers.location).toBe('/teams/team-1')
-  })
-
-  test('POST /teams/new/check shows an error for a duplicate team name', async () => {
-    let cookies = await signIn(server)
-
-    const postNew = await server.inject({
-      method: 'POST',
-      url: '/teams/new',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: {
-        crumb: cookies.crumb,
-        name: 'Duplicate Team',
-        serviceCode: 'ABC'
-      }
-    })
-    cookies = mergeCookies(cookies, postNew)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        statusCode: 409,
-        error: 'Conflict',
-        message: 'A team with this name already exists',
-        code: 'team-exists'
-      }),
-      { status: 409 }
-    )
-
-    const postCheck = await server.inject({
-      method: 'POST',
-      url: '/teams/new/check',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb }
-    })
-
-    expect(postCheck.statusCode).toBe(statusCodes.conflict)
-    expect(postCheck.result).toEqual(
-      expect.stringContaining('A team with this name already exists')
-    )
-  })
-
-  test('GET /teams/{id} shows an admin the add member form', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
-      })
-    )
-
-    const { result, statusCode } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Add a member'))
-    expect(result).toContain(
-      'Removing someone does not change the team client secret.'
-    )
-    expect(result).not.toContain('team key')
-  })
-
-  test('GET /teams/{id} shows the team ID and says it cannot be changed', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('Team ID')
-    expect(result).toContain('flood-risk-team')
-    expect(result).toContain('cannot be changed')
-  })
-
-  test('POST /teams/{id}/service-code saves a new code and returns to the team', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ team: { ...sampleTeam, serviceCode: 'XYZ' } })
-    )
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/service-code',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, serviceCode: 'xyz' }
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/teams/team-1')
-
-    const [url, options] = fetchMock.mock.calls.at(-1)
-
-    expect(url).toContain('/v1/teams/team-1')
-    expect(options).toMatchObject({ method: 'PATCH' })
-    expect(JSON.parse(options.body)).toEqual({ serviceCode: 'xyz' })
-  })
-
-  test('POST /teams/{id}/service-code re-renders the team page for an invalid code, keeping what was typed in the input and the saved code in the summary', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: { ...sampleTeam, serviceCode: 'OLD' },
-        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
-      })
-    )
-
-    const { statusCode, result } = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/service-code',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, serviceCode: 'TOO-LONG' }
-    })
-
-    expect(statusCode).toBe(statusCodes.badRequest)
-    expect(result).toContain(
-      'Service code must be 3 letters or numbers, for example AIP'
-    )
-    expect(result).toMatch(/name="serviceCode"[^>]*value="TOO-LONG"/)
-    expect(result).toContain('OLD')
-  })
-
-  test('GET /teams/{id} hides the add member form from a non-admin', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [{ userId: 'user-1', role: 'user', status: 'active' }]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).not.toEqual(expect.stringContaining('Add a member'))
-  })
-
-  test('GET /teams/{id} masks other members\u2019 email addresses from a non-admin', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [
-          { userId: 'user-1', role: 'user', status: 'active' },
-          {
-            userId: 'user-2',
-            email: 'colleague@defra.gov.uk',
-            role: 'user',
-            status: 'active'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).not.toEqual(
-      expect.stringContaining('colleague@defra.gov.uk')
-    )
-    expect(result).toEqual(expect.stringContaining('@defra.gov.uk'))
-  })
-
-  test('GET /teams/{id} hides a member email that is not an address at all from a non-admin', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [
-          { userId: 'user-1', role: 'user', status: 'active' },
-          {
-            userId: 'user-2',
-            email: 'not-an-address',
-            role: 'user',
-            status: 'active'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('Hidden')
-    expect(result).not.toContain('not-an-address')
-  })
-
-  test('GET /teams/{id} shows full email addresses to an admin', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [
-          { userId: 'user-1', role: 'admin', status: 'active' },
-          {
-            userId: 'user-2',
-            email: 'colleague@defra.gov.uk',
-            role: 'user',
-            status: 'active'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(expect.stringContaining('colleague@defra.gov.uk'))
-  })
-
-  test('GET /teams/{id} shows a member\u2019s display name and hides removed members', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [
-          { userId: 'user-1', role: 'admin', status: 'active' },
-          {
-            _id: 'member-2',
-            userId: 'user-2',
-            email: 'colleague@defra.gov.uk',
-            displayName: 'Colleague Name',
-            role: 'user',
-            status: 'active'
-          },
-          {
-            _id: 'member-3',
-            userId: 'user-3',
-            email: 'gone@defra.gov.uk',
-            displayName: 'Gone Already',
-            role: 'user',
-            status: 'removed'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(expect.stringContaining('Colleague Name'))
-    expect(result).not.toEqual(expect.stringContaining('Gone Already'))
-  })
-
-  test('GET /teams/{id} shows Remove for an admin, but not for the sole admin\u2019s own row', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [
-          {
-            _id: 'member-1',
-            userId: 'user-1',
-            role: 'admin',
-            status: 'active'
-          },
-          {
-            _id: 'member-2',
-            userId: 'user-2',
-            email: 'colleague@defra.gov.uk',
-            role: 'user',
-            status: 'active'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toEqual(
-      expect.stringContaining('/teams/team-1/members/member-2/remove')
-    )
-    expect(result).not.toEqual(
-      expect.stringContaining('/teams/team-1/members/member-1/remove')
-    )
-  })
-
-  test('GET /teams/{id} offers a role change for a member, but not for the sole admin', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [
-          {
-            _id: 'member-1',
-            userId: 'user-1',
-            role: 'admin',
-            status: 'active'
-          },
-          {
-            _id: 'member-2',
-            userId: 'user-2',
-            email: 'colleague@defra.gov.uk',
-            role: 'user',
-            status: 'active'
-          }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('/teams/team-1/members/member-2/role')
-    expect(result).toContain('Make an admin')
-    expect(result).not.toContain('/teams/team-1/members/member-1/role')
-  })
-
-  test('POST /teams/{id}/members/{memberId}/role sends the new role and returns to the team', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({ member: { _id: 'member-2', role: 'admin' } })
-    )
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/members/member-2/role',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, role: 'admin' }
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/teams/team-1')
-
-    const [url, options] = fetchMock.mock.calls.at(-1)
-
-    expect(url).toContain('/v1/teams/team-1/members/member-2')
-    expect(options).toMatchObject({ method: 'PATCH' })
-    expect(JSON.parse(options.body)).toEqual({ role: 'admin' })
-  })
-
-  test('POST /teams/{id}/members/{memberId}/role shows a banner when the last admin cannot be demoted', async () => {
-    let cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        statusCode: 409,
-        error: 'Conflict',
-        message: 'A team must keep at least one admin',
-        code: 'last-admin'
-      }),
-      { status: 409 }
-    )
-
-    const demote = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/members/member-1/role',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, role: 'user' }
-    })
-    cookies = mergeCookies(cookies, demote)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('A team must keep at least one admin.')
-  })
-
-  test('GET /teams marks the team the person is acting in after they open it', async () => {
-    let cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
-      })
-    )
-
-    const openTeam = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-    cookies = mergeCookies(cookies, openTeam)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        items: [
-          { _id: 'team-1', name: 'Flood Risk Team' },
-          { _id: 'team-2', name: 'Coastal Team' }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(result).toContain('Acting in this team')
-    expect(result.indexOf('Flood Risk Team')).toBeLessThan(
-      result.indexOf('Acting in this team')
-    )
-  })
-
-  test('POST /teams/{id}/members/{memberId}/remove removes a member and redirects back', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(null, { status: 204 })
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/members/member-2/remove',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb }
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/teams/team-1')
-  })
-
-  test('POST /teams/{id}/members/{memberId}/remove shows a banner when the last admin cannot be removed', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        statusCode: 409,
-        error: 'Conflict',
-        message: 'A team must keep at least one admin',
-        code: 'last-admin'
-      }),
-      { status: 409 }
-    )
-
-    const postRemove = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/members/member-1/remove',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb }
-    })
-
-    expect(postRemove.statusCode).toBe(statusCodes.seeOther)
-
-    const redirectCookies = mergeCookies(cookies, postRemove)
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        team: sampleTeam,
-        members: [
-          { _id: 'member-1', userId: 'user-1', role: 'admin', status: 'active' }
-        ]
-      })
-    )
-
-    const { result } = await server.inject({
-      method: 'GET',
-      url: '/teams/team-1',
-      headers: { cookie: cookieHeader(redirectCookies) }
-    })
-
-    expect(result).toEqual(
-      expect.stringContaining('A team must keep at least one admin')
-    )
-  })
-
-  test('GET /teams/{id} shows a not found page for a non-member', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'Not Found'
-      }),
-      { status: 404 }
-    )
-
-    const { statusCode, result } = await server.inject({
-      method: 'GET',
-      url: '/teams/unknown-team',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.notFound)
-    expect(result).toEqual(expect.stringContaining('Team not found'))
-  })
-
-  test('POST /teams/{id}/members adds a member and redirects back to the team', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        member: {
-          email: 'invitee@defra.gov.uk',
-          role: 'user',
-          status: 'invited'
-        }
-      })
-    )
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/members',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, email: 'invitee@defra.gov.uk' }
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/teams/team-1')
-  })
-
-  test('POST /teams/{id}/members silently redirects back for a non-admin (403)', async () => {
-    const cookies = await signIn(server)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        statusCode: 403,
-        error: 'Forbidden',
-        message: 'Only a team admin can add members',
-        code: 'admin-required'
-      }),
-      { status: 403 }
-    )
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/teams/team-1/members',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, email: 'invitee@defra.gov.uk' }
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/teams/team-1')
-  })
-
-  describe('the team’s models', () => {
-    const adminTeam = {
-      team: sampleTeam,
-      members: [{ userId: 'user-1', role: 'admin', status: 'active' }]
-    }
-    const memberTeam = {
-      team: sampleTeam,
-      members: [
-        { userId: 'user-1', role: 'user', status: 'active' },
-        { userId: 'user-2', role: 'admin', status: 'active' }
-      ]
-    }
-    const catalogue = {
-      items: [
-        { slug: 'gpt-4o', displayName: 'GPT-4o' },
-        { slug: 'gpt-5-nano', displayName: 'GPT-5 nano' }
-      ]
-    }
-
-    function deployment(overrides = {}) {
-      return {
-        _id: 'dep-1',
-        teamId: 'team-1',
-        environment: 'infradev',
-        modelSlug: 'gpt-4o',
-        status: 'active',
-        failureReason: null,
-        links: {},
-        ...overrides
-      }
-    }
-
-    // The team page reads the team, then its deployments and the catalogue.
-    function mockTeamPage(team, deployments) {
-      fetchMock.mockResponseOnce(JSON.stringify(team))
-      fetchMock.mockResponseOnce(JSON.stringify({ items: deployments }))
-      fetchMock.mockResponseOnce(JSON.stringify(catalogue))
-    }
-
-    test('GET /teams/{id} lists the models with a Remove link for an admin on an active one', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(adminTeam, [
-        deployment(),
-        deployment({
-          _id: 'dep-2',
-          modelSlug: 'gpt-5-nano',
-          status: 'deploying'
-        }),
-        deployment({ _id: 'dep-3', modelSlug: 'gpt-5-nano', status: 'removed' })
-      ])
-
-      const { result, statusCode } = await server.inject({
+  }
+
+  describe('the teams list', () => {
+    test('GET /teams redirects to /sign-in when signed out', async () => {
+      const { statusCode, headers } = await server.inject({
         method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(cookies) }
+        url: '/teams'
       })
+
+      expect(statusCode).toBe(302)
+      expect(headers.location).toBe('/sign-in?returnTo=%2Fteams')
+    })
+
+    test('for a person with only their own keys: says they have no team and offers to create one', async () => {
+      mockApi(fetchMock, { 'GET /v1/teams': { items: [] } })
+
+      const { statusCode, result } = await get('/teams')
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('data-testid="team-models"')
+      expect(result).toContain('<h1 class="govuk-heading-xl')
+      expect(result).toContain('>Teams<')
+      expect(result).toContain(
+        'A team shares its models, and has one client secret for each environment.'
+      )
+      expect(result).toMatch(
+        /<a href="\/teams\/new"[^>]*>\s*Create a team\s*<\/a>/
+      )
+      expect(result).toContain('You are not a member of a team yet')
+      expect(result).not.toContain('data-testid="teams-table"')
+      expect(
+        fetchMock.mock.calls.filter(([url]) => url.includes('/deployments'))
+      ).toHaveLength(0)
+    })
+
+    test('for an admin and a member: a row for each team with the role, member count and models', async () => {
+      const coastal = {
+        _id: 'team-2',
+        slug: 'coastal-team',
+        name: 'Coastal Team',
+        role: 'user'
+      }
+
+      mockApi(fetchMock, {
+        'GET /v1/teams': { items: [sampleTeam, coastal] },
+        'GET /v1/models': { items: catalogue },
+        [`GET ${TEAM_PATH}`]: {
+          ...teamWithMembers('admin'),
+          members: [
+            ...teamWithMembers('admin').members,
+            { _id: 'member-3', userId: 'user-3', status: 'removed' }
+          ]
+        },
+        [`GET ${TEAM_PATH}/deployments`]: {
+          items: [
+            deployment(),
+            deployment({
+              _id: 'deployment-2',
+              modelSlug: 'gpt-4-1-nano',
+              status: 'deploying'
+            }),
+            deployment({ _id: 'deployment-3', status: 'removed' })
+          ]
+        },
+        'GET /v1/teams/coastal-team': {
+          team: coastal,
+          members: [{ _id: 'member-1', userId: 'user-1', status: 'active' }]
+        },
+        'GET /v1/teams/coastal-team/deployments': {
+          items: [
+            deployment({ _id: 'deployment-4', status: 'deploy-failed' }),
+            deployment({ _id: 'deployment-5', status: 'active' })
+          ]
+        }
+      })
+
+      const { result } = await get('/teams')
+      const rows = result.split('data-testid="team-row"').slice(1)
+
+      expect(rows).toHaveLength(2)
+      expect(rows[0]).toContain(`href="${TEAM_URL}"`)
+      expect(rows[0]).toContain('Flood Risk Team')
+      expect(rows[0]).toContain('>Admin<')
+      // The removed member is not counted.
+      expect(rows[0]).toMatch(/>2<\/td>/)
+      expect(rows[0]).toContain('GPT-4.1 nano, setting up')
+      // A ready model needs no words, and a removed one is not listed.
+      expect(rows[0]).toMatch(/<li>GPT-4o<\/li>/)
+      expect(rows[0].match(/GPT-4o/g)).toHaveLength(1)
+      expect(rows[1]).toContain('href="/teams/coastal-team"')
+      expect(rows[1]).toContain('>Member<')
+      expect(rows[1]).toMatch(/>1<\/td>/)
+      // The worse state of a model in more than one place wins, in bold.
+      expect(rows[1]).toContain('GPT-4o<strong>, could not be set up</strong>')
+    })
+
+    test('says so in a cell that could not be read, rather than failing the page', async () => {
+      mockApi(fetchMock, {
+        'GET /v1/teams': { items: [sampleTeam] },
+        'GET /v1/models': reply(502, { code: 'upstream-unavailable' }),
+        [`GET ${TEAM_PATH}`]: reply(502, { code: 'upstream-unavailable' }),
+        [`GET ${TEAM_PATH}/deployments`]: { items: [deployment()] }
+      })
+
+      const { statusCode, result } = await get('/teams')
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('Flood Risk Team')
+      expect(result).toContain('Not available')
+      // Without the catalogue a model is named by its slug.
+      expect(result).toContain('gpt-4o')
+    })
+
+    test('says there are no models yet for a team without any', async () => {
+      mockApi(fetchMock, {
+        'GET /v1/teams': { items: [sampleTeam] },
+        'GET /v1/models': { items: catalogue },
+        [`GET ${TEAM_PATH}`]: teamWithMembers('admin'),
+        [`GET ${TEAM_PATH}/deployments`]: { items: [] }
+      })
+
+      const { result } = await get('/teams')
+
+      expect(result).toContain('None yet')
+    })
+  })
+
+  describe('creating a team', () => {
+    test('GET /teams/new asks for the name, service code and what the team does, with a back link to Teams', async () => {
+      const { statusCode, result } = await get('/teams/new')
+      const $ = load(result)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect($('h1').text().trim()).toBe('Create a team')
+      expect($('.govuk-back-link').attr('href')).toBe('/teams')
+      expect($('label[for="name"]').text().trim()).toBe('Team name')
+      expect($('#name-hint').text().trim()).toBe(
+        'This also makes your team ID, which cannot be changed later.'
+      )
+      expect($('#serviceCode').hasClass('govuk-input--width-3')).toBe(true)
+      expect($('#serviceCode-hint').text().trim()).toBe(
+        '3 letters or numbers, for example FRM. Your team’s AI use is charged to this code.'
+      )
+      expect($('label[for="description"]').text().trim()).toBe(
+        'What the team does (optional)'
+      )
+      expect($('.govuk-character-count').attr('data-maxlength')).toBe('500')
+      expect($('main form button').text().trim()).toBe('Continue')
+    })
+
+    test('GET /teams/new is the form even for a team called New, whose ID would be new', async () => {
+      const { statusCode, result } = await get('/teams/new')
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('Create a team')
+      expect(
+        fetchMock.mock.calls.filter(([url]) => url.includes('/v1/teams/new'))
+      ).toHaveLength(0)
+    })
+
+    test('GET /teams/new from a journey goes back to that journey', async () => {
+      const { result } = await get(
+        '/teams/new?returnTo=%2Fconnect%2Fteam%2Fselect'
+      )
+
+      expect(load(result)('.govuk-back-link').attr('href')).toBe(
+        '/connect/team/select'
+      )
+    })
+
+    test('POST /teams/new with an invalid name re-renders the form with errors', async () => {
+      const { statusCode, result } = await post('/teams/new', {
+        name: 'ab',
+        serviceCode: 'ABC'
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toEqual(expect.stringContaining('There is a problem'))
+      expect(load(result)('.govuk-back-link').attr('href')).toBe('/teams')
+    })
+
+    test('POST /teams/new asks for a service code of three letters or numbers', async () => {
+      const { statusCode, result } = await post('/teams/new', {
+        name: 'No Code Team',
+        serviceCode: ''
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain('Enter your service code')
+    })
+
+    test('POST /teams/new refuses a service code that is not three letters or numbers', async () => {
+      const { statusCode, result } = await post('/teams/new', {
+        name: 'Bad Code Team',
+        serviceCode: 'TOO-LONG'
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain(
+        'Service code must be 3 letters or numbers, for example FRM'
+      )
+    })
+
+    test('POST /teams/new refuses a description over 500 characters', async () => {
+      const { statusCode, result } = await post('/teams/new', {
+        name: 'Wordy Team',
+        serviceCode: 'ABC',
+        description: 'x'.repeat(501)
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(result).toContain(
+        'What the team does must be 500 characters or fewer'
+      )
+    })
+
+    test('GET /teams/new/check with nothing entered goes back to the form', async () => {
+      const { statusCode, headers } = await get('/teams/new/check')
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/teams/new')
+    })
+
+    test('POST /teams/new -> GET check -> POST check creates the team and opens its Members tab', async () => {
+      const postNew = await post('/teams/new', {
+        name: 'Flood Risk Team',
+        serviceCode: 'aip',
+        description: 'Checks flood models'
+      })
+
+      cookies = mergeCookies(cookies, postNew)
+      expect(postNew.statusCode).toBe(statusCodes.seeOther)
+      expect(postNew.headers.location).toBe('/teams/new/check')
+
+      const getCheck = await get('/teams/new/check')
+      const $ = load(getCheck.result)
+
+      cookies = mergeCookies(cookies, getCheck)
+      expect($('h1').text().trim()).toBe('Check your answers')
+
+      const rows = $('.govuk-summary-list__row')
+        .map((_, row) => ({
+          key: $(row).find('dt').text().trim(),
+          value: $(row).find('dd.govuk-summary-list__value').text().trim(),
+          change: $(row).find('a').attr('href') ?? null
+        }))
+        .get()
+
+      expect(rows).toEqual([
+        {
+          key: 'Team name',
+          value: 'Flood Risk Team',
+          change: '/teams/new#name'
+        },
+        {
+          key: 'Team ID',
+          value: expect.stringMatching(
+            /^flood-risk-team\s+Cannot be changed later$/
+          ),
+          change: null
+        },
+        { key: 'Service code', value: 'aip', change: '/teams/new#serviceCode' },
+        {
+          key: 'What the team does',
+          value: 'Checks flood models',
+          change: '/teams/new#description'
+        }
+      ])
+      expect(getCheck.result).toContain(
+        'You will be the team’s first admin. You can add other people, and other admins, once it is created.'
+      )
+      expect($('main form button').text().trim()).toBe('Create a team')
+
+      fetchMock.mockResponseOnce(JSON.stringify({ team: sampleTeam }))
+
+      const postCheck = await post('/teams/new/check')
+
+      expect(postCheck.statusCode).toBe(statusCodes.seeOther)
+      expect(postCheck.headers.location).toBe(`${TEAM_URL}/members`)
+
+      const [, options] = fetchMock.mock.calls.at(-1)
+
+      expect(JSON.parse(options.body)).toEqual({
+        name: 'Flood Risk Team',
+        serviceCode: 'aip',
+        description: 'Checks flood models'
+      })
+    })
+
+    test('says a description was not given', async () => {
+      cookies = mergeCookies(
+        cookies,
+        await post('/teams/new', { name: 'Quiet Team', serviceCode: 'ABC' })
+      )
+
+      const { result } = await get('/teams/new/check')
+
+      expect(result).toContain('Not given')
+    })
+
+    test('opens the Members tab of the ID the backend gave, which is numbered when the first choice was taken', async () => {
+      cookies = mergeCookies(
+        cookies,
+        await post('/teams/new', {
+          name: 'Flood Risk Team',
+          serviceCode: 'ABC'
+        })
+      )
+
+      fetchMock.mockResponseOnce(
+        JSON.stringify({ team: { ...sampleTeam, slug: 'flood-risk-team-2' } })
+      )
+
+      const postCheck = await post('/teams/new/check')
+
+      expect(postCheck.headers.location).toBe(
+        '/teams/flood-risk-team-2/members'
+      )
+    })
+
+    test('POST /teams/new/check shows an error for a duplicate team name', async () => {
+      cookies = mergeCookies(
+        cookies,
+        await post('/teams/new', { name: 'Duplicate Team', serviceCode: 'ABC' })
+      )
+
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'A team with this name already exists',
+          code: 'team-exists'
+        }),
+        { status: 409 }
+      )
+
+      const postCheck = await post('/teams/new/check')
+
+      expect(postCheck.statusCode).toBe(statusCodes.conflict)
+      expect(postCheck.result).toContain('A team with this name already exists')
+      expect(postCheck.result).toContain('Check your answers')
+      expect(
+        load(postCheck.result)('.govuk-error-summary__list a').attr('href')
+      ).toBe('/teams/new#name')
+    })
+  })
+
+  describe('the Models tab', () => {
+    function backend({
+      role = 'admin',
+      deployments = [deployment()],
+      credentials = [teamCredential],
+      environments = [
+        {
+          environment: 'infradev',
+          limits: { requestsPerMinute: 60, tokensPerMinute: 1000 }
+        }
+      ],
+      ...routes
+    } = {}) {
+      mockApi(fetchMock, {
+        [`GET ${TEAM_PATH}`]: { ...teamWithMembers(role), environments },
+        [`GET ${TEAM_PATH}/deployments`]: { items: deployments },
+        'GET /v1/models': { items: catalogue },
+        'GET /v1/credentials': { items: credentials },
+        ...routes
+      })
+    }
+
+    const configured = config.get('teamEnvironments')
+
+    afterEach(() => {
+      config.set('teamEnvironments', configured)
+    })
+
+    test('redirects to /sign-in when signed out', async () => {
+      const { statusCode, headers } = await server.inject({
+        method: 'GET',
+        url: TEAM_URL
+      })
+
+      expect(statusCode).toBe(302)
+      expect(headers.location).toBe(
+        `/sign-in?returnTo=${encodeURIComponent(TEAM_URL)}`
+      )
+    })
+
+    test('names the team, with the tabs and Models current', async () => {
+      backend()
+
+      const { statusCode, result } = await get(TEAM_URL)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toMatch(
+        /govuk-caption-xl[^>]*>Team<\/span>\s*<h1[^>]*>Flood Risk Team<\/h1>/
+      )
+      expect(result).toContain('aria-current="page">Models</a>')
+      expect(result).toContain(`href="${TEAM_URL}/members">Members</a>`)
+      expect(result).toContain(`href="${TEAM_URL}/details">Details</a>`)
+      // The tab replaces the stacked summary, resource rows and forms.
+      expect(result).not.toContain('Change the service code')
+      expect(result).not.toContain('What was set up for')
+    })
+
+    test('shows an admin a card for the environment with its models, client secret and limits', async () => {
+      backend({
+        deployments: [
+          deployment(),
+          deployment({
+            _id: 'deployment-2',
+            modelSlug: 'gpt-4-1-nano',
+            status: 'checks-failed'
+          })
+        ]
+      })
+
+      const { result } = await get(TEAM_URL)
+
+      expect(result).toContain('data-testid="environment-card"')
+      expect(result).toContain('>Development</h2>')
+      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
+      expect(result).toContain('Ready to use')
+      expect(result).toContain('govuk-tag--green')
+      expect(result).toContain('Setup failed')
+      expect(result).toContain('govuk-tag--red')
+      expect(result).toContain(
+        'href="/connect/team/request/flood-risk-team/deployment-2"'
+      )
+      expect(result).toContain('See what happened')
+      // Remove is for a ready model and a failed one.
+      expect(result).toContain(`href="${TEAM_URL}/models/deployment-1/remove"`)
+      expect(result).toContain(`href="${TEAM_URL}/models/deployment-2/remove"`)
+      expect(result).toContain('Expires 19 October 2027')
+      expect(result).toContain(`href="${TEAM_URL}/client-secrets/cred-1/view"`)
+      expect(result).toContain(
+        `href="${TEAM_URL}/client-secrets/cred-1/rotate"`
+      )
+      expect(result).toContain(
+        `href="${TEAM_URL}/client-secrets/cred-1/revoke"`
+      )
+      expect(result).not.toContain('Ask an admin for it')
+      expect(result).toContain('60 requests and 1,000 tokens a minute')
+      expect(result).toContain(
+        'Test, Pre-production and Production are not available yet.'
+      )
+      expect(result).toContain(
+        'To change your limits, <a class="govuk-link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">contact the AI Platform team</a>.'
+      )
+    })
+
+    test('shows a member the same models, with no change actions, and tells them to ask an admin for the secret', async () => {
+      backend({ role: 'user' })
+
+      const { statusCode, result } = await get(TEAM_URL)
+
+      expect(statusCode).toBe(statusCodes.ok)
       expect(result).toContain('GPT-4o')
       expect(result).toContain('Ready to use')
+      expect(result).toContain('Expires 19 October 2027')
+      expect(result).toContain('Ask an admin for it')
+      expect(result).toContain('60 requests and 1,000 tokens a minute')
+      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
+      expect(result).not.toContain('/models/deployment-1/remove')
+      expect(result).not.toContain('/client-secrets/')
+    })
+
+    test('is not found for a person who is not on the team, such as one with only their own keys', async () => {
+      backend({ [`GET ${TEAM_PATH}`]: NOT_FOUND })
+
+      const { statusCode, result } = await get(TEAM_URL)
+
+      expect(statusCode).toBe(statusCodes.notFound)
+      expect(result).toContain('Team not found')
+      expect(result).not.toContain('Flood Risk Team')
+      expect(
+        fetchMock.mock.calls.filter(([url]) => url.includes('/deployments'))
+      ).toHaveLength(0)
+    })
+
+    test('does not turn a backend fault reading the team into a not found page', async () => {
+      backend({
+        [`GET ${TEAM_PATH}`]: reply(502, { code: 'upstream-unavailable' })
+      })
+
+      const { statusCode } = await get(TEAM_URL)
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
+    })
+
+    test('says what each state of a model is, and refreshes itself while one is changing', async () => {
+      backend({
+        deployments: [
+          deployment({ _id: 'd-1', status: 'deploying' }),
+          deployment({
+            _id: 'd-2',
+            modelSlug: 'gpt-4-1-nano',
+            status: 'queued'
+          }),
+          deployment({
+            _id: 'd-3',
+            modelSlug: 'gpt-5-mini',
+            status: 'removing'
+          })
+        ]
+      })
+
+      const { result } = await get(TEAM_URL)
+
+      expect(result).toContain('http-equiv="refresh"')
       expect(result).toContain('Setting up')
-      expect(result).toContain('Removed')
-      expect(result).toContain('href="/teams/team-1/models/dep-1/remove"')
-      expect(result).toContain('href="/connect/team/request/team-1/dep-2"')
-      expect(result).not.toContain('/models/dep-2/remove')
-      expect(result).not.toContain('/models/dep-3/remove')
-      // Something is still changing: the page offers a refresh rather than
-      // reloading itself under the forms.
-      expect(result).toContain('data-testid="team-models-changing"')
-      expect(result).toContain('Refresh this page')
+      expect(result).toContain('Waiting for another change')
+      expect(result).toContain('Removing')
+      expect(result).toContain('govuk-tag--yellow')
+      // Something still being set up has its progress to see; a removal has
+      // no actions at all.
+      expect(result).toContain(
+        'href="/connect/team/request/flood-risk-team/d-1"'
+      )
+      expect(result).not.toContain('/models/d-1/remove')
+      expect(result).not.toContain('/models/d-3/remove')
+      expect(result).not.toContain('/request/flood-risk-team/d-3')
+    })
+
+    test('does not refresh when nothing is changing', async () => {
+      backend()
+
+      const { result } = await get(TEAM_URL)
+
       expect(result).not.toContain('http-equiv="refresh"')
     })
 
-    test('GET /teams/{id} offers "See what happened" for a failed model and no link for an unknown status', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(adminTeam, [
-        deployment({ _id: 'dep-f', status: 'deploy-failed' }),
-        deployment({ _id: 'dep-u', status: 'brand-new-status' })
-      ])
-
-      const { result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(cookies) }
+    test('a removal that failed returns the model as ready, with the reason', async () => {
+      backend({
+        deployments: [deployment({ failureReason: 'The change was rejected.' })]
       })
 
-      expect(result).toContain('Setup failed')
-      expect(result).toContain('See what happened')
-      expect(result).toContain('href="/connect/team/request/team-1/dep-f"')
-      expect(result).toContain('Status unknown')
-      expect(result).not.toContain('Setting up')
-      expect(result).not.toContain('Check progress')
-      expect(result).not.toContain('/connect/team/request/team-1/dep-u')
+      const { result } = await get(TEAM_URL)
+
+      expect(result).toContain('Ready to use')
+      expect(result).toContain('The change was rejected.')
     })
 
-    test('GET /teams/{id} lists what was set up for an active model, by name and kind, with the registration state', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(adminTeam, [
-        deployment({
-          resources: [
-            { name: 'aip-alpha', kind: 'Foundry project', verified: true },
-            { name: 'alpha-gpt-4o', kind: 'Model deployment', verified: true }
-          ],
-          appRegistration: 'skipped'
+    test('names a model by its slug when the catalogue cannot be read', async () => {
+      backend({
+        'GET /v1/models': reply(502, { code: 'upstream-unavailable' })
+      })
+
+      const { statusCode, result } = await get(TEAM_URL)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('gpt-4o')
+    })
+
+    test('shows no date for a client secret that does not say when it expires', async () => {
+      backend({ credentials: [{ ...teamCredential, expiresAt: null }] })
+
+      const { result } = await get(TEAM_URL)
+
+      expect(result).not.toContain('Expires')
+      expect(result).toContain(`href="${TEAM_URL}/client-secrets/cred-1/view"`)
+    })
+
+    test.each([
+      [
+        'one not in the vault yet',
+        [{ ...teamCredential, vaultState: 'unwritten' }],
+        'Being prepared'
+      ],
+      [
+        'one revoked after the model turned active',
+        [
+          {
+            ...teamCredential,
+            status: 'revoked',
+            revokedAt: '2026-10-22T09:00:00.000Z'
+          }
+        ],
+        'Revoked'
+      ],
+      ['none yet', [], 'Ready once a model has been set up.']
+    ])(
+      'says where the client secret is with %s, and offers nothing to do with it',
+      async (_name, credentials, text) => {
+        backend({
+          credentials,
+          deployments: [deployment({ activatedAt: '2026-10-21T10:45:00.000Z' })]
         })
-      ])
 
-      const { result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(cookies) }
+        const { result } = await get(TEAM_URL)
+
+        expect(result).toContain(text)
+        expect(result).not.toContain('/client-secrets/')
+      }
+    )
+
+    test('says the client secret could not be checked when the credentials cannot be read', async () => {
+      backend({
+        'GET /v1/credentials': reply(502, { code: 'upstream-unavailable' })
       })
 
-      expect(result).toContain('data-testid="model-resources"')
-      expect(result).toContain('Foundry project')
-      expect(result).toContain('aip-alpha')
-      expect(result).toContain('alpha-gpt-4o')
-      expect(result).toContain('Skipped, awaiting Entra consent')
+      const { statusCode, result } = await get(TEAM_URL)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('We could not check this just now.')
     })
 
-    test('GET /teams/{id} lists nothing for a model that is not active yet', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(adminTeam, [
-        deployment({
-          status: 'deployed',
-          resources: [
-            { name: 'aip-alpha', kind: 'Foundry project', verified: false }
-          ],
-          appRegistration: 'skipped'
+    test('reads the credentials only after the deployments, which is what grants a model that just turned active its team secret', async () => {
+      let granted = false
+
+      backend({
+        [`GET ${TEAM_PATH}/deployments`]: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          granted = true
+
+          return { items: [deployment()] }
+        },
+        'GET /v1/credentials': () => ({
+          items: granted ? [teamCredential] : []
         })
-      ])
-
-      const { result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(cookies) }
       })
 
-      expect(result).not.toContain('data-testid="model-resources"')
-      expect(result).not.toContain('aip-alpha')
+      const { result } = await get(TEAM_URL)
+
+      expect(result).toContain('Expires 19 October 2027')
+      expect(result).not.toContain('Ready once a model has been set up.')
     })
 
-    test('GET /teams/{id} names a model by its slug when the catalogue no longer lists it', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(adminTeam, [deployment({ modelSlug: 'retired-model' })])
-
-      const { result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(cookies) }
+    test('does not read the credentials when the models could not be listed', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/deployments`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
       })
 
-      expect(result).toContain('retired-model')
+      await get(TEAM_URL)
+
+      expect(
+        fetchMock.mock.calls.some(([url]) => url.includes('/v1/credentials'))
+      ).toBe(false)
     })
 
-    test('GET /teams/{id}/models/{deploymentId}/remove fails rather than hiding a team lookup that broke', async () => {
-      const cookies = await signIn(server)
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ statusCode: 502, message: 'down' }),
-        { status: 502 }
-      )
-
-      const { statusCode } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1/models/dep-1/remove',
-        headers: { cookie: cookieHeader(cookies) }
+    test('says so, rather than showing an empty team, when the models cannot be listed', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/deployments`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
       })
 
-      expect(statusCode).toBe(statusCodes.internalServerError)
-    })
-
-    test('GET /teams/{id} shows a member the models without a Remove link', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(memberTeam, [deployment()])
-
-      const { result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(cookies) }
-      })
-
-      expect(result).toContain('GPT-4o')
-      expect(result).not.toContain('/models/dep-1/remove')
-      expect(result).not.toContain('data-testid="team-models-changing"')
-    })
-
-    test('GET /teams/{id} says so when the models cannot be listed, rather than showing an empty team', async () => {
-      const cookies = await signIn(server)
-      fetchMock.mockResponseOnce(JSON.stringify(adminTeam))
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ statusCode: 502, message: 'down' }),
-        { status: 502 }
-      )
-      fetchMock.mockResponseOnce(JSON.stringify(catalogue))
-
-      const { result, statusCode } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(cookies) }
-      })
+      const { statusCode, result } = await get(TEAM_URL)
 
       expect(statusCode).toBe(statusCodes.ok)
       expect(result).toContain('data-testid="team-models-unavailable"')
-      expect(result).toContain('Try again')
-      expect(result).not.toContain('This team has no models yet')
-      // The rest of the team page still works.
-      expect(result).toContain('Add a member')
+      expect(result).not.toContain('data-testid="environment-card"')
     })
 
-    test('GET /teams/{id}/models/{deploymentId}/remove is not found when the team is', async () => {
-      const cookies = await signIn(server)
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ statusCode: 404, message: 'Not Found' }),
-        { status: 404 }
-      )
+    test('hides the client secret and limits of an environment with no models, and offers to set up one never set up', async () => {
+      config.set('teamEnvironments', ['infradev', 'qa'])
+      backend({ deployments: [deployment()] })
 
-      const { result, statusCode } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-9/models/dep-1/remove',
-        headers: { cookie: cookieHeader(cookies) }
-      })
+      const { result } = await get(TEAM_URL)
 
-      expect(statusCode).toBe(statusCodes.notFound)
-      expect(result).toContain('Model not found')
-    })
-
-    test('GET /teams/{id}/models/{deploymentId}/remove asks an admin to confirm', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(adminTeam, [deployment()])
-
-      const { result, statusCode } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1/models/dep-1/remove',
-        headers: { cookie: cookieHeader(cookies) }
-      })
-
-      expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('Remove GPT-4o from Flood Risk Team?')
+      expect(result).toContain('>Test</h2>')
       expect(result).toContain(
-        'will stop working as soon as it has been removed'
+        'Not set up. Test gets its own deployments, client secret and limits.'
       )
-      expect(result).toContain('data-testid="remove-model-confirm"')
-      expect(result).toContain('href="/teams/team-1"')
-    })
-
-    test.each([
-      ['a member', memberTeam, 'dep-1'],
-      ['an unknown model', adminTeam, 'dep-9']
-    ])(
-      'GET /teams/{id}/models/{deploymentId}/remove is not found for %s',
-      async (_, team, deploymentId) => {
-        const cookies = await signIn(server)
-        mockTeamPage(team, [deployment()])
-
-        const { result, statusCode } = await server.inject({
-          method: 'GET',
-          url: `/teams/team-1/models/${deploymentId}/remove`,
-          headers: { cookie: cookieHeader(cookies) }
-        })
-
-        expect(statusCode).toBe(statusCodes.notFound)
-        expect(result).toContain('Model not found')
-      }
-    )
-
-    test('POST /teams/{id}/models/{deploymentId}/remove asks the backend to remove it and says it is on its way', async () => {
-      const cookies = await signIn(server)
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ deployment: deployment({ status: 'removing' }) }),
-        { status: 202 }
+      expect(result).toContain(
+        `<a class="govuk-link" href="${TEAM_URL}/test" data-testid="set-up-environment">Set up Test</a>`
       )
-
-      const posted = await server.inject({
-        method: 'POST',
-        url: '/teams/team-1/models/dep-1/remove',
-        headers: { cookie: cookieHeader(cookies) },
-        payload: { crumb: cookies.crumb }
-      })
-
-      expect(posted.statusCode).toBe(statusCodes.seeOther)
-      expect(posted.headers.location).toBe('/teams/team-1')
-      const [url, init] = fetchMock.mock.calls.at(-1)
-      expect(url).toContain('/v1/teams/team-1/deployments/dep-1')
-      expect(init.method).toBe('DELETE')
-      expect(init.headers['x-user-id']).toBeTruthy()
-
-      mockTeamPage(adminTeam, [deployment({ status: 'removing' })])
-      const { result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(mergeCookies(cookies, posted)) }
-      })
-
-      expect(result).toContain('gpt-4o is being removed')
-      expect(result).toContain('Removing')
-      expect(result).not.toContain('/models/dep-1/remove')
-    })
-
-    test('POST /teams/{id}/models/{deploymentId}/remove reports a model that was removed at once', async () => {
-      const cookies = await signIn(server)
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ deployment: deployment({ status: 'removed' }) }),
-        { status: 200 }
+      expect(result).toContain(
+        'Pre-production and Production are not available yet.'
       )
-
-      const posted = await server.inject({
-        method: 'POST',
-        url: '/teams/team-1/models/dep-1/remove',
-        headers: { cookie: cookieHeader(cookies) },
-        payload: { crumb: cookies.crumb }
-      })
-
-      mockTeamPage(adminTeam, [deployment({ status: 'removed' })])
-      const { result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1',
-        headers: { cookie: cookieHeader(mergeCookies(cookies, posted)) }
-      })
-
-      expect(result).toContain('gpt-4o has been removed from the team.')
+      // Only the Development card has a client secret.
+      expect(result.split('data-testid="secret-row"')).toHaveLength(2)
     })
 
-    test.each([
-      [
-        'deployment-in-progress',
-        'This model is still being set up. Try again once it is ready.'
-      ],
-      [
-        'team-file-busy',
-        'Another change to this team is in progress. Try again in a few minutes.'
-      ],
-      ['admin-required', 'Only a team admin can remove a model.'],
-      ['some-new-code', 'refused']
-    ])(
-      'POST /teams/{id}/models/{deploymentId}/remove explains a refusal (%s)',
-      async (code, message) => {
-        const cookies = await signIn(server)
-        fetchMock.mockResponseOnce(
-          JSON.stringify({ statusCode: 409, message: 'refused', code }),
-          { status: code === 'admin-required' ? 403 : 409 }
-        )
+    test('adds a model to another environment from its own page', async () => {
+      config.set('teamEnvironments', ['infradev', 'qa'])
+      backend({
+        deployments: [
+          deployment(),
+          deployment({ _id: 'd-9', environment: 'qa' })
+        ]
+      })
 
-        const posted = await server.inject({
-          method: 'POST',
-          url: '/teams/team-1/models/dep-1/remove',
-          headers: { cookie: cookieHeader(cookies) },
-          payload: { crumb: cookies.crumb }
-        })
+      const { result } = await get(TEAM_URL)
 
-        expect(posted.statusCode).toBe(statusCodes.seeOther)
-
-        mockTeamPage(adminTeam, [deployment()])
-        const { result } = await server.inject({
-          method: 'GET',
-          url: '/teams/team-1',
-          headers: { cookie: cookieHeader(mergeCookies(cookies, posted)) }
-        })
-
-        expect(result).toContain(message)
-      }
-    )
-
-    test('POST /teams/{id}/models/{deploymentId}/remove surfaces an unknown model as not found', async () => {
-      const cookies = await signIn(server)
-      fetchMock.mockResponseOnce(
-        JSON.stringify({ statusCode: 404, message: 'Not Found' }),
-        { status: 404 }
+      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
+      expect(result).toMatch(
+        /href="\/teams\/flood-risk-team\/test"[^>]*>Add a model/
       )
-
-      const { statusCode } = await server.inject({
-        method: 'POST',
-        url: '/teams/team-1/models/dep-9/remove',
-        headers: { cookie: cookieHeader(cookies) },
-        payload: { crumb: cookies.crumb }
-      })
-
-      expect(statusCode).toBe(statusCodes.notFound)
     })
 
-    test('POST /teams/{id}/models/{deploymentId}/remove fails rather than hiding a broken backend', async () => {
-      const cookies = await signIn(server)
-      fetchMock.mockRejectOnce(new Error('connection refused'))
+    test('after the last model is removed: says there are none, and offers to add one, with no client secret', async () => {
+      backend({ deployments: [deployment({ status: 'removed' })] })
 
-      const { statusCode, result } = await server.inject({
-        method: 'POST',
-        url: '/teams/team-1/models/dep-1/remove',
-        headers: { cookie: cookieHeader(cookies) },
-        payload: { crumb: cookies.crumb }
-      })
+      const { result } = await get(TEAM_URL)
 
-      expect(statusCode).toBe(statusCodes.internalServerError)
-      expect(result).not.toContain('connection refused')
+      expect(result).toContain('No models in Development')
+      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
+      expect(result).not.toContain('data-testid="secret-row"')
+      expect(result).not.toContain('Not set up.')
     })
 
-    test('GET /teams/{id}/models/{deploymentId}/remove is not found for a member who is not an admin', async () => {
-      const cookies = await signIn(server)
-      mockTeamPage(memberTeam, [deployment()])
+    test('says nothing about environments not available when all four are', async () => {
+      config.set('teamEnvironments', ['infradev', 'qa', 'preprod', 'prod'])
+      backend()
 
-      const { statusCode, result } = await server.inject({
-        method: 'GET',
-        url: '/teams/team-1/models/dep-1/remove',
-        headers: { cookie: cookieHeader(cookies) }
-      })
+      const { result } = await get(TEAM_URL)
 
-      expect(statusCode).toBe(statusCodes.notFound)
-      expect(result).toContain('Model not found')
+      expect(result).not.toContain('not available yet')
     })
   })
 })

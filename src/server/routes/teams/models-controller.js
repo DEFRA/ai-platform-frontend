@@ -4,7 +4,14 @@ import {
   getSessionUser,
   setAccountNotification
 } from '#/server/common/helpers/session.js'
-import { isNotFound, loadTeamForView, loadTeamModels } from './team-view.js'
+import {
+  DEPLOYMENT_FAILURE_STATUSES,
+  DEPLOYMENT_REMOVED_STATUS
+} from '#/server/common/helpers/deployment-status.js'
+import { environmentName } from '#/server/common/helpers/environment-names.js'
+import { isNotFound, loadTeamForView, teamUrl } from './team-view.js'
+
+const ACTIVE_STATUS = 'active'
 
 function removeModelErrorMessage(error) {
   if (error.code === 'deployment-in-progress') {
@@ -22,23 +29,77 @@ function removeModelErrorMessage(error) {
   return error.message
 }
 
-function modelNotFound(h, teamId) {
+function modelNotFound(h, teamRef) {
   return h
     .view('error/index', {
       pageTitle: 'Model not found',
       heading: 'Model not found',
       message:
         'This model is not one of this team’s, or you are not an admin of the team.',
-      actionHref: `/teams/${teamId}`,
+      actionHref: teamUrl({ slug: teamRef }),
       actionText: 'Back to the team'
     })
     .code(statusCodes.notFound)
 }
 
-function removalNotification(deployment) {
-  return deployment.status === 'removed'
-    ? `${deployment.modelSlug} has been removed from the team.`
-    : `${deployment.modelSlug} is being removed. Apps using it through your team’s address will stop working once it has gone; this takes a few minutes.`
+// The model's display name for a heading, or its slug when the catalogue no
+// longer lists it or cannot be read: a name is a nicety, never a reason to
+// stop a removal or to fail after one.
+async function modelDisplayName(request, modelSlug) {
+  try {
+    const model = await apiClient(request).get(
+      `/v1/models/${encodeURIComponent(modelSlug)}`
+    )
+
+    return model.displayName ?? modelSlug
+  } catch {
+    return modelSlug
+  }
+}
+
+// What a team's admin can remove: a model that is ready, or one that failed
+// to set up.
+function isRemovable(deployment) {
+  return (
+    deployment.status === ACTIVE_STATUS ||
+    DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status)
+  )
+}
+
+// The team's deployment, or null when it is not one of the team's.
+async function findDeployment(request, slug, deploymentId) {
+  try {
+    const { deployment } = await apiClient(request).get(
+      `/v1/teams/${encodeURIComponent(slug)}/deployments/${encodeURIComponent(deploymentId)}`,
+      { userId: getSessionUser(request).id }
+    )
+
+    return deployment
+  } catch (error) {
+    if (isNotFound(error)) {
+      return null
+    }
+
+    throw error
+  }
+}
+
+function removalNotification(deployment, { name, environment }) {
+  if (deployment.status === DEPLOYMENT_REMOVED_STATUS) {
+    return {
+      type: 'success',
+      heading: `${name} has been removed from ${environment}`,
+      message:
+        'Apps using it through your team’s address no longer work with it.'
+    }
+  }
+
+  return {
+    type: 'success',
+    heading: `${name} is being removed from ${environment}`,
+    message:
+      'Apps using it through your team’s address will stop working once it has gone. This takes a few minutes.'
+  }
 }
 
 /**
@@ -48,49 +109,60 @@ function removalNotification(deployment) {
 export const removeModelController = {
   get: {
     async handler(request, h) {
-      const { id, deploymentId } = request.params
-      let result
+      const { slug, deploymentId } = request.params
+      let loaded
 
       try {
-        result = await loadTeamForView(request, id)
+        loaded = await loadTeamForView(request, slug)
       } catch (error) {
         if (isNotFound(error)) {
-          return modelNotFound(h, id)
+          return modelNotFound(h, slug)
         }
 
         throw error
       }
 
-      const { models } = await loadTeamModels(request, id, result.isAdmin)
-      const model = models.find((candidate) => candidate._id === deploymentId)
+      const deployment = await findDeployment(request, slug, deploymentId)
 
-      if (!model || !result.isAdmin) {
-        return modelNotFound(h, id)
+      if (!deployment || !loaded.isAdmin || !isRemovable(deployment)) {
+        return modelNotFound(h, slug)
       }
 
+      const name = await modelDisplayName(request, deployment.modelSlug)
+      const environment = environmentName(deployment.environment)
+      // A model that never finished setting up has nothing using it.
+      const neverSetUp = DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status)
+
       return h.view('teams/remove-model', {
-        pageTitle: `Remove ${model.modelDisplayName} from ${result.team.name}`,
-        heading: `Remove ${model.modelDisplayName} from ${result.team.name}?`,
-        team: result.team,
-        model
+        pageTitle: `Remove ${name} from ${environment}?`,
+        heading: `Remove ${name} from ${environment}?`,
+        team: loaded.team,
+        teamUrl: teamUrl(loaded.team),
+        modelName: name,
+        warning: neverSetUp
+          ? 'It was never set up, so nothing is using it.'
+          : `Anything using ${name} through your team’s address will stop working as soon as it has been removed. Your team’s other models and its client secret are not affected.`
       })
     }
   },
   post: {
     async handler(request, h) {
       const sessionUser = getSessionUser(request)
-      const { id, deploymentId } = request.params
+      const { slug, deploymentId } = request.params
 
       try {
         const { deployment } = await apiClient(request).del(
-          `/v1/teams/${id}/deployments/${deploymentId}`,
+          `/v1/teams/${encodeURIComponent(slug)}/deployments/${encodeURIComponent(deploymentId)}`,
           { userId: sessionUser.id }
         )
 
-        setAccountNotification(request, {
-          type: 'success',
-          message: removalNotification(deployment)
-        })
+        setAccountNotification(
+          request,
+          removalNotification(deployment, {
+            name: await modelDisplayName(request, deployment.modelSlug),
+            environment: environmentName(deployment.environment)
+          })
+        )
       } catch (error) {
         // Only a refusal the person can act on becomes a banner; a backend
         // fault goes to the error page like everywhere else.
@@ -102,7 +174,7 @@ export const removeModelController = {
         }
 
         if (isNotFound(error)) {
-          return modelNotFound(h, id)
+          return modelNotFound(h, slug)
         }
 
         setAccountNotification(request, {
@@ -111,7 +183,7 @@ export const removeModelController = {
         })
       }
 
-      return h.redirect(`/teams/${id}`).code(statusCodes.seeOther)
+      return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
     }
   }
 }

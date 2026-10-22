@@ -2,7 +2,6 @@ const SESSION_USER_KEY = 'user'
 const PENDING_ACCESS_KEY = 'pendingAccess'
 const REQUESTED_DEPLOYMENTS_KEY = 'requestedDeployments'
 const PENDING_TEAM_KEY = 'pendingTeam'
-const CURRENT_TEAM_KEY = 'currentTeamId'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
@@ -35,17 +34,14 @@ export function clearPendingAccess(request) {
 }
 
 // The deployments one team request made, so its wait page can follow them
-// all; the page falls back to the one in its address when this is gone.
+// all (`{ teamSlug, ids }`); the page falls back to the one in its address
+// when this is gone.
 export function getRequestedDeployments(request) {
   return request.yar.get(REQUESTED_DEPLOYMENTS_KEY)
 }
 
 export function setRequestedDeployments(request, value) {
   request.yar.set(REQUESTED_DEPLOYMENTS_KEY, value)
-}
-
-export function clearRequestedDeployments(request) {
-  request.yar.clear(REQUESTED_DEPLOYMENTS_KEY)
 }
 
 // Ends the whole session, and with it everything a person left in it
@@ -67,16 +63,6 @@ export function clearPendingTeam(request) {
   request.yar.clear(PENDING_TEAM_KEY)
 }
 
-// A person belongs to several teams but acts in one at a time (design F):
-// opening a team's page is what makes it the one they are acting in.
-export function getCurrentTeamId(request) {
-  return request.yar.get(CURRENT_TEAM_KEY)
-}
-
-export function setCurrentTeamId(request, teamId) {
-  request.yar.set(CURRENT_TEAM_KEY, teamId)
-}
-
 export function setIssuedCredential(request, value) {
   request.yar.set(ISSUED_CREDENTIAL_KEY, value)
 }
@@ -84,6 +70,19 @@ export function setIssuedCredential(request, value) {
 // One-render only: reading it also clears it from the session.
 export function takeIssuedCredential(request) {
   const credential = request.yar.get(ISSUED_CREDENTIAL_KEY)
+  request.yar.clear(ISSUED_CREDENTIAL_KEY)
+  return credential
+}
+
+// One-render only, and only for the page it is for: a result that `matches`
+// is returned and cleared; any other is left in the session for its own page.
+export function takeIssuedCredentialIf(request, matches) {
+  const credential = request.yar.get(ISSUED_CREDENTIAL_KEY)
+
+  if (!credential || !matches(credential)) {
+    return undefined
+  }
+
   request.yar.clear(ISSUED_CREDENTIAL_KEY)
   return credential
 }

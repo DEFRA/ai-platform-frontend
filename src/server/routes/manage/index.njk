@@ -1,117 +1,58 @@
 {% extends 'layouts/page.njk' %}
 
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
-{% from "govuk/components/tag/macro.njk" import govukTag %}
-{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "credential-actions/macro.njk" import appCredentialActions %}
-{% from "placeholder-credential-notice/macro.njk" import appPlaceholderCredentialNotice %}
-
-{% block head %}
-  {{ super() }}
-  {% if refreshSeconds %}
-    <meta http-equiv="refresh" content="{{ refreshSeconds }}">
-  {% endif %}
-{% endblock %}
 
 {% block content %}
+  {% if notificationBanner %}
+    {{ govukNotificationBanner(notificationBanner) }}
+  {% endif %}
+
   {{ appHeading({
     text: heading
   }) }}
 
   <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <p class="govuk-body-l" data-testid="access-lead">Keys for trying models on your own. A key works for {{ researchDays }} days, and you can renew it up to {{ renewalCap }} times.</p>
+    </div>
+  </div>
+
+  <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-      {% if notificationBanner %}
-        {{ govukNotificationBanner(notificationBanner) }}
-      {% endif %}
-
-      <h2 class="govuk-heading-m">Keys and client secrets you can use</h2>
-
       {% if keyRows.length == 0 %}
-        <p class="govuk-body">You do not have a key or client secret yet.</p>
-        <p class="govuk-body">Pick a model and answer three short questions. It takes about 5 minutes.</p>
-        {{ govukButton({ text: "Browse models", href: "/models" }) }}
+        <p class="govuk-body" data-testid="keys-empty">You do not have a key yet.</p>
       {% else %}
         <table class="govuk-table app-credentials-table" data-testid="keys-table">
-          <caption class="govuk-table__caption govuk-visually-hidden">Keys and client secrets you can use</caption>
+          <caption class="govuk-table__caption govuk-visually-hidden">Your keys</caption>
           <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-              <th class="govuk-table__header" scope="col">For</th>
-              <th class="govuk-table__header" scope="col">Models</th>
-              <th class="govuk-table__header" scope="col">Environment</th>
-              <th class="govuk-table__header" scope="col">Status</th>
-              <th class="govuk-table__header" scope="col">Runs out</th>
-              <th class="govuk-table__header" scope="col">Actions</th>
+              <th class="govuk-table__header" scope="col">Model</th>
+              <th class="govuk-table__header" scope="col">Expires</th>
+              <th class="govuk-table__header" scope="col"><span class="govuk-visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody class="govuk-table__body">
             {% for row in keyRows %}
               <tr class="govuk-table__row" data-testid="keys-table-row">
-                <td class="govuk-table__cell">{{ row.forText }}</td>
-                <td class="govuk-table__cell">{{ row.modelDisplayName }}{% if row.keyHint %}, ends {{ row.keyHint }}{% endif %}</td>
-                <td class="govuk-table__cell">{{ row.environment }}</td>
-                <td class="govuk-table__cell">
-                  {{ govukTag({ text: row.statusText, classes: row.tagClass }) }}
-                </td>
-                <td class="govuk-table__cell">{{ row.runsOut }}</td>
-                <td class="govuk-table__cell">
-                  {{ appCredentialActions({
-                    credential: row,
-                    crumb: crumb,
-                    showRenewRevoke: row.showRenewRevoke
-                  }) }}
-                </td>
-              </tr>
-              {% if row.placeholder %}
-                <tr class="govuk-table__row" data-testid="keys-table-placeholder-row">
-                  <td class="govuk-table__cell" colspan="6">
-                    {{ appPlaceholderCredentialNotice() }}
-                  </td>
-                </tr>
-              {% endif %}
-            {% endfor %}
-          </tbody>
-        </table>
-      {% endif %}
-
-      <h2 class="govuk-heading-m">Your models</h2>
-
-      {% if modelsUnavailable %}
-        <p class="govuk-body" data-testid="models-unavailable">We could not list all of your teams' models just now. Refresh the page to try again.</p>
-      {% endif %}
-
-      {% if modelRows.length == 0 %}
-        {% if not modelsUnavailable %}
-          <p class="govuk-body" data-testid="models-placeholder">None of your teams has a model yet. A team's models are set up from Connect and shared through its client secret.</p>
-        {% endif %}
-      {% else %}
-        <table class="govuk-table app-credentials-table" data-testid="models-table">
-          <caption class="govuk-table__caption govuk-visually-hidden">Your models</caption>
-          <thead class="govuk-table__head">
-            <tr class="govuk-table__row">
-              <th class="govuk-table__header" scope="col">Model</th>
-              <th class="govuk-table__header" scope="col">Team</th>
-              <th class="govuk-table__header" scope="col">Environment</th>
-              <th class="govuk-table__header" scope="col">Status</th>
-              <th class="govuk-table__header" scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="govuk-table__body">
-            {% for row in modelRows %}
-              <tr class="govuk-table__row" data-testid="models-table-row">
                 <td class="govuk-table__cell">{{ row.modelDisplayName }}</td>
-                <td class="govuk-table__cell">{{ row.teamName }}</td>
-                <td class="govuk-table__cell">{{ row.environment }}</td>
                 <td class="govuk-table__cell">
-                  {{ govukTag({ text: row.statusText, classes: row.tagClass }) }}
-                  {% if row.failureReason %}
-                    <p class="govuk-body-s govuk-!-margin-bottom-0 govuk-!-margin-top-1">{{ row.failureReason }}</p>
+                  {{ row.expiresText }}
+                  {% if row.renewedHint %}
+                    <p class="govuk-hint govuk-!-margin-bottom-0" data-testid="key-renewed-hint">{{ row.renewedHint }}</p>
                   {% endif %}
                 </td>
                 <td class="govuk-table__cell">
-                  <a class="govuk-link app-link--progress" href="{{ row.action.href }}" data-testid="model-action">
-                    {% if row.inProgress %}<span class="app-spinner" aria-hidden="true"></span>{% endif %}
-                    {{ row.action.text }}<span class="govuk-visually-hidden"> for {{ row.modelDisplayName }}</span>
-                  </a>
+                  {% if row.getNewKeyUrl %}
+                    <a class="govuk-link" href="{{ row.getNewKeyUrl }}" data-testid="key-get-new">Get a new key<span class="govuk-visually-hidden"> for {{ row.modelDisplayName }}</span></a>
+                  {% else %}
+                    {{ appCredentialActions({
+                      credential: row,
+                      crumb: crumb,
+                      showRenewRevoke: true
+                    }) }}
+                  {% endif %}
                 </td>
               </tr>
             {% endfor %}
@@ -119,27 +60,14 @@
         </table>
       {% endif %}
 
-      <h2 class="govuk-heading-m">Your teams</h2>
+      <p class="govuk-body">
+        <a class="govuk-link" href="/connect/shared/start" data-testid="access-try-another">Try another model on your own</a>
+      </p>
 
-      {% if teams.length == 0 %}
-        <p class="govuk-body" data-testid="manage-teams-placeholder">You are not a member of a team yet.</p>
-        <p class="govuk-body">
-          Teams share an OAuth client secret that lasts longer and can be rotated. If your team already has one, ask an admin to add you.
-        </p>
-        <p class="govuk-body">
-          <a class="govuk-link" href="/teams/new">Create a team</a>
-        </p>
-      {% else %}
-        <ul class="govuk-list">
-          {% for team in teams %}
-            <li>
-              You are {{ "an admin" if team.role == "admin" else "a member" }} of {{ team.name }}.
-              <a class="govuk-link" href="/teams/{{ team._id }}">See who is in {{ team.name }}</a>
-            </li>
-          {% endfor %}
-        </ul>
-      {% endif %}
+      {{ govukInsetText({
+        html: 'Your teams’ models and client secrets are on each team’s page. <a class="govuk-link" href="/teams" data-testid="access-go-to-teams">Go to Teams</a>',
+        attributes: { "data-testid": "access-teams-inset" }
+      }) }}
     </div>
   </div>
 {% endblock %}
-

@@ -1,5 +1,3 @@
-import Joi from 'joi'
-
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
@@ -8,7 +6,7 @@ import {
   setAccountNotification,
   takeAccountNotification,
   setIssuedCredential,
-  takeIssuedCredential
+  takeIssuedCredentialIf
 } from '#/server/common/helpers/session.js'
 import {
   buildErrorSummary,
@@ -18,29 +16,18 @@ import {
   credentialEnvironment,
   credentialEnvironmentName
 } from '#/server/common/helpers/environment-names.js'
-import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 import {
-  buildKeyRows,
-  buildModelRows,
-  notificationBannerParams
-} from './access-view.js'
+  revealSchema,
+  revokeConfirmSchema
+} from '#/server/common/helpers/credential-schemas.js'
+import {
+  RESEARCH_CREDENTIAL_DAYS,
+  RESEARCH_RENEWAL_CAP
+} from '#/server/common/constants/research-access.js'
+import { buildKeyRows, notificationBannerParams } from './access-view.js'
 
-const revokeConfirmSchema = Joi.object({
-  confirmRevoke: Joi.string().valid('yes', 'no').required().messages({
-    'any.required': 'Select yes if you want to revoke this credential',
-    'any.only': 'Select yes if you want to revoke this credential'
-  })
-})
-
-const revealSchema = Joi.object({
-  reason: Joi.string().trim().min(1).max(500).required().messages({
-    'string.empty': 'Enter why you need to see this',
-    'any.required': 'Enter why you need to see this'
-  })
-})
-
-// How often the page re-reads while any of the person's models is changing.
-const MODELS_CHANGING_REFRESH_SECONDS = 5
+const SECRET_NAME = 'key'
+const TEAM_TIER = 'team'
 
 // Only the credential's own model is looked up, so this stays a single call
 // rather than fetching the whole catalogue for a one-row confirm page.
@@ -48,70 +35,15 @@ async function findModel(request, modelSlug) {
   return apiClient(request).get(`/v1/models/${modelSlug}`)
 }
 
-// A team credential can cover several models (`allowedDeployments`); a
-// research credential always has exactly one (`modelSlug`).
-async function findModelsForCredential(request, credential) {
-  if (credential.tier === 'team') {
-    const slugs = credential.allowedDeployments ?? []
-
-    return Promise.all(slugs.map((slug) => findModel(request, slug)))
-  }
-
-  return [await findModel(request, credential.modelSlug)]
-}
-
-function modelNamesText(models) {
-  return models.map((model) => model.displayName).join(', ') || 'this model'
-}
-
-// Team credentials are OAuth client secrets; research credentials are keys.
-function secretNameFor(credential) {
-  return credential.tier === 'team' ? 'client secret' : 'key'
-}
-
-// The signed-in user's role for one team credential - looked up from the
-// same `GET /v1/teams` list `/manage` already uses, so a single-credential
-// page (not already holding the team list) can still role-gate its actions.
-// Research credentials are self-service regardless of their `teamId`, so
-// this is only ever consulted for `tier === 'team'`.
-async function isTeamAdmin(request, sessionUser, teamId) {
-  if (!teamId) {
-    return false
-  }
-
-  const { items } = await apiClient(request).get('/v1/teams', {
-    userId: sessionUser.id
-  })
-
-  return items.find((team) => team._id === teamId)?.role === 'admin'
-}
-
-// Best-effort team name lookup for the rotate confirmation page's heading -
-// falls back to a generic label rather than failing the page if it can't
-// be resolved (mirrors getModelDisplayName's pattern in connect/controller.js).
-async function findTeamName(request, sessionUser, teamId) {
-  if (!teamId) {
-    return undefined
-  }
-
-  const { items } = await apiClient(request).get('/v1/teams', {
-    userId: sessionUser.id
-  })
-
-  return items.find((team) => team._id === teamId)?.name
-}
-
-// What the rotate confirmation needs, or null when there is nothing to
-// rotate here: an unknown credential, or a research key, which is renewed
-// rather than rotated whatever the API would allow its owner.
-async function loadRotatePage(request) {
-  const sessionUser = getSessionUser(request)
-  const { id } = request.params
+// A personal research key, or null when the id is not one of the person's
+// keys. A team's client secret is the team's to manage, on the team's own
+// routes, so it is not found here whatever the API would allow.
+async function findResearchCredential(request, id) {
   let credential
 
   try {
     credential = await apiClient(request).get(`/v1/credentials/${id}`, {
-      userId: sessionUser.id
+      userId: getSessionUser(request).id
     })
   } catch (error) {
     if (isNotFound(error)) {
@@ -120,18 +52,19 @@ async function loadRotatePage(request) {
     throw error
   }
 
-  if (credential.tier !== 'team') {
-    return null
-  }
+  return credential.tier === TEAM_TIER ? null : credential
+}
 
-  const models = await findModelsForCredential(request, credential)
-  const teamName = await findTeamName(request, sessionUser, credential.teamId)
+// The words of the revoke confirmation: the key, and what revoking costs.
+async function revokeContent(request, credential) {
+  const model = await findModel(request, credential.modelSlug)
 
   return {
-    heading: `Are you sure you want to rotate the ${teamName ?? 'team'} client secret?`,
-    credential,
-    environmentName: credentialEnvironmentName(credential),
-    modelNamesText: modelNamesText(models)
+    heading: 'Are you sure you want to revoke this credential?',
+    warning: `Revoking ${model.displayName} cannot be undone. You will need to connect again to get a new credential.`,
+    legend: 'Are you sure you want to revoke this credential?',
+    yesText: 'Yes, revoke this credential',
+    noText: 'No, take me back to your access'
   }
 }
 
@@ -151,119 +84,62 @@ export const manageController = {
   list: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const [{ items }, modelNames, { items: teamItems }] = await Promise.all(
-          [
-            apiClient(request).get('/v1/credentials', {
-              userId: sessionUser.id
-            }),
-            buildModelNameMap(request),
-            apiClient(request).get('/v1/teams', { userId: sessionUser.id })
-          ]
-        )
-
-        // Deployment listings are supplementary: a transient failure on one
-        // team must not take down the whole Manage page.
-        const deploymentResults = await Promise.allSettled(
-          teamItems.map((team) =>
-            apiClient(request).get(`/v1/teams/${team._id}/deployments`, {
-              userId: sessionUser.id
-            })
-          )
-        )
-
-        const deployments = deploymentResults.flatMap((result) => {
-          if (result.status === 'rejected') {
-            request.logger.warn(
-              { err: result.reason },
-              'Could not load team deployments for the manage page'
-            )
-            return []
-          }
-
-          return result.value.items
-        })
-
-        // teamId is stamped at issue time from the user's team and can go
-        // stale if they later change teams; tier is the reliable signal for
-        // personal vs shared, since teamId is never used for authorization.
-        const teamsById = new Map(teamItems.map((team) => [team._id, team]))
-        const modelRows = buildModelRows(
-          deployments,
-          items,
-          teamsById,
-          modelNames
-        )
+        const [{ items }, modelNames] = await Promise.all([
+          apiClient(request).get('/v1/credentials', {
+            userId: getSessionUser(request).id
+          }),
+          buildModelNameMap(request)
+        ])
 
         return h.view('manage/index', {
           pageTitle: 'Your access',
           heading: 'Your access',
-          keyRows: buildKeyRows(items, teamsById, modelNames),
-          modelRows,
-          modelsUnavailable: deploymentResults.some(
-            (result) => result.status === 'rejected'
-          ),
-          teams: teamItems,
+          researchDays: RESEARCH_CREDENTIAL_DAYS,
+          renewalCap: RESEARCH_RENEWAL_CAP,
+          keyRows: buildKeyRows(items, modelNames),
           notificationBanner: notificationBannerParams(
             takeAccountNotification(request)
-          ),
-          refreshSeconds: modelRows.some((row) => row.inProgress)
-            ? MODELS_CHANGING_REFRESH_SECONDS
-            : undefined
+          )
         })
       }
     }
   },
-
   view: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
         const { id } = request.params
+        const credential = await findResearchCredential(request, id)
 
-        let credential
-        try {
-          credential = await apiClient(request).get(`/v1/credentials/${id}`, {
-            userId: sessionUser.id
-          })
-        } catch (error) {
-          if (isNotFound(error)) {
-            return h
-              .view('error/index', {
-                pageTitle: 'Credential not found',
-                heading: 'Credential not found',
-                message:
-                  'This credential does not exist, or you do not have access to it.',
-                actionHref: '/manage',
-                actionText: 'Go to your access'
-              })
-              .code(statusCodes.notFound)
-          }
-          throw error
+        if (!credential) {
+          return h
+            .view('error/index', {
+              pageTitle: 'Credential not found',
+              heading: 'Credential not found',
+              message:
+                'This credential does not exist, or you do not have access to it.',
+              actionHref: '/manage',
+              actionText: 'Go to your access'
+            })
+            .code(statusCodes.notFound)
         }
 
-        const models = await findModelsForCredential(request, credential)
-        const isAdmin =
-          credential.tier === 'team'
-            ? await isTeamAdmin(request, sessionUser, credential.teamId)
-            : false
-        const heading =
-          credential.tier === 'team' ? 'Team credential' : models[0].displayName
+        const model = await findModel(request, credential.modelSlug)
+        const heading = model.displayName
 
         return h.view('manage/credential', {
           pageTitle: heading,
           heading,
           credential,
           environmentName: credentialEnvironmentName(credential),
-          placeholderCredential: isPlaceholderCredential(credential),
-          models: models.map((model) => ({
-            ...model,
-            gatewayEndpoint: buildGatewayRequest(
-              model,
-              credentialEnvironment(credential)
-            ).endpoint
-          })),
-          isAdmin
+          models: [
+            {
+              ...model,
+              gatewayEndpoint: buildGatewayRequest(
+                model,
+                credentialEnvironment(credential)
+              ).endpoint
+            }
+          ]
         })
       }
     }
@@ -307,28 +183,18 @@ export const manageController = {
   revoke: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { id } = request.params
+        const credential = await findResearchCredential(
+          request,
+          request.params.id
+        )
 
-        let credential
-        try {
-          credential = await apiClient(request).get(`/v1/credentials/${id}`, {
-            userId: sessionUser.id
-          })
-        } catch (error) {
-          if (isNotFound(error)) {
-            return h.redirect('/manage').code(statusCodes.seeOther)
-          }
-          throw error
+        if (!credential) {
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
-
-        const models = await findModelsForCredential(request, credential)
 
         return h.view('manage/revoke', {
           pageTitle: 'Confirm revoke',
-          heading: 'Are you sure you want to revoke this credential?',
-          credential,
-          modelNamesText: modelNamesText(models),
+          ...(await revokeContent(request, credential)),
           errorSummary: null,
           fieldErrors: {}
         })
@@ -340,20 +206,19 @@ export const manageController = {
         validate: {
           payload: revokeConfirmSchema,
           failAction: async (request, h, error) => {
-            const sessionUser = getSessionUser(request)
-            const { id } = request.params
-            const credential = await apiClient(request).get(
-              `/v1/credentials/${id}`,
-              { userId: sessionUser.id }
+            const credential = await findResearchCredential(
+              request,
+              request.params.id
             )
-            const models = await findModelsForCredential(request, credential)
+
+            if (!credential) {
+              return h.redirect('/manage').code(statusCodes.seeOther).takeover()
+            }
 
             return h
               .view('manage/revoke', {
                 pageTitle: 'Error: Confirm revoke',
-                heading: 'Are you sure you want to revoke this credential?',
-                credential,
-                modelNamesText: modelNamesText(models),
+                ...(await revokeContent(request, credential)),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
               })
@@ -366,11 +231,13 @@ export const manageController = {
         const { id } = request.params
 
         if (request.payload.confirmRevoke === 'yes') {
-          const sessionUser = getSessionUser(request)
+          if (!(await findResearchCredential(request, id))) {
+            return h.redirect('/manage').code(statusCodes.seeOther)
+          }
 
           try {
             await apiClient(request).del(`/v1/credentials/${id}`, {
-              userId: sessionUser.id
+              userId: getSessionUser(request).id
             })
 
             setAccountNotification(request, {
@@ -378,14 +245,6 @@ export const manageController = {
               message: 'Credential revoked.'
             })
           } catch (error) {
-            if (error instanceof ApiError && error.code === 'admin-required') {
-              setAccountNotification(request, {
-                type: 'error',
-                message: 'Only a team admin can revoke this credential.'
-              })
-              return h.redirect('/manage').code(statusCodes.seeOther)
-            }
-
             if (!(error instanceof ApiError) || !isNotFound(error)) {
               throw error
             }
@@ -397,152 +256,24 @@ export const manageController = {
     }
   },
 
-  rotate: {
-    get: {
-      async handler(request, h) {
-        const page = await loadRotatePage(request)
-
-        if (!page) {
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        return h.view('manage/rotate', {
-          pageTitle: 'Confirm rotate',
-          ...page,
-          errorSummary: null,
-          fieldErrors: {}
-        })
-      }
-    },
-
-    post: {
-      options: {
-        validate: {
-          payload: revokeConfirmSchema,
-          failAction: async (request, h, error) => {
-            const page = await loadRotatePage(request)
-
-            if (!page) {
-              return h.redirect('/manage').code(statusCodes.seeOther).takeover()
-            }
-
-            return h
-              .view('manage/rotate', {
-                pageTitle: 'Error: Confirm rotate',
-                ...page,
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
-              })
-              .code(statusCodes.badRequest)
-              .takeover()
-          }
-        }
-      },
-      async handler(request, h) {
-        const { id } = request.params
-
-        if (request.payload.confirmRevoke !== 'yes') {
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        const sessionUser = getSessionUser(request)
-
-        try {
-          // Rotation is a team action: a research key is renewed, never
-          // rotated, whatever the API would allow its owner.
-          const current = await apiClient(request).get(
-            `/v1/credentials/${id}`,
-            { userId: sessionUser.id }
-          )
-
-          if (current.tier !== 'team') {
-            return h.redirect('/manage').code(statusCodes.seeOther)
-          }
-
-          const { credential, secret } = await apiClient(request).post(
-            `/v1/credentials/${id}/rotate`,
-            undefined,
-            { userId: sessionUser.id }
-          )
-
-          const models = await findModelsForCredential(request, credential)
-
-          setIssuedCredential(request, {
-            credential,
-            secret,
-            modelNamesText: modelNamesText(models)
-          })
-
-          return h
-            .redirect(`/manage/credentials/${id}/rotated`)
-            .code(statusCodes.seeOther)
-        } catch (error) {
-          if (error instanceof ApiError && error.code === 'admin-required') {
-            setAccountNotification(request, {
-              type: 'error',
-              message: 'Only a team admin can rotate this credential.'
-            })
-            return h.redirect('/manage').code(statusCodes.seeOther)
-          }
-
-          if (!(error instanceof ApiError) || !isNotFound(error)) {
-            throw error
-          }
-
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-      }
-    }
-  },
-
-  rotated: {
-    get: {
-      handler(request, h) {
-        const issued = takeIssuedCredential(request)
-
-        if (!issued) {
-          return h.redirect('/manage').code(statusCodes.seeOther)
-        }
-
-        return h
-          .view('manage/rotated', {
-            pageTitle: 'Credential rotated',
-            heading: 'Credential rotated',
-            credential: issued.credential,
-            placeholderCredential: isPlaceholderCredential(issued.credential),
-            secret: issued.secret,
-            modelNamesText: issued.modelNamesText
-          })
-          .header('cache-control', 'no-store')
-      }
-    }
-  },
-
   reveal: {
     get: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
-        const { id } = request.params
+        const credential = await findResearchCredential(
+          request,
+          request.params.id
+        )
 
-        let credential
-        try {
-          credential = await apiClient(request).get(`/v1/credentials/${id}`, {
-            userId: sessionUser.id
-          })
-        } catch (error) {
-          if (isNotFound(error)) {
-            return h.redirect('/manage').code(statusCodes.seeOther)
-          }
-          throw error
+        if (!credential) {
+          return h.redirect('/manage').code(statusCodes.seeOther)
         }
 
-        const models = await findModelsForCredential(request, credential)
-        const secretName = secretNameFor(credential)
+        const model = await findModel(request, credential.modelSlug)
 
         return h.view('manage/reveal', {
-          pageTitle: `View the full ${secretName}`,
-          heading: `View the full ${secretName} for ${modelNamesText(models)}`,
-          secretName,
+          pageTitle: `View the full ${SECRET_NAME}`,
+          heading: `View the full ${SECRET_NAME} for ${model.displayName}`,
+          secretName: SECRET_NAME,
           values: { reason: '' },
           errorSummary: null,
           fieldErrors: {}
@@ -555,20 +286,22 @@ export const manageController = {
         validate: {
           payload: revealSchema,
           failAction: async (request, h, error) => {
-            const sessionUser = getSessionUser(request)
-            const { id } = request.params
-            const credential = await apiClient(request).get(
-              `/v1/credentials/${id}`,
-              { userId: sessionUser.id }
+            const credential = await findResearchCredential(
+              request,
+              request.params.id
             )
-            const models = await findModelsForCredential(request, credential)
-            const secretName = secretNameFor(credential)
+
+            if (!credential) {
+              return h.redirect('/manage').code(statusCodes.seeOther).takeover()
+            }
+
+            const model = await findModel(request, credential.modelSlug)
 
             return h
               .view('manage/reveal', {
-                pageTitle: `Error: View the full ${secretName}`,
-                heading: `View the full ${secretName} for ${modelNamesText(models)}`,
-                secretName,
+                pageTitle: `Error: View the full ${SECRET_NAME}`,
+                heading: `View the full ${SECRET_NAME} for ${model.displayName}`,
+                secretName: SECRET_NAME,
                 values: request.payload,
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
@@ -579,27 +312,24 @@ export const manageController = {
         }
       },
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
         const { id } = request.params
+        const credential = await findResearchCredential(request, id)
+
+        if (!credential) {
+          return h.redirect('/manage').code(statusCodes.seeOther)
+        }
 
         try {
-          // The reveal response holds only the secret, so read the
-          // credential first to name it on the next page.
-          const credential = await apiClient(request).get(
-            `/v1/credentials/${id}`,
-            { userId: sessionUser.id }
-          )
           const { secret } = await apiClient(request).post(
             `/v1/credentials/${id}/reveal`,
             { reason: request.payload.reason },
-            { userId: sessionUser.id }
+            { userId: getSessionUser(request).id }
           )
 
           setIssuedCredential(request, {
             secret,
             credentialId: id,
-            secretName: secretNameFor(credential),
-            placeholderCredential: isPlaceholderCredential(credential)
+            secretName: SECRET_NAME
           })
 
           return h
@@ -613,11 +343,9 @@ export const manageController = {
           setAccountNotification(request, {
             type: 'error',
             message:
-              error.code === 'admin-required'
-                ? 'Only a team admin can view this credential.'
-                : error.code === 'credential-revoked'
-                  ? 'This credential has been revoked.'
-                  : 'This credential could not be found.'
+              error.code === 'credential-revoked'
+                ? 'This credential has been revoked.'
+                : 'This credential could not be found.'
           })
 
           return h.redirect('/manage').code(statusCodes.seeOther)
@@ -629,7 +357,14 @@ export const manageController = {
   revealed: {
     get: {
       handler(request, h) {
-        const issued = takeIssuedCredential(request)
+        // The slot is shared with a team's secrets, which are shown only on
+        // the team's own routes; a result for another page is left for it.
+        const issued = takeIssuedCredentialIf(
+          request,
+          (result) =>
+            result.credentialId === request.params.id &&
+            result.secretName === SECRET_NAME
+        )
 
         if (!issued) {
           return h.redirect('/manage').code(statusCodes.seeOther)
@@ -640,9 +375,9 @@ export const manageController = {
             pageTitle: `Your ${issued.secretName}`,
             heading: `Your ${issued.secretName}`,
             secretName: issued.secretName,
-            placeholderCredential: issued.placeholderCredential,
             secret: issued.secret,
-            credentialId: issued.credentialId
+            returnHref: `/manage/credentials/${issued.credentialId}`,
+            returnText: 'Back to this credential'
           })
           .header('cache-control', 'no-store')
       }

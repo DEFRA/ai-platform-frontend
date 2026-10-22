@@ -1,80 +1,96 @@
 {% extends 'layouts/page.njk' %}
 
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
-{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 
 {% block content %}
-  {% if signedIn and expiringBanner %}
-    {% set expiringBannerHtml %}
-      Your research key runs out in {{ expiringBanner.daysLeft }} day{{ '' if expiringBanner.daysLeft == 1 else 's' }}, on {{ expiringBanner.expiresAtText }}. <a class="govuk-notification-banner__link" href="{{ expiringBanner.renewUrl }}">Renew your key</a>
-    {% endset %}
-    {{ govukNotificationBanner({
-      titleText: "Important",
-      html: expiringBannerHtml
-    }) }}
-  {% endif %}
-
   {{ appHeading({
     text: heading
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      <p class="govuk-body-l">
-        Use approved AI models in your Defra service. You do not need an Azure account.
-      </p>
-
       {% if signedIn %}
-        {{ govukButton({ text: "Browse models", href: "/models", isStartButton: true }) }}
+        <p class="govuk-body-l">Use approved AI models in your Defra service.</p>
 
-        <h2 class="govuk-heading-m">Your access</h2>
-
-        {% for team in teamAccess %}
-          {% set modelsText = team.modelNames | join(", ") %}
-          {% set teamAccessHtml %}
-            {% if team.modelNames.length %}
-              <p class="govuk-body">Your team <strong>{{ team.teamName }}</strong> already has an OAuth client secret for its deployed models: {{ modelsText }}. Anyone in the team can use it, so you may not need your own.</p>
-            {% else %}
-              <p class="govuk-body">Your team <strong>{{ team.teamName }}</strong> already has an OAuth client secret, but no models are deployed for it at the moment. Anyone in the team can use it once a model is deployed.</p>
-            {% endif %}
-            <p class="govuk-body"><a class="govuk-link" href="/manage">View your team's client secret and model access</a></p>
-          {% endset %}
-          {{ govukInsetText({
-            html: teamAccessHtml,
-            attributes: { "data-testid": "team-access" }
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Add models to a team",
+            href: "/connect/team/start",
+            attributes: { "data-testid": "home-add-to-team" }
           }) }}
-        {% endfor %}
+          <a class="govuk-link" href="/connect/shared/start" data-testid="home-try-on-your-own">Try a model on your own</a>
+        </div>
 
-        <p class="govuk-body">
-          <a class="govuk-link" href="/manage">See every key and client secret you and your teams hold</a>
-        </p>
+        {% if attention.length %}
+          <h2 class="govuk-heading-m">Needs your attention</h2>
+          <ul class="govuk-list govuk-list--bullet" data-testid="home-attention">
+            {% for item in attention %}
+              <li>{{ item.text }} <a class="govuk-link" href="{{ item.href }}">{{ item.linkText }}</a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <h2 class="govuk-heading-m">Your teams</h2>
+        {% if teams === null %}
+          <p class="govuk-body" data-testid="home-teams-unavailable">We could not check your teams just now.</p>
+        {% elif teams.length == 0 %}
+          <p class="govuk-body" data-testid="home-teams-empty">You are not a member of a team yet.</p>
+        {% else %}
+          <table class="govuk-table" data-testid="home-teams">
+            <caption class="govuk-table__caption govuk-visually-hidden">Your teams</caption>
+            <thead class="govuk-table__head govuk-visually-hidden">
+              <tr class="govuk-table__row">
+                <th class="govuk-table__header" scope="col">Team</th>
+                <th class="govuk-table__header" scope="col">Your role and its models</th>
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for team in teams %}
+                <tr class="govuk-table__row" data-testid="home-team">
+                  <td class="govuk-table__cell"><a class="govuk-link" href="{{ team.href }}">{{ team.name }}</a></td>
+                  <td class="govuk-table__cell">{{ team.summary }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+
+        <h2 class="govuk-heading-m">Your own keys</h2>
+        {% if keys === null %}
+          <p class="govuk-body" data-testid="home-keys-unavailable">We could not check your keys just now.</p>
+        {% else %}
+          <p class="govuk-body" data-testid="home-keys">
+            {{ keys.text }}
+            {% if keys.hasKeys %}
+              <a class="govuk-link" href="/manage">Go to Your access</a>
+            {% endif %}
+          </p>
+        {% endif %}
       {% else %}
-        {{ govukButton({ text: "Start now", href: "/models", isStartButton: true }) }}
+        <p class="govuk-body-l">Use approved AI models in your Defra service. You do not need an Azure account.</p>
+
+        {{ govukButton({
+          text: "Start now",
+          href: "/sign-in?returnTo=%2Fmodels",
+          isStartButton: true
+        }) }}
 
         <h2 class="govuk-heading-m">Who it is for</h2>
         <p class="govuk-body">
           Anyone at Defra building a service or trying an idea out. Sign in with your Defra account.
         </p>
 
-        <h2 class="govuk-heading-m">How it works</h2>
-        <p class="govuk-body">It takes about 5 minutes.</p>
-        <ol class="govuk-list govuk-list--number">
-          <li>Pick a model from the list.</li>
-          <li>Tell us what you are building.</li>
-          <li>Get a key and a code example to paste into your service.</li>
-        </ol>
+        <h2 class="govuk-heading-m">Two ways to get access</h2>
 
-        <h2 class="govuk-heading-m">What you get</h2>
-        <ul class="govuk-list govuk-list--bullet">
-          <li>A key that works for 7 days, in the {{ researchEnvironmentName }} environment.</li>
-          <li>60 requests a minute and 100,000 tokens a day.</li>
-          <li>Models hosted in the UK, so your data stays in the UK.</li>
-        </ul>
+        <h3 class="govuk-heading-s">For your team’s service</h3>
+        <p class="govuk-body">
+          Your team gets its own deployment of a model in the UK or EU, set up in Development first. Everyone in the team uses it through one client secret.
+        </p>
 
-        {{ govukInsetText({
-          text: "This service is in alpha. " + researchEnvironmentName + " is for building and trying things out. Do not put OFFICIAL-SENSITIVE data through it."
-        }) }}
+        <h3 class="govuk-heading-s">To try a model on your own</h3>
+        <p class="govuk-body">
+          A personal key that works for {{ researchDays }} days, with 60 requests a minute and 100,000 tokens a day. Do not put OFFICIAL-SENSITIVE data through it.
+        </p>
 
         <h2 class="govuk-heading-m">Browse without signing in</h2>
         <p class="govuk-body">
@@ -84,4 +100,3 @@
     </div>
   </div>
 {% endblock %}
-

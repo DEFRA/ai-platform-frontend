@@ -1,24 +1,15 @@
-import { formatLabel, formatLabelList, formatDataZone } from './format-label.js'
-
-describe('#formatDataZone', () => {
-  test('Maps a data-zone code to its own label, not a region label', () => {
-    expect(formatDataZone('uk')).toBe('UK')
-    expect(formatDataZone('eu')).toBe('EU')
-  })
-
-  test('Returns an unknown or missing value unchanged', () => {
-    expect(formatDataZone('us')).toBe('us')
-    expect(formatDataZone(undefined)).toBe(undefined)
-  })
-})
+import { formatLabel } from './format-label.js'
 
 describe('#formatLabel', () => {
   test('Maps a known raw value to its display label', () => {
     expect(formatLabel('openai')).toBe('OpenAI')
+    expect(formatLabel('anthropic')).toBe('Anthropic')
     expect(formatLabel('meta')).toBe('Meta')
-    expect(formatLabel('pending')).toBe('Being created')
-    expect(formatLabel('not-approved')).toBe('Not approved')
     expect(formatLabel('uksouth')).toBe('UK South')
+    expect(formatLabel('ukwest')).toBe('UK West')
+    expect(formatLabel('swedencentral')).toBe('Sweden Central')
+    expect(formatLabel('northeurope')).toBe('North Europe')
+    expect(formatLabel('westeurope')).toBe('West Europe')
   })
 
   test('Returns an unknown value unchanged', () => {
@@ -28,16 +19,5 @@ describe('#formatLabel', () => {
   test('Returns null/undefined unchanged', () => {
     expect(formatLabel(null)).toBe(null)
     expect(formatLabel(undefined)).toBe(undefined)
-  })
-})
-
-describe('#formatLabelList', () => {
-  test('Maps and joins a list of raw values', () => {
-    expect(formatLabelList(['research', 'team'])).toBe('Research, Team')
-  })
-
-  test('Returns an empty string for an empty or missing list', () => {
-    expect(formatLabelList([])).toBe('')
-    expect(formatLabelList(undefined)).toBe('')
   })
 })

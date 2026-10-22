@@ -70,15 +70,15 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
     // B03: sign in (no team step)
     let cookies = await signInViaOidc(server, fetchMock)
 
-    // B06: choose access type, choose a model
-    const postAccessType = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, accessType: 'shared' }
+    // B06: start from Try it on your own, choose a model
+    const startShared = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/start',
+      headers: { cookie: cookieHeader(cookies) }
     })
-    cookies = mergeCookies(cookies, postAccessType)
-    expect(postAccessType.statusCode).toBe(303)
+    cookies = mergeCookies(cookies, startShared)
+    expect(startShared.statusCode).toBe(302)
+    expect(startShared.headers.location).toBe('/connect/shared/model')
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
     const getSelectModel = await server.inject({
@@ -156,7 +156,6 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
     // B07: the credential appears on /manage
     fetchMock.mockResponseOnce(JSON.stringify({ items: [issuedCredential] }))
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const getManage = await server.inject({
       method: 'GET',
       url: '/manage',
@@ -190,7 +189,6 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
       })
     )
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const getManageAfterRenew = await server.inject({
       method: 'GET',
       url: '/manage',
@@ -212,6 +210,7 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
     cookies = mergeCookies(cookies, getRevokeConfirm)
     expect(getRevokeConfirm.statusCode).toBe(statusCodes.ok)
 
+    fetchMock.mockResponseOnce(JSON.stringify(issuedCredential))
     fetchMock.mockResponseOnce(null, { status: 204 })
     const postRevoke = await server.inject({
       method: 'POST',
@@ -228,7 +227,6 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
       })
     )
     fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
-    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
     const getManageAfterRevoke = await server.inject({
       method: 'GET',
       url: '/manage',
@@ -239,7 +237,7 @@ describe('B03-B07 full journey (sign in, connect a shared model, renew, revoke)'
       expect.stringContaining('Credential revoked')
     )
     expect(getManageAfterRevoke.result).toEqual(
-      expect.stringContaining('revoked')
+      expect.stringContaining('You do not have a key yet')
     )
   })
 })

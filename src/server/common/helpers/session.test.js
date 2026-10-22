@@ -6,10 +6,10 @@ import {
   clearPendingAccess,
   getRequestedDeployments,
   setRequestedDeployments,
-  clearRequestedDeployments,
   resetSession,
   setIssuedCredential,
-  takeIssuedCredential
+  takeIssuedCredential,
+  takeIssuedCredentialIf
 } from './session.js'
 
 function mockRequest() {
@@ -51,17 +51,14 @@ describe('#session helpers', () => {
     expect(getPendingAccess(request)).toBeUndefined()
   })
 
-  test('sets, gets and clears the deployments a team request made', () => {
+  test('sets and gets the deployments a team request made', () => {
     const request = mockRequest()
 
-    setRequestedDeployments(request, { teamId: 't1', ids: ['a', 'b'] })
+    setRequestedDeployments(request, { teamSlug: 't1', ids: ['a', 'b'] })
     expect(getRequestedDeployments(request)).toEqual({
-      teamId: 't1',
+      teamSlug: 't1',
       ids: ['a', 'b']
     })
-
-    clearRequestedDeployments(request)
-    expect(getRequestedDeployments(request)).toBeUndefined()
   })
 
   test('resetSession drops everything a person left in the session', () => {
@@ -86,5 +83,26 @@ describe('#session helpers', () => {
     setIssuedCredential(request, { secret: 'mock_secret' })
     expect(takeIssuedCredential(request)).toEqual({ secret: 'mock_secret' })
     expect(takeIssuedCredential(request)).toBeUndefined()
+  })
+
+  test('takeIssuedCredentialIf returns and clears only a result that matches', () => {
+    const request = mockRequest()
+
+    setIssuedCredential(request, { secret: 'mock_secret', credentialId: 'a' })
+
+    expect(
+      takeIssuedCredentialIf(
+        request,
+        ({ credentialId }) => credentialId === 'b'
+      )
+    ).toBeUndefined()
+    // The result for another page is still there for its own.
+    expect(
+      takeIssuedCredentialIf(
+        request,
+        ({ credentialId }) => credentialId === 'a'
+      )
+    ).toEqual({ secret: 'mock_secret', credentialId: 'a' })
+    expect(takeIssuedCredentialIf(request, () => true)).toBeUndefined()
   })
 })

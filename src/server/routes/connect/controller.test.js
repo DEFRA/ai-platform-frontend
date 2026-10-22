@@ -36,6 +36,8 @@ const sampleModel = {
   displayName: 'GPT-4o',
   provider: 'openai',
   description: 'Multimodal OpenAI model.',
+  eligible: true,
+  researchAvailable: true,
   deploymentName: 'gpt-4o',
   apiVersion: '2024-05-01-preview',
   endpoint: 'https://mock-gateway.ai-platform.defra.gov.uk/openai/gpt-4o',
@@ -47,13 +49,12 @@ async function signIn(server) {
 }
 
 async function reachDetailsStep(server, cookies) {
-  const postAccessType = await server.inject({
-    method: 'POST',
-    url: '/connect',
-    headers: { cookie: cookieHeader(cookies) },
-    payload: { crumb: cookies.crumb, accessType: 'shared' }
+  const startShared = await server.inject({
+    method: 'GET',
+    url: '/connect/shared/start',
+    headers: { cookie: cookieHeader(cookies) }
   })
-  cookies = mergeCookies(cookies, postAccessType)
+  cookies = mergeCookies(cookies, startShared)
 
   fetchMock.mockResponseOnce(JSON.stringify({ items: [sampleModel] }))
   const getSelectModel = await server.inject({
@@ -108,93 +109,6 @@ describe('#connectController', () => {
     fetchMock.resetMocks()
   })
 
-  test('GET /connect renders the access type chooser when signed out', async () => {
-    const { statusCode, result } = await server.inject({
-      method: 'GET',
-      url: '/connect'
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('What access do you need?'))
-    expect(result).toEqual(
-      expect.stringContaining('Please sign in to continue')
-    )
-  })
-
-  test('GET /connect shows a plain Continue button once signed in', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, result } = await server.inject({
-      method: 'GET',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) }
-    })
-
-    expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toEqual(expect.stringContaining('Continue'))
-    expect(result).not.toEqual(
-      expect.stringContaining('Please sign in to continue')
-    )
-  })
-
-  test('GET /connect offers team access as an OAuth client secret and research access as a key', async () => {
-    const { result } = await server.inject({ method: 'GET', url: '/connect' })
-
-    expect(result).toContain(
-      'An OAuth client secret the whole team shares. Admins can rotate or revoke it.'
-    )
-    expect(result).toContain(
-      'You can move to a team client secret later and keep the same sign-in.'
-    )
-    expect(result).toContain('A key that lasts 7 days in Infradev.')
-    expect(result).not.toContain('Sandbox')
-    expect(result).not.toContain('A key the whole team shares')
-    expect(result).not.toContain('team key')
-  })
-
-  test('POST /connect redirects to /sign-in when signed out', async () => {
-    const homeResponse = await server.inject({ method: 'GET', url: '/' })
-    const cookies = mergeCookies({}, homeResponse)
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, accessType: 'shared' }
-    })
-
-    expect(statusCode).toBe(302)
-    expect(headers.location).toBe('/sign-in?returnTo=%2Fconnect')
-  })
-
-  test('POST /connect with no access type re-renders the form with errors', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, result } = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb }
-    })
-
-    expect(statusCode).toBe(statusCodes.badRequest)
-    expect(result).toEqual(expect.stringContaining('There is a problem'))
-  })
-
-  test('POST /connect routes the team access type to /connect/team/select', async () => {
-    const cookies = await signIn(server)
-
-    const { statusCode, headers } = await server.inject({
-      method: 'POST',
-      url: '/connect',
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, accessType: 'team' }
-    })
-
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/connect/team/select')
-  })
-
   test('GET /connect/shared/details says a team client secret follows the last research renewal', async () => {
     let cookies = await signIn(server)
     cookies = await reachDetailsStep(server, cookies)
@@ -207,7 +121,9 @@ describe('#connectController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
-    expect(result).toContain('A research key comes with limits:')
+    expect(result).toContain(
+      'A key for using a model on your own comes with limits:'
+    )
     expect(result).toContain(
       'you can renew it 3 times, then you need a team client secret'
     )
@@ -253,8 +169,12 @@ describe('#connectController', () => {
       expect.stringContaining('60 requests a minute')
     )
     expect(getCheck.result).toMatch(
-      /Environment\s*<\/dt>\s*<dd[^>]*>\s*Infradev/
+      /Environment\s*<\/dt>\s*<dd[^>]*>\s*Development/
     )
+    expect(getCheck.result).toMatch(
+      /Access for\s*<\/dt>\s*<dd[^>]*>\s*Just me, on your own/
+    )
+    expect(getCheck.result).not.toMatch(/research/i)
 
     fetchMock.mockResponseOnce(
       JSON.stringify({
@@ -301,7 +221,7 @@ describe('#connectController', () => {
       )
     )
     expect(getCredential.result).toEqual(
-      expect.stringContaining(', in Infradev')
+      expect.stringContaining(', in Development')
     )
     expect(getCredential.result).not.toEqual(
       expect.stringContaining('deploytestdefra')
@@ -326,7 +246,7 @@ describe('#connectController', () => {
     })
 
     expect(getCredentialAgain.statusCode).toBe(302)
-    expect(getCredentialAgain.headers.location).toBe('/connect')
+    expect(getCredentialAgain.headers.location).toBe('/models')
   })
 
   test('POST /connect/shared/check shows a message and a manage link for an existing active credential (409)', async () => {
@@ -400,6 +320,40 @@ describe('#connectController', () => {
     expect(postCheck.result).toEqual(expect.stringContaining('/manage'))
   })
 
+  test('POST /connect/shared/check says a model that cannot be tried on your own is not available', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getCheck = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, getCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'model-not-eligible',
+        message: 'Model is not eligible'
+      }),
+      { status: 422 }
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postCheck.result).toEqual(
+      expect.stringContaining('This model is not available to try on your own.')
+    )
+    expect(postCheck.result).not.toMatch(/research tier/i)
+  })
+
   test('POST /connect/shared/check shows a safe error when the issuer fails (502)', async () => {
     let cookies = await signIn(server)
     cookies = await reachCheckStep(server, cookies)
@@ -432,6 +386,156 @@ describe('#connectController', () => {
     expect(postCheck.result).toEqual(
       expect.stringContaining('We could not issue a credential')
     )
+  })
+
+  test('POST /connect/shared/check names the model when research has not deployed it (403 model-not-deployed)', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getCheck = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, getCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'model-not-deployed',
+        message: 'Backend wording that must not be shown'
+      }),
+      { status: 403 }
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postCheck.statusCode).toBe(statusCodes.forbidden)
+    expect(postCheck.result).toContain(
+      'GPT-4o is not available to try on your own yet.'
+    )
+    expect(postCheck.result).not.toContain('Backend wording')
+  })
+
+  test('POST /connect/shared/check shows the safe error when research deployments cannot be read (502 research-deployments-unavailable)', async () => {
+    let cookies = await signIn(server)
+    cookies = await reachCheckStep(server, cookies)
+
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+    const getCheck = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, getCheck)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        code: 'research-deployments-unavailable',
+        message: 'Backend wording that must not be shown'
+      }),
+      { status: 502 }
+    )
+    fetchMock.mockResponseOnce(JSON.stringify(sampleModel))
+
+    const postCheck = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/check',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(postCheck.statusCode).toBe(502)
+    expect(postCheck.result).toContain(
+      'We could not issue a credential right now. Please try again.'
+    )
+    expect(postCheck.result).not.toContain('Backend wording')
+  })
+
+  test('GET /connect/shared/model offers only the models the backend says can be tried on your own', async () => {
+    let cookies = await signIn(server)
+    const start = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/start',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, start)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          sampleModel,
+          { ...sampleModel, slug: 'gpt-4o-2', displayName: 'GPT-4o (copy)' },
+          {
+            ...sampleModel,
+            slug: 'gpt-5-nano',
+            displayName: 'GPT-5 nano',
+            researchAvailable: false
+          },
+          {
+            ...sampleModel,
+            slug: 'o3-mini',
+            displayName: 'o3-mini',
+            researchAvailable: undefined
+          }
+        ]
+      })
+    )
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/model',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(result).toContain('value="gpt-4o"')
+    expect(result).not.toContain('gpt-4o-2')
+    expect(result).not.toContain('GPT-5 nano')
+    expect(result).not.toContain('o3-mini')
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/v1\/models$/),
+      expect.anything()
+    )
+  })
+
+  test('POST /connect/shared/model re-renders only the models that can be tried when nothing is chosen', async () => {
+    let cookies = await signIn(server)
+    const start = await server.inject({
+      method: 'GET',
+      url: '/connect/shared/start',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    cookies = mergeCookies(cookies, start)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        items: [
+          sampleModel,
+          {
+            ...sampleModel,
+            slug: 'gpt-5-nano',
+            displayName: 'GPT-5 nano',
+            researchAvailable: false
+          }
+        ]
+      })
+    )
+    const { statusCode, result } = await server.inject({
+      method: 'POST',
+      url: '/connect/shared/model',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(statusCode).toBe(statusCodes.badRequest)
+    expect(result).toContain('value="gpt-4o"')
+    expect(result).not.toContain('GPT-5 nano')
   })
 
   test('POST /connect/shared/check redirects to sign in if the session expired mid-journey', async () => {

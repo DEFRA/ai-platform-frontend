@@ -105,7 +105,7 @@ describe('#authController', () => {
     expect(headers.location).toBe('/sign-in')
   })
 
-  test('GET /auth/callback exchanges the code, upserts the user and redirects to /connect', async () => {
+  test('GET /auth/callback exchanges the code, upserts the user and redirects to /', async () => {
     const loginResponse = await server.inject({
       method: 'GET',
       url: '/auth/login'
@@ -130,7 +130,7 @@ describe('#authController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/connect')
+    expect(headers.location).toBe('/')
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
       tid: '7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
@@ -167,7 +167,7 @@ describe('#authController', () => {
     expect(headers.location).toBe('/manage')
   })
 
-  test('GET /auth/callback ignores an off-site returnTo and falls back to /connect', async () => {
+  test('GET /auth/callback ignores an off-site returnTo and falls back to /', async () => {
     const loginResponse = await server.inject({
       method: 'GET',
       url: '/auth/login?returnTo=https%3A%2F%2Fattacker.example'
@@ -192,7 +192,7 @@ describe('#authController', () => {
     })
 
     expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/connect')
+    expect(headers.location).toBe('/')
   })
 
   test('GET /auth/callback shows a safe error page for a disallowed email domain', async () => {

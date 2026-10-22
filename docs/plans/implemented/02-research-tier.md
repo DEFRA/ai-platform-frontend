@@ -52,7 +52,8 @@ to CDP dev on 20 Oct 2026.
 - `research.json` in `ai-platform-tenants` is a **platform-owned team file** naming `subscription-key`. The same
   `team` module builds a shared project, account-child deployments named as callers send them, and a `research`
   API that requires a subscription and runs `aip-key-guard`. Applied 20 Oct 2026: 8 added, 0 destroyed.
-- It lists `gpt-4o` only: Infradev's Foundry is UK South only and the nano models have no UK South SKU. The infra
+- It lists `gpt-4o` only: Infradev's Foundry is UK South only and the nano models have no SKU there that the UK or EU
+  rule allows. The infra
   coverage check skips a model the environment cannot deploy (infra v0.9.1).
 - `aip-checks` accepts a key only in that file and never from a writer App. Terraform creates no subscription.
 - The platform root adds the custom API Management role the Portal API needs to mint subscriptions (role

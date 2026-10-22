@@ -3,8 +3,6 @@
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/tag/macro.njk" import govukTag %}
-{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "code-examples/macro.njk" import appCodeExamples %}
 
 {% block beforeContent %}
@@ -15,44 +13,35 @@
 {% block content %}
   {{ appHeading({
     text: heading,
-    caption: modelLocationCaption
+    caption: provider,
+    captionAbove: true
   }) }}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      <p class="govuk-body">{{ model.description }}</p>
-
-      {{ govukSummaryList({ rows: summaryRows }) }}
-
-      {% if model.useCases.length > 0 %}
-        <h2 class="govuk-heading-m">Good for</h2>
-        <ul class="govuk-list govuk-list--bullet" data-testid="model-use-cases">
-          {% for useCase in model.useCases %}
-            <li>{{ useCase }}</li>
-          {% endfor %}
-        </ul>
+      {% if goodFor %}
+        <p class="govuk-body-l" data-testid="model-good-for">Good for {{ goodFor }}.</p>
       {% endif %}
 
-      {% if model.links.length > 0 %}
-        <h2 class="govuk-heading-m">Best practice</h2>
-        <ul class="govuk-list" data-testid="model-links">
-          {% for link in model.links %}
-            <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-
-      {% if canConnect %}
-        {{ govukButton({
-          text: "Connect to this model",
-          href: "/connect?modelSlug=" + model.slug
-        }) }}
+      {% if canAddToTeam or canTry %}
+        <div class="govuk-button-group">
+          {% if canAddToTeam %}
+            {{ govukButton({
+              text: "Add to a team",
+              href: addToTeamUrl,
+              attributes: { "data-testid": "model-add-to-team" }
+            }) }}
+          {% endif %}
+          {% if canTry %}
+            <a class="govuk-link" href="{{ tryUrl }}" data-testid="model-try-on-your-own">Try it on your own</a>
+          {% endif %}
+        </div>
       {% elif not eligible %}
-        {{ govukTag({ text: "Not approved for use yet", classes: "govuk-tag--grey" }) }}
-        {% if statusReason %}
-          <p class="govuk-body">{{ statusReason }}</p>
-        {% endif %}
+        <p class="govuk-body" data-testid="model-not-available">Not available yet. {{ statusReason }}</p>
       {% endif %}
+
+      <h2 class="govuk-heading-m">How you can use it</h2>
+      {{ govukSummaryList({ rows: useRows, attributes: { "data-testid": "model-use-rows" } }) }}
     </div>
   </div>
 
@@ -64,9 +53,7 @@
         requestBody: requestBody,
         secretPlaceholder: "<YOUR_SUBSCRIPTION_KEY>"
       }) }}
-      {{ govukInsetText({
-        text: "This is the real gateway request shape for the research tier in " + environmentName + ". You will still need a key from Connect to call it."
-      }) }}
+      <p class="govuk-body govuk-hint" data-testid="model-needs-secret">You need a client secret or a key before this will work.</p>
     </div>
   </div>
 {% endblock %}

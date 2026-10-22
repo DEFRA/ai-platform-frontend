@@ -1,0 +1,31 @@
+{#
+  A team member's role, as two radios saying what each can do (screens 14, 15).
+  params.value: "admin" or "user" (default "user")
+  params.errorMessage: { text } shown on the field
+#}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+
+{{ govukRadios({
+  idPrefix: "role",
+  name: "role",
+  fieldset: {
+    legend: {
+      text: "Role",
+      classes: "govuk-fieldset__legend--m"
+    }
+  },
+  errorMessage: params.errorMessage,
+  value: params.value or "user",
+  items: [
+    {
+      value: "user",
+      text: "Member",
+      hint: { text: "Can use the team’s models and add new ones" }
+    },
+    {
+      value: "admin",
+      text: "Admin",
+      hint: { text: "Can also see and rotate client secrets, add people, change roles and remove models" }
+    }
+  ]
+}) }}

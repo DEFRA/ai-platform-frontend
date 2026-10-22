@@ -1,0 +1,65 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "role-radios/macro.njk" import appRoleRadios %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backUrl }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+
+  {{ appHeading({
+    text: heading,
+    caption: team.name,
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukInput({
+          id: "email",
+          name: "email",
+          type: "email",
+          value: values.email,
+          autocomplete: "off",
+          spellcheck: false,
+          classes: "govuk-!-width-two-thirds",
+          label: {
+            text: "Email address",
+            classes: "govuk-label--m"
+          },
+          hint: { text: "Their Defra work address, for example name@defra.gov.uk" },
+          errorMessage: fieldErrors.email
+        }) }}
+
+        {{ appRoleRadios({ value: values.role, errorMessage: fieldErrors.role }) }}
+
+        {{ govukInsetText({ text: "They will see the team when they next sign in." }) }}
+
+        {{ govukButton({
+          text: "Add a member",
+          attributes: { "data-testid": "add-member-submit" }
+        }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

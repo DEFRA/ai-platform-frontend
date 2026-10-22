@@ -3,6 +3,7 @@ import Joi from 'joi'
 import { addDays } from 'date-fns'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
+import { RESEARCH_CREDENTIAL_DAYS } from '#/server/common/constants/research-access.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
@@ -23,16 +24,7 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
-
-const RESEARCH_CREDENTIAL_DAYS = 7
-
-const accessTypeSchema = Joi.object({
-  accessType: Joi.string().valid('shared', 'team').required().messages({
-    'any.only': 'Select an access type',
-    'any.required': 'Select an access type'
-  }),
-  modelSlug: Joi.string().allow('').optional()
-})
+import { listTryableModels } from './research-models.js'
 
 const selectModelSchema = Joi.object({
   modelSlug: Joi.string()
@@ -59,7 +51,7 @@ const detailsSchema = Joi.object({
 })
 
 function redirectToStart(h) {
-  return h.redirect('/connect').takeover()
+  return h.redirect('/models').takeover()
 }
 
 function substituteModelPlaceholder(text, modelDisplayName) {
@@ -84,27 +76,6 @@ function buildDetailsFieldErrors(error, modelDisplayName) {
   )
 }
 
-function buildAccessTypeItems(selectedAccessType) {
-  return [
-    {
-      value: 'shared',
-      text: 'Just for me, to research or try something out',
-      hint: {
-        text: `A key that lasts ${RESEARCH_CREDENTIAL_DAYS} days in ${environmentName(researchEnvironment())}. No team needed. Ready in about a minute.`
-      },
-      checked: selectedAccessType === 'shared' || !selectedAccessType
-    },
-    {
-      value: 'team',
-      text: 'For my team',
-      hint: {
-        text: 'An OAuth client secret the whole team shares. Admins can rotate or revoke it. Takes a few minutes to set up.'
-      },
-      checked: selectedAccessType === 'team'
-    }
-  ]
-}
-
 function buildModelItems(models, selectedModelSlug) {
   return models.map((model) => ({
     value: model.slug,
@@ -114,8 +85,8 @@ function buildModelItems(models, selectedModelSlug) {
   }))
 }
 
-// Best-effort lookup for the "You are connecting to {model}" hint - the
-// access-type page must still render if the model can't be looked up.
+// Best-effort lookup for the model's name in headings - the page must still
+// render if the model can't be looked up.
 async function getModelDisplayName(request, modelSlug) {
   if (!modelSlug) {
     return undefined
@@ -146,12 +117,7 @@ function buildCheckAnswersRows(model, purpose) {
     },
     {
       key: { text: 'Access for' },
-      value: { text: 'Just me, research' },
-      actions: {
-        items: [
-          { href: '/connect', text: 'Change', visuallyHiddenText: 'access for' }
-        ]
-      }
+      value: { text: 'Just me, on your own' }
     },
     {
       key: { text: 'What you will use it for' },
@@ -197,65 +163,6 @@ function buildCheckAnswersRows(model, purpose) {
 }
 
 export const connectController = {
-  accessType: {
-    get: {
-      async handler(request, h) {
-        const pendingAccess = getPendingAccess(request) ?? {}
-        const modelSlug = request.query.modelSlug ?? pendingAccess.modelSlug
-
-        return h.view('connect/index', {
-          pageTitle: 'What access do you need?',
-          heading: 'What access do you need?',
-          accessTypeItems: buildAccessTypeItems(pendingAccess.accessType),
-          modelSlug: modelSlug ?? '',
-          modelDisplayName: await getModelDisplayName(request, modelSlug),
-          signedIn: Boolean(getSessionUser(request)),
-          errorSummary: null,
-          fieldErrors: {}
-        })
-      }
-    },
-    post: {
-      options: {
-        validate: {
-          payload: accessTypeSchema,
-          failAction: async (request, h, error) =>
-            h
-              .view('connect/index', {
-                pageTitle: 'Error: What access do you need?',
-                heading: 'What access do you need?',
-                accessTypeItems: buildAccessTypeItems(
-                  request.payload.accessType
-                ),
-                modelSlug: request.payload.modelSlug ?? '',
-                modelDisplayName: await getModelDisplayName(
-                  request,
-                  request.payload.modelSlug
-                ),
-                signedIn: Boolean(getSessionUser(request)),
-                errorSummary: buildErrorSummary(error),
-                fieldErrors: buildFieldErrors(error)
-              })
-              .code(statusCodes.badRequest)
-              .takeover()
-        }
-      },
-      handler(request, h) {
-        setPendingAccess(request, {
-          accessType: request.payload.accessType,
-          modelSlug: request.payload.modelSlug || undefined
-        })
-
-        const nextStep =
-          request.payload.accessType === 'team'
-            ? '/connect/team/select'
-            : '/connect/shared/model'
-
-        return h.redirect(nextStep).code(statusCodes.seeOther)
-      }
-    }
-  },
-
   selectModel: {
     get: {
       async handler(request, h) {
@@ -265,9 +172,7 @@ export const connectController = {
           return redirectToStart(h)
         }
 
-        const { items } = await apiClient(request).get(
-          '/v1/models?tier=research'
-        )
+        const items = await listTryableModels(request)
 
         return h.view('connect/shared/model', {
           pageTitle: 'Choose a model',
@@ -283,9 +188,7 @@ export const connectController = {
         validate: {
           payload: selectModelSchema,
           failAction: async (request, h, error) => {
-            const { items } = await apiClient(request).get(
-              '/v1/models?tier=research'
-            )
+            const items = await listTryableModels(request)
 
             return h
               .view('connect/shared/model', {
@@ -458,7 +361,7 @@ export const connectController = {
                   pendingAccess.purpose
                 ),
                 purpose: pendingAccess.purpose,
-                errorMessage: errorMessageForCode(error),
+                errorMessage: errorMessageForCode(error, model),
                 errorAction:
                   error.code === 'active-credential-exists' ||
                   error.code === 'credential-expired-use-renew'
@@ -478,7 +381,7 @@ export const connectController = {
         const issued = takeIssuedCredential(request)
 
         if (!issued) {
-          return h.redirect('/connect')
+          return h.redirect('/models')
         }
 
         return h
@@ -498,7 +401,7 @@ export const connectController = {
   }
 }
 
-function errorMessageForCode(error) {
+function errorMessageForCode(error, model) {
   if (error.code === 'active-credential-exists') {
     return 'You already have an active credential for this model.'
   }
@@ -508,14 +411,21 @@ function errorMessageForCode(error) {
   }
 
   if (error.code === 'model-not-eligible') {
-    return 'This model is not available for the research tier.'
+    return 'This model is not available to try on your own.'
+  }
+
+  if (error.code === 'model-not-deployed') {
+    return `${model.displayName} is not available to try on your own yet.`
   }
 
   if (error.code === 'model-not-granted') {
     return 'You do not have access to this model.'
   }
 
-  if (error.code === 'upstream-unavailable') {
+  if (
+    error.code === 'upstream-unavailable' ||
+    error.code === 'research-deployments-unavailable'
+  ) {
     return 'We could not issue a credential right now. Please try again.'
   }
 

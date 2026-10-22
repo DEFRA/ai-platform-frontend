@@ -1,58 +1,117 @@
 import { apiClient } from '#/server/common/helpers/api-client.js'
 import { getSessionUser } from '#/server/common/helpers/session.js'
 import { DEPLOYMENT_REMOVED_STATUS } from '#/server/common/helpers/deployment-status.js'
+import {
+  TEAM_AVAILABILITY,
+  isCapacityDuplicate,
+  isEligible,
+  teamAvailability,
+  useCasesList
+} from '#/server/routes/models/model-availability.js'
 
 const ALREADY_SET_UP_HINT = 'Already set up for this team'
+const ACTIVE_STATUS = 'active'
+
+function listedModels(models) {
+  return models.filter((model) => !isCapacityDuplicate(model))
+}
 
 /**
- * The team-tier catalogue and the models the team already has (any not
- * removed), which cannot be requested again.
+ * What the model step offers a team: the models that run in the UK or EU and
+ * that the target environment can deploy, the models the team already has there
+ * (any not removed, which cannot be requested again), and the names of the
+ * models that are not in the UK or EU yet, so the page can say so.
  * @param {import('@hapi/hapi').Request} request
- * @param {string} teamId
- * @returns {Promise<{models: object[], held: Set<string>}>}
+ * @param {{teamSlug: string, environment?: string, readyIn?: string}} journey - `readyIn` is the environment a model must be ready in for the team to be offered it (setting up another environment from the first).
+ * @returns {Promise<{models: object[], held: Set<string>, notInRegionsNames: string[]}>}
  */
-export async function loadModelChoices(request, teamId) {
+export async function loadModelChoices(
+  request,
+  { teamSlug, environment, readyIn }
+) {
   const client = apiClient(request)
-  const [{ items: models }, { items: deployments }] = await Promise.all([
-    client.get('/v1/models?tier=team'),
-    client.get(`/v1/teams/${teamId}/deployments`, {
-      userId: getSessionUser(request).id
-    })
-  ])
+  const teamModels = environment
+    ? `/v1/models?tier=team&environment=${encodeURIComponent(environment)}`
+    : '/v1/models?tier=team'
+  const [{ items: offered }, { items: catalogue }, { items: deployments }] =
+    await Promise.all([
+      client.get(teamModels),
+      client.get('/v1/models'),
+      client.get(`/v1/teams/${encodeURIComponent(teamSlug)}/deployments`, {
+        userId: getSessionUser(request).id
+      })
+    ])
+  const ready = new Set(
+    deployments
+      .filter(
+        ({ status, environment: deployed }) =>
+          deployed === readyIn && status === ACTIVE_STATUS
+      )
+      .map(({ modelSlug }) => modelSlug)
+  )
 
   return {
-    models,
+    models: listedModels(offered).filter(
+      (model) =>
+        isEligible(model) &&
+        teamAvailability(model) === TEAM_AVAILABILITY.inRegions &&
+        (!readyIn || ready.has(model.slug))
+    ),
     held: new Set(
       deployments
-        .filter(({ status }) => status !== DEPLOYMENT_REMOVED_STATUS)
+        .filter(
+          ({ status, environment: deployed }) =>
+            status !== DEPLOYMENT_REMOVED_STATUS &&
+            (!environment || deployed === environment)
+        )
         .map(({ modelSlug }) => modelSlug)
-    )
+    ),
+    notInRegionsNames: listedModels(catalogue)
+      .filter(
+        (model) =>
+          isEligible(model) &&
+          teamAvailability(model) === TEAM_AVAILABILITY.notInRegions
+      )
+      .map(({ displayName }) => displayName)
   }
 }
 
 /**
  * GOV.UK checkbox items: a model the team already has is shown, not
- * selectable, and never ticked.
+ * selectable, and never ticked; the others carry their use cases as a hint.
  * @param {{models: object[], held: Set<string>}} choices
  * @param {string[]} selected - Slugs to tick.
  * @returns {object[]}
  */
 export function buildModelCheckboxes({ models, held }, selected) {
-  return models.map((model) =>
-    held.has(model.slug)
-      ? {
-          value: model.slug,
-          text: model.displayName,
-          hint: { text: ALREADY_SET_UP_HINT },
-          disabled: true
-        }
-      : {
-          value: model.slug,
-          text: model.displayName,
-          hint: { text: model.description },
-          checked: selected.includes(model.slug)
-        }
-  )
+  return models.map((model) => {
+    if (held.has(model.slug)) {
+      return {
+        value: model.slug,
+        text: model.displayName,
+        hint: { text: ALREADY_SET_UP_HINT },
+        disabled: true
+      }
+    }
+
+    const useCases = useCasesList(model.useCases)
+
+    return {
+      value: model.slug,
+      text: model.displayName,
+      hint: useCases ? { text: useCases } : undefined,
+      checked: selected.includes(model.slug)
+    }
+  })
+}
+
+/**
+ * The slugs a person can pick: on offer and not already the team's.
+ * @param {{models: object[], held: Set<string>}} choices
+ * @returns {string[]}
+ */
+export function pickableSlugs({ models, held }) {
+  return models.map(({ slug }) => slug).filter((slug) => !held.has(slug))
 }
 
 /**
@@ -62,10 +121,35 @@ export function buildModelCheckboxes({ models, held }, selected) {
  * @param {string[]} chosen
  * @returns {string[]}
  */
-export function unavailableSlugs({ models, held }, chosen) {
-  const offered = new Set(
-    models.map(({ slug }) => slug).filter((slug) => !held.has(slug))
-  )
+export function unavailableSlugs(choices, chosen) {
+  const pickable = new Set(pickableSlugs(choices))
 
-  return chosen.filter((slug) => !offered.has(slug))
+  return chosen.filter((slug) => !pickable.has(slug))
+}
+
+/**
+ * The names of the models not in the UK or EU yet, as the model step's inset
+ * says it, or null when there are none.
+ * @param {string[]} names
+ * @returns {string | null}
+ */
+export function notInRegionsSentence(names) {
+  if (names.length === 0) {
+    return null
+  }
+
+  return `${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} not available to teams in the UK or EU yet.`
+}
+
+/**
+ * Names as one phrase: "A", "A and B", "A, B and C".
+ * @param {string[]} names
+ * @returns {string}
+ */
+export function joinNames(names) {
+  if (names.length < 2) {
+    return names.join('')
+  }
+
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
 }

@@ -34,6 +34,20 @@ describe('Code examples component', () => {
     ).toHaveLength(1)
   })
 
+  test('Should have a "Copy code" button in each tab, hidden until scripts reveal it, aimed at that tab’s code', () => {
+    const $buttons = $codeExamples('[data-testid="copy-code-button"]')
+
+    expect($buttons).toHaveLength(3)
+    $buttons.each((_, button) => {
+      const $button = $codeExamples(button)
+      const target = $button.attr('data-copy-target')
+
+      expect($button.attr('hidden')).toBeDefined()
+      expect($button.text().trim()).toBe('Copy code')
+      expect($codeExamples(`pre#${target}`)).toHaveLength(1)
+    })
+  })
+
   test('Should escape untrusted values rather than injecting raw HTML', () => {
     const $escaped = renderComponent('code-examples', {
       endpoint: '<script>alert(1)</script>',

@@ -1,0 +1,22 @@
+@use "govuk-frontend" as *;
+
+// A select, its button and a link on one row, sharing the bottom edge.
+.app-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: govuk-spacing(3);
+  margin-bottom: govuk-spacing(6);
+
+  .govuk-form-group,
+  .govuk-button {
+    margin-bottom: 0;
+  }
+
+  // The link sits level with the button's text, not its bottom shadow.
+  .govuk-link {
+    @include govuk-font($size: 19);
+
+    padding-bottom: govuk-spacing(2);
+  }
+}

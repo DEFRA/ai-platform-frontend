@@ -1,0 +1,45 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/panel/macro.njk" import govukPanel %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {{ govukPanel({
+        titleText: heading,
+        text: "for " + teamName + ", in " + environmentName,
+        attributes: { "data-testid": "ready-panel" }
+      }) }}
+
+      <h2 class="govuk-heading-m">Get your client secret</h2>
+      <p class="govuk-body">Your team shares one client secret for {{ environmentName }}. Have somewhere safe ready to paste it, such as your team's secret store.</p>
+
+      {% if isAdmin %}
+        {% if revealUrl %}
+          {{ govukButton({
+            text: "Show the client secret",
+            href: revealUrl,
+            attributes: { "data-testid": "show-client-secret" }
+          }) }}
+        {% elif secretRevoked %}
+          <p class="govuk-body" data-testid="secret-revoked">The client secret for {{ environmentName }} was revoked, so there is nothing to show. <a class="govuk-link" href="{{ teamUrl }}">Go to {{ teamName }}</a> to see what your team has.</p>
+        {% else %}
+          <p class="govuk-body" data-testid="secret-not-ready">The client secret is not ready yet. Try again in a moment.</p>
+        {% endif %}
+      {% else %}
+        <p class="govuk-body" data-testid="ask-an-admin">Ask an admin of {{ teamName }} for the client secret.</p>
+      {% endif %}
+
+      <h2 class="govuk-heading-m">What happens next</h2>
+      <p class="govuk-body">Once you have the client secret:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>everyone in {{ teamName }} can use {{ modelNames }} with it</li>
+        <li>admins can show it again or rotate it from <a class="govuk-link" href="{{ teamUrl }}">your team's page</a></li>
+        {% if testSetUp %}
+          <li data-testid="set-up-test">when it is working, you can <a class="govuk-link" href="{{ testSetUp.url }}">set it up in {{ testSetUp.name }}</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+{% endblock %}
