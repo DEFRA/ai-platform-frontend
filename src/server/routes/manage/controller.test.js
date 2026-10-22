@@ -97,7 +97,7 @@ describe('#manageController', () => {
     expect(result).toEqual(expect.stringContaining('ab12'))
   })
 
-  test('GET /manage lists only the personâ€™s own keys, never a team client secret, which is on the teamâ€™s page', async () => {
+  test('GET /manage lists only the person’s own keys, never a team client secret, which is on the team’s page', async () => {
     const cookies = await signIn(server)
     const teamCredential = {
       ...sampleCredential,
@@ -613,7 +613,7 @@ describe('#manageController', () => {
     expect(result).not.toContain('http-equiv="refresh"')
   })
 
-  test('GET /manage says when none of the personâ€™s teams has a model', async () => {
+  test('GET /manage says when none of the person’s teams has a model', async () => {
     const cookies = await signIn(server)
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
