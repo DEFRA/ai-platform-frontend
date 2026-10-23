@@ -30,6 +30,9 @@ Applied in Infradev from 15 Oct 2026; CDP dev runs the portal against it from 20
 2. Merging applies: the platform first, then tenants, only at the platform's release.
 3. The apply writes a run report; the portal reads it to learn the operation finished.
 
+- The run report names an operation from the `Operation-Id` line in the commit body, or from the `aip-operation-id` tag on the
+  team's resources. A pull request merged by hand (rather than auto-merged) still works. A deployment that stays at merged
+  or deploying past `GITOPS_STALL_WARN_AFTER_MS` (30 minutes) is logged and audited once as stalled.
 - `autoPin: true` in the registry means an `ai-platform-infra` release submits, merges and applies its own pin with no
   confirmation. Set it to `false` in `ai-platform-environments` if applies must stay manual.
 - Plan-guard refuses every delete in the platform state; an engineer dispatches `apply.yml` with `allow_destroy=true`.
