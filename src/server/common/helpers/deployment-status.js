@@ -5,13 +5,12 @@
 const QUEUED = 'queued'
 const REMOVING = 'removing'
 const REMOVED = 'removed'
-const FAILURE_STATUSES = ['checks-failed', 'deploy-failed']
+const FAILURE_STATUSES = ['checks-failed', 'deploy-failed', 'timed-out']
 // Every GitOps state between a request and a working deployment. A status
 // the backend adds must be added here, or it reads as unknown.
 const SETTING_UP_STATUSES = [
   'requested',
-  'pr-raised',
-  'merged',
+  'committed',
   'deploying',
   'deployed',
   'verified'
@@ -22,7 +21,9 @@ const YELLOW_TAG = 'govuk-tag--yellow'
 
 const TEXT_BY_STATUS = {
   active: 'Ready to use',
-  [QUEUED]: 'Waiting for another change',
+  // A request also waits while its environment is paused, so the label does
+  // not say why.
+  [QUEUED]: 'Waiting',
   [REMOVING]: 'Removing',
   [REMOVED]: 'Removed',
   ...Object.fromEntries(
@@ -68,7 +69,7 @@ function deploymentTagClass(status) {
 }
 
 /**
- * Whether a deployment is still changing, so a page showing it refreshes.
+ * Whether a deployment is still changing, so its page keeps checking.
  * @param {string} status - The backend's deployment status.
  * @returns {boolean}
  */

@@ -129,11 +129,11 @@ export function teamConnectHelpers(fetchMock) {
     })
   }
 
-  function get(server, cookies, url) {
+  function get(server, cookies, url, headers = {}) {
     return server.inject({
       method: 'GET',
       url,
-      headers: { cookie: cookieHeader(cookies) }
+      headers: { cookie: cookieHeader(cookies), ...headers }
     })
   }
 

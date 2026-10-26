@@ -57,7 +57,7 @@ describe('team-request-view', () => {
   })
 
   describe('buildPipelineLinks', () => {
-    test('labels the pull request and the apply run, https only', () => {
+    test('labels the submit run and the apply run, https only', () => {
       expect(
         buildPipelineLinks({
           submitRun: 'https://github.com/o/r/actions/runs/1',
@@ -65,7 +65,23 @@ describe('team-request-view', () => {
           applyRun: 'http://github.com/o/r/actions/runs/2'
         })
       ).toEqual([
-        { href: 'https://github.com/o/r/pull/7', text: 'Pull request' }
+        {
+          href: 'https://github.com/o/r/actions/runs/1',
+          text: 'Submit run'
+        }
+      ])
+    })
+
+    test('shows both runs in that order, and no pull request link', () => {
+      expect(
+        buildPipelineLinks({
+          applyRun: 'https://github.com/o/r/actions/runs/2',
+          pullRequest: 'https://github.com/o/r/pull/7',
+          submitRun: 'https://github.com/o/r/actions/runs/1'
+        })
+      ).toEqual([
+        { href: 'https://github.com/o/r/actions/runs/1', text: 'Submit run' },
+        { href: 'https://github.com/o/r/actions/runs/2', text: 'Apply run' }
       ])
     })
 

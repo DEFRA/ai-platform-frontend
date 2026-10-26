@@ -85,11 +85,11 @@ describe('#teamsController', () => {
     cookies = await signInViaOidc(server, fetchMock)
   })
 
-  function get(url) {
+  function get(url, headers = {}) {
     return server.inject({
       method: 'GET',
       url,
-      headers: { cookie: cookieHeader(cookies) }
+      headers: { cookie: cookieHeader(cookies), ...headers }
     })
   }
 
@@ -588,7 +588,7 @@ describe('#teamsController', () => {
       expect(statusCode).toBe(statusCodes.internalServerError)
     })
 
-    test('says what each state of a model is, and refreshes itself while one is changing', async () => {
+    test('says what each state of a model is, and checks again by itself while one is changing', async () => {
       backend({
         deployments: [
           deployment({ _id: 'd-1', status: 'deploying' }),
@@ -606,10 +606,20 @@ describe('#teamsController', () => {
       })
 
       const { result } = await get(TEAM_URL)
+      const $ = load(result)
+      const status = $('[data-progress-refresh]')
 
-      expect(result).toContain('http-equiv="refresh"')
+      expect(result).not.toContain('http-equiv="refresh"')
+      expect(status.attr('aria-live')).toBe('polite')
+      expect(status.attr('data-progress-refresh')).toBe(
+        `${TEAM_URL}?fragment=status`
+      )
+      expect(status.find('[data-in-progress]').attr('data-in-progress')).toBe(
+        'true'
+      )
       expect(result).toContain('Setting up')
-      expect(result).toContain('Waiting for another change')
+      expect(status.text()).toMatch(/Waiting\s/)
+      expect(result).not.toContain('Waiting for another change')
       expect(result).toContain('Removing')
       expect(result).toContain('govuk-tag--yellow')
       // Something still being set up has its progress to see; a removal has
@@ -622,12 +632,115 @@ describe('#teamsController', () => {
       expect(result).not.toContain('/request/flood-risk-team/d-3')
     })
 
-    test('does not refresh when nothing is changing', async () => {
+    test('gives a person without script a Check progress link back to the page while a model is changing', async () => {
+      backend({ deployments: [deployment({ status: 'deploying' })] })
+
+      const { result } = await get(TEAM_URL)
+      const link = load(result)('[data-testid="check-progress"]')
+
+      expect(link.text()).toBe('Check progress')
+      expect(link.attr('href')).toBe(TEAM_URL)
+    })
+
+    test('says nothing is changing, and offers no Check progress link, when nothing is', async () => {
       backend()
 
       const { result } = await get(TEAM_URL)
+      const $ = load(result)
 
       expect(result).not.toContain('http-equiv="refresh"')
+      expect($('[data-in-progress]').attr('data-in-progress')).toBe('false')
+      expect($('[data-testid="check-progress"]')).toHaveLength(0)
+    })
+
+    describe('as a fragment', () => {
+      const FRAGMENT_URL = `${TEAM_URL}?fragment=status`
+
+      test('is only the status, not the page, with an ETag and no-store', async () => {
+        backend({ deployments: [deployment({ status: 'deploying' })] })
+
+        const { statusCode, result, headers } = await get(FRAGMENT_URL)
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.ok)
+        expect(headers['content-type']).toContain('text/html')
+        expect(headers['cache-control']).toBe('no-store')
+        expect(headers.etag).toMatch(/^"[^"]+"$/)
+        expect($('[data-in-progress]').attr('data-in-progress')).toBe('true')
+        expect($('[data-testid="environment-card"]')).toHaveLength(1)
+        expect(result).toContain('Setting up')
+        expect(result).not.toContain('<html')
+        expect(result).not.toContain('govuk-service-navigation')
+      })
+
+      test('answers 304, with no-store, when the person already has this version', async () => {
+        backend({ deployments: [deployment({ status: 'deploying' })] })
+        const first = await get(FRAGMENT_URL)
+
+        const second = await get(FRAGMENT_URL, {
+          'if-none-match': first.headers.etag
+        })
+
+        expect(second.statusCode).toBe(statusCodes.notModified)
+        expect(second.result).toBeNull()
+        expect(second.headers['cache-control']).toBe('no-store')
+      })
+
+      test('answers 200 with a new ETag when a model has moved on', async () => {
+        backend({ deployments: [deployment({ status: 'deploying' })] })
+        const first = await get(FRAGMENT_URL)
+
+        backend({ deployments: [deployment({ status: 'active' })] })
+        const second = await get(FRAGMENT_URL, {
+          'if-none-match': first.headers.etag
+        })
+
+        expect(second.statusCode).toBe(statusCodes.ok)
+        expect(second.headers.etag).not.toBe(first.headers.etag)
+        expect(
+          load(second.result)('[data-in-progress]').attr('data-in-progress')
+        ).toBe('false')
+      })
+
+      test('gives the same ETag for the same status, whenever it is asked for', async () => {
+        backend({ deployments: [deployment({ status: 'deploying' })] })
+
+        const first = await get(FRAGMENT_URL)
+        const second = await get(FRAGMENT_URL)
+
+        expect(second.headers.etag).toBe(first.headers.etag)
+      })
+
+      test('is not available when the deployments could not be read, so the page keeps what it has', async () => {
+        backend({
+          [`GET ${TEAM_PATH}/deployments`]: reply(502, {
+            code: 'upstream-unavailable'
+          })
+        })
+
+        const { statusCode, headers } = await get(FRAGMENT_URL)
+
+        expect(statusCode).toBe(statusCodes.serviceUnavailable)
+        expect(headers['cache-control']).toBe('no-store')
+      })
+
+      test('is the whole page for any other value of fragment', async () => {
+        backend()
+
+        const { result, headers } = await get(`${TEAM_URL}?fragment=other`)
+
+        expect(result).toContain('<html')
+        expect(headers.etag).toBeUndefined()
+      })
+
+      test('redirects to /sign-in when signed out', async () => {
+        const { statusCode } = await server.inject({
+          method: 'GET',
+          url: FRAGMENT_URL
+        })
+
+        expect(statusCode).toBe(302)
+      })
     })
 
     test('a removal that failed returns the model as ready, with the reason', async () => {

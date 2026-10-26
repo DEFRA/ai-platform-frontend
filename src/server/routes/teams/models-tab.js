@@ -21,9 +21,6 @@ import { teamUrl } from './team-view.js'
 const ACTIVE_STATUS = 'active'
 const ADD_MODEL_URL = '/connect/team/start'
 
-// How often the Models tab re-reads while any model is changing.
-export const MODELS_CHANGING_REFRESH_SECONDS = 5
-
 const numberFormat = new Intl.NumberFormat('en-GB')
 
 // A read's outcome, however it went, so one that fails does not stop another.
@@ -191,8 +188,8 @@ function notAvailableYetSentence() {
 
 /**
  * What the team's Models tab shows: a card for each environment the team can
- * use, with its models, client secret and limits, and how often to refresh
- * while anything is changing.
+ * use, with its models, client secret and limits, and whether any model is
+ * still changing (so the page keeps checking).
  * @param {object} params
  * @param {{_id: string, slug: string}} params.team
  * @param {boolean} params.isAdmin
@@ -200,20 +197,19 @@ function notAvailableYetSentence() {
  * @param {object[] | null} params.credentials - The person's credentials, or null when they could not be read.
  * @param {Record<string, string>} params.modelNames - Display names by slug.
  * @param {Array<{environment: string, limits: object}>} [params.environments] - The environments the team has a file in, with their limits.
- * @returns {{cards: object[], notAvailableYet: string | null, refreshSeconds?: number}}
+ * @returns {{cards: object[], notAvailableYet: string | null, inProgress: boolean}}
  */
 export function buildModelsTab(params) {
   const cards = teamEnvironmentList()
     .filter(({ available }) => available)
     .map((item) => environmentCard(item, params))
-  const changing = params.deployments.some(({ status }) =>
-    isDeploymentInProgress(status)
-  )
 
   return {
     cards,
     notAvailableYet: notAvailableYetSentence(),
-    refreshSeconds: changing ? MODELS_CHANGING_REFRESH_SECONDS : undefined
+    inProgress: params.deployments.some(({ status }) =>
+      isDeploymentInProgress(status)
+    )
   }
 }
 
@@ -224,7 +220,7 @@ export function buildModelsTab(params) {
  * failure to read either does not take the page down.
  * @param {import('@hapi/hapi').Request} request
  * @param {{team: object, isAdmin: boolean, environments?: object[]}} loaded
- * @returns {Promise<{unavailable: boolean, cards: object[], notAvailableYet: string | null, refreshSeconds?: number}>}
+ * @returns {Promise<{unavailable: boolean, cards: object[], notAvailableYet: string | null, inProgress: boolean}>}
  */
 export async function loadModelsTab(request, { team, isAdmin, environments }) {
   const client = apiClient(request)
@@ -256,7 +252,12 @@ export async function loadModelsTab(request, { team, isAdmin, environments }) {
   }
 
   if (deployments.status === 'rejected') {
-    return { unavailable: true, cards: [], notAvailableYet: null }
+    return {
+      unavailable: true,
+      cards: [],
+      notAvailableYet: null,
+      inProgress: false
+    }
   }
 
   return {

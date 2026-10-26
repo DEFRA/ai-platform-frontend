@@ -10,6 +10,8 @@ import {
   Tabs
 } from 'govuk-frontend'
 
+import { initProgressRefresh } from './progress-refresh.js'
+
 createAll(Button)
 createAll(CharacterCount)
 createAll(Checkboxes)
@@ -18,6 +20,10 @@ createAll(Radios)
 createAll(ServiceNavigation)
 createAll(SkipLink)
 createAll(Tabs)
+
+// Progressive enhancement: a page following a change (a request, a team's
+// Models tab) checks its status again by itself while it is in progress.
+initProgressRefresh()
 
 // Progressive enhancement: reveal and wire up "Copy key" and "Copy code"
 // buttons (hidden by default so the readonly key field and the code still

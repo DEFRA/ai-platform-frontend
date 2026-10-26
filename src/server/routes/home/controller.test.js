@@ -371,7 +371,7 @@ describe('#homeController', () => {
             deployment({
               _id: 'deployment-5',
               teamId: 'team-2',
-              status: 'pr-raised'
+              status: 'committed'
             })
           ]
         }

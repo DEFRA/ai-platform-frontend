@@ -15,6 +15,12 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import {
+  statusFragmentResponse,
+  statusFragmentUnavailable,
+  statusFragmentUrl,
+  wantsStatusFragment
+} from '#/server/common/helpers/status-fragment.js'
 import { loadModelsTab } from './models-tab.js'
 import { loadTeamRows } from './team-list.js'
 import { descriptionField, serviceCodeField } from './team-fields.js'
@@ -26,6 +32,8 @@ import {
   teamTabs,
   teamUrl
 } from './team-view.js'
+
+const MODELS_STATUS_PARTIAL = 'teams/partials/models-status'
 
 const newTeamSchema = Joi.object({
   name: Joi.string().trim().min(3).max(60).required().messages({
@@ -222,15 +230,21 @@ export const teamsController = {
           isAdmin,
           environments
         })
+        const view = { team, teamUrl: teamUrl(team), ...tab }
+
+        if (wantsStatusFragment(request)) {
+          return tab.unavailable
+            ? statusFragmentUnavailable(h)
+            : statusFragmentResponse(request, h, MODELS_STATUS_PARTIAL, view)
+        }
 
         return h.view('teams/team', {
           pageTitle: team.name,
           heading: team.name,
-          team,
-          teamUrl: teamUrl(team),
           tabs: teamTabs(team, 'models'),
           notification: takeAccountNotification(request),
-          ...tab
+          statusUrl: statusFragmentUrl(request.path),
+          ...view
         })
       }
     }

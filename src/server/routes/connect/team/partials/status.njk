@@ -1,0 +1,24 @@
+{#
+  Where a request has got to: each model's steps, and the way to check again.
+  Shown by the page and, on their own, by `?fragment=status`; the page wraps
+  this in the polite live region the script swaps it into.
+  `data-in-progress` is read by the script: when it is "false" the script stops.
+  Without script, "Check progress" loads the page again.
+#}
+{% from "step-list/macro.njk" import appStepList %}
+
+<div data-in-progress="{{ 'true' if inProgress else 'false' }}" data-testid="request-status">
+  {% for item in requests %}
+    {% if item.title %}
+      <h2 class="govuk-heading-m">{{ item.title }}</h2>
+    {% endif %}
+    {{ appStepList({ items: item.steps }) }}
+  {% endfor %}
+
+  {% if finished %}
+    <p class="govuk-body" data-testid="request-finished">This request has finished.</p>
+  {% endif %}
+  <p class="govuk-body">
+    <a class="govuk-link" href="{{ pageUrl }}" data-testid="check-progress">{{ 'See the result' if finished else 'Check progress' }}</a>
+  </p>
+</div>

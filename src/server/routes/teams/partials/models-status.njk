@@ -1,0 +1,82 @@
+{#
+  The Models tab's environment cards: shown by the page and, on their own, by
+  `?fragment=status`. The page wraps them in the polite live region the script
+  swaps this into. `inProgress` is read by the script (`data-in-progress`).
+#}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+<div data-in-progress="{{ 'true' if inProgress else 'false' }}" data-testid="models-status">
+  {% if inProgress %}
+    <p class="govuk-body"><a class="govuk-link" href="{{ teamUrl }}" data-testid="check-progress">Check progress</a></p>
+  {% endif %}
+
+  {% for card in cards %}
+    <div class="govuk-summary-card" data-testid="environment-card">
+      <div class="govuk-summary-card__title-wrapper">
+        <h2 class="govuk-summary-card__title">{{ card.name }}</h2>
+        {% if card.addModelUrl %}
+          <ul class="govuk-summary-card__actions">
+            <li class="govuk-summary-card__action">
+              <a class="govuk-link" href="{{ card.addModelUrl }}" data-testid="add-model">Add a model<span class="govuk-visually-hidden"> to {{ team.name }} in {{ card.name }}</span></a>
+            </li>
+          </ul>
+        {% endif %}
+      </div>
+      <div class="govuk-summary-card__content">
+        {% if card.models %}
+          <dl class="govuk-summary-list">
+            {% for model in card.models %}
+              <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not model.removeUrl }}" data-testid="model-row">
+                <dt class="govuk-summary-list__key">{{ model.name }}</dt>
+                <dd class="govuk-summary-list__value">
+                  {{ govukTag({ text: model.statusText, classes: model.tagClass }) }}
+                  {% if model.detail %}
+                    <a class="govuk-link govuk-!-margin-left-2" href="{{ model.detail.href }}">{{ model.detail.text }}<span class="govuk-visually-hidden"> for {{ model.name }}</span></a>
+                  {% endif %}
+                  {% if model.reason %}
+                    <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0" data-testid="model-reason">{{ model.reason }}</p>
+                  {% endif %}
+                </dd>
+                {% if model.removeUrl %}
+                  <dd class="govuk-summary-list__actions">
+                    <a class="govuk-link" href="{{ model.removeUrl }}" data-testid="model-remove">Remove<span class="govuk-visually-hidden"> {{ model.name }} from {{ card.name }}</span></a>
+                  </dd>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (card.secret.actions.length or card.secret.askAnAdmin) }}" data-testid="secret-row">
+              <dt class="govuk-summary-list__key">Client secret</dt>
+              <dd class="govuk-summary-list__value">{{ card.secret.text }}</dd>
+              {% if card.secret.actions.length %}
+                <dd class="govuk-summary-list__actions">
+                  <ul class="govuk-summary-list__actions-list">
+                    {% for action in card.secret.actions %}
+                      <li class="govuk-summary-list__actions-list-item">
+                        <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ card.name }} client secret</span></a>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </dd>
+              {% elif card.secret.askAnAdmin %}
+                <dd class="govuk-summary-list__actions" data-testid="ask-an-admin">Ask an admin for it</dd>
+              {% endif %}
+            </div>
+
+            {% if card.limits %}
+              <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="limits-row">
+                <dt class="govuk-summary-list__key">Limits</dt>
+                <dd class="govuk-summary-list__value">{{ card.limits }}</dd>
+              </div>
+            {% endif %}
+          </dl>
+        {% elif card.empty %}
+          <p class="govuk-body" data-testid="no-models">No models in {{ card.name }}</p>
+        {% else %}
+          <p class="govuk-body" data-testid="not-set-up">Not set up. {{ card.name }} gets its own deployments, client secret and limits.</p>
+          <p class="govuk-body"><a class="govuk-link" href="{{ card.setUpUrl }}" data-testid="set-up-environment">Set up {{ card.name }}</a></p>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
