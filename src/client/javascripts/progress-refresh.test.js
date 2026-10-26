@@ -221,7 +221,7 @@ describe('#initProgressRefresh', () => {
       expect(document.activeElement).toBe(document.body)
     })
 
-    test('leaves focus alone when the focused link has gone from the new content', async () => {
+    test('moves focus to the region, not to the page, when the focused link has gone from the new content', async () => {
       fetchMock.mockResolvedValue(
         answer('<div data-in-progress="true"><p>Gone</p></div>')
       )
@@ -231,10 +231,27 @@ describe('#initProgressRefresh', () => {
       await tick()
 
       expect(text()).toContain('Gone')
-      expect(region().contains(document.activeElement)).toBe(false)
+      expect(document.activeElement).toBe(region())
+      expect(region().getAttribute('tabindex')).toBe('-1')
     })
 
-    test('does not guess at focus on an element with neither an id nor an address', async () => {
+    test('moves focus to the region when the last update removes the focused "Check progress" link', async () => {
+      fetchMock.mockResolvedValue(
+        answer('<div data-in-progress="false"><p>All done</p></div>')
+      )
+      start()
+      document.getElementById('check').focus()
+
+      await tick()
+
+      expect(text()).toBe('All done')
+      expect(document.activeElement).toBe(region())
+
+      await tick(60000)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    test('does not guess at focus on an element with neither an id nor an address, but keeps it in the region', async () => {
       page(
         '<div data-in-progress="true"><button type="button">Go</button></div>'
       )
@@ -248,7 +265,19 @@ describe('#initProgressRefresh', () => {
 
       await tick()
 
-      expect(region().contains(document.activeElement)).toBe(false)
+      expect(document.activeElement).toBe(region())
+    })
+
+    test('does not move focus to the region when focus was already on it', async () => {
+      region().setAttribute('tabindex', '-1')
+      region().focus()
+      fetchMock.mockResolvedValue(answer(status(true, 'Deploying')))
+      start()
+
+      await tick()
+
+      expect(document.activeElement).toBe(region())
+      expect(text()).toContain('Deploying')
     })
   })
 

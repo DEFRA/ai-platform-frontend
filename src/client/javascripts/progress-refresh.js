@@ -3,7 +3,9 @@
 // (`data-in-progress`) inside a polite live region marked
 // `data-progress-refresh="<fragment address>"`. While the status says it is in
 // progress, this asks for the fragment every few seconds and swaps it in, so
-// the page updates without moving focus. Without script, the "Check progress"
+// the page updates without moving focus (focus stays on the same control; if
+// that control goes, it moves to the region, never to the top of the page).
+// Without script, the "Check progress"
 // link in the status does the same by loading the page again. It stops when
 // nothing is in progress, when the page is hidden (and starts again when it is
 // shown), and for good when the answer is not a status (signed out, not found).
@@ -24,31 +26,52 @@ const RETRY = 'retry'
 const STOP = 'stop'
 
 function isInProgress(status) {
-  return status?.getAttribute('data-in-progress') === 'true'
+  return status?.dataset.inProgress === 'true'
 }
 
 // What has focus inside the region, in terms that survive the content being
-// replaced: an id, or a link's address. Anything else cannot be found again.
+// replaced: an id, or a link's address (an element with neither cannot be found
+// again). Null when focus is not inside the region, or is on the region itself,
+// which the swap does not remove.
 function focusedIn(region) {
   const active = document.activeElement
-  const id = active?.id
-  const href = active?.getAttribute?.('href')
 
-  if (!active || !region.contains(active) || !(id || href)) {
+  if (active === region || !region.contains(active)) {
     return null
   }
 
-  return { tag: active.localName, id, href }
+  return {
+    tag: active.localName,
+    id: active.id,
+    href: active.getAttribute('href')
+  }
 }
 
-function restoreFocus(region, saved) {
-  const match = [...region.querySelectorAll(saved.tag)].find((element) =>
+function findAgain(region, saved) {
+  if (!saved.id && !saved.href) {
+    return undefined
+  }
+
+  return [...region.querySelectorAll(saved.tag)].find((element) =>
     saved.id
       ? element.id === saved.id
       : element.getAttribute('href') === saved.href
   )
+}
 
-  match?.focus({ preventScroll: true })
+// Focus stays on the same control. When that control has gone (a link that
+// is only there while something is in progress), it moves to the region, so
+// the person keeps their place instead of dropping to the top of the page.
+function restoreFocus(region, saved) {
+  const match = findAgain(region, saved)
+
+  if (match) {
+    match.focus({ preventScroll: true })
+    return
+  }
+
+  region.setAttribute('tabindex', '-1')
+  region.focus({ preventScroll: true })
 }
 
 function swapIn(region, content) {
@@ -68,8 +91,54 @@ function parseStatus(html) {
   return body.querySelector(STATUS_SELECTOR) ? body : null
 }
 
+// Asks for the fragment once. What comes back is the outcome, and for a new
+// version its content and ETag. A 304 means the person has this version.
+async function requestStatus(url, etag) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  try {
+    const headers = { Accept: 'text/html' }
+
+    if (etag) {
+      headers['If-None-Match'] = etag
+    }
+
+    const response = await fetch(url, {
+      headers,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: controller.signal
+    })
+
+    if (response.status === NOT_MODIFIED) {
+      return { outcome: CURRENT }
+    }
+
+    if (
+      response.redirected ||
+      (response.status >= FIRST_CLIENT_ERROR &&
+        response.status < FIRST_SERVER_ERROR)
+    ) {
+      return { outcome: STOP }
+    }
+
+    if (!response.ok) {
+      return { outcome: RETRY }
+    }
+
+    const content = parseStatus(await response.text())
+
+    return content
+      ? { outcome: CURRENT, content, etag: response.headers.get('ETag') }
+      : { outcome: STOP }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 function watch(region) {
-  const url = region.getAttribute('data-progress-refresh')
+  const url = region.dataset.progressRefresh
   let etag = null
   let failures = 0
   let timer = null
@@ -80,61 +149,27 @@ function watch(region) {
     return Math.min(POLL_INTERVAL_MS * 2 ** failures, MAX_DELAY_MS)
   }
 
-  // Asks for the fragment once. A 304 means the person has this version.
-  async function load() {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  function clearTimer() {
+    clearTimeout(timer)
+    timer = null
+  }
 
-    try {
-      const headers = { Accept: 'text/html' }
+  // Asks once and shows what came back: how it went, for what to do next.
+  async function refresh() {
+    const result = await requestStatus(url, etag)
 
-      if (etag) {
-        headers['If-None-Match'] = etag
-      }
-
-      const response = await fetch(url, {
-        headers,
-        credentials: 'same-origin',
-        cache: 'no-store',
-        signal: controller.signal
-      })
-
-      if (response.status === NOT_MODIFIED) {
-        return CURRENT
-      }
-
-      if (
-        response.redirected ||
-        (response.status >= FIRST_CLIENT_ERROR &&
-          response.status < FIRST_SERVER_ERROR)
-      ) {
-        return STOP
-      }
-
-      if (!response.ok) {
-        return RETRY
-      }
-
-      const content = parseStatus(await response.text())
-
-      if (!content) {
-        return STOP
-      }
-
-      etag = response.headers.get('ETag')
-      swapIn(region, content)
-
-      return isInProgress(region.querySelector(STATUS_SELECTOR))
-        ? CURRENT
-        : STOP
-    } finally {
-      clearTimeout(timeout)
+    if (!result.content) {
+      return result.outcome
     }
+
+    etag = result.etag
+    swapIn(region, result.content)
+
+    return isInProgress(region.querySelector(STATUS_SELECTOR)) ? CURRENT : STOP
   }
 
   function schedule() {
-    clearTimeout(timer)
-    timer = null
+    clearTimer()
 
     // A hidden page asks nothing; showing it again asks at once.
     if (!stopped && !document.hidden) {
@@ -149,7 +184,7 @@ function watch(region) {
     let outcome
 
     try {
-      outcome = await load()
+      outcome = await refresh()
     } catch {
       outcome = RETRY
     }
@@ -167,18 +202,19 @@ function watch(region) {
 
   function onVisibilityChange() {
     if (document.hidden) {
-      clearTimeout(timer)
-      timer = null
-    } else if (!stopped && !waiting) {
-      clearTimeout(timer)
-      check()
+      clearTimer()
+      return
+    }
+
+    if (!stopped && !waiting) {
+      clearTimer()
+      check().catch(stop)
     }
   }
 
   function stop() {
     stopped = true
-    clearTimeout(timer)
-    timer = null
+    clearTimer()
     document.removeEventListener('visibilitychange', onVisibilityChange)
   }
 
