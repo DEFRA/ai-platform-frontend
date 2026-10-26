@@ -22,15 +22,21 @@ function page(inner = status(true)) {
     <div id="region" aria-live="polite" data-progress-refresh="${STATUS_URL}">${inner}</div>`
 }
 
-function answer(html, { status: code = 200, etag = '"v1"', redirected } = {}) {
-  const response = new Response(code === 304 ? null : html, {
+function answer(html, { status: code = 200, etag = '"v1"' } = {}) {
+  return new Response(code === 304 ? null : html, {
     status: code,
     headers: etag ? { ETag: etag } : {}
   })
+}
 
-  if (redirected) {
-    Object.defineProperty(response, 'redirected', { value: true })
-  }
+// What fetch gives for `redirect: 'manual'` when the server redirects: the
+// redirect is not followed, so nothing reaches the sign-in provider.
+function redirectNotFollowed() {
+  const response = new Response(null)
+
+  Object.defineProperty(response, 'type', { value: 'opaqueredirect' })
+  Object.defineProperty(response, 'status', { value: 0 })
+  Object.defineProperty(response, 'ok', { value: false })
 
   return response
 }
@@ -115,7 +121,8 @@ describe('#initProgressRefresh', () => {
       expect(fetchMock.mock.calls[0][0]).toBe(STATUS_URL)
       expect(fetchMock.mock.calls[0][1]).toMatchObject({
         credentials: 'same-origin',
-        cache: 'no-store'
+        cache: 'no-store',
+        redirect: 'manual'
       })
 
       await tick()
@@ -362,10 +369,7 @@ describe('#initProgressRefresh', () => {
     })
 
     test.each([
-      [
-        'signed out (a redirect)',
-        () => answer(status(true), { redirected: true })
-      ],
+      ['signed out (a redirect, not followed)', redirectNotFollowed],
       ['not found', () => answer('', { status: 404 })],
       ['refused', () => answer('', { status: 403 })],
       ['not a status at all', () => answer('<p>Some other page</p>')]

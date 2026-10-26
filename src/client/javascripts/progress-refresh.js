@@ -108,6 +108,9 @@ async function requestStatus(url, etag) {
       headers,
       credentials: 'same-origin',
       cache: 'no-store',
+      // A signed-out answer is a redirect to the sign-in provider: do not
+      // follow it (the provider's address is not ours to fetch).
+      redirect: 'manual',
       signal: controller.signal
     })
 
@@ -116,7 +119,7 @@ async function requestStatus(url, etag) {
     }
 
     if (
-      response.redirected ||
+      response.type === 'opaqueredirect' ||
       (response.status >= FIRST_CLIENT_ERROR &&
         response.status < FIRST_SERVER_ERROR)
     ) {
