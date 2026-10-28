@@ -1,9 +1,6 @@
 import { config } from '#/config/config.js'
 import { TEAM_SECRET_STATE } from './team-secret.js'
-import {
-  MODELS_CHANGING_REFRESH_SECONDS,
-  buildModelsTab
-} from './models-tab.js'
+import { buildModelsTab } from './models-tab.js'
 
 const team = { _id: 'team-1', slug: 'flood-risk-team', name: 'Flood Risk Team' }
 const modelNames = { 'gpt-4o': 'GPT-4o', 'gpt-4-1-nano': 'GPT-4.1 nano' }
@@ -112,6 +109,14 @@ describe('#buildModelsTab', () => {
       }
     )
 
+    test('that timed out is failed, so an admin can see what happened and remove it', () => {
+      expect(row({ status: 'timed-out' })).toMatchObject({
+        statusText: 'Setup failed',
+        detail: { text: 'See what happened' },
+        removeUrl: '/teams/flood-risk-team/models/deployment-1/remove'
+      })
+    })
+
     test('that failed can be seen, but not removed, by a member', () => {
       expect(
         row({ status: 'deploy-failed' }, { isAdmin: false })
@@ -121,7 +126,7 @@ describe('#buildModelsTab', () => {
       })
     })
 
-    test.each(['requested', 'pr-raised', 'merged', 'deploying', 'queued'])(
+    test.each(['requested', 'committed', 'deploying', 'queued'])(
       'that is %s shows its progress and cannot be removed',
       (status) => {
         expect(row({ status })).toMatchObject({
@@ -349,23 +354,29 @@ describe('#buildModelsTab', () => {
     })
   })
 
-  describe('refreshing', () => {
-    test.each(['deploying', 'queued', 'removing'])(
-      'is asked for while a model is %s',
+  describe('progress', () => {
+    test.each(['deploying', 'queued', 'removing', 'committed'])(
+      'is in progress while a model is %s',
       (status) => {
         expect(
-          build({ deployments: [deployment({ status })] }).refreshSeconds
-        ).toBe(MODELS_CHANGING_REFRESH_SECONDS)
+          build({ deployments: [deployment({ status })] }).inProgress
+        ).toBe(true)
       }
     )
 
-    test.each(['active', 'deploy-failed', 'removed'])(
-      'is not asked for when the only model is %s',
+    test.each(['active', 'deploy-failed', 'timed-out', 'removed'])(
+      'is not in progress when the only model is %s',
       (status) => {
         expect(
-          build({ deployments: [deployment({ status })] }).refreshSeconds
-        ).toBeUndefined()
+          build({ deployments: [deployment({ status })] }).inProgress
+        ).toBe(false)
       }
     )
+
+    test('no longer asks for a refresh interval', () => {
+      expect(
+        build({ deployments: [deployment({ status: 'deploying' })] })
+      ).not.toHaveProperty('refreshSeconds')
+    })
   })
 })

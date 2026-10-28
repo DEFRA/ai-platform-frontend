@@ -104,7 +104,9 @@ describe('#buildAttention', () => {
       [
         {
           team: memberTeam,
-          deployments: [deployment({ _id: 'deployment-2', status: 'merged' })]
+          deployments: [
+            deployment({ _id: 'deployment-2', status: 'committed' })
+          ]
         },
         {
           team: adminTeam,

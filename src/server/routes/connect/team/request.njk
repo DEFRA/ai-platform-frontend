@@ -1,13 +1,5 @@
 {% extends 'layouts/page.njk' %}
 
-{% from "step-list/macro.njk" import appStepList %}
-
-{# Without JavaScript the page still checks again by itself. #}
-{% block head %}
-  {{ super() }}
-  <meta http-equiv="refresh" content="{{ refreshSeconds }}">
-{% endblock %}
-
 {% block content %}
   {{ appHeading({
     text: heading,
@@ -19,14 +11,10 @@
     <div class="govuk-grid-column-two-thirds">
       <p class="govuk-body-l" data-testid="request-lead">{{ lead }}</p>
 
-      {% for item in requests %}
-        {% if item.title %}
-          <h2 class="govuk-heading-m">{{ item.title }}</h2>
-        {% endif %}
-        {{ appStepList({ items: item.steps }) }}
-      {% endfor %}
-
-      <p class="govuk-body govuk-hint" data-testid="last-checked">This page updates by itself. Last checked at {{ lastCheckedAt }}.</p>
+      {# Checked again by progress-refresh.js; without script, "Check progress" does it. #}
+      <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
+        {% include "connect/team/partials/status.njk" %}
+      </div>
 
       <p class="govuk-body">
         <a class="govuk-link" href="{{ teamUrl }}">Go to {{ teamName }}</a>

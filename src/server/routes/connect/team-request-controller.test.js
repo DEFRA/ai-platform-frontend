@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
@@ -143,17 +144,45 @@ describe('#teamRequestController', () => {
       expect(result).toContain('Done: ')
       expect(result).toContain('In progress: ')
       expect(result).toContain('Not started: ')
-      expect(result).toContain('This page updates by itself. Last checked at')
-      expect(result).toContain('http-equiv="refresh"')
+      expect(result).not.toContain('http-equiv="refresh"')
+    })
+
+    test('checks again by itself in a polite live region, and gives a person without script a Check progress link', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
+
+      const { result } = await page()
+      const $ = load(result)
+      const region = $('[data-progress-refresh]')
+
+      expect(region.attr('aria-live')).toBe('polite')
+      expect(region.attr('data-progress-refresh')).toBe(
+        '/connect/team/request/flood-risk-team/deployment-1?fragment=status'
+      )
+      expect(region.find('[data-in-progress]').attr('data-in-progress')).toBe(
+        'true'
+      )
+      expect(region.find('[data-testid="step-list"]')).toHaveLength(1)
+      expect(region.find('[data-testid="check-progress"]').attr('href')).toBe(
+        '/connect/team/request/flood-risk-team/deployment-1'
+      )
+      expect(region.find('[data-testid="check-progress"]').text()).toBe(
+        'Check progress'
+      )
+      expect(result).not.toContain('Last checked')
+      expect(result).not.toContain('updates by itself')
     })
 
     test('has a link to the team and none of the old controls, banner or pipeline links', async () => {
       mockPage({
         deployments: [
           deployment({
-            status: 'pr-raised',
+            status: 'committed',
             progressSteps: STEPS,
-            links: { pullRequest: 'https://github.com/DEFRA/tenants/pull/7' }
+            links: {
+              submitRun: 'https://github.com/DEFRA/tenants/actions/runs/7'
+            }
           })
         ]
       })
@@ -182,7 +211,8 @@ describe('#teamRequestController', () => {
       expect(result).toContain(
         'Waiting for another change to Flood Risk Team to finish'
       )
-      expect(result).toContain('http-equiv="refresh"')
+      expect(result).not.toContain('http-equiv="refresh"')
+      expect(result).toContain('data-progress-refresh')
       expect(result).not.toContain('Setting up GPT-4o for your team')
     })
 
@@ -278,7 +308,7 @@ describe('#teamRequestController', () => {
       expect(result).toContain(
         'Setting up GPT-4o and GPT-4.1 nano for your team'
       )
-      expect(result).toContain('http-equiv="refresh"')
+      expect(result).toContain('data-progress-refresh')
     })
 
     test('keeps waiting while any model is still being set up', async () => {
@@ -292,7 +322,8 @@ describe('#teamRequestController', () => {
 
       const { result } = await page()
 
-      expect(result).toContain('http-equiv="refresh"')
+      expect(result).toContain('data-progress-refresh')
+      expect(result).not.toContain('http-equiv="refresh"')
     })
 
     test('follows only the deployment in the address once the session no longer remembers the request', async () => {
@@ -676,21 +707,40 @@ describe('#teamRequestController', () => {
       expect(result).toContain('What failed')
       expect(result).toContain('Apply: gpt-5-mini is not available in eastus')
       expect(result).toContain(
-        '<a class="govuk-link" href="https://github.com/DEFRA/tenants/pull/214">Pull request</a>'
+        '<a class="govuk-link" href="https://github.com/DEFRA/tenants/actions/runs/8">Submit run</a>'
       )
       expect(result).toContain(
         '<a class="govuk-link" href="https://github.com/DEFRA/tenants/actions/runs/9">Apply run</a>'
       )
-      expect(result).not.toContain('actions/runs/8')
+      expect(result).not.toContain('Pull request')
+      expect(result).not.toContain('tenants/pull/214')
     })
 
     test('shows only https links', async () => {
       const { result } = await failedPage({
-        links: { pullRequest: 'javascript:alert(1)' }
+        links: { submitRun: 'javascript:alert(1)' }
       })
 
       expect(result).not.toContain('javascript:alert')
-      expect(result).not.toContain('Pull request')
+      expect(result).not.toContain('Submit run')
+    })
+
+    test('a request that timed out is shown as one that could not be set up', async () => {
+      mockPage({
+        deployments: [
+          deployment({
+            status: 'timed-out',
+            failureReason: 'The operation timed out.'
+          })
+        ]
+      })
+
+      const { statusCode, result } = await page()
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(result).toContain('We could not set up GPT-4o')
+      expect(result).toContain('The operation timed out.')
+      expect(result).not.toContain('data-progress-refresh')
     })
 
     test('says a model in the UK or EU could not be set up, without blaming the offer', async () => {
@@ -754,6 +804,132 @@ describe('#teamRequestController', () => {
       expect(result).toContain(
         'gpt-4o could not be set up for Flood Risk Team.'
       )
+    })
+  })
+
+  describe('as a fragment', () => {
+    const PAGE_URL = '/connect/team/request/flood-risk-team/deployment-1'
+    const FRAGMENT_URL = `${PAGE_URL}?fragment=status`
+
+    test('is only the steps and the Check progress link, with an ETag and no-store', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
+
+      const { statusCode, result, headers } = await get(
+        server,
+        cookies,
+        FRAGMENT_URL
+      )
+      const $ = load(result)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(headers['content-type']).toContain('text/html')
+      expect(headers['cache-control']).toBe('no-store')
+      expect(headers.etag).toMatch(/^"[^"]+"$/)
+      expect($('[data-in-progress]').attr('data-in-progress')).toBe('true')
+      expect($('[data-testid="step-list-item"]')).toHaveLength(STEPS.length)
+      expect($('[data-testid="check-progress"]').attr('href')).toBe(PAGE_URL)
+      expect(result).not.toContain('<html')
+      expect(result).not.toContain('request-lead')
+    })
+
+    test('is the same, with the same ETag, whenever nothing has moved', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
+      const first = await get(server, cookies, FRAGMENT_URL)
+
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
+      const second = await get(server, cookies, FRAGMENT_URL)
+
+      expect(second.headers.etag).toBe(first.headers.etag)
+    })
+
+    test('answers 304, with no-store, to a person who already has this version', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
+      const first = await get(server, cookies, FRAGMENT_URL)
+
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
+      const second = await get(server, cookies, FRAGMENT_URL, {
+        'if-none-match': first.headers.etag
+      })
+
+      expect(second.statusCode).toBe(statusCodes.notModified)
+      expect(second.headers['cache-control']).toBe('no-store')
+    })
+
+    test('answers 200 with a new ETag when a step has moved on', async () => {
+      mockPage({
+        deployments: [deployment({ status: 'deploying', progressSteps: STEPS })]
+      })
+      const first = await get(server, cookies, FRAGMENT_URL)
+
+      mockPage({
+        deployments: [
+          deployment({
+            status: 'deployed',
+            progressSteps: STEPS.map((step) => ({ ...step, state: 'done' }))
+          })
+        ]
+      })
+      const second = await get(server, cookies, FRAGMENT_URL, {
+        'if-none-match': first.headers.etag
+      })
+
+      expect(second.statusCode).toBe(statusCodes.ok)
+      expect(second.headers.etag).not.toBe(first.headers.etag)
+      expect(
+        load(second.result)('[data-in-progress]').attr('data-in-progress')
+      ).toBe('true')
+    })
+
+    test.each([
+      ['ready', 'active'],
+      ['failed', 'deploy-failed'],
+      ['timed out', 'timed-out']
+    ])(
+      'says it has finished, and links to the page for the result, once the request is %s',
+      async (_name, status) => {
+        mockPage({ deployments: [deployment({ status })] })
+
+        const { statusCode, result } = await get(server, cookies, FRAGMENT_URL)
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.ok)
+        expect($('[data-in-progress]').attr('data-in-progress')).toBe('false')
+        expect($('[data-testid="check-progress"]').text()).toBe(
+          'See the result'
+        )
+        expect($('[data-testid="check-progress"]').attr('href')).toBe(PAGE_URL)
+        expect(result).toContain('This request has finished.')
+        // The credential is not read for a fragment, only for the page.
+        expect(calledWith('/v1/credentials')).toBe(false)
+      }
+    )
+
+    test('leaves a removed model for the team page, as the page does', async () => {
+      mockResponse(teamWithMembers())
+      mockResponse({ items: [deployment({ status: 'removed' })] })
+
+      const { statusCode, headers } = await get(server, cookies, FRAGMENT_URL)
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/teams/flood-risk-team')
+    })
+
+    test('is not found for a deployment the person cannot see', async () => {
+      mockResponse(NOT_FOUND, { status: 404 })
+
+      const { statusCode } = await get(server, cookies, FRAGMENT_URL)
+
+      expect(statusCode).toBe(statusCodes.notFound)
     })
   })
 

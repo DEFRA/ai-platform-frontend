@@ -14,7 +14,7 @@ const REFERENCE_LENGTH = 5
 
 // Only these two links help support on a failure, and only https ones are shown.
 const PIPELINE_LINK_LABELS = {
-  pullRequest: 'Pull request',
+  submitRun: 'Submit run',
   applyRun: 'Apply run'
 }
 

@@ -4,11 +4,15 @@ import {
   getRequestedDeployments,
   getSessionUser
 } from '#/server/common/helpers/session.js'
-import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import {
   DEPLOYMENT_REMOVED_STATUS,
   DEPLOYMENT_REMOVING_STATUS
 } from '#/server/common/helpers/deployment-status.js'
+import {
+  statusFragmentResponse,
+  statusFragmentUrl,
+  wantsStatusFragment
+} from '#/server/common/helpers/status-fragment.js'
 import {
   defaultTeamEnvironment,
   environmentName,
@@ -35,7 +39,7 @@ import {
 
 const ACTIVE_STATUS = 'active'
 const TEST_ENVIRONMENT = 'qa'
-const REFRESH_SECONDS = 3
+const STATUS_PARTIAL = 'connect/team/partials/status'
 
 function redirectToStart(h) {
   return h.redirect('/models').takeover()
@@ -102,7 +106,24 @@ function modelName(catalogue, deployment) {
   return catalogue[deployment.modelSlug]?.displayName ?? deployment.modelSlug
 }
 
-function waitView(h, { team, live, catalogue }) {
+// What the status part shows, for the page and for `?fragment=status`: each
+// model's steps and the way to check again. Once the request has finished,
+// the same link takes the person to the page that says how it went.
+function statusView(request, { live, catalogue, finished }) {
+  const multiple = live.length > 1
+
+  return {
+    inProgress: !finished,
+    finished,
+    pageUrl: request.path,
+    requests: live.map((deployment) => ({
+      title: multiple ? modelName(catalogue, deployment) : null,
+      steps: buildStepItems(deployment.progressSteps)
+    }))
+  }
+}
+
+function waitView(request, h, { team, live, catalogue }) {
   const queued = live.every(({ status }) => status === QUEUED_STATUS)
   const names = live.map((deployment) => modelName(catalogue, deployment))
   const { environment } = live[0]
@@ -125,12 +146,8 @@ function waitView(h, { team, live, catalogue }) {
     lead: queued
       ? 'Your request starts when the one before it finishes. You can leave this page and come back.'
       : `${duration} You can leave this page and come back.`,
-    refreshSeconds: REFRESH_SECONDS,
-    lastCheckedAt: formatDate(new Date(), 'HH:mm'),
-    requests: live.map((deployment, index) => ({
-      title: live.length > 1 ? names[index] : null,
-      steps: buildStepItems(deployment.progressSteps)
-    }))
+    statusUrl: statusFragmentUrl(request.path),
+    ...statusView(request, { live, catalogue, finished: false })
   })
 }
 
@@ -313,11 +330,21 @@ export const teamRequestController = {
           FAILURE_STATUSES.includes(status)
         )
         const ready = live.filter(({ status }) => status === ACTIVE_STATUS)
+        const finished = failed.length + ready.length === live.length
+
+        if (wantsStatusFragment(request)) {
+          return statusFragmentResponse(
+            request,
+            h,
+            STATUS_PARTIAL,
+            statusView(request, { live, catalogue, finished })
+          )
+        }
 
         // Anything still on its way (and any state this page does not know)
-        // keeps the page waiting, and refreshing.
-        if (failed.length + ready.length < live.length) {
-          return waitView(h, { team, live, catalogue })
+        // keeps the page waiting, and checking again.
+        if (!finished) {
+          return waitView(request, h, { team, live, catalogue })
         }
 
         if (failed.length > 0) {

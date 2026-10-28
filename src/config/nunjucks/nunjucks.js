@@ -13,7 +13,9 @@ const nunjucksEnvironment = nunjucks.configure(
   [
     'node_modules/govuk-frontend/dist/',
     path.resolve(dirname, '../../server/common/templates'),
-    path.resolve(dirname, '../../server/common/components')
+    path.resolve(dirname, '../../server/common/components'),
+    // So a page and its status fragment can share a partial in a route's folder.
+    path.resolve(dirname, '../../server/routes')
   ],
   {
     autoescape: true,
