@@ -12,27 +12,31 @@ Applied in Infradev from 15 Oct 2026; CDP dev runs the portal against it from 20
 | Gateway guard, removal lifecycle, destroy cap, locks (infra #16)        | 19 Oct 2026 |
 | Research tier IaC and `autoPin` releases (v0.9.0, v0.9.1)               | 20 Oct 2026 |
 | CDP dev wired to Infradev (config, proxy rules)                         | 20 Oct 2026 |
+| B28 asynchronous operations: queues, GitOps worker, direct commits      | 28 Oct 2026 |
+| B28 status events from the workflows; CDP grant to the events identity  | 29 Oct 2026 |
 
 ## The repositories
 
-| Repository                   | Holds                                                                                         |
-| ---------------------------- | --------------------------------------------------------------------------------------------- |
-| `ai-platform-infra` (public) | Modules, schemas, the model catalogue, `aip-checks`. Released with release-please (`v0.9.1`). |
-| `ai-platform-workflows`      | Reusable workflows and composite actions, called at `@v1` (`v1.1.1`).                         |
-| `ai-platform-environments`   | `registry.json` and per-environment parameters; a merge dispatches that environment's apply.  |
-| `ai-platform-deployments`    | The platform pin, `environments/{env}/platform.json`; a merge applies the platform.           |
-| `ai-platform-tenants`        | One file per team, `environments/{env}/{slug}.json`, plus the platform-owned `research.json`. |
+| Repository                   | Holds                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ai-platform-infra` (public) | Modules, schemas, the model catalogue, `aip-checks`. Released with release-please (`v0.10.2`). |
+| `ai-platform-workflows`      | Reusable workflows and composite actions, called at `@v2` (`v2.0.3`).                          |
+| `ai-platform-worker`         | The GitOps worker (CDP service, `0.1.0`): takes the backend's commands and dispatches runs.    |
+| `ai-platform-environments`   | `registry.json` and per-environment parameters; a merge dispatches that environment's apply.   |
+| `ai-platform-deployments`    | The platform pin, `environments/{env}/platform.json`; a merge applies the platform.            |
+| `ai-platform-tenants`        | One file per team, `environments/{env}/{slug}.json`, plus the platform-owned `research.json`.  |
 
 ## How a change flows
 
-1. The portal (or a release) dispatches `submit.yml` with a whole document; the pull request is validated by
-   `validate-desired-state / validate` and merged by the machine ruleset (`aip-machine-main`) without a person.
-2. Merging applies: the platform first, then tenants, only at the platform's release.
-3. The apply writes a run report; the portal reads it to learn the operation finished.
+1. The backend records one operation per team file with its outbox and sends a command to an SQS FIFO queue; the GitOps
+   worker dispatches `submit.yml`, which validates the whole document and commits it to `main` as the GitHub App, with no
+   pull request (B28, backend #58, worker #1).
+2. The commit applies: the platform first, then tenants, only at the platform's release.
+3. `submit`, the apply and `pause.yml` publish status events to the backend's events queue as `id-aip-events-{env}`: a v1
+   Entra token for the deploy registration, exchanged with AWS STS for CDP's role. The run report keeps every event.
 
-- The run report names an operation from the `Operation-Id` line in the commit body, or from the `aip-operation-id` tag on the
-  team's resources. A pull request merged by hand (rather than auto-merged) still works. A deployment that stays at merged
-  or deploying past `GITOPS_STALL_WARN_AFTER_MS` (30 minutes) is logged and audited once as stalled.
+- Each state repository needs the `AZURE_TENANT_ID` repository variable and the `AIP_EVENTS_*` variables in its `{env}` and
+  `{env}-events` Environments.
 - `autoPin: true` in the registry means an `ai-platform-infra` release submits, merges and applies its own pin with no
   confirmation. Set it to `false` in `ai-platform-environments` if applies must stay manual.
 - Plan-guard refuses every delete in the platform state; an engineer dispatches `apply.yml` with `allow_destroy=true`.
