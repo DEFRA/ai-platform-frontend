@@ -1,6 +1,6 @@
 # 03 Team tier (teams, dedicated models, GitOps provisioning)
 
-Teams, roles, dedicated model deployments and the GitOps path that builds them. Built 23 Sept to 20 Oct 2026; live in
+Teams, roles, dedicated model deployments and the GitOps path that builds them. Built 23 Sept to 28 Oct 2026; live in
 Infradev and in CDP dev.
 
 | Feature                                                              | Built              |
@@ -12,6 +12,8 @@ Infradev and in CDP dev.
 | Admin removes a model through GitOps                                 | 18 Oct 2026        |
 | Verification finishes and says why it did not (R6)                   | merged 20 Oct 2026 |
 | Honest status labels (R7) and a labelled placeholder secret (R5)     | merged 20 Oct 2026 |
+| B28: operations, queues and direct commits replace the pull request  | merged 28 Oct 2026 |
+| B28: progress from a status fragment, no meta refresh                | merged 28 Oct 2026 |
 
 ## Teams and roles
 
@@ -39,19 +41,34 @@ Infradev and in CDP dev.
 
 ## GitOps provisioning
 
-- `TENANT_ORCHESTRATOR=github` dispatches `submit.yml` with the whole team document and tracks it to `active`: pull
-  request, merge, GitHub Deployment, run report, then an ARM check. The document is built from the file `main`
-  holds now, so an engineer's edit and the team's federations and limits survive a later request.
-- Failure policy (design D14): retry once, then revert; a scheduler sweep and Platform Admin retry and reconcile.
-- The wait page links to the run and pull request under "Details for the AI Platform team".
+- Since B28 (backend #58, 28 Oct 2026; plan in discovery-docs `docs/async-operations-plan.md`),
+  `TENANT_ORCHESTRATOR=sqs` (or `mock` locally) records one operation per request per team file, with its outbox, in
+  the same MongoDB write. Requests for several models of one team and environment are one operation, one commit and one
+  apply; a later request for the same file waits as `queued`. The backend publishes a command to its SNS topic; the
+  GitOps worker (`ai-platform-worker`) dispatches `submit.yml`, which validates the whole document at the pin and
+  commits it to `main` as the GitHub App, with no pull request. `submit` and the apply send status events to the
+  backend's events queue. The document is built from the file `main` holds now, so an engineer's edit and the team's
+  federations and limits survive a later request.
+- States: `queued`, `requested`, `committed`, `deploying`, `deployed`, `verified`, `active`, and the failures
+  `checks-failed`, `deploy-failed` and `timed-out`. The pull-request states `pr-raised` and `merged` are gone.
+- Failure policy (design D14): one fresh apply, then a revert of the whole operation. The backend's sweeper reconciles an
+  overdue operation once through the worker (deadlines: `requested` 10 min, `committed` 30, `deploying` 45, `deployed`
+  15), then marks it `timed-out`. Platform Admin retry and reconcile stay
+  (`POST /v1/admin/team-deployments/{id}/retry` and `/reconcile`).
+- While an admin has paused the environment (`AIP_PAUSED`), requests show as "Waiting", keep their file and commit
+  nothing, and continue after `resumed`.
+- The wait page and the team Models tab update from a status fragment every 5 s with script (a polite live region; no
+  meta refresh) and offer "Check progress" without it. The steps are Request recorded, Change committed, Setting up
+  {model} in Azure, Checking your resources in Azure and Preparing your client secret. The wait page has no pipeline
+  links; the failure page links the submit run and the apply run under "Technical details for the AI Platform team".
 - Verification keeps the verifier's reason, counts attempts (`GITOPS_VERIFY_MAX_ATTEMPTS`, default 5), audits and logs
   each failure, then fails the deployment with the reason (for example `environment-not-configured`). A Platform
   Admin retry resets the count. An active model lists its Foundry project, deployment and API by name.
-- Status labels are mapped explicitly in `deployment-status.js`: "Setting up" means only the six in-progress states,
-  `active` reads "Ready to use", and an unknown status reads "Status unknown". The wait page's steps are Request
-  recorded, Team checked, Setting up access in Azure (`merged`, `deploying`), then Preparing your client secret
-  (`deployed`, `verified`).
-- The backend's apply detection reads the run-report artifact from the GitHub Actions run, which redirects to
+- Status labels are mapped explicitly in `deployment-status.js`: "Setting up" means only the five in-progress states
+  (`requested` to `verified`), `queued` reads "Waiting", the three failures read "Setup failed", `active` reads "Ready
+  to use", and an unknown status, `pr-raised` and `merged` included, reads "Status unknown".
+- The backend corroborates a failure event by reading the run-report artifact from the GitHub Actions run, which
+  redirects to
   `productionresultssaN.blob.core.windows.net`. CDP's proxy must allow that host (see [../remaining.md](../remaining.md)).
 
 ## Team credentials
@@ -65,9 +82,11 @@ Infradev and in CDP dev.
 
 ## Where the code is
 
-- Backend: `src/adapters/github/github-tenant-orchestrator.js`, `src/services/team-deployment-*.js`,
-  `team-desired-state.js` (builds the document; tests validate it against the copied infra team schema),
-  `team-deployment-view.js` (progress steps). README section "GitOps tenant orchestrator".
+- Backend: `src/operations/` (operations, outbox, events, sweeper), `src/adapters/sqs/`,
+  `src/adapters/github/github-team-file-reader.js`, `src/services/team-deployment-*.js`, `team-desired-state.js`
+  (builds the document; tests validate it against the copied infra team schema), `team-deployment-view.js` (progress
+  steps). README section "GitOps operations".
+- GitOps worker: `ai-platform-worker` (README: commands, reconcile, dead-letter runbook).
 - Frontend: `src/server/routes/connect/` (`team-*`), `src/server/routes/teams/`,
   `src/server/common/helpers/deployment-status.js`.
 - Cross-repo design: `ai-platform-discovery-docs` design F (teams), design C (orchestration), and

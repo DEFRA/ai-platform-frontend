@@ -4,7 +4,7 @@ A one-page index of what is built in the AI Platform Portal (`ai-platform-fronte
 for new joiners. It holds no detail: each row links to the category file in this folder
 that does. What is not built is in [remaining.md](../remaining.md).
 
-Last updated: 29 Oct 2026.
+Last updated: 30 Oct 2026.
 
 ## What you can do
 
