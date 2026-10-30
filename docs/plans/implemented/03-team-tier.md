@@ -59,8 +59,8 @@ Infradev and in CDP dev.
   nothing, and continue after `resumed`.
 - The wait page and the team Models tab update from a status fragment every 5 s with script (a polite live region; no
   meta refresh) and offer "Check progress" without it. The steps are Request recorded, Change committed, Setting up
-  {model} in Azure, Checking your resources in Azure and Preparing your client secret. "Details for the AI Platform
-  team" links the submit run and the apply run.
+  {model} in Azure, Checking your resources in Azure and Preparing your client secret. The wait page has no pipeline
+  links; the failure page links the submit run and the apply run under "Technical details for the AI Platform team".
 - Verification keeps the verifier's reason, counts attempts (`GITOPS_VERIFY_MAX_ATTEMPTS`, default 5), audits and logs
   each failure, then fails the deployment with the reason (for example `environment-not-configured`). A Platform
   Admin retry resets the count. An active model lists its Foundry project, deployment and API by name.

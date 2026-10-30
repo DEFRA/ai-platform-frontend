@@ -354,8 +354,10 @@ design.
      `settings-drift.yml` and the README. A `fix:` patch to `v2`.
   2. Set `AIP_SETTINGS_AUDIT_TOKEN`: repository `Administration: read` and `Environments: read` on the two state
      repositories, and organisation audit-log read (organisation `Administration: read` or `read:audit_log`), which needs
-     a Defra organisation owner. Fallback if refused: a dedicated audit App with repository `Administration: write`,
-     used only by this scheduled run.
+     a Defra organisation owner. Both halves of the run use this one token, and `audit-log.sh` always calls
+     `GET /orgs/{owner}/audit-log`, so audit-log read and the owner's approval are prerequisites whatever the credential.
+     A dedicated audit App with repository `Administration: write` would only add visible bypass lists to `--verify`;
+     if audit-log read is refused, the audit-log half stays blocked and the run keeps failing.
   3. Discovery-docs: section 15 mitigations 2 and 4 and a decision-history entry recording the #20 trade-off.
 
   Done when, with unchanged settings, the run passes with a warning per hidden list; a person, team or role in a visible
