@@ -13,7 +13,7 @@
   }) }}
 
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+    <div class="govuk-grid-column-full">
       {{ appSubNavigation({ items: tabs, label: "Team" }) }}
 
       {% if isAdmin %}
@@ -32,7 +32,7 @@
             <th class="govuk-table__header" scope="col">Email</th>
             <th class="govuk-table__header" scope="col">Role</th>
             {% if isAdmin %}
-              <th class="govuk-table__header" scope="col"><span class="govuk-visually-hidden">Change</span></th>
+              <th class="govuk-table__header govuk-table__header--numeric" scope="col"><span class="govuk-visually-hidden">Change</span></th>
             {% endif %}
           </tr>
         </thead>
@@ -40,14 +40,14 @@
           {% for member in members %}
             <tr class="govuk-table__row" data-testid="member-row">
               {% if member.notSignedIn %}
-                <td class="govuk-table__cell" data-testid="member-not-signed-in"><span class="govuk-hint govuk-!-margin-bottom-0">Not signed in yet</span></td>
+                <td class="govuk-table__cell" data-testid="member-not-signed-in"><span class="govuk-hint app-table-hint govuk-!-margin-bottom-0">Not signed in yet</span></td>
               {% else %}
                 <td class="govuk-table__cell">{{ member.name }}</td>
               {% endif %}
               <td class="govuk-table__cell">{{ member.email }}</td>
               <td class="govuk-table__cell">{{ member.role }}</td>
               {% if isAdmin %}
-                <td class="govuk-table__cell">
+                <td class="govuk-table__cell govuk-table__cell--numeric">
                   <a class="govuk-link" href="{{ member.changeUrl }}" data-testid="member-change">Change<span class="govuk-visually-hidden"> role of {{ member.name or member.email }}</span></a>
                 </td>
               {% endif %}

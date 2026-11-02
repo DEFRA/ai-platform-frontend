@@ -231,6 +231,19 @@ describe('#members', () => {
       expect($('[data-testid="member-change"]').first().text()).toContain(
         'Change role of Test User'
       )
+      // The table is full width, and the Change column sits at the right.
+      expect(
+        $('.govuk-grid-column-full [data-testid="members-table"]')
+      ).toHaveLength(1)
+      expect(
+        $('[data-testid="member-change"]')
+          .first()
+          .parent()
+          .hasClass('govuk-table__cell--numeric')
+      ).toBe(true)
+      expect(
+        $('[data-testid="member-not-signed-in"] .app-table-hint')
+      ).toHaveLength(1)
     })
 
     test('masks a colleague’s name when it is their address, for a member but not for an admin', async () => {

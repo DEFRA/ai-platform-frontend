@@ -24,7 +24,7 @@
       </div>
       <div class="govuk-summary-card__content">
         {% if card.models %}
-          <dl class="govuk-summary-list">
+          <dl class="govuk-summary-list app-summary-list--table">
             {% for model in card.models %}
               <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not model.removeUrl }}" data-testid="model-row">
                 <dt class="govuk-summary-list__key">{{ model.name }}</dt>
@@ -49,14 +49,12 @@
               <dt class="govuk-summary-list__key">Client secret</dt>
               <dd class="govuk-summary-list__value">{{ card.secret.text }}</dd>
               {% if card.secret.actions.length %}
-                <dd class="govuk-summary-list__actions">
-                  <ul class="govuk-summary-list__actions-list">
+                <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
+                  <div class="app-button-group govuk-!-margin-bottom-0">
                     {% for action in card.secret.actions %}
-                      <li class="govuk-summary-list__actions-list-item">
-                        <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ card.name }} client secret</span></a>
-                      </li>
+                      <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ card.name }} client secret</span></a>
                     {% endfor %}
-                  </ul>
+                  </div>
                 </dd>
               {% elif card.secret.askAnAdmin %}
                 <dd class="govuk-summary-list__actions" data-testid="ask-an-admin">Ask an admin for it</dd>

@@ -25,7 +25,7 @@
         <td class="govuk-table__cell" data-testid="model-table-team">
           {% if model.canAddToTeam %}
             <a class="govuk-link govuk-!-font-weight-bold" href="{{ model.addToTeamUrl }}">Add to a team<span class="govuk-visually-hidden">: {{ model.displayName }}</span></a>
-            <div class="govuk-hint govuk-!-margin-bottom-0">{{ model.teamAvailability }}</div>
+            <div class="govuk-hint app-table-hint govuk-!-margin-bottom-0">{{ model.teamAvailability }}</div>
           {% else %}
             <span class="app-model-table__unavailable">{{ model.teamAvailability }}</span>
           {% endif %}

@@ -1,4 +1,4 @@
-@use "govuk-frontend" as *;
+@use 'govuk-frontend' as *;
 
 // Design decision: table headers use 600 weight, not GOV.UK's bold default.
 .govuk-table__header {
@@ -8,4 +8,19 @@
 // Design decision: table text use 16 as font-size, not GOV.UK's 19 as default.
 .govuk-table {
   @include govuk-font($size: 16);
+}
+
+// Team tabs show rows in summary lists; match the table text size and key weight so Details, Models and Members look the same.
+.app-summary-list--table {
+  @include govuk-font($size: 16);
+
+  .govuk-summary-list__key {
+    font-weight: 600;
+  }
+}
+
+// Opt-in for a hint inside a table cell (such as "Runs in the UK or EU") to keep the table text size.
+.app-table-hint {
+  font-size: inherit;
+  line-height: inherit;
 }
