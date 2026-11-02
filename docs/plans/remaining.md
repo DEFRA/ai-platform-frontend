@@ -30,7 +30,6 @@ are those of `ai-platform-discovery-docs` `build-stories.md`, the authority for 
 | 7       | Platform operations      | B28: journey tests (multi-model, progress with and without script, `checks-failed`, `deploy-failed`)                                                                                                                                                                                 | PR open (journey tests #11)                            | Review                                  |
 | 7       | Platform operations      | B28: end-to-end check in Infradev                                                                                                                                                                                                                                                    | Not started                                            | B28 journey tests                       |
 | 7       | Platform operations      | Automate the GitOps message-schema re-sync (worker and backend); options A to D, recommend A then B                                                                                                                                                                                  | Not started                                            | None                                    |
-| 7       | Platform operations      | B28: `settings-drift` that works: `--verify` warns on hidden bypass lists, `AIP_SETTINGS_AUDIT_TOKEN` set, plan section 15 mitigations 2 and 4 recorded; low priority, before any environment beyond Infradev                                                                        | Not started                                            | Organisation owner (audit log)          |
 | 7       | Platform operations      | Admin tasks, other environments, decommission path                                                                                                                                                                                                                                   | Not started                                            | Owners                                  |
 | 9       | Record                   | Discovery-docs built-state refresh: infra and workflows rows (B15, B20 to B26) and the real Azure note                                                                                                                                                                               | Partly done 22 Oct (#31)                               | None                                    |
 | -       | UI flow v3               | B13: Email a person added to a team (GOV.UK Notify adapter behind a port, key in the vault, one template); the add-member inset then adds "We will email them to say they have been added."                                                                                          | Deferred, not removed                                  | A decision to start it                  |
@@ -342,30 +341,10 @@ design.
 
   Done when a schema change in infra produces a sync PR in the worker and backend without manual work, and drift is visible.
 
-- **Settings drift** (B28 follow-up, low priority; origin: review of 30 Oct 2026; owner: Platform Engineer; plan in
-  discovery-docs `docs/async-operations-plan.md` section 15, mitigations 2 and 4). Workflows #20 (`v2.0.1`) stopped the
-  apply preflight checking the bypass lists of `aip-machine-main` and `aip-machine-protect`, because GitHub returns
-  `bypass_actors` only to a caller with write access to the ruleset
-  ([rules API](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset)); the check moved to the daily
-  `settings-drift.yml`, which has failed since 29 Oct 2026 because `AIP_SETTINGS_AUDIT_TOKEN` is not set. Keep #20.
-  1. `scripts/setup/repo-settings.sh --verify` (`ai-platform-workflows`): `verify_ruleset` compares `bypass_actors` only
-     when the live ruleset includes it, and `verify_no_person_bypass` warns instead of reading a missing list as `[]`;
-     tests in `tests/integration/scripts/repo-settings.test.js`; correct the "read-only token" wording in
-     `settings-drift.yml` and the README. A `fix:` patch to `v2`.
-  2. Set `AIP_SETTINGS_AUDIT_TOKEN`: repository `Administration: read` and `Environments: read` on the two state
-     repositories, and organisation audit-log read (organisation `Administration: read` or `read:audit_log`), which needs
-     a Defra organisation owner. Both halves of the run use this one token, and `audit-log.sh` always calls
-     `GET /orgs/{owner}/audit-log`, so audit-log read and the owner's approval are prerequisites whatever the credential.
-     A dedicated audit App with repository `Administration: write` would only add visible bypass lists to `--verify`;
-     if audit-log read is refused, the audit-log half stays blocked and the run keeps failing.
-  3. Discovery-docs: section 15 mitigations 2 and 4 and a decision-history entry recording the #20 trade-off.
-
-  Done when, with unchanged settings, the run passes with a warning per hidden list; a person, team or role in a visible
-  bypass list fails it; and any `repository_ruleset.*` change in the last 26 hours fails it through `audit-log.sh`.
-
 - **Promotion** (discovery-docs #27): two pins, pinned settings and pre-merge plans, so a release can reach an environment
   without lockstep.
-- **Admin tasks:** the organisation Actions allow-list for the workflows the callers use; decide whether to turn off
+- **Admin tasks:** delete the `AIP_SETTINGS_AUDIT_TOKEN` secret and the `AIP_RELEASE_APP_ID`, `AIP_SUBMIT_APP_IDS` and
+  `AIP_ENVIRONMENTS` variables from `ai-platform-workflows` once `settings-drift.yml` is removed (2 Nov 2026); the organisation Actions allow-list for the workflows the callers use; decide whether to turn off
   `autoPin` for Infradev; turn off `operator_state_access` once the pipeline is accepted.
 - **Other environments:** CDP `infra-dev`, `test` and `prod` have no config for these services; the research tier is dev only
   so far.

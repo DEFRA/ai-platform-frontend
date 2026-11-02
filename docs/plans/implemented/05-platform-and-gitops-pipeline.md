@@ -56,8 +56,10 @@ Applied in Infradev from 15 Oct 2026; CDP dev runs the portal against it from 20
   section 13.
 - Dead letters: a command that fails three times goes to the worker's dead-letter queue, an event to the backend's;
   runbooks in the worker's README and plan section 13.
-- `settings-drift.yml` (workflows, daily) checks the state repositories' rulesets, Environments and audit log. It does
-  not work yet: see [remaining.md](../remaining.md), section 7, "Settings drift".
+- Settings checks: nothing checks the state repositories' rulesets, Environments and audit log on a schedule. The daily
+  `settings-drift.yml` never operated and was removed on 2 Nov 2026; an admin runs `repo-settings.sh --verify` and
+  `audit-log.sh` (workflows `scripts/setup/`) by hand, and must do so before an environment other than Infradev
+  adopts this design (discovery-docs `docs/async-operations-plan.md` section 15).
 
 ## Infradev today
 
