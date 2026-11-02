@@ -49,14 +49,12 @@
               <dt class="govuk-summary-list__key">Client secret</dt>
               <dd class="govuk-summary-list__value">{{ card.secret.text }}</dd>
               {% if card.secret.actions.length %}
-                <dd class="govuk-summary-list__actions">
-                  <ul class="govuk-summary-list__actions-list">
+                <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
+                  <div class="app-button-group govuk-!-margin-bottom-0">
                     {% for action in card.secret.actions %}
-                      <li class="govuk-summary-list__actions-list-item">
-                        <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ card.name }} client secret</span></a>
-                      </li>
+                      <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ card.name }} client secret</span></a>
                     {% endfor %}
-                  </ul>
+                  </div>
                 </dd>
               {% elif card.secret.askAnAdmin %}
                 <dd class="govuk-summary-list__actions" data-testid="ask-an-admin">Ask an admin for it</dd>
