@@ -70,6 +70,7 @@ describe('Model table component', () => {
     )
     expect($cell.find('a').text()).toContain('Add to a team')
     expect($cell.find('.govuk-hint').text().trim()).toBe('Runs in the UK or EU')
+    expect($cell.find('.govuk-hint').hasClass('app-table-hint')).toBe(true)
   })
 
   test.each(['Not for teams yet', 'Not in the UK or EU yet'])(

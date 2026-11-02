@@ -312,6 +312,11 @@ describe('#homeController', () => {
       expect($('[data-testid="home-team"] a').attr('href')).toBe(
         '/teams/flood-risk-team'
       )
+      expect(
+        $('[data-testid="home-team"] td')
+          .last()
+          .hasClass('govuk-table__cell--numeric')
+      ).toBe(true)
     })
 
     test('names a model that could not be set up, with a way to see what happened', async () => {

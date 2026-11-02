@@ -182,6 +182,7 @@ describe('#teamsController', () => {
       expect(rows[0]).toContain(`href="${TEAM_URL}"`)
       expect(rows[0]).toContain('Flood Risk Team')
       expect(rows[0]).toContain('>Admin<')
+      expect(result).toContain('govuk-!-width-one-third" scope="col">Models')
       // The removed member is not counted.
       expect(rows[0]).toMatch(/>2<\/td>/)
       expect(rows[0]).toContain('GPT-4.1 nano, setting up')
@@ -540,6 +541,22 @@ describe('#teamsController', () => {
         `href="${TEAM_URL}/client-secrets/cred-1/revoke"`
       )
       expect(result).not.toContain('Ask an admin for it')
+      // View, Rotate and Revoke share one non-wrapping row, in the full-width tab.
+      const $ = load(result)
+      expect(
+        $('.govuk-grid-column-full .app-summary-list--table')
+      ).toHaveLength(1)
+      expect(
+        $(
+          '[data-testid="secret-row"] .app-summary-list__actions--inline .app-button-group a'
+        )
+          .map((_, link) => $(link).text().trim())
+          .get()
+      ).toEqual([
+        'View the Development client secret',
+        'Rotate the Development client secret',
+        'Revoke the Development client secret'
+      ])
       expect(result).toContain('60 requests and 1,000 tokens a minute')
       expect(result).toContain(
         'Test, Pre-production and Production are not available yet.'

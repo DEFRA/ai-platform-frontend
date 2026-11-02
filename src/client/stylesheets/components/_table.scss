@@ -19,8 +19,8 @@
   }
 }
 
-// Hints in a cell (such as "Runs in the UK or EU") keep the table text size.
-.govuk-table .govuk-hint {
+// Opt-in for a hint inside a table cell (such as "Runs in the UK or EU") to keep the table text size.
+.app-table-hint {
   font-size: inherit;
   line-height: inherit;
 }

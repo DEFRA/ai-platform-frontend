@@ -242,6 +242,12 @@ describe('#manageController', () => {
         '/connect/shared/start?modelSlug=gpt-4o'
       )
       expect(row.find('[data-testid="credential-actions"]')).toHaveLength(0)
+      expect(row.find('td').last().hasClass('govuk-table__cell--numeric')).toBe(
+        true
+      )
+      expect(
+        row.find('[data-testid="key-renewed-hint"]').hasClass('app-table-hint')
+      ).toBe(true)
     })
 
     test('an active key with no renewals left shows no Renew, and no “cannot be renewed again” hint', async () => {
