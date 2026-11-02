@@ -44,7 +44,7 @@ const STEPS = [
   { label: 'Request recorded', state: 'done', at: '2026-10-21T10:41:00.000Z' },
   { label: 'Team checked', state: 'done', at: '2026-10-21T10:42:00.000Z' },
   {
-    label: 'Setting up GPT-4o in Azure',
+    label: 'Setting up GPT-4o',
     state: 'current',
     at: '2026-10-21T10:42:30.000Z'
   },
@@ -368,7 +368,7 @@ describe('#teamRequestController', () => {
 
       expect(result).toContain('We could not set up GPT-5 mini')
       expect(result).toContain('GPT-4o is not affected.')
-      expect(result).toContain('use GPT-4o, which your team already has')
+      expect(result).not.toContain('which your team already has')
     })
 
     test('names every model that failed, with a reference and technical details for each', async () => {
@@ -392,30 +392,12 @@ describe('#teamRequestController', () => {
 
       expect(result).toContain('We could not set up GPT-4o and GPT-4.1 nano')
       expect(result).toContain('AIP-11111, AIP-22222')
-      expect(result).toContain('remove GPT-4o from your team')
-      expect(result).toContain('remove GPT-4.1 nano from your team')
+      expect(result).not.toContain('/remove')
       expect(result).toContain('<h3 class="govuk-heading-s">GPT-4o</h3>')
       expect(result).toContain('First failed')
       expect(result).toContain('Second failed')
       expect(result).not.toContain('not affected')
       expect(result).not.toContain('which your team already has')
-    })
-
-    test('tells a member to ask an admin to remove them all', async () => {
-      await afterRequest()
-      mockPage({
-        role: 'user',
-        deployments: [
-          first({ status: 'checks-failed' }),
-          second({ status: 'deploy-failed' })
-        ]
-      })
-
-      const { result } = await page()
-
-      expect(result).toContain(
-        'ask an admin of Flood Risk Team to remove them from your team'
-      )
     })
   })
 
@@ -668,21 +650,19 @@ describe('#teamRequestController', () => {
       expect(result).not.toContain('http-equiv="refresh"')
     })
 
-    test('an admin can remove it, use the model the team has, or ask for help quoting the reference', async () => {
+    test('says to contact AI Platform Support quoting the reference, with no way to remove it', async () => {
       const { result } = await failedPage()
 
       expect(result).toContain('What you can do')
-      expect(result).toContain(
-        'href="/teams/flood-risk-team/models/deployment-f/remove">remove it from your team</a>'
-      )
-      expect(result).toContain('use GPT-4o, which your team already has')
-      expect(result).toContain('ask the AI Platform team for help</a>')
+      expect(result).toContain('AI Platform Support</a>')
       expect(result).toContain(
         'quoting reference <strong data-testid="support-reference">AIP-7F3K2</strong>'
       )
+      expect(result).not.toContain('/remove')
+      expect(result).not.toContain('which your team already has')
     })
 
-    test('a member is told to ask an admin to remove it', async () => {
+    test('shows members the same, with no way to remove it', async () => {
       mockPage({
         role: 'user',
         deployments: [deployment({ status: 'checks-failed' })]
@@ -690,12 +670,63 @@ describe('#teamRequestController', () => {
 
       const { result } = await page()
 
-      expect(result).toContain(
-        'ask an admin of Flood Risk Team to remove it from your team'
-      )
-      expect(result).not.toContain('/remove"')
+      expect(result).toContain('AI Platform Support</a>')
+      expect(result).toContain('quoting reference')
+      expect(result).toContain('AIP-7F3K2')
+      expect(result).not.toContain('/remove')
     })
 
+    test('shows the reference in the technical details table', async () => {
+      const { result } = await failedPage()
+      const $ = load(result)
+      const table = $('[data-testid="technical-details"]')
+
+      expect(table.find('.govuk-summary-list__key').first().text().trim()).toBe(
+        'Reference'
+      )
+      expect(
+        table.find('.govuk-summary-list__value').first().text().trim()
+      ).toBe('AIP-7F3K2')
+    })
+
+    test('logs the support reference with the operation and deployment', async () => {
+      const warn = vi.fn()
+      let capturing = true
+
+      server.ext('onRequest', (request, h) => {
+        if (capturing) {
+          request.logger = {
+            warn,
+            info: vi.fn(),
+            debug: vi.fn(),
+            error: vi.fn()
+          }
+        }
+
+        return h.continue
+      })
+      mockPage({
+        deployments: [
+          deployment({ _id: 'deployment-f', status: 'deploy-failed' })
+        ]
+      })
+
+      await page('deployment-f')
+      capturing = false
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          supportReference: 'AIP-7F3K2',
+          operationId: 'op-1234567-7f3k2',
+          deploymentId: 'deployment-f',
+          teamId: 'team-1',
+          environment: 'infradev',
+          modelSlug: 'gpt-4o',
+          status: 'deploy-failed'
+        }),
+        'Showed the failed setup page, support reference AIP-7F3K2'
+      )
+    })
     test('has technical details, closed, with the reference, what failed and the links', async () => {
       const { result } = await failedPage()
 
@@ -787,7 +818,7 @@ describe('#teamRequestController', () => {
 
       const { result } = await page()
 
-      expect(result).toContain('ask the AI Platform team for help</a>')
+      expect(result).toContain('AI Platform Support</a>')
       expect(result).not.toContain('quoting reference')
       expect(result).not.toContain('AIP-')
     })

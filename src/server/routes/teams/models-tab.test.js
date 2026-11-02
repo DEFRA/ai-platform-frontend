@@ -94,8 +94,8 @@ describe('#buildModelsTab', () => {
       expect(row({}, { isAdmin: false }).removeUrl).toBeNull()
     })
 
-    test.each(['checks-failed', 'deploy-failed'])(
-      'that is %s can be seen and removed by an admin',
+    test.each(['checks-failed', 'deploy-failed', 'timed-out'])(
+      'that is %s can be seen, but not removed, even by an admin',
       (status) => {
         expect(row({ status })).toMatchObject({
           statusText: 'Setup failed',
@@ -104,19 +104,10 @@ describe('#buildModelsTab', () => {
             text: 'See what happened',
             href: '/connect/team/request/flood-risk-team/deployment-1'
           },
-          removeUrl: '/teams/flood-risk-team/models/deployment-1/remove'
+          removeUrl: null
         })
       }
     )
-
-    test('that timed out is failed, so an admin can see what happened and remove it', () => {
-      expect(row({ status: 'timed-out' })).toMatchObject({
-        statusText: 'Setup failed',
-        detail: { text: 'See what happened' },
-        removeUrl: '/teams/flood-risk-team/models/deployment-1/remove'
-      })
-    })
-
     test('that failed can be seen, but not removed, by a member', () => {
       expect(
         row({ status: 'deploy-failed' }, { isAdmin: false })

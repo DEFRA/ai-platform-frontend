@@ -137,16 +137,14 @@ describe('#removeModelController', () => {
       )
     })
 
-    test.each(['checks-failed', 'deploy-failed'])(
-      'says nothing is using a model that %s',
+    test.each(['checks-failed', 'deploy-failed', 'timed-out', 'deploying'])(
+      'is not offered for a model that is %s',
       async (status) => {
         backend({ current: deployment({ status }) })
 
-        const { statusCode, result } = await get(REMOVE_URL)
+        const { statusCode } = await get(REMOVE_URL)
 
-        expect(statusCode).toBe(statusCodes.ok)
-        expect(result).toContain('It was never set up, so nothing is using it.')
-        expect(result).not.toContain('will stop working')
+        expect(statusCode).toBe(statusCodes.notFound)
       }
     )
 
@@ -255,8 +253,8 @@ describe('#removeModelController', () => {
 
     test.each([
       [
-        'deployment-in-progress',
-        'This model is still being set up. Try again once it is ready.'
+        'deployment-not-removable',
+        'Only a model that has been set up and is ready can be removed.'
       ],
       [
         'team-file-busy',

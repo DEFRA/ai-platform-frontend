@@ -37,7 +37,9 @@ Infradev and in CDP dev.
 - The wait page follows every model, then shows one client secret that covers them all.
 - An Admin removes an `active` model from the team page (confirm page, then
   `DELETE /v1/teams/{teamId}/deployments/{id}`): a GitOps `remove` follow-up, `removing` then `removed`, back to
-  `active` with a reason if it fails. Team decommission has no portal path yet.
+  `active` with a reason if it fails. Only an `active` model can be removed: a failed or timed-out one has no Remove,
+  and its failed-setup page says to contact AI Platform Support quoting the reference (`AIP-` and the last five
+  characters of the operation id), which the backend and frontend both log. Team decommission has no portal path yet.
 
 ## GitOps provisioning
 

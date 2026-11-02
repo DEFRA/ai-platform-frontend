@@ -4,7 +4,7 @@ A one-page index of what is built in the AI Platform Portal (`ai-platform-fronte
 for new joiners. It holds no detail: each row links to the category file in this folder
 that does. What is not built is in [remaining.md](../remaining.md).
 
-Last updated: 30 Oct 2026.
+Last updated: 2 Nov 2026.
 
 ## What you can do
 
@@ -15,7 +15,7 @@ Last updated: 30 Oct 2026.
 | Get a personal research key, renew, revoke, re-reveal with a reason | Built, live in Infradev                               | [02 Research tier](02-research-tier.md)                 |
 | Create a team, manage members and roles, set a service code         | Built (Sept to Oct 2026)                              | [03 Team tier](03-team-tier.md)                         |
 | Request one or several dedicated models, follow the GitOps progress | Built, live in Infradev                               | [03 Team tier](03-team-tier.md)                         |
-| Remove a model from a team                                          | Built (18 Oct 2026)                                   | [03 Team tier](03-team-tier.md)                         |
+| Remove a model from a team (ready models only)                      | Built (18 Oct 2026, ready only 2 Nov 2026)            | [03 Team tier](03-team-tier.md)                         |
 | Rotate and revoke a team credential (Admin)                         | Built; the secret is a labelled placeholder until B18 | [03 Team tier](03-team-tier.md)                         |
 
 ## What it runs on

@@ -15,22 +15,9 @@
       <p class="govuk-body-l" data-testid="failure-reason">{{ reason }}</p>
 
       <h2 class="govuk-heading-m">What you can do</h2>
-      <p class="govuk-body">You can:</p>
-      <ul class="govuk-list govuk-list--bullet">
-        {% if isAdmin %}
-          {% for removal in removals %}
-            <li><a class="govuk-link" href="{{ removal.href }}">{{ removal.text }} from your team</a></li>
-          {% endfor %}
-        {% else %}
-          <li>ask an admin of {{ teamName }} to remove {{ "them" if removals.length > 1 else "it" }} from your team</li>
-        {% endif %}
-        {% if others %}
-          <li data-testid="use-others">use {{ others }}, which your team already has</li>
-        {% endif %}
-        <li>
-          <a class="govuk-link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">ask the AI Platform team for help</a>{% if references %}, quoting reference <strong data-testid="support-reference">{{ references }}</strong>{% endif %}
-        </li>
-      </ul>
+      <p class="govuk-body" data-testid="contact-support">
+        Contact <a class="govuk-link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">AI Platform Support</a>{% if references %}, quoting reference <strong data-testid="support-reference">{{ references }}</strong>{% endif %}.
+      </p>
 
       {% set technicalHtml %}
         {% for item in technical %}

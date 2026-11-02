@@ -246,7 +246,7 @@ function unaffectedNames(allDeployments, failed, catalogue) {
   return slugs.map((slug) => catalogue[slug]?.displayName ?? slug)
 }
 
-function failedView(h, { team, isAdmin, failed, allDeployments, catalogue }) {
+function failedView(request, h, { team, failed, allDeployments, catalogue }) {
   const names = failed.map((deployment) => modelName(catalogue, deployment))
   const others = unaffectedNames(allDeployments, failed, catalogue)
   const heading = `We could not set up ${joinNames(names)}`
@@ -260,17 +260,26 @@ function failedView(h, { team, isAdmin, failed, allDeployments, catalogue }) {
     supportReference(operationId)
   )
 
+  failed.forEach((deployment, index) => {
+    request.logger.warn(
+      {
+        supportReference: references[index],
+        operationId: deployment.operationId,
+        deploymentId: deployment._id,
+        teamId: team._id,
+        environment: deployment.environment,
+        modelSlug: deployment.modelSlug,
+        status: deployment.status
+      },
+      `Showed the failed setup page, support reference ${references[index]}`
+    )
+  })
+
   return h.view('connect/team/failed', {
     pageTitle: heading,
     heading,
     teamName: team.name,
     reason: `${reasons.join(' ')}${notAffected}`,
-    isAdmin,
-    removals: failed.map((deployment, index) => ({
-      text: failed.length > 1 ? `remove ${names[index]}` : 'remove it',
-      href: `${teamUrl(team)}/models/${encodeURIComponent(deployment._id)}/remove`
-    })),
-    others: others.length ? joinNames(others) : null,
     references: references.filter(Boolean).join(', '),
     technical: failed.map((deployment, index) => ({
       title: failed.length > 1 ? names[index] : null,
@@ -280,7 +289,6 @@ function failedView(h, { team, isAdmin, failed, allDeployments, catalogue }) {
     }))
   })
 }
-
 /**
  * The page that follows a team request to its end: the wait while the models
  * are set up, then the ready page (where an admin can show the client secret
@@ -348,9 +356,8 @@ export const teamRequestController = {
         }
 
         if (failed.length > 0) {
-          return failedView(h, {
+          return failedView(request, h, {
             team,
-            isAdmin,
             failed,
             allDeployments: deployments,
             catalogue

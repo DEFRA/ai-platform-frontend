@@ -39,7 +39,7 @@ export function requestUrl(team, deployment) {
 }
 
 // One model in an environment: its state, what a person can do about it, and
-// (for an admin) the way to remove it, which a ready or failed model has.
+// (for an admin) the way to remove it, which only a ready model has.
 function modelRow(deployment, { team, isAdmin, modelNames }) {
   const { status } = deployment
   const failed = DEPLOYMENT_FAILURE_STATUSES.includes(status)
@@ -62,7 +62,7 @@ function modelRow(deployment, { team, isAdmin, modelNames }) {
       status === ACTIVE_STATUS ? (deployment.failureReason ?? null) : null,
     detail,
     removeUrl:
-      isAdmin && (status === ACTIVE_STATUS || failed)
+      isAdmin && status === ACTIVE_STATUS
         ? `${teamUrl(team)}/models/${encodeURIComponent(deployment._id)}/remove`
         : null
   }

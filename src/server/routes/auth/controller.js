@@ -38,7 +38,7 @@ function unavailableView(h) {
       pageTitle: 'Sign-in unavailable',
       heading: 'Sign-in is currently unavailable',
       message:
-        'We could not reach Entra ID to sign you in. Please try again shortly.',
+        'We could not reach the sign-in service. Please try again shortly.',
       actionHref: '/auth/login',
       actionText: 'Try again'
     })
