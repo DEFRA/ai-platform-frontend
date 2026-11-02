@@ -32,7 +32,7 @@
             <th class="govuk-table__header" scope="col">Email</th>
             <th class="govuk-table__header" scope="col">Role</th>
             {% if isAdmin %}
-              <th class="govuk-table__header" scope="col"><span class="govuk-visually-hidden">Change</span></th>
+              <th class="govuk-table__header govuk-table__header--numeric" scope="col"><span class="govuk-visually-hidden">Change</span></th>
             {% endif %}
           </tr>
         </thead>
@@ -47,7 +47,7 @@
               <td class="govuk-table__cell">{{ member.email }}</td>
               <td class="govuk-table__cell">{{ member.role }}</td>
               {% if isAdmin %}
-                <td class="govuk-table__cell">
+                <td class="govuk-table__cell govuk-table__cell--numeric">
                   <a class="govuk-link" href="{{ member.changeUrl }}" data-testid="member-change">Change<span class="govuk-visually-hidden"> role of {{ member.name or member.email }}</span></a>
                 </td>
               {% endif %}
