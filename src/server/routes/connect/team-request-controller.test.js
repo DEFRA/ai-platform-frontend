@@ -690,17 +690,13 @@ describe('#teamRequestController', () => {
     })
 
     test('logs the support reference with the operation and deployment', async () => {
-      const warn = vi.fn()
-      let capturing = true
+      const warn = []
+      let watching = true
 
+      // A call-through spy on the request's real logger.
       server.ext('onRequest', (request, h) => {
-        if (capturing) {
-          request.logger = {
-            warn,
-            info: vi.fn(),
-            debug: vi.fn(),
-            error: vi.fn()
-          }
+        if (watching) {
+          warn.push(vi.spyOn(request.logger, 'warn'))
         }
 
         return h.continue
@@ -712,9 +708,9 @@ describe('#teamRequestController', () => {
       })
 
       await page('deployment-f')
-      capturing = false
+      watching = false
 
-      expect(warn).toHaveBeenCalledWith(
+      expect(warn[0]).toHaveBeenCalledWith(
         expect.objectContaining({
           supportReference: 'AIP-7F3K2',
           operationId: 'op-1234567-7f3k2',
@@ -726,6 +722,8 @@ describe('#teamRequestController', () => {
         }),
         'Showed the failed setup page, support reference AIP-7F3K2'
       )
+
+      warn.forEach((spy) => spy.mockRestore())
     })
     test('has technical details, closed, with the reference, what failed and the links', async () => {
       const { result } = await failedPage()
