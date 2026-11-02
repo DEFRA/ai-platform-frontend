@@ -9,6 +9,8 @@ describe('Placeholder credential notice component', () => {
     expect($inset.hasClass('govuk-inset-text')).toBe(true)
     expect($inset.text()).toContain('This client secret is a placeholder.')
     expect($inset.text()).toContain('does not work with the gateway yet')
-    expect($inset.text()).toContain('Microsoft Entra administrator')
+    expect($inset.text()).toContain(
+      'waiting for an administrator to approve it'
+    )
   })
 })

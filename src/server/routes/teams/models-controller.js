@@ -4,18 +4,15 @@ import {
   getSessionUser,
   setAccountNotification
 } from '#/server/common/helpers/session.js'
-import {
-  DEPLOYMENT_FAILURE_STATUSES,
-  DEPLOYMENT_REMOVED_STATUS
-} from '#/server/common/helpers/deployment-status.js'
+import { DEPLOYMENT_REMOVED_STATUS } from '#/server/common/helpers/deployment-status.js'
 import { environmentName } from '#/server/common/helpers/environment-names.js'
 import { isNotFound, loadTeamForView, teamUrl } from './team-view.js'
 
 const ACTIVE_STATUS = 'active'
 
 function removeModelErrorMessage(error) {
-  if (error.code === 'deployment-in-progress') {
-    return 'This model is still being set up. Try again once it is ready.'
+  if (error.code === 'deployment-not-removable') {
+    return 'Only a model that has been set up and is ready can be removed.'
   }
 
   if (error.code === 'team-file-busy') {
@@ -57,13 +54,9 @@ async function modelDisplayName(request, modelSlug) {
   }
 }
 
-// What a team's admin can remove: a model that is ready, or one that failed
-// to set up.
+// Only a model that is ready can be removed by a team's admin.
 function isRemovable(deployment) {
-  return (
-    deployment.status === ACTIVE_STATUS ||
-    DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status)
-  )
+  return deployment.status === ACTIVE_STATUS
 }
 
 // The team's deployment, or null when it is not one of the team's.
@@ -130,8 +123,6 @@ export const removeModelController = {
 
       const name = await modelDisplayName(request, deployment.modelSlug)
       const environment = environmentName(deployment.environment)
-      // A model that never finished setting up has nothing using it.
-      const neverSetUp = DEPLOYMENT_FAILURE_STATUSES.includes(deployment.status)
 
       return h.view('teams/remove-model', {
         pageTitle: `Remove ${name} from ${environment}?`,
@@ -139,9 +130,7 @@ export const removeModelController = {
         team: loaded.team,
         teamUrl: teamUrl(loaded.team),
         modelName: name,
-        warning: neverSetUp
-          ? 'It was never set up, so nothing is using it.'
-          : `Anything using ${name} through your team’s address will stop working as soon as it has been removed. Your team’s other models and its client secret are not affected.`
+        warning: `Anything using ${name} through your team’s address will stop working as soon as it has been removed. Your team’s other models and its client secret are not affected.`
       })
     }
   },

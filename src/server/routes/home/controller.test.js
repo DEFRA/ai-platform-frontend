@@ -132,7 +132,7 @@ describe('#homeController', () => {
       expect(statusCode).toBe(statusCodes.ok)
       expect($('h1').text().trim()).toBe('Get AI model access')
       expect($('.govuk-body-l').text().trim()).toBe(
-        'Use approved AI models in your Defra service. You do not need an Azure account.'
+        'Use approved AI models in your Defra service. You do not need a cloud account.'
       )
       expect(fetchMock).not.toHaveBeenCalled()
     })

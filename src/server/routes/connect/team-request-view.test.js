@@ -29,7 +29,7 @@ describe('team-request-view', () => {
             at: '2026-10-21T10:41:00Z'
           },
           {
-            label: 'Setting up GPT-4o in Azure',
+            label: 'Setting up GPT-4o',
             state: 'current',
             at: '2026-10-21T10:42:00Z'
           },
@@ -38,7 +38,7 @@ describe('team-request-view', () => {
       ).toEqual([
         { text: 'Request recorded', state: 'done', hint: '10:41' },
         {
-          text: 'Setting up GPT-4o in Azure',
+          text: 'Setting up GPT-4o',
           state: 'current',
           hint: 'Started at 10:42'
         },

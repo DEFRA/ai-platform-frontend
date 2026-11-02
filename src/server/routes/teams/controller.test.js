@@ -529,9 +529,9 @@ describe('#teamsController', () => {
         'href="/connect/team/request/flood-risk-team/deployment-2"'
       )
       expect(result).toContain('See what happened')
-      // Remove is for a ready model and a failed one.
+      // Remove is for a ready model only.
       expect(result).toContain(`href="${TEAM_URL}/models/deployment-1/remove"`)
-      expect(result).toContain(`href="${TEAM_URL}/models/deployment-2/remove"`)
+      expect(result).not.toContain(`/models/deployment-2/remove`)
       expect(result).toContain('Expires 19 October 2027')
       expect(result).toContain(`href="${TEAM_URL}/client-secrets/cred-1/view"`)
       expect(result).toContain(

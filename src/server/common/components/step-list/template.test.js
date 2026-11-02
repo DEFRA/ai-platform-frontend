@@ -2,7 +2,7 @@ import { renderComponent } from '#/test-helpers/component-helpers.js'
 
 const items = [
   { text: 'Request recorded', state: 'done', hint: '10:01' },
-  { text: 'Setting up GPT-4o in Azure', state: 'current' },
+  { text: 'Setting up GPT-4o', state: 'current' },
   { text: 'Preparing your client secret', state: 'waiting', hint: 'Next' }
 ]
 
@@ -21,7 +21,7 @@ describe('Step list component', () => {
     expect($steps('ol').attr('role')).toBe('list')
     expect(labels($steps)).toEqual([
       'Done: Request recorded',
-      'In progress: Setting up GPT-4o in Azure',
+      'In progress: Setting up GPT-4o',
       'Not started: Preparing your client secret'
     ])
   })
