@@ -30,7 +30,7 @@
             <tr class="govuk-table__row">
               <th class="govuk-table__header" scope="col">Model</th>
               <th class="govuk-table__header" scope="col">Expires</th>
-              <th class="govuk-table__header" scope="col"><span class="govuk-visually-hidden">Actions</span></th>
+              <th class="govuk-table__header govuk-table__header--numeric" scope="col"><span class="govuk-visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody class="govuk-table__body">
@@ -43,7 +43,7 @@
                     <p class="govuk-hint govuk-!-margin-bottom-0" data-testid="key-renewed-hint">{{ row.renewedHint }}</p>
                   {% endif %}
                 </td>
-                <td class="govuk-table__cell">
+                <td class="govuk-table__cell govuk-table__cell--numeric">
                   {% if row.getNewKeyUrl %}
                     <a class="govuk-link" href="{{ row.getNewKeyUrl }}" data-testid="key-get-new">Get a new key<span class="govuk-visually-hidden"> for {{ row.modelDisplayName }}</span></a>
                   {% else %}
