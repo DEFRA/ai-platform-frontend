@@ -9,6 +9,7 @@ import {
   removeMemberController
 } from './members-controller.js'
 import { removeModelController } from './models-controller.js'
+import { peopleSearchController } from './people-search-controller.js'
 
 const secrets = '/teams/{slug}/client-secrets/{credentialId}'
 
@@ -88,6 +89,12 @@ const routes = [
     path: '/teams/{slug}/members/add',
     options: addMemberController.post.options,
     handler: addMemberController.post.handler
+  },
+  {
+    method: 'POST',
+    path: '/teams/{slug}/members/add/people',
+    options: peopleSearchController.options,
+    handler: peopleSearchController.handler
   },
   {
     method: 'GET',

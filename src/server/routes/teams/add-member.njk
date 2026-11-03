@@ -5,6 +5,7 @@
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/input/macro.njk" import govukInput %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
 {% from "role-radios/macro.njk" import appRoleRadios %}
 
 {% block beforeContent %}
@@ -32,34 +33,74 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      <form method="post" novalidate>
+      {# Without script, Search posts the text and this page comes back with the
+         matches in a select list. With script, people-search.js turns the text
+         field into a combobox and sends the person chosen in a hidden `oid`. #}
+      <form method="post" novalidate data-people-search-url="{{ searchUrl }}">
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="idempotencyKey" value="{{ values.idempotencyKey }}">
 
         {{ govukInput({
-          id: "email",
-          name: "email",
-          type: "email",
-          value: values.email,
+          id: "search",
+          name: "search",
+          value: values.search,
           autocomplete: "off",
           spellcheck: false,
-          classes: "govuk-!-width-two-thirds",
+          classes: "govuk-!-width-full",
           label: {
-            text: "Email address",
+            text: "Name or email address",
             classes: "govuk-label--m"
           },
-          hint: { text: "Their Defra work address, for example name@defra.gov.uk" },
-          errorMessage: fieldErrors.email
+          hint: { text: "Enter at least 2 characters of their name or Defra email address" },
+          errorMessage: fieldErrors.search,
+          attributes: { "data-people-search": "" }
         }) }}
+
+        {{ govukButton({
+          text: "Search",
+          name: "action",
+          value: "search",
+          classes: "govuk-button--secondary",
+          preventDoubleClick: true,
+          attributes: { "data-testid": "search-people", "data-people-search-button": "" }
+        }) }}
+
+        {% if personItems %}
+          {{ govukSelect({
+            id: "oid",
+            name: "oid",
+            classes: "govuk-!-width-full",
+            label: {
+              text: "Person",
+              classes: "govuk-label--m"
+            },
+            hint: { text: personCount + (" person" if personCount == 1 else " people") + " found" },
+            items: personItems,
+            errorMessage: fieldErrors.oid
+          }) }}
+        {% elif noMatches %}
+          <div data-testid="no-people">
+            <h2 class="govuk-heading-m">No people found</h2>
+            <p class="govuk-body">No one found for ‘{{ values.search }}’. Try their full email address.</p>
+          </div>
+        {% endif %}
 
         {{ appRoleRadios({ value: values.role, errorMessage: fieldErrors.role }) }}
 
-        {{ govukInsetText({ text: "They will see the team when they next sign in." }) }}
+        {{ govukInsetText({ text: "They can use the team straight away" }) }}
 
         {{ govukButton({
-          text: "Add a member",
+          text: "Add",
+          name: "action",
+          value: "add",
           attributes: { "data-testid": "add-member-submit" }
         }) }}
       </form>
     </div>
   </div>
+{% endblock %}
+
+{% block bodyEnd %}
+  {{ super() }}
+  <script type="module" src="{{ getAssetPath('src/client/javascripts/people-search-entry.js') }}"></script>
 {% endblock %}

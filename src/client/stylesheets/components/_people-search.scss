@@ -1,0 +1,27 @@
+@use "govuk-frontend" as *;
+@use "accessible-autocomplete/dist/accessible-autocomplete.min.css";
+
+// The add-member page's name field once people-search.js has made it a
+// combobox: the library's own styles, with the service's text and colours.
+.app-people-search {
+  .autocomplete__input,
+  .autocomplete__hint,
+  .autocomplete__option {
+    @include govuk-font($size: 19);
+  }
+
+  .autocomplete__input--default {
+    padding: govuk-spacing(1);
+  }
+
+  .autocomplete__input.govuk-input--error {
+    border-color: $govuk-error-colour;
+  }
+
+  .autocomplete__option--focused,
+  .autocomplete__option:hover {
+    border-color: $govuk-link-colour;
+    background-color: $govuk-link-colour;
+    color: govuk-colour("white");
+  }
+}

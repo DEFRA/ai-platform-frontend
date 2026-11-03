@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
-import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { ApiError, apiClient } from '#/server/common/helpers/api-client.js'
 import {
   getSessionUser,
   setAccountNotification,
@@ -17,6 +17,13 @@ import {
   loadAdminTeam as loadAdmin
 } from './admin-team.js'
 import {
+  addTeamMember,
+  MAX_SEARCH_LENGTH,
+  MIN_SEARCH_LENGTH,
+  personProblem,
+  searchTeamPeople
+} from './team-people.js'
+import {
   isForbidden,
   isNotFound,
   loadTeamForView,
@@ -25,8 +32,6 @@ import {
   teamUrl
 } from './team-view.js'
 
-const MAX_EMAIL_LENGTH = 254
-
 const roleField = Joi.string().valid('admin', 'user').messages({
   'any.only': 'Select a role',
   'any.required': 'Select a role'
@@ -34,30 +39,55 @@ const roleField = Joi.string().valid('admin', 'user').messages({
 
 const memberRoleSchema = Joi.object({ role: roleField.required() })
 
-const addMemberSchema = Joi.object({
-  email: Joi.string()
+const enterSearch = 'Enter a name or email address to search for'
+const selectPerson = 'Select a person'
+
+function searchField() {
+  return Joi.string()
     .trim()
-    .email()
-    .max(MAX_EMAIL_LENGTH)
-    .required()
+    .max(MAX_SEARCH_LENGTH)
     .messages({
-      'string.empty': 'Enter an email address',
-      'any.required': 'Enter an email address',
-      'string.email':
-        'Enter an email address in the correct format, like name@defra.gov.uk',
-      'string.max': `Email address must be ${MAX_EMAIL_LENGTH} characters or fewer`
+      'string.base': enterSearch,
+      'string.empty': enterSearch,
+      'any.required': enterSearch,
+      'string.min': `Enter at least ${MIN_SEARCH_LENGTH} characters of their name or email address`,
+      'string.max': `Name or email address must be ${MAX_SEARCH_LENGTH} characters or fewer`
+    })
+}
+
+// A page makes the key once and sends it back with every try, so the backend
+// adds a person once however often the same add is sent. A missing or
+// invalid key is replaced rather than refused: it is not the admin's to fix.
+const idempotencyKeyField = Joi.string()
+  .guid({ version: 'uuidv4' })
+  .default(() => randomUUID())
+  .failover(() => randomUUID())
+
+// One form, two buttons: `search` finds people and never adds anyone (it is
+// also what a missing action means), `add` adds the person chosen.
+const addMemberSchema = Joi.object({
+  action: Joi.string().valid('search', 'add').default('search'),
+  search: Joi.when('action', {
+    is: 'add',
+    then: searchField().allow('').default(''),
+    otherwise: searchField().min(MIN_SEARCH_LENGTH).required()
+  }),
+  oid: Joi.when('action', {
+    is: 'add',
+    then: Joi.string().guid().required().messages({
+      'string.base': selectPerson,
+      'string.empty': selectPerson,
+      'string.guid': selectPerson,
+      'any.required': selectPerson
     }),
-  role: roleField.default('user')
+    otherwise: Joi.any().strip()
+  }),
+  role: roleField.default('user'),
+  idempotencyKey: idempotencyKeyField
 })
 
 function membersUrl(team) {
   return `${teamUrl(team)}/members`
-}
-
-// What a person is called in a heading or a banner: their name once they
-// have signed in, otherwise the address they were invited by.
-function memberName(member) {
-  return member.displayName ?? member.email ?? 'this person'
 }
 
 function roleText(role) {
@@ -154,7 +184,7 @@ function memberApiPath(team, member) {
 function roleView(h, request, { team, member, role, errors = noErrors() }) {
   const heading = member.isYou
     ? 'Change your role'
-    : `Change ${memberName(member)}’s role`
+    : `Change ${member.displayName}’s role`
 
   return h.view('teams/member-role', {
     pageTitle: `${errors.errorSummary ? 'Error: ' : ''}${heading}`,
@@ -165,13 +195,13 @@ function roleView(h, request, { team, member, role, errors = noErrors() }) {
     removeUrl: memberUrl(request, 'remove'),
     removeText: member.isYou
       ? 'Remove yourself from this team'
-      : `Remove ${memberName(member)} from this team`,
+      : `Remove ${member.displayName} from this team`,
     ...errors
   })
 }
 
 function removeView(h, request, { team, member, errors = noErrors() }) {
-  const heading = `Remove ${memberName(member)} from ${team.name}?`
+  const heading = `Remove ${member.displayName} from ${team.name}?`
 
   return h.view('teams/remove-member', {
     pageTitle: `${errors.errorSummary ? 'Error: ' : ''}${heading}`,
@@ -179,26 +209,68 @@ function removeView(h, request, { team, member, errors = noErrors() }) {
     team,
     backUrl: memberUrl(request, 'role'),
     cancelUrl: membersUrl(team),
-    buttonText: `Remove ${memberName(member)}`,
+    buttonText: `Remove ${member.displayName}`,
     ...errors
   })
 }
 
-function addMemberView(h, { team, values, errors = noErrors() }) {
+// A person the admin can choose, as the select list shows them.
+function personItems(people, chosenOid) {
+  return [
+    { value: '', text: selectPerson },
+    ...people.map(({ oid, displayName, email }) => ({
+      value: oid,
+      text: `${displayName} - ${email}`,
+      selected: oid === chosenOid
+    }))
+  ]
+}
+
+// The error for "no person" belongs on the select list when there is one to
+// choose from, and otherwise on the text field, which is where the person
+// is looked for.
+function placeErrors(errors, hasList) {
+  if (hasList || !errors.fieldErrors.oid) {
+    return errors
+  }
+
+  const { oid, ...fieldErrors } = errors.fieldErrors
+
+  return {
+    errorSummary: errors.errorSummary.map((item) =>
+      item.href === '#oid' ? { ...item, href: '#search' } : item
+    ),
+    fieldErrors: { ...fieldErrors, search: fieldErrors.search ?? oid }
+  }
+}
+
+// `people` is the matches to choose from, or null when nobody has searched
+// (or the search could not be made again).
+function addMemberView(
+  h,
+  { team, values, people = null, errors = noErrors() }
+) {
+  const hasList = Boolean(people?.length)
+  const placed = placeErrors(errors, hasList)
+
   return h.view('teams/add-member', {
-    pageTitle: `${errors.errorSummary ? 'Error: ' : ''}Add a member`,
+    pageTitle: `${placed.errorSummary ? 'Error: ' : ''}Add a member`,
     heading: 'Add a member',
     team,
     backUrl: membersUrl(team),
+    searchUrl: `${membersUrl(team)}/add/people`,
     values,
-    ...errors
+    personItems: hasList ? personItems(people, values.oid) : null,
+    personCount: people?.length,
+    noMatches: people?.length === 0,
+    ...placed
   })
 }
 
 function lastAdminMessage(member, change) {
   return member.isYou
     ? `You are the only admin. Add another admin before you ${change.you}.`
-    : `A team must keep at least one admin. Add another admin before you ${change.other(memberName(member))}.`
+    : `A team must keep at least one admin. Add another admin before you ${change.other(member.displayName)}.`
 }
 
 const ROLE_CHANGE = {
@@ -211,19 +283,110 @@ const REMOVE_CHANGE = {
   other: (name) => `remove ${name} from this team`
 }
 
-function memberRow(member, { team, isAdmin, sessionUser }) {
-  const name =
-    member.displayName ?? (member.isYou ? sessionUser.displayName : null)
-
+function memberRow(member, { team, isAdmin }) {
   return {
-    name: member.isYou ? `${name ?? 'You'} (you)` : name,
-    notSignedIn: !name,
-    email: member.email ?? 'Team creator',
+    name: member.isYou ? `${member.displayName} (you)` : member.displayName,
+    email: member.email,
     role: roleText(member.role),
     changeUrl: isAdmin
       ? `${membersUrl(team)}/${member.isYou ? 'me' : encodeURIComponent(member._id)}/role`
       : null
   }
+}
+
+function text(value) {
+  return typeof value === 'string' ? value : ''
+}
+
+// What the form shows again: what was sent (which may not have passed
+// validation), or the empty form. The idempotency key always has a value.
+function submittedValues(payload) {
+  return {
+    action: payload?.action,
+    search: text(payload?.search),
+    oid: text(payload?.oid),
+    role: text(payload?.role) || 'user',
+    idempotencyKey: idempotencyKeyField.validate(payload?.idempotencyKey).value
+  }
+}
+
+// The matches for a page that goes back to the admin after an add that was
+// not made, so that the person chosen is still there to choose. It is no more
+// than a convenience: with no text to search for, or a directory that does
+// not answer, the page shows the error without the list.
+async function matchesAgain(request, team, search) {
+  const query = search.trim()
+
+  if (query.length < MIN_SEARCH_LENGTH || query.length > MAX_SEARCH_LENGTH) {
+    return null
+  }
+
+  try {
+    return await searchTeamPeople(request, team.slug, query)
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return null
+    }
+
+    throw error
+  }
+}
+
+async function searchPeople(request, h, team, values) {
+  const shown = { ...values, oid: '' }
+
+  try {
+    const people = await searchTeamPeople(request, team.slug, values.search)
+
+    return addMemberView(h, { team, values: shown, people })
+  } catch (error) {
+    const problem = personProblem(error)
+
+    if (!problem) {
+      return refusalView(h, team, error, 'add people')
+    }
+
+    return addMemberView(h, {
+      team,
+      values: shown,
+      errors: errorOn('search', problem.text)
+    }).code(problem.statusCode)
+  }
+}
+
+async function addPerson(request, h, team, values) {
+  const { oid, role, idempotencyKey } = values
+  let member
+
+  try {
+    member = await addTeamMember(
+      request,
+      team.slug,
+      { oid, role },
+      idempotencyKey
+    )
+  } catch (error) {
+    const problem = personProblem(error)
+
+    if (!problem) {
+      return refusalView(h, team, error, 'add people')
+    }
+
+    return addMemberView(h, {
+      team,
+      values,
+      people: await matchesAgain(request, team, values.search),
+      errors: errorOn('oid', problem.text)
+    }).code(problem.statusCode)
+  }
+
+  setAccountNotification(request, {
+    type: 'success',
+    heading: `${member.displayName ?? 'This person'} has been added`,
+    message: 'They can use the team straight away.'
+  })
+
+  return h.redirect(membersUrl(team)).code(statusCodes.seeOther)
 }
 
 /**
@@ -246,7 +409,6 @@ export const membersController = {
       }
 
       const { team, isAdmin, members } = loaded
-      const sessionUser = getSessionUser(request)
 
       return h.view('teams/members', {
         pageTitle: `${team.name} members`,
@@ -256,16 +418,16 @@ export const membersController = {
         notification: takeAccountNotification(request),
         isAdmin,
         addMemberUrl: `${membersUrl(team)}/add`,
-        members: members.map((member) =>
-          memberRow(member, { team, isAdmin, sessionUser })
-        )
+        members: members.map((member) => memberRow(member, { team, isAdmin }))
       })
     }
   }
 }
 
 /**
- * An admin adds someone by email, with a role (screen 14).
+ * An admin adds a person from the directory, with a role (screen 14). The
+ * page searches as the admin types when it has script; without script, the
+ * Search button posts the text and the page comes back with the matches.
  */
 export const addMemberController = {
   get: {
@@ -276,7 +438,7 @@ export const addMemberController = {
         page ??
         addMemberView(h, {
           team: loaded.team,
-          values: { email: '', role: 'user' }
+          values: submittedValues({})
         })
       )
     }
@@ -287,16 +449,25 @@ export const addMemberController = {
         payload: addMemberSchema,
         async failAction(request, h, error) {
           const { loaded, page } = await loadAdminTeam(request, h, 'add people')
-          const { email = '', role = 'user' } = request.payload ?? {}
 
-          return (
-            page ??
-            addMemberView(h, {
-              team: loaded.team,
-              values: { email, role },
-              errors: joiErrors(error)
-            }).code(statusCodes.badRequest)
-          ).takeover()
+          if (page) {
+            return page.takeover()
+          }
+
+          const values = submittedValues(request.payload)
+          const people =
+            values.action === 'add'
+              ? await matchesAgain(request, loaded.team, values.search)
+              : null
+
+          return addMemberView(h, {
+            team: loaded.team,
+            values,
+            people,
+            errors: joiErrors(error)
+          })
+            .code(statusCodes.badRequest)
+            .takeover()
         }
       }
     },
@@ -307,40 +478,11 @@ export const addMemberController = {
         return page
       }
 
-      const { team } = loaded
-      const { email, role } = request.payload
+      const { action, ...values } = request.payload
 
-      try {
-        await apiClient(request).post(
-          `/v1/teams/${encodeURIComponent(team.slug)}/members`,
-          { email, role },
-          {
-            userId: getSessionUser(request).id,
-            idempotencyKey: randomUUID()
-          }
-        )
-      } catch (error) {
-        if (error instanceof ApiError && error.code === 'member-exists') {
-          return addMemberView(h, {
-            team,
-            values: { email, role },
-            errors: errorOn(
-              'email',
-              'This person is already a member of this team'
-            )
-          }).code(statusCodes.conflict)
-        }
-
-        return refusalView(h, team, error, 'add people')
-      }
-
-      setAccountNotification(request, {
-        type: 'success',
-        heading: `${email} has been added`,
-        message: 'They will see the team when they next sign in.'
-      })
-
-      return h.redirect(membersUrl(team)).code(statusCodes.seeOther)
+      return action === 'add'
+        ? addPerson(request, h, loaded.team, values)
+        : searchPeople(request, h, loaded.team, values)
     }
   }
 }
@@ -431,7 +573,7 @@ export const memberRoleController = {
         type: 'success',
         message: member.isYou
           ? `You are now ${now}.`
-          : `${memberName(member)} is now ${now}.`
+          : `${member.displayName} is now ${now}.`
       })
 
       return h.redirect(membersUrl(team)).code(statusCodes.seeOther)
@@ -492,7 +634,7 @@ export const removeMemberController = {
         type: 'success',
         message: member.isYou
           ? `You have been removed from ${team.name}.`
-          : `${memberName(member)} has been removed from ${team.name}.`
+          : `${member.displayName} has been removed from ${team.name}.`
       })
 
       // Someone who has removed themselves can no longer see the team.
