@@ -158,6 +158,29 @@ function takeOverFromSelect(select, searchGroup) {
   return error?.id
 }
 
+// The hint and any error describe the field for as long as the page is open.
+// The library sets `aria-describedby` itself, to its own instructions, and
+// replaces it at every key, so the ids are put back ahead of its own whenever
+// they are missing.
+function keepDescribedBy(input, ids) {
+  function put() {
+    const others = (input.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .filter((id) => id && !ids.includes(id))
+    const wanted = [...ids, ...others].join(' ')
+
+    if (input.getAttribute('aria-describedby') !== wanted) {
+      input.setAttribute('aria-describedby', wanted)
+    }
+  }
+
+  new input.ownerDocument.defaultView.MutationObserver(put).observe(input, {
+    attributes: true,
+    attributeFilter: ['aria-describedby']
+  })
+  put()
+}
+
 /**
  * Turns the add-member page's name field into a combobox. It does nothing on
  * a page without the form.
@@ -181,7 +204,13 @@ export function initPeopleSearch(root = document) {
     crumb: form.querySelector('input[name="crumb"]').value
   })
   const container = original.ownerDocument.createElement('div')
-  const describedBy = [original.getAttribute('aria-describedby')]
+  // The hint, and any error, that describe the field (the select list's error
+  // is the field's once it has moved).
+  const movedError = select ? takeOverFromSelect(select, searchGroup) : null
+  const describedBy = [
+    ...(original.getAttribute('aria-describedby') ?? '').split(' '),
+    movedError
+  ].filter(Boolean)
 
   container.className = 'app-people-search'
   original.after(container)
@@ -196,9 +225,10 @@ export function initPeopleSearch(root = document) {
     minLength: MIN_LENGTH,
     displayMenu: 'overlay',
     confirmOnBlur: false,
-    inputClasses: original.classList.contains('govuk-input--error')
-      ? 'govuk-input--error'
-      : null,
+    inputClasses:
+      movedError || original.classList.contains('govuk-input--error')
+        ? 'govuk-input--error'
+        : null,
     source: search.source,
     templates: { inputValue: label, suggestion },
     tNoResults: search.message,
@@ -212,16 +242,9 @@ export function initPeopleSearch(root = document) {
   })
   original.remove()
 
-  if (select) {
-    describedBy.push(takeOverFromSelect(select, searchGroup))
-  }
-
-  // The hint and any error stay with the field, ahead of the library's own
-  // instructions for using the list.
   const input = container.querySelector('input')
 
-  describedBy.push(input.getAttribute('aria-describedby'))
-  input.setAttribute('aria-describedby', describedBy.filter(Boolean).join(' '))
+  keepDescribedBy(input, describedBy)
   input.addEventListener('input', () => {
     oid.value = ''
 

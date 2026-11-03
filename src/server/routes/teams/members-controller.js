@@ -4,8 +4,11 @@ import Joi from 'joi'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError, apiClient } from '#/server/common/helpers/api-client.js'
 import {
+  clearAddMemberKey,
+  getAddMemberKey,
   getSessionUser,
   setAccountNotification,
+  setAddMemberKey,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
 import {
@@ -55,16 +58,9 @@ function searchField() {
     })
 }
 
-// A page makes the key once and sends it back with every try, so the backend
-// adds a person once however often the same add is sent. A missing or
-// invalid key is replaced rather than refused: it is not the admin's to fix.
-const idempotencyKeyField = Joi.string()
-  .guid({ version: 'uuidv4' })
-  .default(() => randomUUID())
-  .failover(() => randomUUID())
-
 // One form, two buttons: `search` finds people and never adds anyone (it is
-// also what a missing action means), `add` adds the person chosen.
+// also what a missing action means), `add` adds the person chosen, with a
+// role that has to be chosen.
 const addMemberSchema = Joi.object({
   action: Joi.string().valid('search', 'add').default('search'),
   search: Joi.when('action', {
@@ -82,8 +78,11 @@ const addMemberSchema = Joi.object({
     }),
     otherwise: Joi.any().strip()
   }),
-  role: roleField.default('user'),
-  idempotencyKey: idempotencyKeyField
+  role: Joi.when('action', {
+    is: 'add',
+    then: roleField.required(),
+    otherwise: roleField.default('user')
+  })
 })
 
 function membersUrl(team) {
@@ -245,10 +244,11 @@ function placeErrors(errors, hasList) {
 }
 
 // `people` is the matches to choose from, or null when nobody has searched
-// (or the search could not be made again).
+// (or the search could not be made again). `searched` is for a page that is
+// the answer to a search: only then does an empty list mean "no one found".
 function addMemberView(
   h,
-  { team, values, people = null, errors = noErrors() }
+  { team, values, people = null, searched = false, errors = noErrors() }
 ) {
   const hasList = Boolean(people?.length)
   const placed = placeErrors(errors, hasList)
@@ -262,7 +262,7 @@ function addMemberView(
     values,
     personItems: hasList ? personItems(people, values.oid) : null,
     personCount: people?.length,
-    noMatches: people?.length === 0,
+    noMatches: searched && people?.length === 0,
     ...placed
   })
 }
@@ -299,14 +299,13 @@ function text(value) {
 }
 
 // What the form shows again: what was sent (which may not have passed
-// validation), or the empty form. The idempotency key always has a value.
+// validation), or, with nothing sent, the empty form with Member chosen.
 function submittedValues(payload) {
   return {
     action: payload?.action,
     search: text(payload?.search),
     oid: text(payload?.oid),
-    role: text(payload?.role) || 'user',
-    idempotencyKey: idempotencyKeyField.validate(payload?.idempotencyKey).value
+    role: payload ? text(payload.role) : 'user'
   }
 }
 
@@ -338,7 +337,7 @@ async function searchPeople(request, h, team, values) {
   try {
     const people = await searchTeamPeople(request, team.slug, values.search)
 
-    return addMemberView(h, { team, values: shown, people })
+    return addMemberView(h, { team, values: shown, people, searched: true })
   } catch (error) {
     const problem = personProblem(error)
 
@@ -354,8 +353,26 @@ async function searchPeople(request, h, team, values) {
   }
 }
 
+// The key for adding this person with this role: the same for a retry of the
+// same choice, so the backend adds once, and new for any other, so it cannot
+// answer a different choice with an earlier one. It is kept in the session.
+function keyForAdd(request, team, { oid, role }) {
+  const choice = `${team.slug}|${oid}|${role}`
+  const saved = getAddMemberKey(request)
+
+  if (saved?.choice === choice) {
+    return saved.key
+  }
+
+  const key = randomUUID()
+
+  setAddMemberKey(request, { choice, key })
+
+  return key
+}
+
 async function addPerson(request, h, team, values) {
-  const { oid, role, idempotencyKey } = values
+  const { oid, role } = values
   let member
 
   try {
@@ -363,7 +380,7 @@ async function addPerson(request, h, team, values) {
       request,
       team.slug,
       { oid, role },
-      idempotencyKey
+      keyForAdd(request, team, values)
     )
   } catch (error) {
     const problem = personProblem(error)
@@ -379,6 +396,8 @@ async function addPerson(request, h, team, values) {
       errors: errorOn('oid', problem.text)
     }).code(problem.statusCode)
   }
+
+  clearAddMemberKey(request)
 
   setAccountNotification(request, {
     type: 'success',
@@ -438,7 +457,7 @@ export const addMemberController = {
         page ??
         addMemberView(h, {
           team: loaded.team,
-          values: submittedValues({})
+          values: submittedValues()
         })
       )
     }

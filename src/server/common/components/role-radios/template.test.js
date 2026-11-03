@@ -39,6 +39,12 @@ describe('Role radios component', () => {
     expect($('input:checked').attr('value')).toBe('admin')
   })
 
+  test('Should choose neither role when it is given an empty one', () => {
+    const $ = renderComponent('role-radios', { value: '' })
+
+    expect($('input:checked')).toHaveLength(0)
+  })
+
   test('Should show an error on the field, with the first radio as its target', () => {
     const $ = renderComponent('role-radios', {
       errorMessage: { text: 'Select a role' }

@@ -41,7 +41,6 @@ const NOT_FOUND = reply(404, { code: 'not-found', message: 'Not Found' })
 const SEARCH_PATH = `${TEAM_PATH}/people/search`
 const OID = '0b8f6f4e-3c0f-4c46-9c58-2d3a8d2f1a11'
 const OTHER_OID = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
-const KEY = '5d4e4b1a-6f7e-4f3a-8a53-1d2f5f0c9b11'
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const sam = {
@@ -435,7 +434,7 @@ describe('#members', () => {
       expect($('[data-testid="add-member-submit"]').text().trim()).toBe('Add')
       expect($('[data-testid="add-member-submit"]').attr('value')).toBe('add')
       expect($('select[name="oid"]')).toHaveLength(0)
-      expect($('input[name="idempotencyKey"]').attr('value')).toMatch(UUID)
+      expect($('input[name="idempotencyKey"]')).toHaveLength(0)
       expect(searches()).toHaveLength(0)
     })
 
@@ -464,17 +463,6 @@ describe('#members', () => {
       expect(statusCode).toBe(statusCodes.forbidden)
       expect(writes()).toHaveLength(0)
       expect(searches()).toHaveLength(0)
-    })
-
-    test('gives each new page its own idempotency key', async () => {
-      backend('admin')
-
-      const first = await get(`${MEMBERS_URL}/add`)
-      const second = await get(`${MEMBERS_URL}/add`)
-      const key = (page) =>
-        load(page.result)('input[name="idempotencyKey"]').attr('value')
-
-      expect(key(first)).not.toBe(key(second))
     })
 
     describe('searching without JavaScript', () => {
@@ -637,7 +625,7 @@ describe('#members', () => {
           action: 'add',
           search: 'sam',
           oid: OID,
-          idempotencyKey: KEY,
+          role: 'user',
           ...payload
         })
       }
@@ -661,7 +649,7 @@ describe('#members', () => {
         expect(options.method).toBe('POST')
         expect(JSON.parse(options.body)).toEqual({ oid: OID, role: 'admin' })
         expect(options.headers['x-user-id']).toBe('user-1')
-        expect(options.headers['idempotency-key']).toBe(KEY)
+        expect(options.headers['idempotency-key']).toMatch(UUID)
 
         const { result } = await follow(response)
 
@@ -669,7 +657,45 @@ describe('#members', () => {
         expect(result).toContain('They can use the team straight away.')
       })
 
-      test('sends the same idempotency key when the same add is sent again, so a retry adds once', async () => {
+      test('keeps the idempotency key for a retry of the same person and role, so the backend adds once', async () => {
+        backend('admin', {
+          [`POST ${TEAM_PATH}/members`]: reply(503, {
+            code: 'directory-unavailable'
+          })
+        })
+
+        await add()
+        await add()
+
+        const keys = writes().map(
+          ([, options]) => options.headers['idempotency-key']
+        )
+
+        expect(keys[0]).toMatch(UUID)
+        expect(keys[1]).toBe(keys[0])
+      })
+
+      test('uses a new key for a different person or a different role, so the backend cannot replay the first choice', async () => {
+        backend('admin', {
+          [`POST ${TEAM_PATH}/members`]: reply(503, {
+            code: 'directory-unavailable'
+          })
+        })
+
+        await add()
+        await add({ oid: OTHER_OID })
+        await add({ oid: OTHER_OID, role: 'admin' })
+        await add({ oid: OTHER_OID, role: 'admin' })
+
+        const keys = writes().map(
+          ([, options]) => options.headers['idempotency-key']
+        )
+
+        expect(new Set(keys.slice(0, 3)).size).toBe(3)
+        expect(keys[3]).toBe(keys[2])
+      })
+
+      test('uses a new key once the person has been added, so adding them again after they are removed is a new add', async () => {
         backend('admin', {
           [`POST ${TEAM_PATH}/members`]: reply(201, {
             member: { displayName: 'Sam Carter' }
@@ -679,35 +705,55 @@ describe('#members', () => {
         await add()
         await add()
 
-        expect(
-          writes().map(([, options]) => options.headers['idempotency-key'])
-        ).toEqual([KEY, KEY])
+        const keys = writes().map(
+          ([, options]) => options.headers['idempotency-key']
+        )
+
+        expect(keys[0]).toMatch(UUID)
+        expect(keys[1]).toMatch(UUID)
+        expect(keys[1]).not.toBe(keys[0])
       })
 
-      test('makes a key when none is sent, or one that is not a UUID', async () => {
+      test('keeps a person’s key to their own session', async () => {
         backend('admin', {
-          [`POST ${TEAM_PATH}/members`]: reply(201, {
-            member: { displayName: 'Sam Carter' }
+          [`POST ${TEAM_PATH}/members`]: reply(503, {
+            code: 'directory-unavailable'
           })
-        })
-
-        await add({ idempotencyKey: undefined })
-        await add({ idempotencyKey: 'not-a-key' })
-
-        for (const [, options] of writes()) {
-          expect(options.headers['idempotency-key']).toMatch(UUID)
-          expect(options.headers['idempotency-key']).not.toBe('not-a-key')
-        }
-      })
-
-      test('adds a Member when no role is chosen', async () => {
-        backend('admin', {
-          [`POST ${TEAM_PATH}/members`]: reply(201, { member: {} })
         })
 
         await add()
 
-        expect(JSON.parse(writes()[0][1].body).role).toBe('user')
+        cookies = await signInViaOidc(server, fetchMock)
+        backend('admin', {
+          [`POST ${TEAM_PATH}/members`]: reply(503, {
+            code: 'directory-unavailable'
+          })
+        })
+        await add()
+
+        const keys = writes().map(
+          ([, options]) => options.headers['idempotency-key']
+        )
+
+        expect(keys[1]).not.toBe(keys[0])
+      })
+
+      test('refuses an add with no role, shows the GOV.UK error with no role chosen, and adds no one', async () => {
+        backend('admin', { [`POST ${SEARCH_PATH}`]: { items: [sam] } })
+
+        const { statusCode, result } = await add({ role: undefined })
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.badRequest)
+        expect($('.govuk-error-summary__list a').attr('href')).toBe('#role')
+        expect($('.govuk-error-summary__list').text()).toContain(
+          'Select a role'
+        )
+        expect($('#role-error').text()).toContain('Select a role')
+        expect($('input[name="role"]:checked')).toHaveLength(0)
+        expect($('select[name="oid"]').val()).toBe(OID)
+        expect($('title').text()).toContain('Error: Add a member')
+        expect(writes()).toHaveLength(0)
       })
 
       test('names the banner after the person when the backend gives no name', async () => {
@@ -744,7 +790,6 @@ describe('#members', () => {
           expect($('#search-error').text()).toContain('Select a person')
           expect($('#search').attr('value')).toBe('x')
           expect($('input[name="role"]:checked').attr('value')).toBe('admin')
-          expect($('input[name="idempotencyKey"]').attr('value')).toBe(KEY)
           expect($('title').text()).toContain('Error: Add a member')
           expect(writes()).toHaveLength(0)
         }
@@ -856,10 +901,29 @@ describe('#members', () => {
           expect($('select[name="oid"]').val()).toBe(chosen)
           expect($('#search').attr('value')).toBe('sam')
           expect($('input[name="role"]:checked').attr('value')).toBe('admin')
-          expect($('input[name="idempotencyKey"]').attr('value')).toBe(KEY)
           expect($('title').text()).toContain('Error: Add a member')
         }
       )
+
+      test('does not say no one was found beside "already a member", when the person has just been left out of the matches', async () => {
+        backend('admin', {
+          [`POST ${TEAM_PATH}/members`]: reply(409, { code: 'member-exists' }),
+          [`POST ${SEARCH_PATH}`]: { items: [] }
+        })
+
+        const { statusCode, result } = await add()
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.conflict)
+        expect($('.govuk-error-summary__list').text()).toContain(
+          'This person is already a member of this team'
+        )
+        expect($('[data-testid="no-people"]')).toHaveLength(0)
+        expect(result).not.toContain('No one found')
+        expect($('#search-error').text()).toContain(
+          'This person is already a member of this team'
+        )
+      })
 
       test('puts the error on the search text when the matches cannot be found again', async () => {
         backend('admin', {

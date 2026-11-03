@@ -226,6 +226,65 @@ describe('#initPeopleSearch', () => {
 
       expect(field.classList.contains('govuk-input--error')).toBe(true)
     })
+
+    test('gives the field the error style when the select list’s error moves to it', () => {
+      page({
+        select: {
+          options: [{ oid: OID, text: 'Sam Carter - sam@defra.gov.uk' }]
+        },
+        error: true
+      })
+
+      const { input: field } = initPeopleSearch()
+
+      expect(field.classList.contains('govuk-input--error')).toBe(true)
+    })
+
+    test('does not give a field with no error the error style', () => {
+      const { input: field } = initPeopleSearch()
+
+      expect(field.classList.contains('govuk-input--error')).toBe(false)
+    })
+
+    test('keeps the hint and the error linked to the field while the person types, and after the field is cleared', async () => {
+      page({
+        select: {
+          options: [{ oid: OID, text: 'Sam Carter - sam@defra.gov.uk' }]
+        },
+        error: true
+      })
+
+      const { input: field } = initPeopleSearch()
+      const ids = () => field.getAttribute('aria-describedby').split(' ')
+
+      expect(ids()).toEqual(
+        expect.arrayContaining(['search-hint', 'oid-error'])
+      )
+
+      await type('sa')
+      await settle(STATUS_DELAY)
+
+      expect(ids()).toEqual(
+        expect.arrayContaining(['search-hint', 'oid-error'])
+      )
+
+      await type('')
+      await settle(STATUS_DELAY)
+
+      expect(ids()).toEqual(
+        expect.arrayContaining(['search-hint', 'oid-error'])
+      )
+      expect(ids().filter((id) => id === 'search-hint')).toHaveLength(1)
+    })
+
+    test('keeps the hint linked when the library takes its own link away', async () => {
+      const { input: field } = initPeopleSearch()
+
+      field.removeAttribute('aria-describedby')
+      await settle()
+
+      expect(field.getAttribute('aria-describedby')).toBe('search-hint')
+    })
   })
 
   describe('searching', () => {
