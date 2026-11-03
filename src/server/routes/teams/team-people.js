@@ -20,6 +20,12 @@ const PROBLEMS = {
   'directory-unavailable': {
     statusCode: statusCodes.serviceUnavailable,
     text: 'We could not reach the directory. Try again in a few minutes'
+  },
+  // The backend saw this key with another person or role: not an add that
+  // exists already, so not "already a member".
+  'idempotency-key-reused': {
+    statusCode: statusCodes.conflict,
+    text: 'We could not add this person. Check the person and role, then select Add again'
   }
 }
 

@@ -905,6 +905,38 @@ describe('#members', () => {
         }
       )
 
+      test('says the add could not be completed, keeps the choice and uses a fresh key on the next try, when the backend refuses a reused key', async () => {
+        backend('admin', {
+          [`POST ${TEAM_PATH}/members`]: reply(409, {
+            code: 'idempotency-key-reused'
+          }),
+          [`POST ${SEARCH_PATH}`]: { items: [sam, alex] }
+        })
+
+        const { statusCode, result } = await add({ role: 'admin' })
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.conflict)
+        expect($('.govuk-error-summary__list a').attr('href')).toBe('#oid')
+        expect($('#oid-error').text()).toContain(
+          'We could not add this person. Check the person and role, then select Add again'
+        )
+        expect(result).not.toContain('already a member')
+        expect(result).not.toContain('No one found')
+        expect($('select[name="oid"]').val()).toBe(OID)
+        expect($('input[name="role"]:checked').attr('value')).toBe('admin')
+
+        await add({ role: 'admin' })
+
+        const keys = writes().map(
+          ([, options]) => options.headers['idempotency-key']
+        )
+
+        expect(keys[0]).toMatch(UUID)
+        expect(keys[1]).toMatch(UUID)
+        expect(keys[1]).not.toBe(keys[0])
+      })
+
       test('does not say no one was found beside "already a member", when the person has just been left out of the matches', async () => {
         backend('admin', {
           [`POST ${TEAM_PATH}/members`]: reply(409, { code: 'member-exists' }),

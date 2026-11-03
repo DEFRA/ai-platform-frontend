@@ -87,6 +87,11 @@ describe('#team people API', () => {
         'directory-unavailable',
         503,
         'We could not reach the directory. Try again in a few minutes'
+      ],
+      [
+        'idempotency-key-reused',
+        409,
+        'We could not add this person. Check the person and role, then select Add again'
       ]
     ])('maps %s to its status and message', (code, statusCode, text) => {
       expect(personProblem(new ApiError({ statusCode, code }))).toEqual({

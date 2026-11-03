@@ -389,6 +389,10 @@ async function addPerson(request, h, team, values) {
       return refusalView(h, team, error, 'add people')
     }
 
+    // The next try is a new add, with a fresh key.
+    if (error.code === 'idempotency-key-reused') {
+      clearAddMemberKey(request)
+    }
     return addMemberView(h, {
       team,
       values,
