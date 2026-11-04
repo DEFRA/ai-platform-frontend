@@ -1,32 +1,37 @@
+import { ecsFormat } from '@elastic/ecs-pino-format'
+import { pino } from 'pino'
+
 import { config } from '#/config/config.js'
+import {
+  API_CLIENT_ID,
+  CLIENT_ID,
+  CLIENT_SECRET,
+  TENANT,
+  blockNetwork,
+  clearInterceptors,
+  endNetworkBlock,
+  interceptDiscovery,
+  interceptTokenEndpoint,
+  tokenResponse
+} from '#/test-helpers/entra-network.js'
 import {
   getAppToken,
   getUserToken,
   resetAppToken,
   tokensFromResponse
 } from './access-token.js'
+import { resetOidcConfig } from './oidc-client.js'
 import { getSessionTokens } from './session.js'
-
-const refreshTokenGrant = vi.fn()
-const clientCredentialsGrant = vi.fn()
-const getOidcConfig = vi.fn()
 
 // The test setup replaces getAppToken for every other file.
 vi.unmock('#/server/common/helpers/access-token.js')
 
-vi.mock('openid-client', () => ({
-  refreshTokenGrant: (...args) => refreshTokenGrant(...args),
-  clientCredentialsGrant: (...args) => clientCredentialsGrant(...args)
-}))
-vi.mock('#/server/common/helpers/oidc-client.js', () => ({
-  getOidcConfig: (...args) => getOidcConfig(...args)
-}))
-
+// The real openid-client and the real oidc-client.js run: only what answers
+// over the network (Entra's discovery and token endpoints) is intercepted.
 const MINUTE = 60 * 1000
 const START = Date.parse('2026-11-04T09:00:00Z')
-const API = '44444444-4444-4444-8444-444444444444'
 
-function mockRequest(tokens) {
+function mockRequest(tokens, logger = pino({ level: 'silent' })) {
   const store = tokens ? { tokens } : {}
 
   return {
@@ -36,8 +41,21 @@ function mockRequest(tokens) {
         store[key] = value
       }
     },
-    logger: { warn: vi.fn() }
+    logger
   }
+}
+
+// A real logger writing what the service would emit (ECS format), kept as text.
+function capturingLogger() {
+  const lines = []
+  const logger = pino(
+    { ...ecsFormat(), level: 'info' },
+    {
+      write: (line) => lines.push(line)
+    }
+  )
+
+  return { logger, output: () => lines.join('') }
 }
 
 function sessionTokens(overrides = {}) {
@@ -58,23 +76,40 @@ function grantResponse(overrides = {}) {
   }
 }
 
+const USER_SCOPE = `openid profile email offline_access api://${API_CLIENT_ID}/Portal.Access`
+const refreshGrant = (refreshToken) => ({
+  grant_type: 'refresh_token',
+  refresh_token: refreshToken,
+  scope: USER_SCOPE,
+  client_id: CLIENT_ID,
+  client_secret: CLIENT_SECRET
+})
+
 describe('#access tokens', () => {
+  beforeAll(blockNetwork)
+  afterAll(endNetworkBlock)
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(START)
-    vi.spyOn(config, 'get').mockImplementation((key) =>
-      key === 'azureAd.apiClientId' ? API : config.default(key)
+    vi.spyOn(config, 'get').mockImplementation(
+      (key) =>
+        ({
+          'azureAd.tenantId': TENANT,
+          'azureAd.clientId': CLIENT_ID,
+          'azureAd.apiClientId': API_CLIENT_ID,
+          'azureAd.clientSecret': CLIENT_SECRET,
+          'azureAd.authMethod': 'client-secret'
+        })[key] ?? config.default(key)
     )
-    getOidcConfig.mockResolvedValue('oidc-config')
+    resetOidcConfig()
     resetAppToken()
   })
 
   afterEach(() => {
     vi.useRealTimers()
     vi.restoreAllMocks()
-    refreshTokenGrant.mockReset()
-    clientCredentialsGrant.mockReset()
-    getOidcConfig.mockReset()
+    clearInterceptors()
   })
 
   describe('#tokensFromResponse', () => {
@@ -97,36 +132,32 @@ describe('#access tokens', () => {
   })
 
   describe('#getUserToken', () => {
-    test('gives the stored token while more than 2 minutes are left', async () => {
+    test('gives the stored token while more than 2 minutes are left, asking Entra nothing', async () => {
+      const entra = interceptDiscovery()
       const request = mockRequest(
         sessionTokens({ expiresAt: START + 2 * MINUTE + 1 })
       )
 
       await expect(getUserToken(request)).resolves.toBe('access-1')
-      expect(refreshTokenGrant).not.toHaveBeenCalled()
+      expect(entra.scope.isDone()).toBe(false)
     })
 
-    test('refreshes it 2 minutes before it expires, asking for the same scopes', async () => {
+    test('refreshes it 2 minutes before it expires, with a refresh grant for the same scopes, the client authenticated', async () => {
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(tokenResponse())
       const request = mockRequest(
         sessionTokens({ expiresAt: START + 2 * MINUTE })
       )
-      refreshTokenGrant.mockResolvedValue(grantResponse())
 
       await expect(getUserToken(request)).resolves.toBe('access-2')
 
-      expect(getOidcConfig).toHaveBeenCalledWith({ authenticateClient: true })
-      expect(refreshTokenGrant).toHaveBeenCalledWith(
-        'oidc-config',
-        'refresh-1',
-        {
-          scope: `openid profile email offline_access api://${API}/Portal.Access`
-        }
-      )
+      expect(token.requests).toEqual([refreshGrant('refresh-1')])
     })
 
     test('stores the new token and the replaced refresh token in the session', async () => {
+      interceptDiscovery()
+      interceptTokenEndpoint(tokenResponse())
       const request = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
-      refreshTokenGrant.mockResolvedValue(grantResponse())
 
       await getUserToken(request)
 
@@ -137,20 +168,32 @@ describe('#access tokens', () => {
       })
     })
 
-    test('uses the refreshed token on the next call without refreshing again', async () => {
+    test('keeps the refresh token it holds when Entra sends no new one', async () => {
+      interceptDiscovery()
+      interceptTokenEndpoint(tokenResponse({ refresh_token: undefined }))
       const request = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
-      refreshTokenGrant.mockResolvedValue(grantResponse())
 
       await getUserToken(request)
-      await getUserToken(request)
 
-      expect(refreshTokenGrant).toHaveBeenCalledTimes(1)
+      expect(getSessionTokens(request).refreshToken).toBe('refresh-1')
+    })
+
+    test('uses the refreshed token on the next call without refreshing again', async () => {
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(tokenResponse())
+      const request = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
+
+      await getUserToken(request)
+      await expect(getUserToken(request)).resolves.toBe('access-2')
+
+      expect(token.requests).toHaveLength(1)
     })
 
     test('refreshes once when several calls need it at the same time', async () => {
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(tokenResponse())
       const first = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
       const second = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
-      refreshTokenGrant.mockResolvedValue(grantResponse())
 
       const tokens = await Promise.all([
         getUserToken(first),
@@ -158,46 +201,121 @@ describe('#access tokens', () => {
       ])
 
       expect(tokens).toEqual(['access-2', 'access-2'])
-      expect(refreshTokenGrant).toHaveBeenCalledTimes(1)
+      expect(token.requests).toHaveLength(1)
       expect(getSessionTokens(second).accessToken).toBe('access-2')
     })
 
-    test('asks again for a later refresh, once the first has finished', async () => {
+    test('asks again for a later refresh with the replaced refresh token, once the first has finished', async () => {
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(
+        tokenResponse(),
+        tokenResponse({ access_token: 'access-3', refresh_token: 'refresh-3' })
+      )
       const request = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
-      refreshTokenGrant.mockResolvedValue(grantResponse())
       await getUserToken(request)
 
       vi.setSystemTime(START + 59 * MINUTE)
-      refreshTokenGrant.mockResolvedValue(
-        grantResponse({ access_token: 'access-3', refresh_token: 'refresh-3' })
-      )
 
       await expect(getUserToken(request)).resolves.toBe('access-3')
-      expect(refreshTokenGrant).toHaveBeenLastCalledWith(
-        'oidc-config',
-        'refresh-2',
-        expect.any(Object)
-      )
+      expect(token.requests).toEqual([
+        refreshGrant('refresh-1'),
+        refreshGrant('refresh-2')
+      ])
     })
 
-    test('is a 401 that can end the session when the refresh fails, saying nothing of the tokens', async () => {
+    test('is a 401 that can end the session when Entra refuses the refresh', async () => {
+      interceptDiscovery()
+      interceptTokenEndpoint([400, { error: 'invalid_grant' }])
       const request = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
-      refreshTokenGrant.mockRejectedValue(new Error('invalid_grant'))
 
       await expect(getUserToken(request)).rejects.toMatchObject({
         name: 'ApiError',
         statusCode: 401,
         code: 'token-refresh-failed'
       })
-      expect(request.logger.warn).toHaveBeenCalled()
-      expect(JSON.stringify(request.logger.warn.mock.calls)).not.toContain(
-        'refresh-1'
+    })
+
+    test('does not keep a failed refresh: the next call asks Entra again', async () => {
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(
+        [400, { error: 'invalid_grant' }],
+        tokenResponse()
       )
+      const request = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
+      await getUserToken(request).catch(() => {})
+
+      await expect(getUserToken(request)).resolves.toBe('access-2')
+      expect(token.requests).toHaveLength(2)
+    })
+
+    test('logs what kind of refresh failure it was, in Entra’s terms, and none of the tokens, secrets or Entra’s description', async () => {
+      interceptDiscovery()
+      // Entra can put what it was sent into its error text; that must never be logged.
+      interceptTokenEndpoint([
+        400,
+        {
+          error: 'invalid_grant',
+          error_description: `AADSTS70000: could not redeem refresh_token=refresh-1 with client_secret=${CLIENT_SECRET}`
+        }
+      ])
+      const { logger, output } = capturingLogger()
+      const request = mockRequest(
+        sessionTokens({ expiresAt: START + MINUTE }),
+        logger
+      )
+
+      await getUserToken(request).catch(() => {})
+
+      const emitted = output()
+
+      expect(JSON.parse(emitted)).toMatchObject({
+        message: 'Refreshing the access token failed',
+        'log.level': 'warn',
+        error: { type: 'ResponseBodyError', code: 'OAUTH_RESPONSE_BODY_ERROR' },
+        oauth: { error: 'invalid_grant' }
+      })
+      expect(emitted).not.toContain('refresh-1')
+      expect(emitted).not.toContain('access-1')
+      expect(emitted).not.toContain(CLIENT_SECRET)
+      expect(emitted).not.toContain('AADSTS70000')
+    })
+
+    test('logs a failure that carries the new tokens in its own message without the message or the stack', async () => {
+      interceptDiscovery()
+      interceptTokenEndpoint(tokenResponse())
+      const { logger, output } = capturingLogger()
+      const request = mockRequest(
+        sessionTokens({ expiresAt: START + MINUTE }),
+        logger
+      )
+      // The session store refusing the write, naming what it was asked to keep.
+      request.yar.set = () => {
+        throw new Error(
+          'Session store refused {"accessToken":"access-2","refreshToken":"refresh-2"}'
+        )
+      }
+
+      await expect(getUserToken(request)).rejects.toMatchObject({
+        statusCode: 401,
+        code: 'token-refresh-failed'
+      })
+
+      const emitted = output()
+
+      expect(JSON.parse(emitted)).toMatchObject({
+        message: 'Refreshing the access token failed',
+        'log.level': 'warn',
+        error: { type: 'Error' }
+      })
+      expect(emitted).not.toContain('access-2')
+      expect(emitted).not.toContain('refresh-2')
+      expect(emitted).not.toContain('refresh-1')
+      expect(emitted).not.toContain('Session store refused')
     })
 
     test('is a 401 when Entra cannot be reached to refresh', async () => {
+      interceptDiscovery({ answer: [503, { error: 'down' }] })
       const request = mockRequest(sessionTokens({ expiresAt: START + MINUTE }))
-      getOidcConfig.mockRejectedValue(new Error('discovery failed'))
 
       await expect(getUserToken(request)).rejects.toMatchObject({
         statusCode: 401,
@@ -205,7 +323,8 @@ describe('#access tokens', () => {
       })
     })
 
-    test('is a 401 when the person has tokens that cannot be refreshed', async () => {
+    test('is a 401, asking Entra nothing, when the person has tokens that cannot be refreshed', async () => {
+      const entra = interceptDiscovery()
       const request = mockRequest(
         sessionTokens({ refreshToken: undefined, expiresAt: START + MINUTE })
       )
@@ -214,7 +333,7 @@ describe('#access tokens', () => {
         statusCode: 401,
         code: 'token-refresh-failed'
       })
-      expect(refreshTokenGrant).not.toHaveBeenCalled()
+      expect(entra.scope.isDone()).toBe(false)
     })
 
     test('is a 401 when there are no tokens in the session', async () => {
@@ -226,65 +345,78 @@ describe('#access tokens', () => {
   })
 
   describe('#getAppToken', () => {
+    const appGrant = {
+      grant_type: 'client_credentials',
+      scope: `api://${API_CLIENT_ID}/.default`,
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET
+    }
+
     test("asks Entra for the frontend's own token for the API's default scope, with the client authenticated for the grant", async () => {
-      clientCredentialsGrant.mockResolvedValue(
-        grantResponse({ access_token: 'app-1', refresh_token: undefined })
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(
+        tokenResponse({ access_token: 'app-1', refresh_token: undefined })
       )
 
       await expect(getAppToken()).resolves.toBe('app-1')
 
-      expect(getOidcConfig).toHaveBeenCalledWith({ authenticateClient: true })
-      expect(clientCredentialsGrant).toHaveBeenCalledWith('oidc-config', {
-        scope: `api://${API}/.default`
-      })
+      expect(token.requests).toEqual([appGrant])
     })
 
     test('keeps it until 2 minutes before it expires', async () => {
-      clientCredentialsGrant.mockResolvedValue(
-        grantResponse({ access_token: 'app-1', expires_in: 600 })
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(
+        tokenResponse({ access_token: 'app-1', expires_in: 600 }),
+        tokenResponse({ access_token: 'app-2' })
       )
       await getAppToken()
 
       vi.setSystemTime(START + 7 * MINUTE)
-      await getAppToken()
-      expect(clientCredentialsGrant).toHaveBeenCalledTimes(1)
+      await expect(getAppToken()).resolves.toBe('app-1')
+      expect(token.requests).toHaveLength(1)
 
       vi.setSystemTime(START + 8 * MINUTE)
-      clientCredentialsGrant.mockResolvedValue(
-        grantResponse({ access_token: 'app-2' })
-      )
-
       await expect(getAppToken()).resolves.toBe('app-2')
-      expect(clientCredentialsGrant).toHaveBeenCalledTimes(2)
+      expect(token.requests).toEqual([appGrant, appGrant])
     })
 
     test('asks once when several calls need it at the same time', async () => {
-      clientCredentialsGrant.mockResolvedValue(
-        grantResponse({ access_token: 'app-1' })
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(
+        tokenResponse({ access_token: 'app-1' })
       )
 
-      await Promise.all([getAppToken(), getAppToken(), getAppToken()])
+      const tokens = await Promise.all([
+        getAppToken(),
+        getAppToken(),
+        getAppToken()
+      ])
 
-      expect(clientCredentialsGrant).toHaveBeenCalledTimes(1)
+      expect(tokens).toEqual(['app-1', 'app-1', 'app-1'])
+      expect(token.requests).toHaveLength(1)
     })
 
     test('is a 502 when Entra cannot give a token, and asks again next time', async () => {
-      clientCredentialsGrant.mockRejectedValueOnce(new Error('Entra is down'))
+      interceptDiscovery()
+      const token = interceptTokenEndpoint(
+        [401, { error: 'invalid_client' }],
+        tokenResponse({ access_token: 'app-1' })
+      )
 
       await expect(getAppToken()).rejects.toMatchObject({
         name: 'ApiError',
         statusCode: 502,
         code: 'upstream-unavailable'
       })
-
-      clientCredentialsGrant.mockResolvedValue(
-        grantResponse({ access_token: 'app-1' })
-      )
       await expect(getAppToken()).resolves.toBe('app-1')
+
+      expect(token.requests).toHaveLength(2)
     })
 
     test('is a 502 when Entra sign-in is not configured', async () => {
-      getOidcConfig.mockRejectedValueOnce(new Error('not configured'))
+      vi.spyOn(config, 'get').mockImplementation((key) =>
+        key === 'azureAd.tenantId' ? null : config.default(key)
+      )
 
       await expect(getAppToken()).rejects.toMatchObject({ statusCode: 502 })
     })

@@ -33,6 +33,30 @@ export function tokensFromResponse(response, previous) {
 
 const isFresh = (tokens) => tokens.expiresAt - RENEW_EARLY_MS > Date.now()
 
+// The error codes a token endpoint answers a grant with (RFC 6749 5.2, and the
+// ones Entra adds). Anything else Entra puts there is not logged.
+const OAUTH_ERRORS = new Set([
+  'invalid_request',
+  'invalid_client',
+  'invalid_grant',
+  'unauthorized_client',
+  'unsupported_grant_type',
+  'invalid_scope',
+  'interaction_required',
+  'consent_required',
+  'login_required'
+])
+
+// What a failed refresh may say in the log: the kind of failure, never its
+// message, description, stack or cause, which can carry what was being sent
+// (tokens, the client secret) or what the session store was asked to keep.
+function loggableFailure(error) {
+  return {
+    error: { type: error.name, code: error.code },
+    oauth: { error: OAUTH_ERRORS.has(error.error) ? error.error : undefined }
+  }
+}
+
 async function refresh(tokens) {
   if (!tokens.refreshToken) {
     throw new Error('The session holds no refresh token')
@@ -92,7 +116,10 @@ export async function getUserToken(request) {
 
     return renewed.accessToken
   } catch (error) {
-    request.logger?.warn({ err: error }, 'Refreshing the access token failed')
+    request.logger?.warn(
+      loggableFailure(error),
+      'Refreshing the access token failed'
+    )
 
     throw new ApiError({
       statusCode: 401,
