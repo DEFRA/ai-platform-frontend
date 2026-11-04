@@ -1,6 +1,8 @@
 import { vi } from 'vitest'
+import Boom from '@hapi/boom'
 
 import { catchAll } from './errors.js'
+import { ApiError } from './api-error.js'
 import { createServer } from '../../server.js'
 import { statusCodes } from '../constants/status-codes.js'
 
@@ -26,6 +28,94 @@ describe('#errors', () => {
       expect.stringContaining('Page not found | AI Platform Portal')
     )
     expect(statusCode).toBe(statusCodes.notFound)
+  })
+})
+
+describe('#catchAll an API call the backend refused as unauthorised', () => {
+  const boomified = (statusCode = statusCodes.unauthorized) =>
+    Boom.boomify(new ApiError({ statusCode, code: 'invalid-token' }))
+  const signedInRequest = (overrides = {}) => ({
+    response: boomified(),
+    path: '/manage',
+    method: 'get',
+    url: { search: '?tab=models' },
+    yar: { get: () => ({ id: 'user-1' }), reset: vi.fn() },
+    logger: { error: vi.fn() },
+    ...overrides
+  })
+  const toolkit = () => ({
+    redirect: vi.fn(() => 'redirected'),
+    view: vi.fn().mockReturnThis(),
+    code: vi.fn().mockReturnThis()
+  })
+
+  test('ends the session and sends a signed-in person to sign in, back to the page they wanted', () => {
+    const request = signedInRequest()
+    const h = toolkit()
+
+    expect(catchAll(request, h)).toBe('redirected')
+
+    expect(request.yar.reset).toHaveBeenCalledTimes(1)
+    expect(h.redirect).toHaveBeenCalledWith(
+      '/sign-in?returnTo=%2Fmanage%3Ftab%3Dmodels'
+    )
+  })
+
+  test('has no page to come back to after a POST', () => {
+    const h = toolkit()
+
+    catchAll(signedInRequest({ method: 'post' }), h)
+
+    expect(h.redirect).toHaveBeenCalledWith('/sign-in')
+  })
+
+  test('shows the error page, and does not sign in again, for a visitor who had not signed in', () => {
+    const request = signedInRequest({ yar: { get: () => undefined } })
+    const h = toolkit()
+
+    catchAll(request, h)
+
+    expect(h.redirect).not.toHaveBeenCalled()
+    expect(h.view).toHaveBeenCalledWith(
+      'error/index',
+      expect.objectContaining({ message: 'Something went wrong' })
+    )
+  })
+
+  test('does not treat any other failed call as an ended session', () => {
+    const request = signedInRequest({
+      response: Boom.boomify(
+        new ApiError({ statusCode: statusCodes.forbidden, code: 'forbidden' })
+      )
+    })
+    const h = toolkit()
+
+    catchAll(request, h)
+
+    expect(request.yar.reset).not.toHaveBeenCalled()
+    expect(h.redirect).not.toHaveBeenCalled()
+  })
+
+  test('works for the error a thrown handler really makes', async () => {
+    const server = await createServer()
+    server.route({
+      method: 'GET',
+      path: '/test-unauthorised',
+      options: { app: { public: true } },
+      handler() {
+        throw new ApiError({ statusCode: 401, code: 'invalid-token' })
+      }
+    })
+    await server.initialize()
+
+    const { statusCode } = await server.inject({
+      method: 'GET',
+      url: '/test-unauthorised'
+    })
+    await server.stop({ timeout: 0 })
+
+    // Signed out: the error page, not a loop through sign-in.
+    expect(statusCode).toBe(statusCodes.internalServerError)
   })
 })
 

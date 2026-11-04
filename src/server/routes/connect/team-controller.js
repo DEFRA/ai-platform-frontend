@@ -228,8 +228,7 @@ async function checkAnswersView(request, h, pendingAccess, problem = {}) {
 async function findChosenTeam(request, slug) {
   try {
     const { team } = await apiClient(request).get(
-      `/v1/teams/${encodeURIComponent(slug)}`,
-      { userId: getSessionUser(request).id }
+      `/v1/teams/${encodeURIComponent(slug)}`
     )
 
     return team
@@ -609,7 +608,7 @@ export const teamConnectController = {
           const { deployments } = await apiClient(request).post(
             `/v1/teams/${encodeURIComponent(teamSlug)}/deployments`,
             { modelSlugs, environment },
-            { userId: sessionUser.id, idempotencyKey: requestKey }
+            { idempotencyKey: requestKey }
           )
 
           // Made: the journey is over, and its answers must not seed the next.

@@ -1,7 +1,6 @@
 import { isSameDay, parseISO } from 'date-fns'
 
 import { apiClient } from '#/server/common/helpers/api-client.js'
-import { getSessionUser } from '#/server/common/helpers/session.js'
 import {
   DEPLOYMENT_FAILURE_STATUSES,
   DEPLOYMENT_REMOVED_STATUS,
@@ -71,13 +70,10 @@ async function loadModelNames(client) {
  */
 export async function loadTeamChoices(request, environment) {
   const client = apiClient(request)
-  const userId = getSessionUser(request).id
-  const { items: teams } = await client.get('/v1/teams', { userId })
+  const { items: teams } = await client.get('/v1/teams')
   const deploymentLists = await Promise.all(
     teams.map(({ slug }) =>
-      client.get(`/v1/teams/${encodeURIComponent(slug)}/deployments`, {
-        userId
-      })
+      client.get(`/v1/teams/${encodeURIComponent(slug)}/deployments`)
     )
   )
   const hasModels = deploymentLists.some(({ items }) => items.length > 0)

@@ -2,7 +2,6 @@ import { differenceInCalendarDays } from 'date-fns'
 
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { apiClient } from '#/server/common/helpers/api-client.js'
-import { getSessionUser } from '#/server/common/helpers/session.js'
 import {
   DEPLOYMENT_FAILURE_STATUSES,
   DEPLOYMENT_REMOVING_STATUS,
@@ -197,10 +196,9 @@ function logFailed(request, read, message) {
  */
 export async function loadHomeView(request) {
   const client = apiClient(request)
-  const userId = getSessionUser(request).id
   const [teamsRead, credentialsRead, catalogueRead] = await Promise.allSettled([
-    client.get('/v1/teams', { userId }),
-    client.get('/v1/credentials', { userId }),
+    client.get('/v1/teams'),
+    client.get('/v1/credentials'),
     client.get('/v1/models?includeIneligible=true')
   ])
 
@@ -220,14 +218,16 @@ export async function loadHomeView(request) {
   const teams = teamsRead.value?.items ?? null
   const deploymentReads = await Promise.allSettled(
     (teams ?? []).map((team) =>
-      client.get(`/v1/teams/${encodeURIComponent(team.slug)}/deployments`, {
-        userId
-      })
+      client.get(`/v1/teams/${encodeURIComponent(team.slug)}/deployments`)
     )
   )
 
   deploymentReads.forEach((read) =>
-    logFailed(request, read, 'Could not read a team’s models for the home page')
+    logFailed(
+      request,
+      read,
+      'Could not read a teamâ€™s models for the home page'
+    )
   )
 
   const teamReads = (teams ?? []).map((team, index) => ({

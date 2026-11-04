@@ -1,9 +1,6 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
-import {
-  getSessionUser,
-  setAccountNotification
-} from '#/server/common/helpers/session.js'
+import { setAccountNotification } from '#/server/common/helpers/session.js'
 import { DEPLOYMENT_REMOVED_STATUS } from '#/server/common/helpers/deployment-status.js'
 import { environmentName } from '#/server/common/helpers/environment-names.js'
 import { isNotFound, loadTeamForView, teamUrl } from './team-view.js'
@@ -63,8 +60,7 @@ function isRemovable(deployment) {
 async function findDeployment(request, slug, deploymentId) {
   try {
     const { deployment } = await apiClient(request).get(
-      `/v1/teams/${encodeURIComponent(slug)}/deployments/${encodeURIComponent(deploymentId)}`,
-      { userId: getSessionUser(request).id }
+      `/v1/teams/${encodeURIComponent(slug)}/deployments/${encodeURIComponent(deploymentId)}`
     )
 
     return deployment
@@ -136,13 +132,11 @@ export const removeModelController = {
   },
   post: {
     async handler(request, h) {
-      const sessionUser = getSessionUser(request)
       const { slug, deploymentId } = request.params
 
       try {
         const { deployment } = await apiClient(request).del(
-          `/v1/teams/${encodeURIComponent(slug)}/deployments/${encodeURIComponent(deploymentId)}`,
-          { userId: sessionUser.id }
+          `/v1/teams/${encodeURIComponent(slug)}/deployments/${encodeURIComponent(deploymentId)}`
         )
 
         setAccountNotification(

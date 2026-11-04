@@ -94,8 +94,7 @@ function maskIfAddress(name) {
 export async function loadTeamForView(request, teamRef) {
   const sessionUser = getSessionUser(request)
   const result = await apiClient(request).get(
-    `/v1/teams/${encodeURIComponent(teamRef)}`,
-    { userId: sessionUser.id }
+    `/v1/teams/${encodeURIComponent(teamRef)}`
   )
 
   const isAdmin = result.members.some(

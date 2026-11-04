@@ -2,7 +2,6 @@ import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import {
-  getSessionUser,
   setAccountNotification,
   takeAccountNotification,
   setIssuedCredential,
@@ -42,9 +41,7 @@ async function findResearchCredential(request, id) {
   let credential
 
   try {
-    credential = await apiClient(request).get(`/v1/credentials/${id}`, {
-      userId: getSessionUser(request).id
-    })
+    credential = await apiClient(request).get(`/v1/credentials/${id}`)
   } catch (error) {
     if (isNotFound(error)) {
       return null
@@ -85,9 +82,7 @@ export const manageController = {
     get: {
       async handler(request, h) {
         const [{ items }, modelNames] = await Promise.all([
-          apiClient(request).get('/v1/credentials', {
-            userId: getSessionUser(request).id
-          }),
+          apiClient(request).get('/v1/credentials'),
           buildModelNameMap(request)
         ])
 
@@ -148,14 +143,11 @@ export const manageController = {
   renew: {
     post: {
       async handler(request, h) {
-        const sessionUser = getSessionUser(request)
         const { id } = request.params
 
         try {
           const credential = await apiClient(request).post(
-            `/v1/credentials/${id}/renew`,
-            undefined,
-            { userId: sessionUser.id }
+            `/v1/credentials/${id}/renew`
           )
 
           setAccountNotification(request, {
@@ -236,9 +228,7 @@ export const manageController = {
           }
 
           try {
-            await apiClient(request).del(`/v1/credentials/${id}`, {
-              userId: getSessionUser(request).id
-            })
+            await apiClient(request).del(`/v1/credentials/${id}`)
 
             setAccountNotification(request, {
               type: 'success',
@@ -322,8 +312,7 @@ export const manageController = {
         try {
           const { secret } = await apiClient(request).post(
             `/v1/credentials/${id}/reveal`,
-            { reason: request.payload.reason },
-            { userId: getSessionUser(request).id }
+            { reason: request.payload.reason }
           )
 
           setIssuedCredential(request, {

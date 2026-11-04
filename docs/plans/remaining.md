@@ -83,7 +83,8 @@ Prompt: [.github/prompts/10-b18-team-graph-credential.prompt.md](../../.github/p
 
 ### B27 Portal sign-in and API access
 
-Decided 22 October 2026; nothing built. One plan for both portal repositories: the backend half (P1) makes the API
+Decided 22 October 2026. The frontend half (sessions, federated client, tokens, the mock provider) is built in HVE #42,
+not yet released; the backend half and the rollout are pending. One plan for both portal repositories: the backend half (P1) makes the API
 refuse every call without a valid Entra token and every action the caller has no right to; the frontend half (P2) sends
 that token. Direction and every token check are in discovery-docs design E `#portal`, the acceptance criteria in
 `build-stories.md#b27`. Entra objects are created by hand now and by Terraform later. Out of scope: B18, B23 and other
@@ -129,24 +130,9 @@ audience and reuses them unchanged.
 The rights are the ones the services enforce today; B27 adds the token and moves the checks into `access.js`. A test
 lists every route with its declared access, so a new route fails until it declares one.
 
-**Team invitations.** An Admin invites a member by Defra email, and the membership binds to the person at their next
-sign-in (design F `#membership`). Today `addMember` stores the invitation with `userId: null` and `upsertUser`
-activates it from whatever email `POST /v1/users` is sent. P1 keeps the binding but makes it safe:
-
-- It runs only inside `PUT /v1/users/me`, after a valid token from a member of the Defra tenant (`tid`, `acct: 0`), and
-  only for invitations whose email equals the token's `email` claim.
-- Each invitation binds once: one atomic update moves it from `invited` with no `userId` to `active` with the person's
-  `userId`, and the binding is audited with the team and `uti`. A bound invitation never moves to another person, and
-  the email grants nothing after that.
-- Two members cannot hold the same address at once: Entra keeps `proxyAddresses` unique across a tenant's users,
-  groups and contacts and refuses a clashing `mail`
-  ([user resource](https://learn.microsoft.com/en-us/graph/api/resources/user), checked 22 October 2026). The
-  remaining risk is a directory administrator reassigning an address while an invitation is still pending; the Admin
-  sees who joined and can remove them.
-- Not chosen: resolving the invitee's `oid` through Microsoft Graph when the invitation is made. It binds on an
-  immutable ID, but needs a tenant-wide directory read permission and admin consent for the backend identity.
-
-This is separate from finding 6: the legacy bind of a whole person record by email is removed.
+**Team invitations and email binds are not part of B27.** Whoever owns them (directory search: backend PR #64, frontend
+PR #80, item #65) removes the invitation bind and the legacy person-record bind from `upsertUser`; `PUT /v1/users/me`
+calls `upsertUser` as it stands and changes only where its values come from (the token's claims, not a request body).
 
 **Review of the built code (22 October 2026)**
 
@@ -189,22 +175,22 @@ right gets a stable 403 code such as `admin-required`; audit with a 30-day TTL; 
 
 **One place for each concern**
 
-| Repository | Module                                      | Owns                                                                                                                                                                                                                                                                       |
-| ---------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend   | `src/config/config.js`                      | `azureAd.authMethod` (`federated` or `client-secret`, as the backend's `armAuth.authMethod`), `azureAd.federatedAudience`, `azureAd.apiClientId`, `session.idleTimeoutMs`; refuses `client-secret` unless not production and `appBaseUrl` is on `localhost`                |
-| Frontend   | `common/helpers/oidc-client.js`             | Discovery and the one client-authentication function: a `client_assertion` from `WebIdentityTokenProvider`, or `ClientSecretPost` on `localhost`; used for the code, refresh and client-credentials grants                                                                 |
-| Frontend   | `common/helpers/access-token.js` (new)      | `getUserToken(request)` refreshes two minutes before expiry and ends the session on failure; `getAppToken()` caches the client-credentials token in memory until near expiry                                                                                               |
-| Frontend   | `common/helpers/session.js`                 | Token storage beside the session user; the session is reset at sign-in and cleared at sign-out                                                                                                                                                                             |
-| Frontend   | `common/helpers/api-client.js`              | The only way to call the backend: the user token when signed in, the app token otherwise; no `userId` option and no `x-user-id`; a 401 sends the person to sign in                                                                                                         |
-| Frontend   | `plugins/require-sign-in-globally.js`       | The existing gate, plus the idle and absolute timeouts and `Cache-Control: no-store` on signed-in responses; a test pins the public routes (home, about, models, `GET /connect`, sign-in, sign-out, the auth callbacks, health), so a new public page is a reviewed change |
-| Frontend   | `routes/auth/controller.js`                 | Scopes `openid profile email offline_access api://{api}/Portal.Access`; `PUT /v1/users/me` with the token and no body; maps a guest's 403 to the existing refusal page                                                                                                     |
-| Backend    | `src/config.js`                             | `portalAuth.tenantId`, `portalAuth.audience` (the API's client ID), `portalAuth.clientId` (the frontend's), and `portalAuth.mockIssuerUrl`, refused in production                                                                                                          |
-| Backend    | `src/plugins/auth.js` (new)                 | `@hapi/jwt` as `server.auth.default` with `access.scope: ['user']`: tenant JWKS, `RS256` only, `verify: { aud, iss, sub: false, nbf: true, exp: true, maxAgeSec: 7200, timeSkewSec: 60 }`; start-up fails if the keys cannot be fetched through the CDP proxy              |
-| Backend    | `src/common/helpers/auth/identity.js` (new) | The `validate` function: `tid`, `ver`, `azp`, `azpacr`, `acct`, then `idtyp` with `scp`; one indexed read by `oid` and `tid`; credentials `{ userId, oid, tid, azp, uti, isPlatformAdmin, scope }` with `scope` `user` or `catalogue`                                      |
-| Backend    | Route options                               | `auth.access.scope: ['user', 'catalogue']` on the two model reads only; `auth: false` on `/health` and the maintenance route only; everything else takes the default, as the route table above sets out                                                                    |
-| Backend    | `routes/users.js`                           | `PUT /v1/users/me` upserts from token claims only, replacing `POST /v1/users`                                                                                                                                                                                              |
-| Backend    | `src/common/helpers/auth/access.js` (new)   | The only rights checks: `requireTeamRole(db, actor, teamId, role)` (404 for a non-member, 403 `admin-required` for a member) and `requirePlatformAdmin(actor)`; records every refusal in the audit; a test fails if another module reads `teamMembers` for a role          |
-| Backend    | Services and `audit-service.js`             | Services take `request.auth.credentials` as the actor; `recordAuditEvent` adds `tid`, `azp`, `uti` and the role used, and never a token                                                                                                                                    |
+| Repository | Module                                      | Owns                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend   | `src/config/config.js`                      | `azureAd.authMethod` (`federated` or `client-secret`, as the backend's `armAuth.authMethod`), `azureAd.federatedAudience`, `azureAd.apiClientId`, `session.idleTimeoutMs`; refuses `client-secret` unless not production and `appBaseUrl` is on `localhost`                                                                                                                                                           |
+| Frontend   | `common/helpers/oidc-client.js`             | Discovery and the one client-authentication function: a `client_assertion` from `WebIdentityTokenProvider`, or `ClientSecretPost` on `localhost`; used for the code, refresh and client-credentials grants                                                                                                                                                                                                            |
+| Frontend   | `common/helpers/access-token.js` (new)      | `getUserToken(request)` refreshes two minutes before expiry and ends the session on failure; `getAppToken()` caches the client-credentials token in memory until near expiry                                                                                                                                                                                                                                          |
+| Frontend   | `common/helpers/session.js`                 | Token storage beside the session user; the session is reset at sign-in and cleared at sign-out                                                                                                                                                                                                                                                                                                                        |
+| Frontend   | `common/helpers/api-client.js`              | The only way to call the backend: the user token when signed in, the app token otherwise; no `userId` option and no `x-user-id`; a 401 sends the person to sign in                                                                                                                                                                                                                                                    |
+| Frontend   | `plugins/require-sign-in-globally.js`       | The existing gate, plus the idle and absolute timeouts and `Cache-Control: no-store` on signed-in responses; a test pins the public routes (home, about, models, sign-in, sign-out, the auth callbacks, health), so a new public page is a reviewed change                                                                                                                                                            |
+| Frontend   | `routes/auth/controller.js`                 | Scopes `openid profile email offline_access api://{api}/Portal.Access`; `PUT /v1/users/me` with the token and no body; maps a guest's 401 to the existing refusal page and ends the session                                                                                                                                                                                                                           |
+| Backend    | `src/config.js`                             | `portalAuth.tenantId`, `portalAuth.audience` (the API's client ID), `portalAuth.clientId` (the frontend's), and `portalAuth.mockIssuerUrl`, refused in production                                                                                                                                                                                                                                                     |
+| Backend    | `src/plugins/auth.js` (new)                 | `@hapi/jwt` as `server.auth.default` with `access.scope: ['user']`: tenant JWKS, `RS256` only, `verify: { aud, iss, sub: false, nbf: true, exp: true, maxAgeSec: 7200, timeSkewSec: 60 }`; start-up fails if the keys cannot be fetched through the CDP proxy                                                                                                                                                         |
+| Backend    | `src/common/helpers/auth/identity.js` (new) | The `validate` function. Every token: `tid`, `ver`, `azp`, `azpacr`, then `idtyp` with `scp` to decide the type. A delegated token then needs `acct` 0 and gets one indexed read by `oid` and `tid`; an app-only token reads no `acct`, `oid` or display claim and is accepted on the catalogue's reads only. Credentials `{ userId, oid, tid, azp, uti, isPlatformAdmin, scope }` with `scope` `user` or `catalogue` |
+| Backend    | Route options                               | `auth.access.scope: ['user', 'catalogue']` on the two model reads only; `auth: false` on `/health` and the maintenance route only; everything else takes the default, as the route table above sets out                                                                                                                                                                                                               |
+| Backend    | `routes/users.js`                           | `PUT /v1/users/me` upserts from token claims only, replacing `POST /v1/users`                                                                                                                                                                                                                                                                                                                                         |
+| Backend    | `src/common/helpers/auth/access.js` (new)   | The only rights checks: `requireTeamRole(db, actor, teamId, role)` (404 for a non-member, 403 `admin-required` for a member) and `requirePlatformAdmin(actor)`; records every refusal in the audit; a test fails if another module reads `teamMembers` for a role                                                                                                                                                     |
+| Backend    | Services and `audit-service.js`             | Services take `request.auth.credentials` as the actor; `recordAuditEvent` adds `tid`, `azp`, `uti` and the role used, and never a token                                                                                                                                                                                                                                                                               |
 
 **Phases**
 
@@ -215,17 +201,11 @@ right gets a stable 403 code such as `admin-required`; audit with a 30-day TTL; 
   services in CDP ([CDP proxy guide](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/proxy.md)).
 - **P1 Backend: the API enforces it.** Findings 1 to 7. Add `@hapi/jwt` and the backend modules above, give every route
   its access from the route table, and take the actor from `request.auth.credentials` in every service. Remove
-  `x-user-id` from every route schema, `POST /v1/users`, the `/example` routes, `allowedEmailDomains` and the legacy
-  person-record email bind (finding 6), with a dated backfill deleting person records without `oid`; invitation
-  binding moves into `PUT /v1/users/me` as set out above. Tests: a helper mints tokens with a test RSA key and
+  `x-user-id` from every route schema, `POST /v1/users`, the `/example` routes and `allowedEmailDomains`. Tests: a
+  helper mints tokens with a test RSA key and
   serves its JWKS through `nock`; one table-driven test sends every bad token in B27 to a protected route and expects
   401; `access.js` tests cover 404, 403 and the refusal audit; the route-table test above; route tests send a bearer
-  token. Invitation tests:
-  - an invitee's first sign-in joins the team once, with an audit record;
-  - a second team's pending invitation for the same email binds to the same person;
-  - a guest's or another tenant's token with the same email binds nothing;
-  - a different `oid` with the same email after binding gets nothing;
-  - a sign-in with no matching invitation changes no membership.
+  token. Invitation and email-bind code and tests are not changed here (see Team invitations above).
 
   Done when B27's acceptance criteria pass against the test keys.
 

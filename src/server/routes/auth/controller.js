@@ -5,16 +5,17 @@ import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { tokensFromResponse } from '#/server/common/helpers/access-token.js'
+import { userScope } from '#/server/common/helpers/portal-scopes.js'
 import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
 import {
   setOidcLoginState,
   takeOidcLoginState,
+  setSessionTokens,
   setSessionUser,
   resetSession
 } from '#/server/common/helpers/session.js'
 import { startSessionClock } from '#/server/common/helpers/session-lifetime.js'
-
-const scope = 'openid profile email'
 
 export const loginQuerySchema = Joi.object({
   returnTo: Joi.string().optional(),
@@ -59,9 +60,10 @@ function failedView(h) {
     .code(statusCodes.badRequest)
 }
 
-// Shown when Entra ID login succeeds but the account's email domain isn't
-// on the allow-list (e.g. the wrong tenant).
-function domainNotAllowedView(h) {
+// Shown when sign-in succeeds at Entra ID but the backend refuses the token
+// (401): a guest, or an account from another tenant. The session has ended, so
+// there is no loop back through sign-in.
+function notEligibleView(h) {
   return h
     .view('error/index', {
       pageTitle: 'Sign-in not allowed',
@@ -103,7 +105,7 @@ export const authController = {
 
       const authorizationUrl = client.buildAuthorizationUrl(oidcConfig, {
         redirect_uri: redirectUri(),
-        scope,
+        scope: userScope(),
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
         state,
@@ -146,33 +148,36 @@ export const authController = {
         return failedView(h)
       }
 
-      // The immutable Entra object ID and tenant ID key the person (design F);
-      // the email address and name are mutable and for display only.
-      const claims = tokens.claims()
-      const email = claims.email ?? claims.preferred_username
-      const displayName = claims.name ?? claims.email
+      // A new session ID at sign-in, so one planted or seen before sign-in
+      // (session fixation) is worth nothing; the old session and what was in
+      // it are dropped. This comes first: a reset after the tokens are set
+      // would drop them. The idle and overall limits start from now.
+      resetSession(request)
+      startSessionClock(request)
+
+      // The tokens go into the server-side session: the access token is what
+      // the backend takes as who this is, the refresh token keeps it fresh.
+      // The backend reads the person (oid, tid, email, name) from the access
+      // token's claims, so nothing about them is sent here (design E #portal).
+      setSessionTokens(request, tokensFromResponse(tokens))
 
       let user
       try {
-        ;({ user } = await apiClient(request).post('/v1/users', {
-          oid: claims.oid,
-          tid: claims.tid,
-          email,
-          displayName
-        }))
+        ;({ user } = await apiClient(request).put('/v1/users/me'))
       } catch (error) {
-        if (error instanceof ApiError && error.code === 'domain-not-allowed') {
-          return domainNotAllowedView(h)
+        // However it failed, nothing of this sign-in is kept.
+        resetSession(request)
+
+        if (
+          error instanceof ApiError &&
+          error.statusCode === statusCodes.unauthorized
+        ) {
+          return notEligibleView(h)
         }
 
         throw error
       }
 
-      // A new session ID at sign-in, so one planted or seen before sign-in
-      // (session fixation) is worth nothing; the old session and what was in
-      // it are dropped, and the idle and overall limits start from now.
-      resetSession(request)
-      startSessionClock(request)
       setSessionUser(request, {
         id: user._id,
         email: user.email,

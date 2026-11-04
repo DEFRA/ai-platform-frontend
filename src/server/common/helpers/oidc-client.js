@@ -1,21 +1,68 @@
 import * as client from 'openid-client'
 
 import { config } from '#/config/config.js'
+import { createLogger } from '#/server/common/helpers/logging/logger.js'
+
+const CLIENT_ASSERTION_TYPE =
+  'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
 
 let discoveryPromise
+let assertionProvider
+let currentAssertion
+
+const isFederated = () => config.get('azureAd.authMethod') === 'federated'
+
+// The one way this frontend proves itself to Entra when it federates (design
+// E #portal): a client assertion, the CDP Web Identity token, sent with the
+// code, refresh and client-credentials grants alike. The library's hook is
+// synchronous, so the assertion is fetched in getOidcConfig() just before a
+// grant and read here.
+function federatedClientAuthentication(_server, clientMetadata, body) {
+  body.set('client_id', clientMetadata.client_id)
+  body.set('client_assertion_type', CLIENT_ASSERTION_TYPE)
+  body.set('client_assertion', currentAssertion)
+}
+
+// Loaded only when federating: it brings the AWS client, which a developer's
+// machine (client-secret) never needs.
+async function refreshClientAssertion() {
+  if (!assertionProvider) {
+    const { WebIdentityTokenProvider } = await import('@defra/hapi-auth-oidc')
+
+    assertionProvider = new WebIdentityTokenProvider({
+      audience: [config.get('azureAd.federatedAudience')]
+    })
+  }
+
+  // The provider keeps the token until it nears its expiry, so this is cheap.
+  const assertion = await assertionProvider.getCredentials(createLogger())
+
+  if (!assertion) {
+    throw new Error('CDP Web Identity gave no client assertion')
+  }
+
+  currentAssertion = assertion
+}
 
 function discover() {
   const tenantId = config.get('azureAd.tenantId')
   const clientId = config.get('azureAd.clientId')
-  const clientSecret = config.get('azureAd.clientSecret')
 
-  if (!tenantId || !clientId) {
+  if (!tenantId || !clientId || !config.get('azureAd.apiClientId')) {
     return Promise.reject(
       new Error(
-        'Entra ID sign-in is not configured (set AZURE_TENANT_ID and AZURE_CLIENT_ID)'
+        'Entra ID sign-in is not configured (set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_API_CLIENT_ID)'
       )
     )
   }
+
+  // Federated: no secret is read. Client secret: localhost only (config.js).
+  const clientSecret = isFederated()
+    ? undefined
+    : config.get('azureAd.clientSecret')
+  const clientAuthentication = isFederated()
+    ? federatedClientAuthentication
+    : undefined
 
   // Dev-only: point at a local mock OIDC provider instead of Entra ID so the
   // sign-in journey can be tested without a real Azure AD tenant. Never
@@ -27,30 +74,44 @@ function discover() {
       new URL(mockIssuerUrl),
       clientId,
       clientSecret,
-      undefined,
+      clientAuthentication,
       { execute: [client.allowInsecureRequests] }
     )
   }
 
   const issuer = new URL(`https://login.microsoftonline.com/${tenantId}/v2.0`)
 
-  return client.discovery(issuer, clientId, clientSecret)
+  return client.discovery(issuer, clientId, clientSecret, clientAuthentication)
 }
 
 /**
- * Lazily discovers and caches the Entra ID OIDC authorization server configuration.
+ * The Entra ID OIDC configuration for a grant or a redirect, discovered once
+ * and cached. When federating, the client assertion is refreshed first, so
+ * whatever grant the caller makes next is authenticated.
  */
-export function getOidcConfig() {
+export async function getOidcConfig() {
   if (!discoveryPromise) {
-    discoveryPromise = discover()
+    // A failed discovery is not kept: the next request tries again.
+    discoveryPromise = discover().catch((error) => {
+      discoveryPromise = undefined
+      throw error
+    })
   }
 
-  return discoveryPromise
+  const oidcConfig = await discoveryPromise
+
+  if (isFederated()) {
+    await refreshClientAssertion()
+  }
+
+  return oidcConfig
 }
 
 /**
- * Test-only: clears the memoized discovery so config changes take effect.
+ * Test-only: clears the memoized discovery and assertion so config changes take effect.
  */
 export function resetOidcConfig() {
   discoveryPromise = undefined
+  assertionProvider = undefined
+  currentAssertion = undefined
 }

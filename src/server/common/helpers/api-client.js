@@ -1,37 +1,36 @@
 import { config } from '#/config/config.js'
+import { ApiError } from './api-error.js'
+import { getAppToken, getUserToken } from './access-token.js'
+import { getSessionTokens } from './session.js'
+
+export { ApiError }
 
 const apiBaseUrl = config.get('apiBaseUrl')
 const tracingHeader = config.get('tracing.header')
 const defaultTimeoutMs = 5000
 
-/**
- * Error thrown for any non-2xx response from the backend API, carrying its stable `code`
- * plus any extra context fields the backend attached (e.g. `existingId` on a 409).
- */
-export class ApiError extends Error {
-  constructor({ statusCode, code, message, ...extra }) {
-    super(message)
-    this.name = 'ApiError'
-    this.statusCode = statusCode
-    this.code = code
-    Object.assign(this, extra)
-  }
+// The person's access token once they have signed in, the frontend's own
+// app-only token before (the catalogue's reads). Who is calling is the token,
+// never a header: the backend takes nothing else on trust.
+function accessTokenFor(hapiRequest) {
+  return getSessionTokens(hapiRequest)
+    ? getUserToken(hapiRequest)
+    : getAppToken()
 }
 
 async function callApi(
   hapiRequest,
   path,
-  { method = 'GET', payload, userId, idempotencyKey } = {}
+  { method = 'GET', payload, idempotencyKey } = {}
 ) {
-  const headers = { 'content-type': 'application/json' }
+  const headers = {
+    'content-type': 'application/json',
+    authorization: `Bearer ${await accessTokenFor(hapiRequest)}`
+  }
 
   const traceId = hapiRequest?.headers?.[tracingHeader]
   if (traceId) {
     headers[tracingHeader] = traceId
-  }
-
-  if (userId) {
-    headers['x-user-id'] = userId
   }
 
   if (idempotencyKey) {
@@ -75,8 +74,10 @@ async function callApi(
 }
 
 /**
- * Thin fetch wrapper for calling ai-platform-backend-api. Forwards the CDP
- * tracing header and the signed-in user's id; maps non-2xx responses to ApiError.
+ * Thin fetch wrapper for calling ai-platform-backend-api, the only way the
+ * frontend does. Sends the bearer token (the signed-in person's, or the
+ * frontend's own before sign-in) and forwards the CDP tracing header; maps
+ * non-2xx responses to ApiError.
  */
 export function apiClient(hapiRequest) {
   return {
@@ -86,6 +87,8 @@ export function apiClient(hapiRequest) {
       callApi(hapiRequest, path, { ...options, method: 'POST', payload }),
     patch: (path, payload, options) =>
       callApi(hapiRequest, path, { ...options, method: 'PATCH', payload }),
+    put: (path, options) =>
+      callApi(hapiRequest, path, { ...options, method: 'PUT' }),
     del: (path, options) =>
       callApi(hapiRequest, path, { ...options, method: 'DELETE' })
   }

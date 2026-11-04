@@ -1,5 +1,4 @@
 import { apiClient } from '#/server/common/helpers/api-client.js'
-import { getSessionUser } from '#/server/common/helpers/session.js'
 import {
   DEPLOYMENT_FAILURE_STATUSES,
   DEPLOYMENT_REMOVED_STATUS,
@@ -93,8 +92,7 @@ export function buildTeamRow(team, { members, deployments }, modelNames) {
  */
 export async function loadTeamRows(request) {
   const client = apiClient(request)
-  const userId = getSessionUser(request).id
-  const { items: teams } = await client.get('/v1/teams', { userId })
+  const { items: teams } = await client.get('/v1/teams')
 
   if (teams.length === 0) {
     return []
@@ -103,10 +101,8 @@ export async function loadTeamRows(request) {
   const [catalogue, ...reads] = await Promise.allSettled([
     client.get('/v1/models?includeIneligible=true'),
     ...teams.flatMap((team) => [
-      client.get(`/v1/teams/${encodeURIComponent(team.slug)}`, { userId }),
-      client.get(`/v1/teams/${encodeURIComponent(team.slug)}/deployments`, {
-        userId
-      })
+      client.get(`/v1/teams/${encodeURIComponent(team.slug)}`),
+      client.get(`/v1/teams/${encodeURIComponent(team.slug)}/deployments`)
     ])
   ])
   const modelNames = Object.fromEntries(

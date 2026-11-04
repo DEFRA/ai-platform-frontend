@@ -1,5 +1,4 @@
 import { apiClient } from '#/server/common/helpers/api-client.js'
-import { getSessionUser } from '#/server/common/helpers/session.js'
 import { DEPLOYMENT_REMOVED_STATUS } from '#/server/common/helpers/deployment-status.js'
 import {
   TEAM_AVAILABILITY,
@@ -37,9 +36,7 @@ export async function loadModelChoices(
     await Promise.all([
       client.get(teamModels),
       client.get('/v1/models'),
-      client.get(`/v1/teams/${encodeURIComponent(teamSlug)}/deployments`, {
-        userId: getSessionUser(request).id
-      })
+      client.get(`/v1/teams/${encodeURIComponent(teamSlug)}/deployments`)
     ])
   const ready = new Set(
     deployments

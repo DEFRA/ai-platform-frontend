@@ -181,7 +181,7 @@ export const teamsController = {
               serviceCode: pendingTeam.serviceCode,
               description: pendingTeam.description
             },
-            { userId: sessionUser.id, idempotencyKey: randomUUID() }
+            { idempotencyKey: randomUUID() }
           )
 
           clearPendingTeam(request)

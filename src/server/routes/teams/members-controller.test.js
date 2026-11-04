@@ -27,6 +27,9 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
     claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
   }))
 }))
@@ -443,7 +446,7 @@ describe('#members', () => {
         email: 'New.Person@defra.gov.uk',
         role: 'admin'
       })
-      expect(options.headers['x-user-id']).toBe('user-1')
+      expect(options.headers).not.toHaveProperty('x-user-id')
       expect(options.headers['idempotency-key']).toEqual(expect.any(String))
 
       const { result } = await follow(response)
@@ -658,7 +661,7 @@ describe('#members', () => {
       expect(url).toContain(`${TEAM_PATH}/members/member-2`)
       expect(options.method).toBe('PATCH')
       expect(JSON.parse(options.body)).toEqual({ role: 'user' })
-      expect(options.headers['x-user-id']).toBe('user-1')
+      expect(options.headers).not.toHaveProperty('x-user-id')
       expect((await follow(response)).result).toContain(
         'Priya Raman is now a member.'
       )
@@ -835,7 +838,7 @@ describe('#members', () => {
 
       expect(url).toContain(`${TEAM_PATH}/members/member-2`)
       expect(options.method).toBe('DELETE')
-      expect(options.headers['x-user-id']).toBe('user-1')
+      expect(options.headers).not.toHaveProperty('x-user-id')
       expect((await follow(response)).result).toContain(
         'Priya Raman has been removed from Flood Risk Team.'
       )

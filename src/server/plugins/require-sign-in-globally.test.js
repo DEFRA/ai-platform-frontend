@@ -25,7 +25,16 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
     claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+  })),
+  // The access token lasts an hour, so a person active over 8 hours refreshes it.
+  refreshTokenGrant: vi.fn(async () => ({
+    access_token: 'refreshed-access-token',
+    refresh_token: 'refreshed-refresh-token',
+    expires_in: 3600
   }))
 }))
 
