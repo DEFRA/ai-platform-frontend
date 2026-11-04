@@ -19,11 +19,11 @@ const SELECTOR = '[data-module="app-session-timeout"]'
 const MS = 1000
 const SECONDS_PER_MINUTE = 60
 const ANNOUNCE_EVERY_SECONDS = 30
-const FIRST_CLIENT_ERROR = 400
-const FIRST_SERVER_ERROR = 500
+const REQUEST_TIMEOUT_MS = 10 * MS
 
 // How a request went: the session has ended, the server gave the times, or
-// it could not be known (offline, a server error), so the clock here decides.
+// it could not be known (offline, no answer in time, a refusal that is not a
+// redirect, a server error), so the clock here decides.
 const ENDED = 'ended'
 const CURRENT = 'current'
 const UNKNOWN = 'unknown'
@@ -46,38 +46,37 @@ function formatRemaining(totalSeconds) {
 }
 
 // Asks the server and says what the answer means. A redirect is not followed
-// (the sign-in provider's address is not ours to fetch): it, or any 4xx, means
-// the session has ended.
+// (the sign-in provider's address is not ours to fetch): it means the session
+// has ended. Any other refusal (a failed CSRF check answers 403) says nothing
+// about the session, so it is not known. The whole exchange, including reading
+// the body, has `REQUEST_TIMEOUT_MS` to finish; a server that never answers
+// must not hold back the warning or the end of the session.
 async function ask(url, init = {}) {
-  let response
+  const controller = new AbortController()
+  const giveUp = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   try {
-    response = await fetch(url, {
+    const response = await fetch(url, {
       credentials: 'same-origin',
       cache: 'no-store',
       redirect: 'manual',
+      signal: controller.signal,
       ...init
     })
-  } catch {
-    return { outcome: UNKNOWN }
-  }
 
-  if (
-    response.type === 'opaqueredirect' ||
-    (response.status >= FIRST_CLIENT_ERROR &&
-      response.status < FIRST_SERVER_ERROR)
-  ) {
-    return { outcome: ENDED }
-  }
+    if (response.type === 'opaqueredirect') {
+      return { outcome: ENDED }
+    }
 
-  if (!response.ok) {
-    return { outcome: UNKNOWN }
-  }
+    if (!response.ok) {
+      return { outcome: UNKNOWN }
+    }
 
-  try {
     return { outcome: CURRENT, times: await response.json() }
   } catch {
     return { outcome: UNKNOWN }
+  } finally {
+    clearTimeout(giveUp)
   }
 }
 
@@ -259,12 +258,17 @@ function watch(dialog) {
     unlisten()
   }
 
-  // The signed-out page says which limit ended the session. Nothing is left
-  // running once the person has been sent on.
+  // The signed-out page says which limit ended the session, and brings the
+  // person back to the page they were on (path, query and fragment) after they
+  // sign in. Nothing is left running once the person has been sent on.
   function leave() {
     stop()
-    const reason = limits.overallHasPassed() ? 'expired' : 'idle'
-    window.location.assign(`${dialog.dataset.signedOutUrl}?reason=${reason}`)
+    const { pathname, search, hash } = window.location
+    const query = new URLSearchParams({
+      reason: limits.overallHasPassed() ? 'expired' : 'idle',
+      returnTo: `${pathname}${search}${hash}`
+    })
+    window.location.assign(`${dialog.dataset.signedOutUrl}?${query}`)
   }
 
   const server = createServer(dialog, limits, leave)

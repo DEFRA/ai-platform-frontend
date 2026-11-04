@@ -56,7 +56,10 @@ export const requireSignInGlobally = {
   plugin: {
     name: 'require-sign-in-globally',
     register(server) {
-      server.ext('onPreHandler', (request, h) => {
+      // onPostAuth, not onPreHandler: it runs before the route's own payload,
+      // query and params validation, whose failAction may call the backend. An
+      // ended session must not get that far (it has no right to the lookup).
+      server.ext('onPostAuth', (request, h) => {
         const isPublicRoute = request.route.settings.app?.public === true
 
         if (isStaticFile(request)) {
