@@ -124,6 +124,13 @@ describe('#requireSignInGlobally session limits', () => {
 
   beforeAll(async () => {
     server = await createServer()
+    // A page that follows a change: the person loads it, a script then asks
+    // for its status on its own (`?fragment=status`) every few seconds.
+    server.route({
+      method: 'GET',
+      path: '/test-wait',
+      handler: () => 'ok'
+    })
     await server.initialize()
   })
 
@@ -243,6 +250,43 @@ describe('#requireSignInGlobally session limits', () => {
 
     expect(status.statusCode).toBe(statusCodes.ok)
     expect(headers.location).toBe('/signed-out?reason=idle&returnTo=%2Fmanage')
+  })
+
+  test('a page following a change, polling for its status in the background, does not restart the idle time', async () => {
+    const cookies = await signIn()
+
+    for (const minutes of [5, 10, 15, 20, 25, 29]) {
+      after(minutes * MINUTE)
+      const poll = await get('/test-wait?fragment=status', cookies)
+      expect(poll.statusCode).toBe(statusCodes.ok)
+    }
+    after(31 * MINUTE)
+    const { headers } = await get('/test-wait', cookies)
+
+    expect(headers.location).toBe(
+      '/signed-out?reason=idle&returnTo=%2Ftest-wait'
+    )
+  })
+
+  test('the same page asked for by the person (no fragment) does restart the idle time', async () => {
+    const cookies = await signIn()
+
+    after(29 * MINUTE)
+    await get('/test-wait', cookies)
+    after(58 * MINUTE)
+    const { statusCode } = await get('/test-wait', cookies)
+
+    expect(statusCode).toBe(statusCodes.ok)
+  })
+
+  test('a background poll after the session has ended still gets the signed-out answer, so the poll stops', async () => {
+    const cookies = await signIn()
+
+    after(31 * MINUTE)
+    const poll = await get('/test-wait?fragment=status', cookies)
+
+    expect(poll.statusCode).toBe(statusCodes.found)
+    expect(poll.headers.location).toContain('/signed-out?reason=idle')
   })
 
   test('tells the browser not to keep a signed-in page', async () => {

@@ -60,7 +60,8 @@ instance of the service and it will not persist between restarts.
 
 Sessions are always held in this cache (the cookie carries only a session id), so a person, a half-made request and a
 client secret awaiting display never sit in the browser, and signing out ends the session for good. The session ID is
-renewed at sign-in, and a session ends after 30 minutes without a request or 8 hours after sign-in
+renewed at sign-in, and a session ends after 30 minutes without a request from the person (a page polling for its status
+in the background does not count) or 8 hours after sign-in
 (`SESSION_IDLE_TIMEOUT_MS`, `SESSION_MAX_AGE_MS`). With JavaScript a dialog warns `SESSION_WARNING_LEAD_MS` (2 minutes)
 before the end and lets the person stay signed in; without it the next request goes to the signed-out page. Signed-in
 pages are sent with `Cache-Control: no-store`.
