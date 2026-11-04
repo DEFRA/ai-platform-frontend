@@ -312,6 +312,49 @@ describe('#initSessionTimeout', () => {
 
       expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
     })
+
+    describe('when staying signed in fails in a way nobody planned for', () => {
+      let unhandled
+
+      beforeEach(() => {
+        unhandled = vi.fn()
+        process.on('unhandledRejection', unhandled)
+        // The form has lost its CSRF token field, so asking cannot even start.
+        extendForm().querySelector('[name="crumb"]').remove()
+      })
+
+      afterEach(() => {
+        process.off('unhandledRejection', unhandled)
+      })
+
+      // The rejection is reported by Node once the real event loop turns.
+      async function letNodeReport() {
+        vi.useRealTimers()
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+
+      test('leaves the warning open and lets no rejection escape when the form is submitted', async () => {
+        extendForm().dispatchEvent(
+          new window.Event('submit', { cancelable: true })
+        )
+        await letNodeReport()
+
+        expect(unhandled).not.toHaveBeenCalled()
+        expect(close).not.toHaveBeenCalled()
+        expect(assign).not.toHaveBeenCalled()
+        expect(dialog().hasAttribute('open')).toBe(true)
+      })
+
+      test('leaves the warning open and lets no rejection escape when Escape is pressed', async () => {
+        dialog().dispatchEvent(new window.Event('cancel', { cancelable: true }))
+        await letNodeReport()
+
+        expect(unhandled).not.toHaveBeenCalled()
+        expect(close).not.toHaveBeenCalled()
+        expect(assign).not.toHaveBeenCalled()
+        expect(dialog().hasAttribute('open')).toBe(true)
+      })
+    })
   })
 
   describe('when the time runs out', () => {

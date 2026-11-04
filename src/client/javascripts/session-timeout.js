@@ -81,67 +81,38 @@ async function ask(url, init = {}) {
   }
 }
 
-function watch(dialog) {
+// The moments each limit is reached, from the times the server last gave.
+function createLimits() {
+  let idleAt
+  let maxAgeAt
+  let warningMs
+
+  const endsAt = () => Math.min(idleAt, maxAgeAt)
+
+  return {
+    apply({ idleSeconds, maxAgeSeconds, warningSeconds }) {
+      const now = Date.now()
+
+      idleAt = now + idleSeconds * MS
+      maxAgeAt = now + maxAgeSeconds * MS
+      warningMs = warningSeconds * MS
+    },
+    endsAt,
+    warnAt: () => endsAt() - warningMs,
+    overallIsNearer: () => maxAgeAt <= idleAt,
+    overallHasPassed: () => Date.now() >= maxAgeAt,
+    secondsLeft: () => Math.max(0, Math.ceil((endsAt() - Date.now()) / MS))
+  }
+}
+
+// The warning dialog: what it says and whether it is open.
+function createWarning(dialog, limits) {
   const extendForm = dialog.querySelector('[data-timeout-extend]')
   const overallNote = dialog.querySelector('[data-timeout-overall-note]')
   const remainingText = dialog.querySelector('[data-timeout-remaining]')
   const announcement = dialog.querySelector('[data-timeout-announcement]')
-  const { statusUrl, signedOutUrl } = dialog.dataset
 
-  let idleAt
-  let maxAgeAt
-  let warningMs
-  let timer = null
-  let ticker = null
-
-  function applyTimes({ idleSeconds, maxAgeSeconds, warningSeconds }) {
-    const now = Date.now()
-
-    idleAt = now + idleSeconds * MS
-    maxAgeAt = now + maxAgeSeconds * MS
-    warningMs = warningSeconds * MS
-  }
-
-  const endsAt = () => Math.min(idleAt, maxAgeAt)
-  const overallIsNearer = () => maxAgeAt <= idleAt
-
-  function clearTimers() {
-    clearTimeout(timer)
-    clearInterval(ticker)
-    timer = null
-    ticker = null
-  }
-
-  // The signed-out page says which limit ended the session. Nothing is left
-  // running once the person has been sent on.
-  function leave() {
-    stop()
-    const reason = Date.now() >= maxAgeAt ? 'expired' : 'idle'
-    window.location.assign(`${signedOutUrl}?reason=${reason}`)
-  }
-
-  // Applies an answer; false when the session has ended (and the person has
-  // been sent on), so the caller stops.
-  function apply({ outcome, times }) {
-    if (outcome === ENDED) {
-      leave()
-      return false
-    }
-
-    if (outcome === CURRENT) {
-      applyTimes(times)
-    }
-
-    return true
-  }
-
-  async function sync() {
-    const answer = await ask(statusUrl)
-
-    return { carryOn: apply(answer), outcome: answer.outcome }
-  }
-
-  function renderCountdown(secondsLeft, announce) {
+  function render(secondsLeft, announce) {
     const text = formatRemaining(secondsLeft)
 
     remainingText.textContent = text
@@ -151,31 +122,162 @@ function watch(dialog) {
     }
   }
 
-  function showWarning() {
-    const overall = overallIsNearer()
-    const first = Math.max(0, Math.ceil((endsAt() - Date.now()) / MS))
+  return {
+    extendForm,
+    render,
+    open() {
+      const overall = limits.overallIsNearer()
 
-    extendForm.hidden = overall
-    overallNote.hidden = !overall
-    renderCountdown(first, true)
+      extendForm.hidden = overall
+      overallNote.hidden = !overall
+      render(limits.secondsLeft(), true)
 
-    if (!dialog.open) {
-      dialog.showModal()
+      if (!dialog.open) {
+        dialog.showModal()
+      }
+    },
+    close() {
+      if (dialog.open) {
+        dialog.close()
+      }
     }
+  }
+}
 
-    ticker = setInterval(tick, MS)
+// Staying signed in failed in a way nobody planned for: leave the warning
+// open. The countdown goes on and the server ends the session on time.
+function keepWarningOpen() {
+  // Nothing to do: the countdown is still running.
+}
+
+// Listens for the person's own actions on the page. Returns what stops it.
+function listen(dialog, warning, limits, { extend, resync }) {
+  const { extendForm } = warning
+
+  function onSubmit(event) {
+    event.preventDefault()
+    extend().catch(keepWarningOpen)
   }
 
-  function hideWarning() {
-    if (dialog.open) {
-      dialog.close()
+  // Escape does not dismiss the warning unseen: it is the same as staying
+  // signed in, or does nothing when staying signed in cannot help.
+  function onCancel(event) {
+    event.preventDefault()
+
+    if (!limits.overallIsNearer()) {
+      extend().catch(keepWarningOpen)
     }
+  }
+
+  async function onVisibilityChange() {
+    // Timers run slowly in a hidden page: when it is shown again, find out.
+    if (!document.hidden) {
+      await resync()
+    }
+  }
+
+  extendForm.addEventListener('submit', onSubmit)
+  dialog.addEventListener('cancel', onCancel)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+
+  return () => {
+    extendForm.removeEventListener('submit', onSubmit)
+    dialog.removeEventListener('cancel', onCancel)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+  }
+}
+
+// The one wait for the warning and the one countdown that run at a time.
+function createTimers() {
+  let timer = null
+  let ticker = null
+
+  return {
+    clear() {
+      clearTimeout(timer)
+      clearInterval(ticker)
+      timer = null
+      ticker = null
+    },
+    after(callback, ms) {
+      timer = setTimeout(callback, ms)
+    },
+    every(callback, ms) {
+      ticker = setInterval(callback, ms)
+    }
+  }
+}
+
+// Talks to the server about the session and keeps the limits to what it says.
+// `onEnded` is called when the server says the session has ended.
+function createServer(dialog, limits, onEnded) {
+  const { statusUrl } = dialog.dataset
+
+  // Applies an answer; false when the session has ended (and the person has
+  // been sent on), so the caller stops.
+  function apply({ outcome, times }) {
+    if (outcome === ENDED) {
+      onEnded()
+      return false
+    }
+
+    if (outcome === CURRENT) {
+      limits.apply(times)
+    }
+
+    return true
+  }
+
+  return {
+    async sync() {
+      const answer = await ask(statusUrl)
+
+      return { carryOn: apply(answer), outcome: answer.outcome }
+    },
+
+    // Asks for more idle time; true when the session goes on with new times.
+    async extend(extendForm) {
+      const crumb = extendForm.querySelector('[name="crumb"]').value
+      const answer = await ask(extendForm.action, {
+        method: 'POST',
+        body: new URLSearchParams({ crumb })
+      })
+
+      // Could not be asked: the caller leaves the warning open.
+      return answer.outcome !== UNKNOWN && apply(answer)
+    }
+  }
+}
+
+function watch(dialog) {
+  const limits = createLimits()
+  const warning = createWarning(dialog, limits)
+  const timers = createTimers()
+
+  function stop() {
+    timers.clear()
+    unlisten()
+  }
+
+  // The signed-out page says which limit ended the session. Nothing is left
+  // running once the person has been sent on.
+  function leave() {
+    stop()
+    const reason = limits.overallHasPassed() ? 'expired' : 'idle'
+    window.location.assign(`${dialog.dataset.signedOutUrl}?reason=${reason}`)
+  }
+
+  const server = createServer(dialog, limits, leave)
+
+  function showWarning() {
+    warning.open()
+    timers.every(tick, MS)
   }
 
   function tick() {
-    const secondsLeft = Math.max(0, Math.ceil((endsAt() - Date.now()) / MS))
+    const secondsLeft = limits.secondsLeft()
 
-    renderCountdown(secondsLeft, secondsLeft % ANNOUNCE_EVERY_SECONDS === 0)
+    warning.render(secondsLeft, secondsLeft % ANNOUNCE_EVERY_SECONDS === 0)
 
     if (secondsLeft === 0) {
       confirmEnd().catch(leave)
@@ -185,15 +287,15 @@ function watch(dialog) {
   // Time is up by this clock: leave unless the server says another tab kept
   // the session alive.
   async function confirmEnd() {
-    clearTimers()
+    timers.clear()
 
-    const { carryOn, outcome } = await sync()
+    const { carryOn, outcome } = await server.sync()
 
     if (!carryOn) {
       return
     }
 
-    if (outcome === CURRENT && Date.now() < endsAt()) {
+    if (outcome === CURRENT && Date.now() < limits.endsAt()) {
       schedule()
       return
     }
@@ -202,26 +304,26 @@ function watch(dialog) {
   }
 
   function schedule() {
-    clearTimers()
+    timers.clear()
 
     const now = Date.now()
-    const warnAt = endsAt() - warningMs
+    const warnAt = limits.warnAt()
 
-    if (now >= endsAt()) {
+    if (now >= limits.endsAt()) {
       confirmEnd().catch(leave)
     } else if (now >= warnAt) {
       showWarning()
     } else {
-      hideWarning()
-      timer = setTimeout(checkThenSchedule, warnAt - now)
+      warning.close()
+      timers.after(resync, warnAt - now)
     }
   }
 
-  // The warning time has come by this clock: check it is true first.
-  async function checkThenSchedule() {
-    timer = null
-
-    const { carryOn } = await sync()
+  // Finds out how long is really left, then times the session from that. At
+  // the warning time, and when a hidden page is shown again, it is checked
+  // before it is believed.
+  async function resync() {
+    const { carryOn } = await server.sync()
 
     if (carryOn) {
       schedule()
@@ -229,59 +331,17 @@ function watch(dialog) {
   }
 
   async function extend() {
-    const crumb = extendForm.querySelector('[name="crumb"]').value
-    const answer = await ask(extendForm.action, {
-      method: 'POST',
-      body: new URLSearchParams({ crumb })
-    })
-
-    // Could not be asked: leave the warning open, the countdown goes on.
-    if (answer.outcome !== UNKNOWN && apply(answer)) {
+    if (await server.extend(warning.extendForm)) {
       schedule()
     }
   }
 
-  function onSubmit(event) {
-    event.preventDefault()
-    extend()
-  }
-
-  // Escape does not dismiss the warning unseen: it is the same as staying
-  // signed in, or does nothing when staying signed in cannot help.
-  function onCancel(event) {
-    event.preventDefault()
-
-    if (!overallIsNearer()) {
-      extend()
-    }
-  }
-
-  async function onVisibilityChange() {
-    // Timers run slowly in a hidden page: when it is shown again, find out.
-    if (!document.hidden) {
-      const { carryOn } = await sync()
-
-      if (carryOn) {
-        schedule()
-      }
-    }
-  }
-
-  function stop() {
-    clearTimers()
-    extendForm.removeEventListener('submit', onSubmit)
-    dialog.removeEventListener('cancel', onCancel)
-    document.removeEventListener('visibilitychange', onVisibilityChange)
-  }
-
-  applyTimes({
+  limits.apply({
     idleSeconds: Number(dialog.dataset.idleSeconds),
     maxAgeSeconds: Number(dialog.dataset.maxAgeSeconds),
     warningSeconds: Number(dialog.dataset.warningSeconds)
   })
-  extendForm.addEventListener('submit', onSubmit)
-  dialog.addEventListener('cancel', onCancel)
-  document.addEventListener('visibilitychange', onVisibilityChange)
+  const unlisten = listen(dialog, warning, limits, { extend, resync })
   schedule()
 
   return stop
