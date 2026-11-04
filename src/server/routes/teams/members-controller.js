@@ -1,132 +1,29 @@
-import { randomUUID } from 'node:crypto'
-import Joi from 'joi'
-
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError, apiClient } from '#/server/common/helpers/api-client.js'
 import {
-  clearAddMemberKey,
-  getAddMemberKey,
   getSessionUser,
   setAccountNotification,
-  setAddMemberKey,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
 import {
-  buildErrorSummary,
-  buildFieldErrors
-} from '#/server/common/helpers/govuk-errors.js'
+  errorOn,
+  joiErrors,
+  loadAdminTeam,
+  memberNotFoundView,
+  membersUrl,
+  noErrors,
+  refusalView
+} from './member-pages.js'
+import { memberRoleSchema } from './members-schemas.js'
 import {
-  adminRequiredView as adminRequired,
-  loadAdminTeam as loadAdmin
-} from './admin-team.js'
-import {
-  addTeamMember,
-  MAX_SEARCH_LENGTH,
-  MIN_SEARCH_LENGTH,
-  personProblem,
-  searchTeamPeople
-} from './team-people.js'
-import {
-  isForbidden,
   isNotFound,
   loadTeamForView,
   teamNotFoundView,
-  teamTabs,
-  teamUrl
+  teamTabs
 } from './team-view.js'
-
-const roleField = Joi.string().valid('admin', 'user').messages({
-  'any.only': 'Select a role',
-  'any.required': 'Select a role'
-})
-
-const memberRoleSchema = Joi.object({ role: roleField.required() })
-
-function isGuid(value) {
-  return !Joi.string().guid().validate(value).error
-}
-
-const enterSearch = 'Enter a name or email address to search for'
-const selectPerson = 'Select a person'
-
-// Text from the form that is shown again, never searched for as it is.
-function typedText() {
-  return Joi.string().allow('').messages({ 'string.base': enterSearch })
-}
-
-function searchField() {
-  return Joi.string()
-    .trim()
-    .max(MAX_SEARCH_LENGTH)
-    .messages({
-      'string.base': enterSearch,
-      'string.empty': enterSearch,
-      'any.required': enterSearch,
-      'string.min': `Enter at least ${MIN_SEARCH_LENGTH} characters of their name or email address`,
-      'string.max': `Name or email address must be ${MAX_SEARCH_LENGTH} characters or fewer`
-    })
-}
-
-// One form, two buttons: `search` finds people and never adds anyone (it is
-// also what a missing action means), `add` adds the person chosen, with a
-// role that has to be chosen. With script, the field holds the label of the
-// person chosen ("Name - email") and `query` what was typed to find them, so
-// on `add` neither is checked: the person is the `oid`, not the text.
-const addMemberSchema = Joi.object({
-  action: Joi.string().valid('search', 'add').default('search'),
-  search: Joi.when('action', {
-    is: 'add',
-    then: typedText().default(''),
-    otherwise: searchField().min(MIN_SEARCH_LENGTH).required()
-  }),
-  query: Joi.when('action', {
-    is: 'add',
-    then: typedText(),
-    otherwise: Joi.any().strip()
-  }),
-  oid: Joi.when('action', {
-    is: 'add',
-    then: Joi.string().guid().required().messages({
-      'string.base': selectPerson,
-      'string.empty': selectPerson,
-      'string.guid': selectPerson,
-      'any.required': selectPerson
-    }),
-    otherwise: Joi.any().strip()
-  }),
-  role: Joi.when('action', {
-    is: 'add',
-    then: roleField.required(),
-    otherwise: roleField.default('user')
-  })
-})
-
-function membersUrl(team) {
-  return `${teamUrl(team)}/members`
-}
 
 function roleText(role) {
   return role === 'admin' ? 'Admin' : 'Member'
-}
-
-function adminRequiredView(h, team, action) {
-  return adminRequired(h, team, action, 'members')
-}
-
-function memberNotFoundView(h, team) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Member not found',
-      heading: 'Member not found',
-      message: `This person is not a member of ${team.name}, or has already been removed.`,
-      actionHref: membersUrl(team),
-      actionText: 'Back to the members'
-    })
-    .code(statusCodes.notFound)
-}
-
-function loadAdminTeam(request, h, action) {
-  return loadAdmin(request, h, action, 'members')
 }
 
 // The member a page is about: `me` is the signed-in person.
@@ -147,43 +44,6 @@ async function loadAdminMember(request, h, action) {
   }
 
   return { ...result, member }
-}
-
-// A change the backend refused for a reason the person cannot fix on the
-// page (they are not an admin, or it is not there): the page to show instead.
-// Anything else is a fault, so it is thrown.
-function refusalView(h, team, error, action) {
-  if (!(error instanceof ApiError)) {
-    throw error
-  }
-
-  if (isForbidden(error)) {
-    return adminRequiredView(h, team, action)
-  }
-
-  if (isNotFound(error)) {
-    return memberNotFoundView(h, team)
-  }
-
-  throw error
-}
-
-function errorOn(field, text) {
-  return {
-    errorSummary: [{ text, href: `#${field}` }],
-    fieldErrors: { [field]: { text } }
-  }
-}
-
-function noErrors() {
-  return { errorSummary: null, fieldErrors: {} }
-}
-
-function joiErrors(error) {
-  return {
-    errorSummary: buildErrorSummary(error),
-    fieldErrors: buildFieldErrors(error)
-  }
 }
 
 function memberUrl(request, suffix) {
@@ -229,61 +89,6 @@ function removeView(h, request, { team, member, errors = noErrors() }) {
   })
 }
 
-// A person the admin can choose, as the select list shows them. A person the
-// matches no longer hold has only the label the field showed.
-function personItems(people, chosenOid) {
-  return [
-    { value: '', text: selectPerson },
-    ...people.map(({ oid, displayName, email, label }) => ({
-      value: oid,
-      text: label ?? `${displayName} - ${email}`,
-      selected: oid === chosenOid
-    }))
-  ]
-}
-
-// The error for "no person" belongs on the select list when there is one to
-// choose from, and otherwise on the text field, which is where the person
-// is looked for.
-function placeErrors(errors, hasList) {
-  if (hasList || !errors.fieldErrors.oid) {
-    return errors
-  }
-
-  const { oid, ...fieldErrors } = errors.fieldErrors
-
-  return {
-    errorSummary: errors.errorSummary.map((item) =>
-      item.href === '#oid' ? { ...item, href: '#search' } : item
-    ),
-    fieldErrors: { ...fieldErrors, search: fieldErrors.search ?? oid }
-  }
-}
-
-// `people` is the matches to choose from, or null when nobody has searched
-// (or the search could not be made again). `searched` is for a page that is
-// the answer to a search: only then does an empty list mean "no one found".
-function addMemberView(
-  h,
-  { team, values, people = null, searched = false, errors = noErrors() }
-) {
-  const hasList = Boolean(people?.length)
-  const placed = placeErrors(errors, hasList)
-
-  return h.view('teams/add-member', {
-    pageTitle: `${placed.errorSummary ? 'Error: ' : ''}Add a member`,
-    heading: 'Add a member',
-    team,
-    backUrl: membersUrl(team),
-    searchUrl: `${membersUrl(team)}/add/people`,
-    values,
-    personItems: hasList ? personItems(people, values.oid) : null,
-    personCount: people?.length,
-    noMatches: searched && people?.length === 0,
-    ...placed
-  })
-}
-
 function lastAdminMessage(member, change) {
   return member.isYou
     ? `You are the only admin. Add another admin before you ${change.you}.`
@@ -309,147 +114,6 @@ function memberRow(member, { team, isAdmin }) {
       ? `${membersUrl(team)}/${member.isYou ? 'me' : encodeURIComponent(member._id)}/role`
       : null
   }
-}
-
-function text(value) {
-  return typeof value === 'string' ? value : ''
-}
-
-// What the form shows again: what was sent (which may not have passed
-// validation), or, with nothing sent, the empty form with Member chosen.
-// `query` is sent only by the form with script.
-function submittedValues(payload) {
-  return {
-    action: payload?.action,
-    search: text(payload?.search),
-    query: typeof payload?.query === 'string' ? payload.query : undefined,
-    oid: text(payload?.oid),
-    role: payload ? text(payload.role) : 'user'
-  }
-}
-
-async function findAgain(request, team, search) {
-  const query = search.trim()
-
-  if (query.length < MIN_SEARCH_LENGTH || query.length > MAX_SEARCH_LENGTH) {
-    return null
-  }
-
-  try {
-    return await searchTeamPeople(request, team.slug, query)
-  } catch (error) {
-    if (error instanceof ApiError) {
-      return null
-    }
-
-    throw error
-  }
-}
-
-// The matches for a page that goes back to the admin after an add that was
-// not made, so that the person chosen is still there to choose. It is no more
-// than a convenience: with no text to search for, or a directory that does
-// not answer, the page shows the error without the list.
-//
-// With script, the field holds the person's label and `query` what was typed,
-// which is what is searched for. If the matches do not hold the person chosen
-// (or there are none), the person is kept, as the label the field showed.
-async function matchesAgain(request, team, values) {
-  const { oid, search, query } = values
-  const scripted = typeof query === 'string'
-  const people = await findAgain(request, team, scripted ? query : search)
-
-  if (
-    !scripted ||
-    !isGuid(oid) ||
-    !search ||
-    people?.some((p) => p.oid === oid)
-  ) {
-    return people
-  }
-
-  return [{ oid, label: search }, ...(people ?? [])]
-}
-
-async function searchPeople(request, h, team, values) {
-  const shown = { ...values, oid: '' }
-
-  try {
-    const people = await searchTeamPeople(request, team.slug, values.search)
-
-    return addMemberView(h, { team, values: shown, people, searched: true })
-  } catch (error) {
-    const problem = personProblem(error)
-
-    if (!problem) {
-      return refusalView(h, team, error, 'add people')
-    }
-
-    return addMemberView(h, {
-      team,
-      values: shown,
-      errors: errorOn('search', problem.text)
-    }).code(problem.statusCode)
-  }
-}
-
-// The key for adding this person with this role: the same for a retry of the
-// same choice, so the backend adds once, and new for any other, so it cannot
-// answer a different choice with an earlier one. It is kept in the session.
-function keyForAdd(request, team, { oid, role }) {
-  const choice = `${team.slug}|${oid}|${role}`
-  const saved = getAddMemberKey(request)
-
-  if (saved?.choice === choice) {
-    return saved.key
-  }
-
-  const key = randomUUID()
-
-  setAddMemberKey(request, { choice, key })
-
-  return key
-}
-
-async function addPerson(request, h, team, values) {
-  const { oid, role } = values
-  let member
-
-  try {
-    member = await addTeamMember(
-      request,
-      team.slug,
-      { oid, role },
-      keyForAdd(request, team, values)
-    )
-  } catch (error) {
-    const problem = personProblem(error)
-
-    if (!problem) {
-      return refusalView(h, team, error, 'add people')
-    }
-
-    // The next try is a new add, with a fresh key.
-    if (error.code === 'idempotency-key-reused') {
-      clearAddMemberKey(request)
-    }
-    return addMemberView(h, {
-      team,
-      values,
-      people: await matchesAgain(request, team, values),
-      errors: errorOn('oid', problem.text)
-    }).code(problem.statusCode)
-  }
-
-  clearAddMemberKey(request)
-
-  setAccountNotification(request, {
-    type: 'success',
-    heading: `${member.displayName ?? 'This person'} has been added`,
-    message: 'They can use the team straight away.'
-  })
-
-  return h.redirect(membersUrl(team)).code(statusCodes.seeOther)
 }
 
 /**
@@ -483,69 +147,6 @@ export const membersController = {
         addMemberUrl: `${membersUrl(team)}/add`,
         members: members.map((member) => memberRow(member, { team, isAdmin }))
       })
-    }
-  }
-}
-
-/**
- * An admin adds a person from the directory, with a role (screen 14). The
- * page searches as the admin types when it has script; without script, the
- * Search button posts the text and the page comes back with the matches.
- */
-export const addMemberController = {
-  get: {
-    async handler(request, h) {
-      const { loaded, page } = await loadAdminTeam(request, h, 'add people')
-
-      return (
-        page ??
-        addMemberView(h, {
-          team: loaded.team,
-          values: submittedValues()
-        })
-      )
-    }
-  },
-  post: {
-    options: {
-      validate: {
-        payload: addMemberSchema,
-        async failAction(request, h, error) {
-          const { loaded, page } = await loadAdminTeam(request, h, 'add people')
-
-          if (page) {
-            return page.takeover()
-          }
-
-          const values = submittedValues(request.payload)
-          const people =
-            values.action === 'add'
-              ? await matchesAgain(request, loaded.team, values)
-              : null
-
-          return addMemberView(h, {
-            team: loaded.team,
-            values,
-            people,
-            errors: joiErrors(error)
-          })
-            .code(statusCodes.badRequest)
-            .takeover()
-        }
-      }
-    },
-    async handler(request, h) {
-      const { loaded, page } = await loadAdminTeam(request, h, 'add people')
-
-      if (page) {
-        return page
-      }
-
-      const { action, ...values } = request.payload
-
-      return action === 'add'
-        ? addPerson(request, h, loaded.team, values)
-        : searchPeople(request, h, loaded.team, values)
     }
   }
 }

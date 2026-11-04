@@ -1114,6 +1114,22 @@ describe('#members', () => {
 
         expect(failed.statusCode).toBe(statusCodes.internalServerError)
       })
+
+      test('fails on a fault of its own, which is not the backend refusing, when the add is made', async () => {
+        fetchMock.mockResponse(async (request) =>
+          request.method === 'POST' && request.url.endsWith('/members')
+            ? 'not json'
+            : JSON.stringify({
+                team: sampleTeam,
+                members: [you('admin'), priya()],
+                environments: []
+              })
+        )
+
+        const { statusCode } = await add()
+
+        expect(statusCode).toBe(statusCodes.internalServerError)
+      })
     })
   })
 

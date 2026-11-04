@@ -1,9 +1,9 @@
+import { addMemberController } from './add-member-controller.js'
 import { clientSecretsController } from './client-secrets-controller.js'
 import { teamsController } from './controller.js'
 import { detailsController } from './details-controller.js'
 import { environmentSetUpController } from './environment-set-up-controller.js'
 import {
-  addMemberController,
   memberRoleController,
   membersController,
   removeMemberController
