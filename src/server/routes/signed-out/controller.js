@@ -48,9 +48,18 @@ export const signedOutController = {
     // The script comes here when time is up by its own clock and it could not
     // ask the server, even though another tab may have kept the session
     // alive. A session that is still live (the global gate has already cleared
-    // an ended one) is not signed out: say nothing of it and go back.
+    // an ended one) is not signed out. Do not redirect it: the next hop would
+    // be a request nobody made and would restart the idle time. Ask the person
+    // to continue instead: that click is the action that renews it. The
+    // address is the same-site returnTo checked above, never a raw query value.
     if (getSessionUser(request)) {
-      return h.redirect(safeReturn || '/')
+      return h.view('signed-out/index', {
+        pageTitle: 'You are still signed in',
+        heading: 'You are still signed in',
+        explanation:
+          'We could not check how much time you have left, but you are still signed in.',
+        continueHref: safeReturn || '/'
+      })
     }
 
     const signInHref = safeReturn

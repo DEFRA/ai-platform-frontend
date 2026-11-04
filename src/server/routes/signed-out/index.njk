@@ -16,10 +16,19 @@
         <p class="govuk-body" data-testid="signed-out-reason">{{ explanation }}</p>
       {% endif %}
 
-      {{ govukButton({
-        text: "Sign in",
-        href: signInHref
-      }) }}
+      {# A live session is not signed out: Continue is the person's own action
+         (a redirect would renew the session without them). #}
+      {% if continueHref %}
+        {{ govukButton({
+          text: "Continue",
+          href: continueHref
+        }) }}
+      {% else %}
+        {{ govukButton({
+          text: "Sign in",
+          href: signInHref
+        }) }}
+      {% endif %}
     </div>
   </div>
 {% endblock %}

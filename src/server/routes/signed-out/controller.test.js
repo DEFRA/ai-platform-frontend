@@ -130,35 +130,52 @@ describe('#signedOutController', () => {
         headers: { cookie: cookieHeader(cookies) }
       })
 
-    test('does not claim a sign-out: it sends the person back to the page they were on', async () => {
-      const { statusCode, headers } = await visit(
+    const continuePage = async (query) => {
+      const response = await visit(query)
+
+      return { response, $: cheerio.load(response.payload) }
+    }
+
+    // Not a redirect: the next hop would be a request nobody made, and it
+    // would restart the idle time. The person chooses to go on instead.
+    test('does not claim a sign-out and does not redirect: it offers Continue to the page they were on', async () => {
+      const { response, $ } = await continuePage(
         '?reason=idle&returnTo=%2Fmanage%3Ftab%3Dmodels'
       )
 
-      expect(statusCode).toBe(statusCodes.found)
-      expect(headers.location).toBe('/manage?tab=models')
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(response.headers.location).toBeUndefined()
+      expect($('h1').text().trim()).toBe('You are still signed in')
+      expect($('main').text()).not.toContain('signed out')
+      expect($('main a.govuk-button').text().trim()).toBe('Continue')
+      expect($('main a.govuk-button').attr('href')).toBe('/manage?tab=models')
     })
 
-    test('sends the person home when there is no page to return to, or one that leaves the site', async () => {
-      const bare = await visit('?reason=idle')
-      const offSite = await visit(
+    test('offers Continue to the home page when there is no page to return to, or one that leaves the site', async () => {
+      const bare = await continuePage('?reason=idle')
+      const offSite = await continuePage(
         '?reason=idle&returnTo=https%3A%2F%2Fattacker.example'
       )
 
-      expect(bare.headers.location).toBe('/')
-      expect(offSite.headers.location).toBe('/')
+      expect(bare.$('main a.govuk-button').attr('href')).toBe('/')
+      expect(offSite.$('main a.govuk-button').attr('href')).toBe('/')
     })
 
-    test('does not restart the idle time by itself', async () => {
+    test('leaves the idle clock alone until the person chooses Continue', async () => {
       vi.setSystemTime(START + 20 * MINUTE)
 
-      await visit('?reason=idle')
+      const { response } = await continuePage(
+        '?reason=idle&returnTo=%2Fsession%2Fstatus'
+      )
+      // Nothing automatic follows: a redirect would be the hop that renews it.
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(response.headers.location).toBeUndefined()
+
       const status = await server.inject({
         method: 'GET',
         url: '/session/status',
         headers: { cookie: cookieHeader(cookies) }
       })
-
       expect(status.result.idleSeconds).toBe(10 * 60)
     })
 
