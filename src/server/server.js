@@ -14,7 +14,10 @@ import { sessionCache } from './plugins/session-cache.js'
 import { getCacheEngine } from './common/helpers/session-cache/cache-engine.js'
 import { secureContext } from '@defra/hapi-secure-context'
 import { contentSecurityPolicy } from './plugins/content-security-policy.js'
-import { requireSignInGlobally } from './plugins/require-sign-in-globally.js'
+import {
+  requireSignInGlobally,
+  noStoreWhenSignedIn
+} from './plugins/require-sign-in-globally.js'
 import { metrics } from '@defra/cdp-metrics'
 
 export async function createServer() {
@@ -70,6 +73,7 @@ export async function createServer() {
   ])
 
   server.ext('onPreResponse', catchAll)
+  server.ext('onPreResponse', noStoreWhenSignedIn)
 
   return server
 }

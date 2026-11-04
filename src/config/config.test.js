@@ -8,6 +8,28 @@ async function loadConfig(env) {
   return import('#/config/config.js')
 }
 
+describe('#config session lifetime', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  test('defaults to 30 minutes idle, 8 hours overall and a warning 2 minutes before', async () => {
+    const { config } = await loadConfig({})
+
+    expect(config.get('session.idleTimeoutMs')).toBe(30 * 60 * 1000)
+    expect(config.get('session.maxAgeMs')).toBe(8 * 60 * 60 * 1000)
+    expect(config.get('session.warningLeadMs')).toBe(2 * 60 * 1000)
+  })
+
+  test('reads the limits from the environment and refuses a negative one', async () => {
+    const { config } = await loadConfig({ SESSION_IDLE_TIMEOUT_MS: '60000' })
+
+    expect(config.get('session.idleTimeoutMs')).toBe(60000)
+
+    await expect(loadConfig({ SESSION_MAX_AGE_MS: '-1' })).rejects.toThrow()
+  })
+})
+
 describe('#config research environment and gateway', () => {
   afterEach(() => {
     vi.unstubAllEnvs()

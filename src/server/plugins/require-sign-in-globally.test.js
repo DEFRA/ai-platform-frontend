@@ -1,6 +1,8 @@
 import createFetchMock from 'vitest-fetch-mock'
 
+import { config } from '#/config/config.js'
 import { createServer } from '#/server/server.js'
+import { noStoreWhenSignedIn } from './require-sign-in-globally.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   signInViaOidc,
@@ -111,5 +113,180 @@ describe('#requireSignInGlobally', () => {
     })
 
     expect(statusCode).toBe(statusCodes.ok)
+  })
+})
+
+describe('#requireSignInGlobally session limits', () => {
+  const MINUTE = 60 * 1000
+  const HOUR = 60 * MINUTE
+  const START = Date.parse('2026-11-04T09:00:00Z')
+  let server
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  afterAll(async () => {
+    await server.stop({ timeout: 0 })
+  })
+
+  beforeEach(() => {
+    fetchMock.resetMocks()
+    // Only the clock moves: timers the server and its cache use keep running.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(START)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  async function signIn() {
+    return signInViaOidc(server, fetchMock)
+  }
+
+  async function get(url, cookies) {
+    return server.inject({
+      method: 'GET',
+      url,
+      headers: { cookie: cookieHeader(cookies) }
+    })
+  }
+
+  function after(ms) {
+    vi.setSystemTime(START + ms)
+  }
+
+  test('keeps a person signed in at 29 minutes idle', async () => {
+    const cookies = await signIn()
+
+    after(29 * MINUTE)
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    const { statusCode } = await get('/models', cookies)
+
+    expect(statusCode).toBe(statusCodes.ok)
+  })
+
+  test('signs a person out at 31 minutes idle, to the signed-out page naming the reason and the page they wanted', async () => {
+    const cookies = await signIn()
+
+    after(31 * MINUTE)
+    const { statusCode, headers } = await get('/manage?tab=models', cookies)
+
+    expect(statusCode).toBe(statusCodes.found)
+    expect(headers.location).toBe(
+      '/signed-out?reason=idle&returnTo=%2Fmanage%3Ftab%3Dmodels'
+    )
+  })
+
+  test('ends the session when it signs the person out, so the cookie finds nothing', async () => {
+    const cookies = await signIn()
+
+    after(31 * MINUTE)
+    await get('/manage', cookies)
+    after(32 * MINUTE)
+    const { headers } = await get('/manage', cookies)
+
+    expect(headers.location).toBe('/sign-in?returnTo=%2Fmanage')
+  })
+
+  test('a request restarts the idle time', async () => {
+    const cookies = await signIn()
+    fetchMock.mockResponse(JSON.stringify({ items: [] }))
+
+    after(29 * MINUTE)
+    await get('/models', cookies)
+    after(58 * MINUTE)
+    const { statusCode } = await get('/models', cookies)
+
+    expect(statusCode).toBe(statusCodes.ok)
+  })
+
+  test('ends the session 8 hours after sign-in however active the person has been', async () => {
+    const cookies = await signIn()
+    fetchMock.mockResponse(JSON.stringify({ items: [] }))
+
+    for (let minutes = 29; minutes < 8 * 60; minutes += 29) {
+      after(minutes * MINUTE)
+      const { statusCode } = await get('/models', cookies)
+      expect(statusCode).toBe(statusCodes.ok)
+    }
+
+    after(8 * HOUR)
+    const { headers } = await get('/manage', cookies)
+
+    expect(headers.location).toBe(
+      '/signed-out?reason=expired&returnTo=%2Fmanage'
+    )
+  }, 30000)
+
+  test('shows a page open to everyone as signed out once the session has ended', async () => {
+    const cookies = await signIn()
+
+    after(31 * MINUTE)
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    const { statusCode, payload } = await get('/models', cookies)
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(payload).toContain('Sign in')
+    expect(payload).not.toContain('Signed in as')
+  })
+
+  test('asking how long is left does not restart the idle time', async () => {
+    const cookies = await signIn()
+
+    after(29 * MINUTE)
+    const status = await get('/session/status', cookies)
+    after(31 * MINUTE)
+    const { headers } = await get('/manage', cookies)
+
+    expect(status.statusCode).toBe(statusCodes.ok)
+    expect(headers.location).toBe('/signed-out?reason=idle&returnTo=%2Fmanage')
+  })
+
+  test('tells the browser not to keep a signed-in page', async () => {
+    const cookies = await signIn()
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    const page = await get('/models', cookies)
+    const missing = await get('/signed-out?reason=banana', cookies)
+
+    expect(page.headers['cache-control']).toBe('no-store')
+    expect(missing.statusCode).toBe(statusCodes.badRequest)
+    expect(missing.headers['cache-control']).toBe('no-store')
+  })
+
+  test('does not forbid caching for a signed-out visitor', async () => {
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    const page = await server.inject({ method: 'GET', url: '/models' })
+
+    expect(page.headers['cache-control']).not.toBe('no-store')
+  })
+
+  test('does not forbid caching for static files, even signed in', () => {
+    const header = vi.fn()
+    const request = {
+      path: `${config.get('assetPath')}/stylesheets/app.css`,
+      yar: { get: () => ({ id: 'user-1' }) },
+      response: { header }
+    }
+
+    const outcome = noStoreWhenSignedIn(request, { continue: 'continue' })
+
+    expect(outcome).toBe('continue')
+    expect(header).not.toHaveBeenCalled()
+  })
+
+  test('leaves an error response it cannot add a header to', () => {
+    const request = {
+      path: '/boom',
+      yar: { get: () => ({ id: 'user-1' }) },
+      response: { isBoom: true }
+    }
+
+    expect(noStoreWhenSignedIn(request, { continue: 'continue' })).toBe(
+      'continue'
+    )
   })
 })

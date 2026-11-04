@@ -1,0 +1,25 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{# Pattern: a plain content page with one heading, the reason and one primary
+   action, as GOV.UK services use for a timed-out session. It needs no
+   JavaScript: the server sends the person here when the session has ended. #}
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if explanation %}
+        <p class="govuk-body" data-testid="signed-out-reason">{{ explanation }}</p>
+      {% endif %}
+
+      {{ govukButton({
+        text: "Sign in",
+        href: signInHref
+      }) }}
+    </div>
+  </div>
+{% endblock %}

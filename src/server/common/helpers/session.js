@@ -5,6 +5,17 @@ const PENDING_TEAM_KEY = 'pendingTeam'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
+const SESSION_CLOCK_KEY = 'sessionClock'
+
+// When the person signed in and when they last made a request: the two
+// times the idle and overall session limits are measured from.
+export function getSessionClock(request) {
+  return request.yar.get(SESSION_CLOCK_KEY)
+}
+
+export function setSessionClock(request, value) {
+  request.yar.set(SESSION_CLOCK_KEY, value)
+}
 
 export function getSessionUser(request) {
   // yar's session store is only initialised for matched routes (onPreAuth

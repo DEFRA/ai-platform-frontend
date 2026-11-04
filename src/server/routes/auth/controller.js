@@ -9,8 +9,10 @@ import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
 import {
   setOidcLoginState,
   takeOidcLoginState,
-  setSessionUser
+  setSessionUser,
+  resetSession
 } from '#/server/common/helpers/session.js'
+import { startSessionClock } from '#/server/common/helpers/session-lifetime.js'
 
 const scope = 'openid profile email'
 
@@ -166,6 +168,11 @@ export const authController = {
         throw error
       }
 
+      // A new session ID at sign-in, so one planted or seen before sign-in
+      // (session fixation) is worth nothing; the old session and what was in
+      // it are dropped, and the idle and overall limits start from now.
+      resetSession(request)
+      startSessionClock(request)
       setSessionUser(request, {
         id: user._id,
         email: user.email,

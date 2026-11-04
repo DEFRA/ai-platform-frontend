@@ -139,6 +139,42 @@ describe('#authController', () => {
     })
   })
 
+  test('GET /auth/callback gives the signed-in person a new session ID, not the one they had before sign-in', async () => {
+    const ids = {}
+    server.ext('onPreResponse', (request, h) => {
+      ids[request.path] = request.yar.id
+      return h.continue
+    })
+
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: {
+          _id: 'user-1',
+          email: 'test.user@defra.gov.uk',
+          displayName: 'Test User'
+        },
+        team: null
+      })
+    )
+
+    const { statusCode } = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(ids['/auth/login']).toBeDefined()
+    expect(ids['/auth/callback']).toBeDefined()
+    expect(ids['/auth/callback']).not.toBe(ids['/auth/login'])
+  })
+
   test('GET /auth/callback redirects to returnTo when it was set before login', async () => {
     const loginResponse = await server.inject({
       method: 'GET',

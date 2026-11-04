@@ -6,6 +6,8 @@ import convictFormatWithValidator from 'convict-format-with-validator'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
+const twoMinutesMs = 120000
+const thirtyMinutesMs = 1800000
 const eightHoursMs = 28800000
 const oneWeekMs = 604800000
 
@@ -114,6 +116,24 @@ export const config = convict({
     env: 'ENABLE_SECURE_CONTEXT'
   },
   session: {
+    idleTimeoutMs: {
+      doc: 'A signed-in session ends after this long without a request (design E #portal: 30 minutes)',
+      format: 'nat',
+      default: thirtyMinutesMs,
+      env: 'SESSION_IDLE_TIMEOUT_MS'
+    },
+    maxAgeMs: {
+      doc: 'A signed-in session ends this long after sign-in, however active (design E #portal: 8 hours)',
+      format: 'nat',
+      default: eightHoursMs,
+      env: 'SESSION_MAX_AGE_MS'
+    },
+    warningLeadMs: {
+      doc: 'How long before a session ends the timeout warning appears',
+      format: 'nat',
+      default: twoMinutesMs,
+      env: 'SESSION_WARNING_LEAD_MS'
+    },
     cache: {
       engine: {
         doc: 'backend cache is written to',

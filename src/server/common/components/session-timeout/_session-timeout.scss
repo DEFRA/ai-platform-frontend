@@ -1,0 +1,21 @@
+@use "govuk-frontend" as *;
+
+// The timeout warning: a native modal <dialog>, closed until the script opens it.
+.app-timeout-dialog {
+  box-sizing: border-box;
+  width: calc(100% - #{govuk-spacing(6)});
+  max-width: 500px;
+  padding: govuk-spacing(6);
+  border: govuk-spacing(1) solid govuk-colour("black");
+  color: govuk-colour("black");
+  background: govuk-colour("white");
+
+  &::backdrop {
+    background: rgb(11, 12, 12, 0.7);
+  }
+
+  // The group's own buttons have their margin; forms stand in for them.
+  .govuk-button-group form {
+    margin: 0;
+  }
+}
