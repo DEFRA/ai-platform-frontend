@@ -45,7 +45,7 @@ export function settingsFromEnv(env = process.env) {
   return {
     port,
     issuer: env.OIDC_MOCK_ISSUER_URL ?? `http://localhost:${port}`,
-    tenantId: env.MOCK_OIDC_TID ?? DEFAULTS.tenantId,
+    tenantId: env.MOCK_OIDC_TID ?? env.AZURE_TENANT_ID ?? DEFAULTS.tenantId,
     clientId: env.AZURE_CLIENT_ID ?? DEFAULTS.clientId,
     clientSecret: env.AZURE_CLIENT_SECRET ?? DEFAULTS.clientSecret,
     apiClientId: env.AZURE_API_CLIENT_ID ?? DEFAULTS.apiClientId,
@@ -97,7 +97,9 @@ export function createMockProvider(settings) {
           'refresh_token',
           'client_credentials'
         ],
-        token_endpoint_auth_method: 'client_secret_basic'
+        // The frontend sends its secret in the body (openid-client's default
+        // with a client secret), so the client is registered for that.
+        token_endpoint_auth_method: 'client_secret_post'
       }
     ],
     claims: {

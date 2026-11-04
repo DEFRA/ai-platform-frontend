@@ -30,8 +30,9 @@ function decodeJwt(token) {
   }
 }
 
-const basic = () =>
-  `Basic ${Buffer.from(`${CLIENT}:mock-secret`).toString('base64')}`
+// How the frontend proves itself: the secret in the body (what openid-client
+// does when it is given a client secret), so that is what the mock registers.
+const clientSecretPost = { client_id: CLIENT, client_secret: 'mock-secret' }
 
 describe('#mock OIDC provider', () => {
   let issuer
@@ -108,11 +109,9 @@ describe('#mock OIDC provider', () => {
     const tokens = await (
       await fetch(`${issuer}/token`, {
         method: 'POST',
-        headers: {
-          authorization: basic(),
-          'content-type': 'application/x-www-form-urlencoded'
-        },
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
+          ...clientSecretPost,
           grant_type: 'authorization_code',
           code,
           redirect_uri: REDIRECT,
@@ -177,11 +176,9 @@ describe('#mock OIDC provider', () => {
       const refreshed = await (
         await fetch(`${issuer}/token`, {
           method: 'POST',
-          headers: {
-            authorization: basic(),
-            'content-type': 'application/x-www-form-urlencoded'
-          },
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({
+            ...clientSecretPost,
             grant_type: 'refresh_token',
             refresh_token: tokens.refresh_token,
             scope: USER_SCOPE
@@ -206,11 +203,9 @@ describe('#mock OIDC provider', () => {
       tokens = await (
         await fetch(`${issuer}/token`, {
           method: 'POST',
-          headers: {
-            authorization: basic(),
-            'content-type': 'application/x-www-form-urlencoded'
-          },
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({
+            ...clientSecretPost,
             grant_type: 'client_credentials',
             scope: `api://${API}/.default`
           })
@@ -244,17 +239,82 @@ describe('#mock OIDC provider', () => {
   test('refuses a client it does not know', async () => {
     const response = await fetch(`${issuer}/token`, {
       method: 'POST',
-      headers: {
-        authorization: `Basic ${Buffer.from('other:mock-secret').toString('base64')}`,
-        'content-type': 'application/x-www-form-urlencoded'
-      },
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
+        ...clientSecretPost,
+        client_id: 'other',
         grant_type: 'client_credentials',
         scope: `api://${API}/.default`
       })
     })
 
     expect(response.status).toBe(401)
+  })
+
+  // oidc-provider 9.12 accepts a client secret in the body or in a Basic
+  // header whichever way the client is registered, so a wrong registration
+  // would not fail here: a stricter provider (or a later version) would answer
+  // the frontend's secret in the body with invalid_client. Pin the registration.
+  test('registers the client for the secret in the body, the method the frontend uses', async () => {
+    const provider = createMockProvider(settingsFromEnv({}))
+    const registered = await provider.Client.find(CLIENT)
+
+    expect(registered.clientAuthMethod).toBe('client_secret_post')
+  })
+
+  describe('the tenant in the access token', () => {
+    const CUSTOM_TENANT = '55555555-5555-4555-8555-555555555555'
+    const OVERRIDE_TENANT = '66666666-6666-4666-8666-666666666666'
+
+    async function appTokenTenant(env) {
+      const port = await freePort()
+      const settings = settingsFromEnv({ MOCK_OIDC_PORT: String(port), ...env })
+      const listening = await new Promise((resolve) => {
+        const running = createMockProvider(settings).listen(port, () =>
+          resolve(running)
+        )
+      })
+
+      try {
+        const response = await fetch(`${settings.issuer}/token`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            ...clientSecretPost,
+            grant_type: 'client_credentials',
+            scope: `api://${API}/.default`
+          })
+        })
+        const { access_token: token } = await response.json()
+
+        return decodeJwt(token).payload.tid
+      } finally {
+        await new Promise((resolve) => listening.close(resolve))
+      }
+    }
+
+    test('is the AZURE_TENANT_ID a shared .env sets', async () => {
+      expect(settingsFromEnv({ AZURE_TENANT_ID: CUSTOM_TENANT }).tenantId).toBe(
+        CUSTOM_TENANT
+      )
+      await expect(
+        appTokenTenant({ AZURE_TENANT_ID: CUSTOM_TENANT })
+      ).resolves.toBe(CUSTOM_TENANT)
+    })
+
+    test('is MOCK_OIDC_TID when that is set too, as the explicit override', async () => {
+      const env = {
+        AZURE_TENANT_ID: CUSTOM_TENANT,
+        MOCK_OIDC_TID: OVERRIDE_TENANT
+      }
+
+      expect(settingsFromEnv(env).tenantId).toBe(OVERRIDE_TENANT)
+      await expect(appTokenTenant(env)).resolves.toBe(OVERRIDE_TENANT)
+    })
+
+    test('is the default when neither is set', () => {
+      expect(settingsFromEnv({}).tenantId).toBe(TENANT)
+    })
   })
 
   test('takes its settings from the environment, with GUID defaults the backend accepts', () => {
@@ -294,11 +354,9 @@ describe('#mock OIDC provider', () => {
 
     const response = await fetch(`${settings.issuer}/token`, {
       method: 'POST',
-      headers: {
-        authorization: basic(),
-        'content-type': 'application/x-www-form-urlencoded'
-      },
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
+        ...clientSecretPost,
         grant_type: 'client_credentials',
         scope: `api://${API}/.default`
       })
