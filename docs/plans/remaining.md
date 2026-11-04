@@ -229,12 +229,16 @@ network is private; Terraform, other upgrades and sign-in policies such as MFA a
 
 The add-member page searches a seeded mock directory (`DIRECTORY_MODE=mock`, the default). The Microsoft Graph adapter
 is built and tested but refused at start-up, and production refuses `mock`, so production cannot start until this is
-done (plan H1/T16, in the discovery run `2026-11-03-discovery-pr38`). To switch on:
+done. Design: [ai-platform-discovery-docs#38](https://github.com/DEFRA/ai-platform-discovery-docs/pull/38). To switch
+on:
 
 - B27 supplies the signed-in Admin's token, which the adapter exchanges on behalf of the Admin.
-- Grant the backend identity the delegated Graph read permission and admin consent, and set `DIRECTORY_MODE=graph`.
-- Run the backfill `2026-11-03-team-members-directory-only` and read its start-up log counts (teams without an Admin,
-  `credentialsOrphaned`).
+- An Entra admin grants tenant-wide consent for the delegated Graph permission `User.ReadBasic.All` on the portal API
+  app registration (`api-aip-portal`), and the CDP egress allow-list includes `graph.microsoft.com`.
+- Allow `graph` in the backend's directory registry, then set `DIRECTORY_MODE=graph` and redeploy.
+
+The backfill `2026-11-03-team-members-directory-only` runs when the backend first deploys with this change, not at
+switch-on. Read its start-up log counts (teams without an Admin, `credentialsOrphaned`).
 
 ## 2. Limits and reporting
 
