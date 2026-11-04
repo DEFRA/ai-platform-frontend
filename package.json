@@ -87,5 +87,13 @@
     "vite": "8.2.2",
     "vitest": "5.0.3",
     "vitest-fetch-mock": "0.4.5"
+  },
+  "overrides": {
+    "@defra/hapi-auth-oidc": {
+      "joi": "18.3.1",
+      "@hapi/jwt": {
+        "joi": "17.13.9"
+      }
+    }
   }
 }
