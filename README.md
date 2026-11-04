@@ -131,6 +131,15 @@ in always logs in as one fixed mock user (`dev.user@defra.gov.uk`). This path
 is never used in production: it's gated behind `OIDC_MOCK_ISSUER_URL` being
 set **and** the app not running in production.
 
+#### Who can sign in
+
+Sign-in accepts an account only when its email address (or, with no email, its user name) is on one of the domains in
+`ALLOWED_EMAIL_DOMAINS`, a comma-separated list. The default is `defra.gov.uk,defra.onmicrosoft.com`. A domain is an
+exact match with no regard to case: a subdomain (`x@sub.defra.gov.uk`) or a look-alike (`x@defra.gov.uk.example.com`)
+is refused. A guest account (an `#EXT#` user name) is always refused, whatever its domain. A refused account sees
+"You cannot sign in with this account" and is not sent to the backend. Keep the list the same as the backend's, which
+makes the same decision for itself.
+
 ### Production
 
 To mimic the application running in `production` mode locally run:

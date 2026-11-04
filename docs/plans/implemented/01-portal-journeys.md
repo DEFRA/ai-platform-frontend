@@ -14,8 +14,9 @@ What a person can do in the portal today. Every item is built and merged. The fl
 
 ## Sign in
 
-- Defra Entra ID through OIDC (`openid-client`), refused outside the allowed email domains, session held
-  server-side (`@hapi/yar`, `maxCookieSize: 0`).
+- Defra Entra ID through OIDC (`openid-client`), refused outside the allowed email domains (`defra.gov.uk` and
+  `defra.onmicrosoft.com`, an exact match with no regard to case, no subdomains, never a `#EXT#` guest; see
+  `ALLOWED_EMAIL_DOMAINS` in the README), session held server-side (`@hapi/yar`, `maxCookieSize: 0`).
 - A person is keyed on the immutable Entra `oid` and `tid`. Email is for display only and is **not unique**,
   so never look a person up by email. Every GitOps change is attributed to `entra:{oid}`.
 

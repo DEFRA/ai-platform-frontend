@@ -222,6 +222,99 @@ describe('#authController', () => {
     )
   })
 
+  describe('the account that signs in', () => {
+    async function callbackWith(claims) {
+      const { authorizationCodeGrant } = await import('openid-client')
+      const loginResponse = await server.inject({
+        method: 'GET',
+        url: '/auth/login'
+      })
+      const cookies = mergeCookies({}, loginResponse)
+
+      authorizationCodeGrant.mockResolvedValueOnce({
+        claims: () => ({
+          oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
+          tid: '7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+          name: 'Test User',
+          ...claims
+        })
+      })
+
+      return server.inject({
+        method: 'GET',
+        url: '/auth/callback?code=abc&state=state-123',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+    }
+
+    test.each([
+      ['defra.gov.uk', { email: 'sam@defra.gov.uk' }, 'sam@defra.gov.uk'],
+      [
+        'defra.onmicrosoft.com',
+        { email: 'sam@defra.onmicrosoft.com' },
+        'sam@defra.onmicrosoft.com'
+      ],
+      [
+        'DEFRA.GOV.UK, in any case',
+        { email: 'Sam@DEFRA.GOV.UK' },
+        'Sam@DEFRA.GOV.UK'
+      ],
+      [
+        'defra.onmicrosoft.com as the user name when there is no email',
+        { preferred_username: 'sam@defra.onmicrosoft.com' },
+        'sam@defra.onmicrosoft.com'
+      ]
+    ])('signs in an account on %s', async (_name, claims, sent) => {
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          user: { _id: 'user-1', email: sent, displayName: 'Test User' }
+        })
+      )
+
+      const { statusCode, headers } = await callbackWith(claims)
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/')
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).email).toBe(sent)
+    })
+
+    test.each([
+      [
+        'a guest (#EXT#) of defra.onmicrosoft.com',
+        { preferred_username: 'sam_gmail.com#EXT#@defra.onmicrosoft.com' }
+      ],
+      [
+        'a Defra email with a guest (#EXT#) user name',
+        {
+          email: 'sam@defra.gov.uk',
+          preferred_username: 'sam_defra.gov.uk#EXT#@defra.onmicrosoft.com'
+        }
+      ],
+      ['a subdomain of defra.gov.uk', { email: 'sam@sub.defra.gov.uk' }],
+      [
+        'a subdomain of defra.onmicrosoft.com',
+        { email: 'sam@sub.defra.onmicrosoft.com' }
+      ],
+      [
+        'a look-alike domain that starts with Defra’s',
+        { email: 'sam@defra.gov.uk.example.com' }
+      ],
+      ['a look-alike domain', { email: 'sam@notdefra.gov.uk' }],
+      ['another domain', { email: 'sam@example.com' }],
+      ['no email at all', {}]
+    ])(
+      'refuses %s with the same page as the backend’s refusal, and signs no one in',
+      async (_name, claims) => {
+        const { statusCode, result } = await callbackWith(claims)
+
+        expect(statusCode).toBe(statusCodes.forbidden)
+        expect(result).toContain('You cannot sign in with this account')
+        expect(result).toContain('/sign-in?prompt=select_account')
+        expect(fetchMock.mock.calls).toHaveLength(0)
+      }
+    )
+  })
+
   test('GET /auth/login passes prompt=select_account through to the authorization request', async () => {
     const { buildAuthorizationUrl } = await import('openid-client')
 

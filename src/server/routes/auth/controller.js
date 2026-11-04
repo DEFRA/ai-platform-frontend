@@ -4,6 +4,7 @@ import Joi from 'joi'
 import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
+import { isEligibleAccount } from '#/server/common/helpers/sign-in-eligibility.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
 import {
@@ -57,8 +58,9 @@ function failedView(h) {
     .code(statusCodes.badRequest)
 }
 
-// Shown when Entra ID login succeeds but the account's email domain isn't
-// on the allow-list (e.g. the wrong tenant).
+// Shown when sign-in with Entra ID succeeds but the account is not eligible:
+// not on an allowed email domain (e.g. the wrong tenant), or a guest. The
+// frontend decides this from the claims, and the backend decides it again.
 function domainNotAllowedView(h) {
   return h
     .view('error/index', {
@@ -149,6 +151,17 @@ export const authController = {
       const claims = tokens.claims()
       const email = claims.email ?? claims.preferred_username
       const displayName = claims.name ?? claims.email
+
+      if (
+        !isEligibleAccount({
+          email: claims.email,
+          preferredUsername: claims.preferred_username
+        })
+      ) {
+        // Not logged with the address: it says who, and the page says enough.
+        request.logger.warn('Sign-in refused: the account is not eligible')
+        return domainNotAllowedView(h)
+      }
 
       let user
       try {
