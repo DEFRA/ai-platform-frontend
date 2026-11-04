@@ -42,8 +42,17 @@ const roleField = Joi.string().valid('admin', 'user').messages({
 
 const memberRoleSchema = Joi.object({ role: roleField.required() })
 
+function isGuid(value) {
+  return !Joi.string().guid().validate(value).error
+}
+
 const enterSearch = 'Enter a name or email address to search for'
 const selectPerson = 'Select a person'
+
+// Text from the form that is shown again, never searched for as it is.
+function typedText() {
+  return Joi.string().allow('').messages({ 'string.base': enterSearch })
+}
 
 function searchField() {
   return Joi.string()
@@ -60,13 +69,20 @@ function searchField() {
 
 // One form, two buttons: `search` finds people and never adds anyone (it is
 // also what a missing action means), `add` adds the person chosen, with a
-// role that has to be chosen.
+// role that has to be chosen. With script, the field holds the label of the
+// person chosen ("Name - email") and `query` what was typed to find them, so
+// on `add` neither is checked: the person is the `oid`, not the text.
 const addMemberSchema = Joi.object({
   action: Joi.string().valid('search', 'add').default('search'),
   search: Joi.when('action', {
     is: 'add',
-    then: searchField().allow('').default(''),
+    then: typedText().default(''),
     otherwise: searchField().min(MIN_SEARCH_LENGTH).required()
+  }),
+  query: Joi.when('action', {
+    is: 'add',
+    then: typedText(),
+    otherwise: Joi.any().strip()
   }),
   oid: Joi.when('action', {
     is: 'add',
@@ -213,13 +229,14 @@ function removeView(h, request, { team, member, errors = noErrors() }) {
   })
 }
 
-// A person the admin can choose, as the select list shows them.
+// A person the admin can choose, as the select list shows them. A person the
+// matches no longer hold has only the label the field showed.
 function personItems(people, chosenOid) {
   return [
     { value: '', text: selectPerson },
-    ...people.map(({ oid, displayName, email }) => ({
+    ...people.map(({ oid, displayName, email, label }) => ({
       value: oid,
-      text: `${displayName} - ${email}`,
+      text: label ?? `${displayName} - ${email}`,
       selected: oid === chosenOid
     }))
   ]
@@ -300,20 +317,18 @@ function text(value) {
 
 // What the form shows again: what was sent (which may not have passed
 // validation), or, with nothing sent, the empty form with Member chosen.
+// `query` is sent only by the form with script.
 function submittedValues(payload) {
   return {
     action: payload?.action,
     search: text(payload?.search),
+    query: typeof payload?.query === 'string' ? payload.query : undefined,
     oid: text(payload?.oid),
     role: payload ? text(payload.role) : 'user'
   }
 }
 
-// The matches for a page that goes back to the admin after an add that was
-// not made, so that the person chosen is still there to choose. It is no more
-// than a convenience: with no text to search for, or a directory that does
-// not answer, the page shows the error without the list.
-async function matchesAgain(request, team, search) {
+async function findAgain(request, team, search) {
   const query = search.trim()
 
   if (query.length < MIN_SEARCH_LENGTH || query.length > MAX_SEARCH_LENGTH) {
@@ -329,6 +344,31 @@ async function matchesAgain(request, team, search) {
 
     throw error
   }
+}
+
+// The matches for a page that goes back to the admin after an add that was
+// not made, so that the person chosen is still there to choose. It is no more
+// than a convenience: with no text to search for, or a directory that does
+// not answer, the page shows the error without the list.
+//
+// With script, the field holds the person's label and `query` what was typed,
+// which is what is searched for. If the matches do not hold the person chosen
+// (or there are none), the person is kept, as the label the field showed.
+async function matchesAgain(request, team, values) {
+  const { oid, search, query } = values
+  const scripted = typeof query === 'string'
+  const people = await findAgain(request, team, scripted ? query : search)
+
+  if (
+    !scripted ||
+    !isGuid(oid) ||
+    !search ||
+    people?.some((p) => p.oid === oid)
+  ) {
+    return people
+  }
+
+  return [{ oid, label: search }, ...(people ?? [])]
 }
 
 async function searchPeople(request, h, team, values) {
@@ -396,7 +436,7 @@ async function addPerson(request, h, team, values) {
     return addMemberView(h, {
       team,
       values,
-      people: await matchesAgain(request, team, values.search),
+      people: await matchesAgain(request, team, values),
       errors: errorOn('oid', problem.text)
     }).code(problem.statusCode)
   }
@@ -480,7 +520,7 @@ export const addMemberController = {
           const values = submittedValues(request.payload)
           const people =
             values.action === 'add'
-              ? await matchesAgain(request, loaded.team, values.search)
+              ? await matchesAgain(request, loaded.team, values)
               : null
 
           return addMemberView(h, {

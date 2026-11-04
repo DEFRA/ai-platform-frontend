@@ -975,6 +975,128 @@ describe('#members', () => {
         )
       })
 
+      // The enhanced form submits what the field shows, "Name - email", as
+      // `search`, and what was typed to find the person as `query`.
+      describe('with script, where the field holds the label of the person chosen', () => {
+        const LABEL = 'Sam Carter - sam.carter@defra.gov.uk'
+
+        function addChosen(payload = {}) {
+          return add({ search: LABEL, query: 'sam', ...payload })
+        }
+
+        test('adds the person chosen, whatever the length or format of the label', async () => {
+          backend('admin', {
+            [`POST ${TEAM_PATH}/members`]: reply(201, {
+              member: { displayName: 'Sam Carter' }
+            })
+          })
+
+          const long = `${'Dr Sam Carter-Smythe '.repeat(8)}- sam.carter@defra.gov.uk`
+          const response = await addChosen({ search: long })
+
+          expect(long.length).toBeGreaterThan(100)
+          expect(response.statusCode).toBe(statusCodes.seeOther)
+          expect(JSON.parse(writes()[0][1].body)).toEqual({
+            oid: OID,
+            role: 'user'
+          })
+          expect(searches()).toHaveLength(0)
+        })
+
+        test('looks for the person again with what was typed, not the label, and keeps the person chosen when the add fails', async () => {
+          backend('admin', {
+            [`POST ${TEAM_PATH}/members`]: reply(503, {
+              code: 'directory-unavailable'
+            }),
+            [`POST ${SEARCH_PATH}`]: { items: [sam, alex] }
+          })
+
+          const { statusCode, result } = await addChosen()
+          const $ = load(result)
+
+          expect(statusCode).toBe(statusCodes.serviceUnavailable)
+          expect(JSON.parse(searches()[0][1].body)).toEqual({ search: 'sam' })
+          expect($('select[name="oid"]').val()).toBe(OID)
+          expect($('#search').attr('value')).toBe(LABEL)
+          expect($('#search').attr('data-people-query')).toBe('sam')
+        })
+
+        test('keeps the person chosen, with the label shown, when the matches no longer hold them or cannot be found', async () => {
+          for (const search of [{ items: [alex] }, reply(503, {})]) {
+            fetchMock.resetMocks()
+            backend('admin', {
+              [`POST ${TEAM_PATH}/members`]: reply(409, {
+                code: 'member-exists'
+              }),
+              [`POST ${SEARCH_PATH}`]: search
+            })
+
+            const { result } = await addChosen()
+            const $ = load(result)
+
+            expect($('select[name="oid"] option:selected').attr('value')).toBe(
+              OID
+            )
+            expect($('select[name="oid"] option:selected').text()).toBe(LABEL)
+          }
+        })
+
+        test('keeps the person chosen, and does not refuse a label that is too long, when the role is missing', async () => {
+          backend('admin', { [`POST ${SEARCH_PATH}`]: { items: [sam] } })
+
+          const { statusCode, result } = await addChosen({
+            search: 'x'.repeat(150),
+            role: undefined
+          })
+          const $ = load(result)
+
+          expect(statusCode).toBe(statusCodes.badRequest)
+          expect($('#role-error').text()).toContain('Select a role')
+          expect($('#search-error')).toHaveLength(0)
+          expect($('select[name="oid"]').val()).toBe(OID)
+          expect(writes()).toHaveLength(0)
+        })
+
+        test('does not make up a person when no one was chosen', async () => {
+          backend('admin', { [`POST ${SEARCH_PATH}`]: { items: [alex] } })
+
+          const { statusCode, result } = await addChosen({ oid: '' })
+          const $ = load(result)
+
+          expect(statusCode).toBe(statusCodes.badRequest)
+          expect($('select[name="oid"] option')).toHaveLength(2)
+          expect($('select[name="oid"]').val()).toBe('')
+        })
+
+        test('does not offer the text of a search as a person without script', async () => {
+          backend('admin', {
+            [`POST ${TEAM_PATH}/members`]: reply(409, {
+              code: 'member-exists'
+            }),
+            [`POST ${SEARCH_PATH}`]: { items: [alex] }
+          })
+
+          const { result } = await add()
+          const $ = load(result)
+
+          expect($('select[name="oid"] option')).toHaveLength(2)
+          expect($('#search').attr('data-people-query')).toBe('')
+        })
+
+        test('does not use what was typed when it is a search', async () => {
+          backend('admin', { [`POST ${SEARCH_PATH}`]: { items: [sam] } })
+
+          const { statusCode } = await post(`${MEMBERS_URL}/add`, {
+            action: 'search',
+            search: 'sam',
+            query: 'other'
+          })
+
+          expect(statusCode).toBe(statusCodes.ok)
+          expect(JSON.parse(searches()[0][1].body)).toEqual({ search: 'sam' })
+        })
+      })
+
       test('shows the page for a refusal that arrives after the team was read, and fails on anything else', async () => {
         backend('admin', {
           [`POST ${TEAM_PATH}/members`]: reply(403, { code: 'admin-required' })

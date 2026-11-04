@@ -31,7 +31,7 @@ const { document } = window
 // The add-member page's form as the server renders it, for the parts the
 // script touches: the text field with its hint, Search, the select list when
 // there is one (with an error if `error` says so), the role and Add.
-function page({ value = '', select = null, error = null } = {}) {
+function page({ value = '', query = '', select = null, error = null } = {}) {
   const options = select
     ? `<option value="">Select a person</option>${select.options
         .map(
@@ -49,7 +49,7 @@ function page({ value = '', select = null, error = null } = {}) {
       <div class="govuk-form-group" id="search-group">
         <label class="govuk-label" for="search">Name or email address</label>
         <div id="search-hint" class="govuk-hint">Enter at least 2 characters</div>
-        <input class="govuk-input" id="search" name="search" type="text" value="${value}" aria-describedby="search-hint" data-people-search>
+        <input class="govuk-input" id="search" name="search" type="text" value="${value}" aria-describedby="search-hint" data-people-search data-people-query="${query}">
       </div>
       <button type="submit" name="action" value="search" data-people-search-button>Search</button>
       ${
@@ -548,6 +548,75 @@ describe('#initPeopleSearch', () => {
       await type('Sam Carter - sam@defra.gov.uk x')
 
       expect(oid().value).toBe('')
+    })
+  })
+
+  // The field shows "Name - email" once a person is chosen, which is not
+  // something the directory can be searched for, so the form also sends what
+  // was typed to find them.
+  describe('what the form sends', () => {
+    const query = () => document.querySelector('input[name="query"]')
+    const sent = () =>
+      Object.fromEntries(
+        new window.FormData(document.querySelector('form')).entries()
+      )
+
+    test('adds one hidden query, empty until something is typed', () => {
+      initPeopleSearch()
+
+      expect(document.querySelectorAll('input[name="query"]')).toHaveLength(1)
+      expect(query().type).toBe('hidden')
+      expect(query().value).toBe('')
+    })
+
+    test('sends the text typed as the query, the label as the search and the person as the oid', async () => {
+      initPeopleSearch()
+      await typeAndWait('sa')
+      await press(KEYS.down)
+      await press(KEYS.enter, document.activeElement)
+
+      expect(sent()).toMatchObject({
+        search: 'Sam Carter - sam@defra.gov.uk',
+        query: 'sa',
+        oid: OID
+      })
+    })
+
+    test('keeps the query when the label is long, and when the person is chosen with a click', async () => {
+      const long = { ...sam, displayName: 'Sam '.repeat(40).trim() }
+
+      fetchMock.mockResolvedValue(answer({ items: [long] }))
+      initPeopleSearch()
+      await typeAndWait('sam')
+      options()[0].dispatchEvent(new window.Event('click', { bubbles: true }))
+      await settle()
+
+      expect(sent().search.length).toBeGreaterThan(100)
+      expect(sent().query).toBe('sam')
+      expect(sent().oid).toBe(OID)
+    })
+
+    test('sends what the page sent back as the query, until the text is edited', async () => {
+      page({
+        value: 'Sam Carter - sam@defra.gov.uk',
+        query: 'sam',
+        select: {
+          options: [{ oid: OID, text: 'Sam Carter - sam@defra.gov.uk' }],
+          chosen: OID
+        }
+      })
+      initPeopleSearch()
+
+      expect(sent()).toMatchObject({
+        search: 'Sam Carter - sam@defra.gov.uk',
+        query: 'sam',
+        oid: OID
+      })
+
+      await type('Sam Carter - sam@defra.gov.uk x')
+
+      expect(sent().query).toBe('Sam Carter - sam@defra.gov.uk x')
+      expect(sent().oid).toBe('')
     })
   })
 })

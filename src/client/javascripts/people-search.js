@@ -16,6 +16,7 @@ const UNAVAILABLE =
 const NO_PEOPLE = 'No people found. Try their full email address'
 const SEARCHING = 'Searching'
 const UNAUTHORIZED = 401
+const DESCRIBED_BY = 'aria-describedby'
 
 function escapeHtml(text) {
   return text.replace(
@@ -138,6 +139,20 @@ function hiddenOid(form, select) {
   return hidden
 }
 
+// The field shows "Name - email" once a person is chosen, which is not
+// something the directory can be searched for. So the form also sends what
+// was typed to find them, to look for them again if the add does not go
+// through. It starts as the page sent it back.
+function hiddenQuery(form, value) {
+  const hidden = form.ownerDocument.createElement('input')
+
+  hidden.type = 'hidden'
+  hidden.name = 'query'
+  hidden.value = value ?? ''
+
+  return hidden
+}
+
 // The select list is for people without script. Its error, if it has one,
 // moves to the text field, which is where the person is looked for now.
 // Returns the id of the error it moved, if any.
@@ -164,19 +179,19 @@ function takeOverFromSelect(select, searchGroup) {
 // they are missing.
 function keepDescribedBy(input, ids) {
   function put() {
-    const others = (input.getAttribute('aria-describedby') ?? '')
+    const others = (input.getAttribute(DESCRIBED_BY) ?? '')
       .split(' ')
       .filter((id) => id && !ids.includes(id))
     const wanted = [...ids, ...others].join(' ')
 
-    if (input.getAttribute('aria-describedby') !== wanted) {
-      input.setAttribute('aria-describedby', wanted)
+    if (input.getAttribute(DESCRIBED_BY) !== wanted) {
+      input.setAttribute(DESCRIBED_BY, wanted)
     }
   }
 
   new input.ownerDocument.defaultView.MutationObserver(put).observe(input, {
     attributes: true,
-    attributeFilter: ['aria-describedby']
+    attributeFilter: [DESCRIBED_BY]
   })
   put()
 }
@@ -198,6 +213,7 @@ export function initPeopleSearch(root = document) {
   const select = form.querySelector('select[name="oid"]')
   const chosen = select?.value ? select.selectedOptions[0].textContent : ''
   const oid = hiddenOid(form, select)
+  const query = hiddenQuery(form, original.dataset.peopleQuery)
   const searchGroup = original.closest('.govuk-form-group')
   const search = createSearch({
     url: form.dataset.peopleSearchUrl,
@@ -208,13 +224,13 @@ export function initPeopleSearch(root = document) {
   // is the field's once it has moved).
   const movedError = select ? takeOverFromSelect(select, searchGroup) : null
   const describedBy = [
-    ...(original.getAttribute('aria-describedby') ?? '').split(' '),
+    ...(original.getAttribute(DESCRIBED_BY) ?? '').split(' '),
     movedError
   ].filter(Boolean)
 
   container.className = 'app-people-search'
   original.after(container)
-  form.append(oid)
+  form.append(oid, query)
   form.querySelector(SEARCH_BUTTON_SELECTOR)?.remove()
 
   accessibleAutocomplete({
@@ -247,6 +263,7 @@ export function initPeopleSearch(root = document) {
   keepDescribedBy(input, describedBy)
   input.addEventListener('input', () => {
     oid.value = ''
+    query.value = input.value
 
     // The library does not ask for people for text this short, so it is not
     // told to drop a search that is still on its way.
