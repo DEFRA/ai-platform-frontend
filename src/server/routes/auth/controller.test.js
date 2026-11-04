@@ -312,33 +312,43 @@ describe('#authController', () => {
     expect(headers.location).toBe('/manage')
   })
 
-  test('GET /auth/callback ignores an off-site returnTo and falls back to /', async () => {
-    const loginResponse = await server.inject({
-      method: 'GET',
-      url: '/auth/login?returnTo=https%3A%2F%2Fattacker.example'
-    })
-    const cookies = mergeCookies({}, loginResponse)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        user: {
-          _id: 'user-1',
-          email: 'test.user@defra.gov.uk',
-          displayName: 'Test User'
-        },
-        team: null
+  test.each([
+    ['an off-site address', 'https%3A%2F%2Fattacker.example'],
+    ['dot segments that normalise to //evil.com', '%2F.%2F%2Fevil.com'],
+    [
+      'a parent segment that normalises to //evil.com',
+      '%2Fa%2F..%2F%2Fevil.com'
+    ]
+  ])(
+    'GET /auth/callback ignores %s as returnTo and falls back to /',
+    async (_name, returnTo) => {
+      const loginResponse = await server.inject({
+        method: 'GET',
+        url: `/auth/login?returnTo=${returnTo}`
       })
-    )
+      const cookies = mergeCookies({}, loginResponse)
 
-    const { statusCode, headers } = await server.inject({
-      method: 'GET',
-      url: '/auth/callback?code=abc&state=state-123',
-      headers: { cookie: cookieHeader(cookies) }
-    })
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          user: {
+            _id: 'user-1',
+            email: 'test.user@defra.gov.uk',
+            displayName: 'Test User'
+          },
+          team: null
+        })
+      )
 
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/')
-  })
+      const { statusCode, headers } = await server.inject({
+        method: 'GET',
+        url: '/auth/callback?code=abc&state=state-123',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/')
+    }
+  )
 
   test('GET /auth/callback shows the refusal page, and ends the session, when the backend refuses the token (a guest)', async () => {
     const loginResponse = await server.inject({
