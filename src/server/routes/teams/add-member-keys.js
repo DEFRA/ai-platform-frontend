@@ -15,7 +15,8 @@ import {
 // person or role than the one it was first used for.
 //
 // A session holds a few keys at most, and a key is kept for an hour: a form
-// open for longer, or after many others were opened, is sent with a new key.
+// open for longer, or after many others were opened, is sent with a new key,
+// made once for the same team, person and role however many times it is sent.
 
 /** The most keys a session holds; the oldest is dropped first. */
 export const MAX_KEYS = 10
@@ -74,9 +75,11 @@ export function carryAddKey(request, team, offered, now = Date.now()) {
 
 /**
  * The key to add a person with a role with: the one the form came with for a
- * first use or a retry of the same person and role, and a new one (kept for
- * its own retry) when the form's key is not one this session issued for this
- * team, or was used for another person or role.
+ * first use or a retry of the same person and role. When the form's key is not
+ * one this session issued for this team (expired, evicted, made up, or used
+ * for another person or role), it is the key this session already made for
+ * the same team, person and role, so a double submit of such a form is one
+ * operation with one key, and otherwise a new one (kept for its own retry).
  * @param {import('@hapi/hapi').Request} request
  * @param {string} team - The team slug.
  * @param {{oid: string, role: string}} person
@@ -106,6 +109,14 @@ export function keyForAdd(
     )
 
     return entry.key
+  }
+
+  const existing = entries.find(
+    (each) => each.team === team && each.choice === choice
+  )
+
+  if (existing) {
+    return existing.key
   }
 
   const fresh = newEntry(team, choice, now)

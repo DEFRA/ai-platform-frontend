@@ -190,6 +190,83 @@ describe('#add-member-keys', () => {
 
       expect(request.store.get('addMemberKeys')).toHaveLength(MAX_KEYS)
     })
+
+    describe('a double submit of a form whose key is no longer known (R3-2)', () => {
+      test('gets one key for the same person and role when the key has expired', () => {
+        const key = issueAddKey(request, TEAM, NOW)
+        const later = NOW + KEY_LIFETIME_MS
+
+        const first = keyForAdd(request, TEAM, person, key, later)
+        const second = keyForAdd(request, TEAM, person, key, later)
+
+        expect(first).toMatch(UUID)
+        expect(second).toBe(first)
+      })
+
+      test('gets one key for the same person and role when the key was evicted by newer forms', () => {
+        const key = issueAddKey(request, TEAM, NOW)
+
+        for (let i = 0; i < MAX_KEYS; i++) {
+          issueAddKey(request, TEAM, NOW)
+        }
+
+        const first = keyForAdd(request, TEAM, person, key, NOW)
+        const second = keyForAdd(request, TEAM, person, key, NOW)
+
+        expect(first).not.toBe(key)
+        expect(second).toBe(first)
+      })
+
+      test('gets one key when the key was never issued', () => {
+        const offered = '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
+
+        const first = keyForAdd(request, TEAM, person, offered, NOW)
+        const second = keyForAdd(request, TEAM, person, offered, NOW)
+
+        expect(second).toBe(first)
+      })
+
+      test('gets one key for a second choice sent twice with a key already used for a first', () => {
+        const key = issueAddKey(request, TEAM, NOW)
+        const other = { oid: OTHER_OID, role: 'user' }
+
+        keyForAdd(request, TEAM, person, key, NOW)
+
+        const first = keyForAdd(request, TEAM, other, key, NOW)
+        const second = keyForAdd(request, TEAM, other, key, NOW)
+
+        expect(first).not.toBe(key)
+        expect(second).toBe(first)
+      })
+
+      test('still gives another person or role, or another team, its own key', () => {
+        const offered = '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
+        const first = keyForAdd(request, TEAM, person, offered, NOW)
+
+        const keys = [
+          keyForAdd(
+            request,
+            TEAM,
+            { oid: OTHER_OID, role: 'user' },
+            offered,
+            NOW
+          ),
+          keyForAdd(request, TEAM, { oid: OID, role: 'admin' }, offered, NOW),
+          keyForAdd(request, 'other-team', person, offered, NOW)
+        ]
+
+        expect(new Set([first, ...keys]).size).toBe(4)
+      })
+
+      test('does not reuse a key that has itself expired', () => {
+        const offered = '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
+        const first = keyForAdd(request, TEAM, person, offered, NOW)
+
+        expect(
+          keyForAdd(request, TEAM, person, offered, NOW + KEY_LIFETIME_MS)
+        ).not.toBe(first)
+      })
+    })
   })
 
   describe('voiding a key', () => {

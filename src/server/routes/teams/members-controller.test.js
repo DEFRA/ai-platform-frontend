@@ -28,7 +28,11 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
-    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+    claims: () => ({
+      preferred_username: 'test.user@defra.gov.uk',
+      email: 'test.user@defra.gov.uk',
+      name: 'Test User'
+    })
   }))
 }))
 
@@ -788,7 +792,7 @@ describe('#members', () => {
           expect(await openForm()).not.toBe(key)
         })
 
-        test('makes a new key when the form carried none, a malformed one, or one this session did not issue', async () => {
+        test('makes a key of its own when the form carried none, a malformed one, or one this session did not issue, the same for the same person and role', async () => {
           backend('admin', {
             [`POST ${TEAM_PATH}/members`]: reply(201, {
               member: { displayName: 'Sam Carter' }
@@ -806,7 +810,7 @@ describe('#members', () => {
           const keys = sentKeys()
 
           expect(keys).toHaveLength(4)
-          expect(new Set(keys).size).toBe(4)
+          expect(new Set(keys).size).toBe(1)
           expect(keys.every((key) => UUID.test(key))).toBe(true)
           expect(keys).not.toContain(forged)
         })
