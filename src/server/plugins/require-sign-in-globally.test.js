@@ -298,6 +298,25 @@ describe('#requireSignInGlobally session limits', () => {
     expect(poll.headers.location).toContain('/signed-out?reason=idle')
   })
 
+  test('an ended session never reaches route validation, so an invalid payload makes no backend call (review thread zwnJr)', async () => {
+    const cookies = await signIn()
+    fetchMock.resetMocks()
+
+    after(31 * MINUTE)
+    // A valid CSRF token and no confirmRevoke: validation would fail, and the
+    // route's failAction would then look the credential up in the backend.
+    const { statusCode, headers } = await server.inject({
+      method: 'POST',
+      url: '/manage/credentials/cred-1/revoke',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(statusCode).toBe(statusCodes.found)
+    expect(headers.location).toBe('/signed-out?reason=idle')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   test('tells the browser not to keep a signed-in page', async () => {
     const cookies = await signIn()
 

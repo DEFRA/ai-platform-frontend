@@ -65,6 +65,27 @@ function replay(response) {
   return response?.type === 'opaqueredirect' ? response : response.clone()
 }
 
+// Where the person is when the session ends: path, query and fragment.
+const PAGE = {
+  pathname: '/manage/credentials/cred-1',
+  search: '?tab=keys',
+  hash: '#details'
+}
+const PAGE_RETURN_TO = '%2Fmanage%2Fcredentials%2Fcred-1%3Ftab%3Dkeys%23details'
+
+function signedOut(reason) {
+  return `/signed-out?reason=${reason}&returnTo=${PAGE_RETURN_TO}`
+}
+
+// What fetch does when its signal is aborted, for a request that never answers.
+function abortedBy(signal) {
+  return new Promise((resolve, reject) => {
+    signal?.addEventListener('abort', () =>
+      reject(new DOMException('The operation was aborted.', 'AbortError'))
+    )
+  })
+}
+
 function setHidden(hidden) {
   Object.defineProperty(document, 'hidden', {
     configurable: true,
@@ -98,7 +119,7 @@ describe('#initSessionTimeout', () => {
       Promise.resolve(fetchMock(...args)).then(replay)
     )
     vi.stubGlobal('document', document)
-    vi.stubGlobal('window', { location: { assign } })
+    vi.stubGlobal('window', { location: { ...PAGE, assign } })
     setHidden(false)
     document.body.innerHTML = dialogHtml()
     dialog().showModal = showModal
@@ -299,18 +320,37 @@ describe('#initSessionTimeout', () => {
       )
       await tick(0)
 
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
     })
 
-    test('goes to the signed-out page when the server refuses it', async () => {
-      fetchMock.mockResolvedValue(new Response('no', { status: 403 }))
+    // A refusal that is not a redirect (a failed CSRF check answers 403) says
+    // nothing about the session: it is alive, so the warning stays open.
+    test.each([400, 401, 403, 404, 429])(
+      'keeps the warning open, and does not go to the signed-out page, when the server answers %i',
+      async (status) => {
+        fetchMock.mockResolvedValue(new Response('no', { status }))
+
+        extendForm().dispatchEvent(
+          new window.Event('submit', { cancelable: true })
+        )
+        await tick(0)
+
+        expect(assign).not.toHaveBeenCalled()
+        expect(close).not.toHaveBeenCalled()
+        expect(dialog().hasAttribute('open')).toBe(true)
+      }
+    )
+
+    test('keeps the warning open when staying signed in gets no answer in time', async () => {
+      fetchMock.mockImplementation((url, { signal }) => abortedBy(signal))
 
       extendForm().dispatchEvent(
         new window.Event('submit', { cancelable: true })
       )
-      await tick(0)
+      await tick(60)
 
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
+      expect(assign).not.toHaveBeenCalled()
+      expect(dialog().hasAttribute('open')).toBe(true)
     })
 
     describe('when staying signed in fails in a way nobody planned for', () => {
@@ -370,7 +410,7 @@ describe('#initSessionTimeout', () => {
       await tick(WARNING)
 
       expect(assign).toHaveBeenCalledTimes(1)
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
     })
 
     test('goes to the signed-out page when the server cannot be reached', async () => {
@@ -378,7 +418,7 @@ describe('#initSessionTimeout', () => {
 
       await tick(WARNING)
 
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
     })
 
     test('stays when another tab kept the session alive, and hides the warning', async () => {
@@ -428,7 +468,7 @@ describe('#initSessionTimeout', () => {
 
       await tick(WARNING)
 
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=expired')
+      expect(assign).toHaveBeenCalledWith(signedOut('expired'))
     })
 
     test('the Escape key does not close a warning that cannot be dismissed by staying', async () => {
@@ -463,7 +503,7 @@ describe('#initSessionTimeout', () => {
       setHidden(false)
       await tick(0)
 
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
     })
 
     test('goes to the signed-out page when the server says so at the warning time', async () => {
@@ -472,7 +512,7 @@ describe('#initSessionTimeout', () => {
 
       await tick(warnAt)
 
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
       expect(showModal).not.toHaveBeenCalled()
     })
 
@@ -496,7 +536,92 @@ describe('#initSessionTimeout', () => {
       setHidden(false)
       await tick(0)
 
-      expect(assign).toHaveBeenCalledWith('/signed-out?reason=idle')
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
+    })
+  })
+
+  describe('keeping the page the person was on (review thread zwnLV)', () => {
+    async function endSession() {
+      fetchMock.mockResolvedValueOnce(times(WARNING))
+      start()
+      await tick(warnAt)
+      fetchMock.mockResolvedValue(redirectNotFollowed())
+      await tick(WARNING)
+    }
+
+    test('puts the path, query and fragment in returnTo', async () => {
+      await endSession()
+
+      expect(assign).toHaveBeenCalledWith(
+        '/signed-out?reason=idle&returnTo=%2Fmanage%2Fcredentials%2Fcred-1%3Ftab%3Dkeys%23details'
+      )
+    })
+
+    test('puts just the path when the page has no query or fragment', async () => {
+      vi.stubGlobal('window', {
+        location: { pathname: '/models', search: '', hash: '', assign }
+      })
+
+      await endSession()
+
+      expect(assign).toHaveBeenCalledWith(
+        '/signed-out?reason=idle&returnTo=%2Fmodels'
+      )
+    })
+  })
+
+  describe('a status check that never finishes (review thread zwnKj)', () => {
+    const NEVER = (url, { signal }) => abortedBy(signal)
+
+    test('gives up on a request that never answers, and warns from its own clock', async () => {
+      fetchMock.mockImplementation(NEVER)
+      start()
+
+      await tick(warnAt)
+      expect(showModal).not.toHaveBeenCalled()
+
+      await tick(30)
+
+      expect(showModal).toHaveBeenCalledTimes(1)
+    })
+
+    test('gives up on a body that never finishes arriving, and warns from its own clock', async () => {
+      fetchMock.mockImplementation((url, { signal }) => {
+        const body = new ReadableStream({
+          start(controller) {
+            signal?.addEventListener('abort', () =>
+              controller.error(new DOMException('aborted', 'AbortError'))
+            )
+          }
+        })
+
+        return new Response(body, { status: 200 })
+      })
+      start()
+
+      await tick(warnAt + 30)
+
+      expect(showModal).toHaveBeenCalledTimes(1)
+    })
+
+    test('leaves when the time is up and the confirming check never answers', async () => {
+      fetchMock.mockResolvedValueOnce(times(WARNING))
+      start()
+      await tick(warnAt)
+      fetchMock.mockImplementation(NEVER)
+
+      await tick(WARNING + 30)
+
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
+    })
+
+    test('stops the timer once the answer has arrived', async () => {
+      fetchMock.mockResolvedValue(times(WARNING))
+      start()
+
+      await tick(warnAt)
+
+      expect(vi.getTimerCount()).toBe(1)
     })
   })
 
