@@ -2,6 +2,7 @@ import Joi from 'joi'
 
 import { config } from '#/config/config.js'
 import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
+import { getSessionUser } from '#/server/common/helpers/session.js'
 
 const MS_PER_MINUTE = 60 * 1000
 const MINUTES_PER_HOUR = 60
@@ -43,6 +44,15 @@ export const signedOutController = {
   handler(request, h) {
     const { reason, returnTo } = request.query
     const safeReturn = returnTo ? safeReturnTo(returnTo, '') : ''
+
+    // The script comes here when time is up by its own clock and it could not
+    // ask the server, even though another tab may have kept the session
+    // alive. A session that is still live (the global gate has already cleared
+    // an ended one) is not signed out: say nothing of it and go back.
+    if (getSessionUser(request)) {
+      return h.redirect(safeReturn || '/')
+    }
+
     const signInHref = safeReturn
       ? `/sign-in?returnTo=${encodeURIComponent(safeReturn)}`
       : '/sign-in'

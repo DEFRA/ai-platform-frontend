@@ -421,6 +421,23 @@ describe('#initSessionTimeout', () => {
       expect(assign).toHaveBeenCalledWith(signedOut('idle'))
     })
 
+    // The page cannot know another tab renewed the session when the
+    // confirming check fails: it hands over to the signed-out address, whose
+    // server side checks the session and sends the person back when it is
+    // live (signed-out controller tests, review thread zyVu7).
+    test('hands over to the signed-out address, with the page to come back to, when the confirming check gets a server error', async () => {
+      fetchMock.mockResolvedValue(new Response('busy', { status: 503 }))
+
+      await tick(WARNING)
+
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        '/session/status',
+        expect.objectContaining({ redirect: 'manual' })
+      )
+      expect(assign).toHaveBeenCalledTimes(1)
+      expect(assign).toHaveBeenCalledWith(signedOut('idle'))
+    })
+
     test('stays when another tab kept the session alive, and hides the warning', async () => {
       fetchMock.mockResolvedValue(times(IDLE))
 

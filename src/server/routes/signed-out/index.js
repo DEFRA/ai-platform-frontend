@@ -13,7 +13,12 @@ export const signedOut = {
           method: 'GET',
           path: '/signed-out',
           ...signedOutController,
-          options: { ...signedOutController.options, app: { public: true } }
+          // keepsIdleTime: landing here must not restart the idle time of a
+          // session that is still live (the person did not ask to be here).
+          options: {
+            ...signedOutController.options,
+            app: { public: true, keepsIdleTime: true }
+          }
         }
       ])
     }

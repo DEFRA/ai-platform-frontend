@@ -1,7 +1,35 @@
 import * as cheerio from 'cheerio'
+import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
+import {
+  signInViaOidc,
+  cookieHeader
+} from '#/test-helpers/oidc-session-helpers.js'
+
+vi.mock('#/server/common/helpers/oidc-client.js', () => ({
+  getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
+}))
+
+vi.mock('openid-client', () => ({
+  randomPKCECodeVerifier: vi.fn(() => 'verifier'),
+  calculatePKCECodeChallenge: vi.fn(async () => 'challenge'),
+  randomState: vi.fn(() => 'state-123'),
+  randomNonce: vi.fn(() => 'nonce-123'),
+  buildAuthorizationUrl: vi.fn(
+    () => new URL('https://login.microsoftonline.com/tenant/authorize')
+  ),
+  authorizationCodeGrant: vi.fn(async () => ({
+    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+  }))
+}))
+
+const fetchMock = createFetchMock(vi)
+fetchMock.enableMocks()
+
+const MINUTE = 60 * 1000
+const START = Date.parse('2026-11-04T09:00:00Z')
 
 describe('#signedOutController', () => {
   let server
@@ -75,5 +103,72 @@ describe('#signedOutController', () => {
 
     expect($('.app-sign-in-out').text()).toContain('Sign in')
     expect($('.app-sign-in-out').text()).not.toContain('Signed in as')
+  })
+
+  // The script goes here when time is up by its own clock and it could not
+  // confirm with the server (for example a 503), even though another tab may
+  // have kept the session alive.
+  describe('when the session is still live (another tab renewed it)', () => {
+    let cookies
+
+    beforeEach(async () => {
+      fetchMock.resetMocks()
+      // Only the clock moves: timers the server and its cache use keep running.
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(START)
+      cookies = await signInViaOidc(server, fetchMock)
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    const visit = (query = '') =>
+      server.inject({
+        method: 'GET',
+        url: `/signed-out${query}`,
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+    test('does not claim a sign-out: it sends the person back to the page they were on', async () => {
+      const { statusCode, headers } = await visit(
+        '?reason=idle&returnTo=%2Fmanage%3Ftab%3Dmodels'
+      )
+
+      expect(statusCode).toBe(statusCodes.found)
+      expect(headers.location).toBe('/manage?tab=models')
+    })
+
+    test('sends the person home when there is no page to return to, or one that leaves the site', async () => {
+      const bare = await visit('?reason=idle')
+      const offSite = await visit(
+        '?reason=idle&returnTo=https%3A%2F%2Fattacker.example'
+      )
+
+      expect(bare.headers.location).toBe('/')
+      expect(offSite.headers.location).toBe('/')
+    })
+
+    test('does not restart the idle time by itself', async () => {
+      vi.setSystemTime(START + 20 * MINUTE)
+
+      await visit('?reason=idle')
+      const status = await server.inject({
+        method: 'GET',
+        url: '/session/status',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(status.result.idleSeconds).toBe(10 * 60)
+    })
+
+    test('still shows the page once the session has really ended', async () => {
+      vi.setSystemTime(START + 31 * MINUTE)
+
+      const { statusCode, payload } = await visit('?reason=idle')
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(payload).toContain('You have been signed out')
+    })
   })
 })
