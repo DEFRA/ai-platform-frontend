@@ -136,6 +136,14 @@ app accepts only with `APP_BASE_URL` on `localhost`; every deployed instance
 uses `federated` (a CDP Web Identity client assertion, no secret) with
 `AZURE_FEDERATED_AUDIENCE` (default `api://AzureADTokenExchange`).
 
+| Variable                   | Value                                                                                                                                  |
+| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+| `AZURE_AUTH_METHOD`        | `federated` (every deployed instance; the default in production) or `client-secret` (localhost only; the app refuses it anywhere else) |
+| `AZURE_FEDERATED_AUDIENCE` | The audience of the CDP Web Identity token used as the client assertion, as set on the federated credential in Entra                   |
+| `AZURE_API_CLIENT_ID`      | The client ID of this instance's `api-aip-portal-{instance}` registration; every token the frontend asks for is for it                 |
+| `AZURE_CLIENT_SECRET`      | Local use only, with `client-secret`                                                                                                   |
+| `NODE_USE_ENV_PROXY`       | `1` in every deployed instance, so the Entra token calls go through the CDP proxy (see [Proxy](#proxy))                                |
+
 The mock issues what Entra issues for the portal: an ID token, and v2 JWT access
 tokens for the API with `idtyp`, `scp`, `acct`, `azp`, `azpacr`, `tid`, `oid`
 and `ver`, signed with keys served at `/jwks`; and a client-credentials token
