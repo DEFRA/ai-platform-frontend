@@ -1,5 +1,5 @@
 import { statusCodes } from '../constants/status-codes.js'
-import { ApiError } from './api-error.js'
+import { ApiError, wasUnauthorised } from './api-error.js'
 import { getSessionUser, resetSession } from './session.js'
 
 function statusCodeMessage(statusCode) {
@@ -23,8 +23,9 @@ function statusCodeMessage(statusCode) {
 // page, not a trip through sign-in.
 function endsSession(request, response) {
   return (
-    response instanceof ApiError &&
-    response.statusCode === statusCodes.unauthorized &&
+    (wasUnauthorised(request) ||
+      (response instanceof ApiError &&
+        response.statusCode === statusCodes.unauthorized)) &&
     getSessionUser(request)
   )
 }
@@ -42,14 +43,17 @@ function signInAddress(request) {
 export function catchAll(request, h) {
   const { response } = request
 
-  if (!('isBoom' in response)) {
-    return h.continue
-  }
-
+  // Ahead of the page's own answer: a page that read with Promise.allSettled
+  // renders as if nothing were wrong, so a marked request ends the session
+  // whatever the response is.
   if (endsSession(request, response)) {
     resetSession(request)
 
     return h.redirect(signInAddress(request))
+  }
+
+  if (!('isBoom' in response)) {
+    return h.continue
   }
 
   const statusCode = response.output.statusCode

@@ -35,7 +35,10 @@ vi.mock('openid-client', () => ({
     refresh_token: 'user-refresh-token',
     expires_in: 3600,
     claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
-  }))
+  })),
+  refreshTokenGrant: vi.fn(async () => {
+    throw new Error('invalid_grant')
+  })
 }))
 
 const fetchMock = createFetchMock(vi)

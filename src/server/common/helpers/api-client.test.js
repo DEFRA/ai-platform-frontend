@@ -1,6 +1,7 @@
 import createFetchMock from 'vitest-fetch-mock'
 
 import { apiClient, ApiError } from './api-client.js'
+import { wasUnauthorised } from './api-error.js'
 import { getAppToken, getUserToken } from './access-token.js'
 
 vi.mock('./access-token.js', () => ({
@@ -104,6 +105,78 @@ describe('#apiClient', () => {
       expect(fetchMock.requests()[0].headers.get('authorization')).toBe(
         'Bearer app-token'
       )
+    })
+
+    test('never falls back to the app identity for a person who is signed in but has no tokens (a session from before tokens were kept)', async () => {
+      getUserToken.mockRejectedValueOnce(
+        new ApiError({ statusCode: 401, code: 'not-signed-in' })
+      )
+      const request = {
+        headers: {},
+        yar: { get: (key) => (key === 'user' ? { id: 'user-1' } : undefined) }
+      }
+
+      await expect(
+        apiClient(request).get('/v1/credentials')
+      ).rejects.toMatchObject({ statusCode: 401 })
+
+      expect(getUserToken).toHaveBeenCalledWith(request)
+      expect(getAppToken).not.toHaveBeenCalled()
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('noting that the session is no good', () => {
+    const withApp = (request) => ({ ...request, app: {} })
+
+    test('notes it on the request when no token can be had for a signed-in person', async () => {
+      getUserToken.mockRejectedValueOnce(
+        new ApiError({ statusCode: 401, code: 'token-refresh-failed' })
+      )
+      const request = withApp(signedIn())
+
+      await apiClient(request)
+        .get('/v1/credentials')
+        .catch(() => {})
+
+      expect(wasUnauthorised(request)).toBe(true)
+    })
+
+    test('notes it on the request when the backend answers 401', async () => {
+      fetchMock.mockResponseOnce(JSON.stringify({ code: 'invalid-token' }), {
+        status: 401
+      })
+      const request = withApp(signedIn())
+
+      await apiClient(request)
+        .get('/v1/credentials')
+        .catch(() => {})
+
+      expect(wasUnauthorised(request)).toBe(true)
+    })
+
+    test.each([403, 404, 500])('does not note it for a %s', async (status) => {
+      fetchMock.mockResponseOnce(JSON.stringify({ code: 'x' }), { status })
+      const request = withApp(signedIn())
+
+      await apiClient(request)
+        .get('/v1/credentials')
+        .catch(() => {})
+
+      expect(wasUnauthorised(request)).toBe(false)
+    })
+
+    test('does not note it when the frontend token cannot be had (502, not a refused session)', async () => {
+      getAppToken.mockRejectedValueOnce(
+        new ApiError({ statusCode: 502, code: 'upstream-unavailable' })
+      )
+      const request = withApp(signedOut())
+
+      await apiClient(request)
+        .get('/v1/models')
+        .catch(() => {})
+
+      expect(wasUnauthorised(request)).toBe(false)
     })
   })
 

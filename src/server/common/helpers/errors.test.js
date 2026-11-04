@@ -32,6 +32,35 @@ describe('#errors', () => {
 })
 
 describe('#catchAll an API call the backend refused as unauthorised', () => {
+  test('ends the session of a signed-in person even when the page rendered normally, if a call on the request was refused', () => {
+    const request = {
+      response: { statusCode: 200, source: 'page' },
+      app: { unauthorised: true },
+      path: '/',
+      method: 'get',
+      url: { search: '' },
+      yar: { get: () => ({ id: 'user-1' }), reset: vi.fn() }
+    }
+    const h = { redirect: vi.fn(() => 'redirected'), continue: 'continue' }
+
+    expect(catchAll(request, h)).toBe('redirected')
+
+    expect(request.yar.reset).toHaveBeenCalledTimes(1)
+    expect(h.redirect).toHaveBeenCalledWith('/sign-in?returnTo=%2F')
+  })
+
+  test('leaves a visitor who is not signed in alone, whatever was refused', () => {
+    const request = {
+      response: { statusCode: 200 },
+      app: { unauthorised: true },
+      yar: { get: () => undefined, reset: vi.fn() }
+    }
+    const h = { redirect: vi.fn(), continue: 'continue' }
+
+    expect(catchAll(request, h)).toBe('continue')
+    expect(request.yar.reset).not.toHaveBeenCalled()
+  })
+
   const boomified = (statusCode = statusCodes.unauthorized) =>
     Boom.boomify(new ApiError({ statusCode, code: 'invalid-token' }))
   const signedInRequest = (overrides = {}) => ({

@@ -1,7 +1,7 @@
 import { config } from '#/config/config.js'
-import { ApiError } from './api-error.js'
+import { ApiError, markUnauthorised } from './api-error.js'
 import { getAppToken, getUserToken } from './access-token.js'
-import { getSessionTokens } from './session.js'
+import { getSessionTokens, getSessionUser } from './session.js'
 
 export { ApiError }
 
@@ -11,11 +11,27 @@ const defaultTimeoutMs = 5000
 
 // The person's access token once they have signed in, the frontend's own
 // app-only token before (the catalogue's reads). Who is calling is the token,
-// never a header: the backend takes nothing else on trust.
+// never a header: the backend takes nothing else on trust. A signed-in person
+// never falls back to the app identity: with no tokens (a session from before
+// tokens were kept) `getUserToken` refuses, and the session ends.
 function accessTokenFor(hapiRequest) {
-  return getSessionTokens(hapiRequest)
+  return getSessionTokens(hapiRequest) || getSessionUser(hapiRequest)
     ? getUserToken(hapiRequest)
     : getAppToken()
+}
+
+// Where a token cannot be had for the person, or the backend refuses it, the
+// request is marked so the session ends even if the page swallows the error.
+async function bearerFor(hapiRequest) {
+  try {
+    return `Bearer ${await accessTokenFor(hapiRequest)}`
+  } catch (error) {
+    if (error.statusCode === 401) {
+      markUnauthorised(hapiRequest)
+    }
+
+    throw error
+  }
 }
 
 async function callApi(
@@ -25,7 +41,7 @@ async function callApi(
 ) {
   const headers = {
     'content-type': 'application/json',
-    authorization: `Bearer ${await accessTokenFor(hapiRequest)}`
+    authorization: await bearerFor(hapiRequest)
   }
 
   const traceId = hapiRequest?.headers?.[tracingHeader]
@@ -62,6 +78,10 @@ async function callApi(
     response.status === 204 ? null : await response.json().catch(() => null)
 
   if (!response.ok) {
+    if (response.status === 401) {
+      markUnauthorised(hapiRequest)
+    }
+
     throw new ApiError({
       ...body,
       statusCode: response.status,
