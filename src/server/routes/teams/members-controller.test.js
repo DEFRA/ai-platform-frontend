@@ -692,7 +692,7 @@ describe('#members', () => {
           return formKey(await get(`${MEMBERS_URL}/add`))
         }
 
-        test('sends the key the form carried, so a retry of the same person and role adds once', async () => {
+        test('sends one key for a retry of the same person and role, made from the form’s key, so it adds once', async () => {
           backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
 
           const key = await openForm()
@@ -703,7 +703,11 @@ describe('#members', () => {
 
           await add({ idempotencyKey: formKey(failed) })
 
-          expect(sentKeys()).toEqual([key, key])
+          const [first, second] = sentKeys()
+
+          expect(first).toMatch(UUID)
+          expect(first).not.toBe(key)
+          expect(second).toBe(first)
         })
 
         test('sends the same key from overlapping submits of one form', async () => {
@@ -716,7 +720,10 @@ describe('#members', () => {
             add({ idempotencyKey: key })
           ])
 
-          expect(sentKeys()).toEqual([key, key])
+          const [first, second] = sentKeys()
+
+          expect(first).toMatch(UUID)
+          expect(second).toBe(first)
         })
 
         test('keeps the key of each tab, so a retry of the first add replays it after another tab has added someone else (A, B, retry A)', async () => {
@@ -729,8 +736,11 @@ describe('#members', () => {
           await add({ idempotencyKey: tabB, oid: OTHER_OID })
           await add({ idempotencyKey: tabA })
 
+          const [a, b, again] = sentKeys()
+
           expect(tabB).not.toBe(tabA)
-          expect(sentKeys()).toEqual([tabA, tabB, tabA])
+          expect(b).not.toBe(a)
+          expect(again).toBe(a)
         })
 
         test('keeps the key of the first choice in one form when the admin changes their mind and back (A, B, retry A)', async () => {
@@ -744,12 +754,59 @@ describe('#members', () => {
 
           const [a, b, again] = sentKeys()
 
-          expect(a).toBe(key)
-          expect(b).not.toBe(key)
-          expect(again).toBe(key)
+          expect(b).not.toBe(a)
+          expect(again).toBe(a)
         })
 
-        test('never uses one key for a different person or a different role, and the form comes back with the key of the choice that failed', async () => {
+        test('sends the same key for a retry of the second choice of a form after another tab has added someone (A fails, B fails, another tab adds, retry B) (thread r4468860426)', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+
+          const tabA = await openForm()
+          const tabB = await openForm()
+
+          const failedA = await add({ idempotencyKey: tabA })
+          const failedB = await add({
+            idempotencyKey: formKey(failedA),
+            oid: OTHER_OID
+          })
+
+          backend('admin', {
+            [`POST ${TEAM_PATH}/members`]: reply(201, {
+              member: { displayName: 'Sam Carter' }
+            })
+          })
+          await add({ idempotencyKey: tabB })
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+
+          await add({ idempotencyKey: formKey(failedB), oid: OTHER_OID })
+          await add({ idempotencyKey: formKey(failedA) })
+
+          const [a, b, , retriedB, retriedA] = sentKeys()
+
+          expect(b).not.toBe(a)
+          expect(retriedB).toBe(b)
+          expect(retriedA).toBe(a)
+        })
+
+        test('returns the key of the form, never a key made from the choice, when an add fails, and the key it returns is recognised', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+
+          const key = await openForm()
+          const failed = await add({ idempotencyKey: key, oid: OTHER_OID })
+
+          expect(formKey(failed)).toBe(key)
+          expect(sentKeys()[0]).not.toBe(key)
+
+          const retried = await add({
+            idempotencyKey: formKey(failed),
+            oid: OTHER_OID
+          })
+
+          expect(formKey(retried)).toBe(key)
+          expect(sentKeys()[1]).toBe(sentKeys()[0])
+        })
+
+        test('never uses one key for a different person or a different role, and the form comes back with its own key', async () => {
           backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
 
           const key = await openForm()
@@ -770,9 +827,9 @@ describe('#members', () => {
 
           expect(new Set(keys.slice(0, 3)).size).toBe(3)
           expect(keys[3]).toBe(keys[2])
-          expect(formKey(asUser)).toBe(keys[0])
-          expect(formKey(other)).toBe(keys[1])
-          expect(formKey(retried)).toBe(keys[2])
+          expect(formKey(asUser)).toBe(key)
+          expect(formKey(other)).toBe(key)
+          expect(formKey(retried)).toBe(key)
         })
 
         test('replays a person who was added when the same form is sent again, and gives a new form a new key', async () => {
@@ -788,7 +845,9 @@ describe('#members', () => {
 
           expect(added.statusCode).toBe(statusCodes.seeOther)
           expect(again.statusCode).toBe(statusCodes.seeOther)
-          expect(sentKeys()).toEqual([key, key])
+          expect(sentKeys()).toHaveLength(2)
+          expect(sentKeys()[1]).toBe(sentKeys()[0])
+          expect(sentKeys()[0]).toMatch(UUID)
           expect(await openForm()).not.toBe(key)
         })
 
@@ -867,11 +926,14 @@ describe('#members', () => {
 
           await add({ idempotencyKey: oldest })
           await add({ idempotencyKey: newest })
+          await add({ idempotencyKey: undefined })
 
-          const [first, last] = sentKeys()
+          const [first, last, keyless] = sentKeys()
 
-          expect(first).not.toBe(oldest)
-          expect(last).toBe(newest)
+          // The evicted key is treated as no key; the newest is still known.
+          expect(first).toBe(keyless)
+          expect(last).not.toBe(keyless)
+          expect(last).toMatch(UUID)
         }, 30_000)
 
         test('carries the key on every page of the form: a search, and a refusal to add', async () => {
@@ -1104,8 +1166,9 @@ describe('#members', () => {
           ([, options]) => options.headers['idempotency-key']
         )
 
-        expect(keys[0]).toBe(key)
-        expect(keys[1]).toBe(formKey(refused))
+        expect(keys[0]).toMatch(UUID)
+        expect(keys[1]).toMatch(UUID)
+        expect(keys[1]).not.toBe(keys[0])
       })
 
       test('sends a fresh key, not the one the backend refused, for a keyless retry after a refusal of a reused key', async () => {

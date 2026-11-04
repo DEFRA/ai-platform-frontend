@@ -185,7 +185,7 @@ async function searchPeople(request, h, team, values) {
 
 async function addPerson(request, h, team, values) {
   const { oid, role } = values
-  let idempotencyKey = keyForAdd(
+  const sentKey = keyForAdd(
     request,
     team.slug,
     { oid, role },
@@ -194,12 +194,7 @@ async function addPerson(request, h, team, values) {
   let member
 
   try {
-    member = await addTeamMember(
-      request,
-      team.slug,
-      { oid, role },
-      idempotencyKey
-    )
+    member = await addTeamMember(request, team.slug, { oid, role }, sentKey)
   } catch (error) {
     const problem = personProblem(error)
 
@@ -207,27 +202,32 @@ async function addPerson(request, h, team, values) {
       return refusalView(h, team, error, ADD_PEOPLE)
     }
 
-    // The backend knows this key for another choice: the next try is a new
-    // add, with a new key (the form's, and the one made without a form key).
-    // Any other refusal is tried again with this key.
-    if (error.code === 'idempotency-key-reused') {
-      voidAddKey(request, idempotencyKey)
+    // The form comes back with its own key, not the one sent, so the key is
+    // always one this session issued and a retry is recognised. The backend
+    // knows the key sent for another choice: the next try is a new add, with
+    // a new form key (and, with no form key, a new generation).
+    const reused = error.code === 'idempotency-key-reused'
+
+    if (reused) {
+      voidAddKey(request, values.idempotencyKey)
       nextAddKeyGeneration(request)
-      idempotencyKey = issueAddKey(request, team.slug)
     }
 
     return addMemberView(h, {
       team,
       values,
-      idempotencyKey,
+      idempotencyKey: reused
+        ? issueAddKey(request, team.slug)
+        : carryAddKey(request, team.slug, values.idempotencyKey),
       people: await matchesAgain(request, team, values),
       errors: errorOn('oid', problem.text)
     }).code(problem.statusCode)
   }
 
-  // The key is kept: the same form sent again (a double click, the back
-  // button) is the same add, and the backend answers it as it did the first.
-  // A later add of the same person and role without a form key is a new one.
+  // The form's key is kept: the same form sent again (a double click, the
+  // back button) is the same add, and the backend answers it as it did the
+  // first. A later add of the same person and role without a form key is a
+  // new one.
   nextAddKeyGeneration(request)
   setAccountNotification(request, {
     type: 'success',

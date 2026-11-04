@@ -108,17 +108,18 @@ describe('#add-member-keys', () => {
   describe('the key for adding a person with a role', () => {
     const person = { oid: OID, role: 'user' }
 
-    test('uses the key of the form, and the same key for a retry of the same person and role', () => {
+    test('makes a key from the form’s key, and the same key for a retry of the same person and role', () => {
       const key = issueAddKey(request, TEAM, NOW)
+      const first = keyForAdd(request, TEAM, person, key, NOW)
 
-      expect(keyForAdd(request, TEAM, person, key, NOW)).toBe(key)
-      expect(keyForAdd(request, TEAM, person, key, NOW)).toBe(key)
+      expect(first).toMatch(UUID)
+      expect(first).not.toBe(key)
+      expect(keyForAdd(request, TEAM, person, key, NOW)).toBe(first)
     })
 
     test('treats the same oid in another case as the same person', () => {
       const key = issueAddKey(request, TEAM, NOW)
-
-      keyForAdd(request, TEAM, person, key, NOW)
+      const first = keyForAdd(request, TEAM, person, key, NOW)
 
       expect(
         keyForAdd(
@@ -128,7 +129,7 @@ describe('#add-member-keys', () => {
           key,
           NOW
         )
-      ).toBe(key)
+      ).toBe(first)
     })
 
     test('never reuses a key for another person or another role', () => {
@@ -150,7 +151,7 @@ describe('#add-member-keys', () => {
       )
 
       expect(new Set([a, b, bAdmin]).size).toBe(3)
-      expect(a).toBe(key)
+      expect(a).not.toBe(key)
     })
 
     test('replays the first choice when the admin goes back to it (A, B, then A again)', () => {
@@ -193,6 +194,61 @@ describe('#add-member-keys', () => {
       }
 
       expect(request.store.get('addMemberKeys')).toHaveLength(1)
+    })
+
+    describe('a key issued by this session does not depend on the key generation (thread r4468860426)', () => {
+      const other = { oid: OTHER_OID, role: 'user' }
+
+      test('sends the same key for a choice of a form whatever the session has done since (A, B, a success elsewhere, B again)', () => {
+        const key = issueAddKey(request, TEAM, NOW)
+
+        keyForAdd(request, TEAM, person, key, NOW)
+
+        const b = keyForAdd(request, TEAM, other, key, NOW)
+
+        nextAddKeyGeneration(request)
+        nextAddKeyGeneration(request)
+
+        expect(keyForAdd(request, TEAM, other, key, NOW)).toBe(b)
+      })
+
+      test('sends the same key from independently loaded snapshots of the session', () => {
+        const first = aRequest()
+        const key = issueAddKey(first, TEAM, NOW)
+        const second = aRequest()
+
+        second.store.set('addMemberKeys', first.store.get('addMemberKeys'))
+        nextAddKeyGeneration(second)
+
+        expect(keyForAdd(second, TEAM, person, key, NOW)).toBe(
+          keyForAdd(first, TEAM, person, key, NOW)
+        )
+      })
+
+      test('gives each choice of a form, and each form, its own key, and never the key of the form itself', () => {
+        const key = issueAddKey(request, TEAM, NOW)
+        const next = issueAddKey(request, TEAM, NOW)
+        const keys = [
+          keyForAdd(request, TEAM, person, key, NOW),
+          keyForAdd(request, TEAM, other, key, NOW),
+          keyForAdd(request, TEAM, { oid: OID, role: 'admin' }, key, NOW),
+          keyForAdd(request, TEAM, person, next, NOW)
+        ]
+
+        expect(new Set([key, next, ...keys]).size).toBe(6)
+        keys.forEach((each) => expect(each).toMatch(UUID))
+      })
+
+      test('does not share a key with the same form in another session', () => {
+        const key = issueAddKey(request, TEAM, NOW)
+        const elsewhere = aRequest('session-two')
+
+        elsewhere.store.set('addMemberKeys', request.store.get('addMemberKeys'))
+
+        expect(keyForAdd(elsewhere, TEAM, person, key, NOW)).not.toBe(
+          keyForAdd(request, TEAM, person, key, NOW)
+        )
+      })
     })
 
     describe('a double submit of a form whose key is no longer known (R3-2)', () => {
