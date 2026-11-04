@@ -38,6 +38,8 @@
          field into a combobox and sends the person chosen in a hidden `oid`. #}
       <form method="post" novalidate data-people-search-url="{{ searchUrl }}">
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        {# The key of this add: sent again with a retry, so the backend adds once. #}
+        <input type="hidden" name="idempotencyKey" value="{{ idempotencyKey }}">
 
         {{ govukInput({
           id: "search",

@@ -47,7 +47,10 @@ function searchField() {
 // role that has to be chosen. With script, the field holds the label of the
 // person chosen ("Name - email") and `query` what was typed to find them, so
 // on `add` neither is checked: the person is the `oid`, not the text.
+// `idempotencyKey` is the key the form was issued for this add; one that is
+// not a key is no key (the page then makes one), never an error to show.
 export const addMemberSchema = Joi.object({
+  idempotencyKey: Joi.string().guid().failover(''),
   action: Joi.string().valid('search', 'add').default('search'),
   search: Joi.when('action', {
     is: 'add',

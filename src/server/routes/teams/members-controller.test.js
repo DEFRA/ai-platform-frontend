@@ -10,6 +10,7 @@ import {
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 import { sampleTeam } from '#/test-helpers/team-connect-helpers.js'
+import { MAX_KEYS } from './add-member-keys.js'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
   getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
@@ -148,6 +149,11 @@ describe('#members', () => {
       response.headers.location,
       mergeCookies({ ...cookies }, response)
     )
+  }
+
+  // The idempotency key a page of the add form carries.
+  function formKey({ result }) {
+    return load(result)('input[name="idempotencyKey"]').attr('value')
   }
 
   // A search is a POST that changes nothing, so it is not a write.
@@ -434,8 +440,20 @@ describe('#members', () => {
       expect($('[data-testid="add-member-submit"]').text().trim()).toBe('Add')
       expect($('[data-testid="add-member-submit"]').attr('value')).toBe('add')
       expect($('select[name="oid"]')).toHaveLength(0)
-      expect($('input[name="idempotencyKey"]')).toHaveLength(0)
+      expect($('input[name="idempotencyKey"]').attr('type')).toBe('hidden')
+      expect($('input[name="idempotencyKey"]').attr('value')).toMatch(UUID)
       expect(searches()).toHaveLength(0)
+    })
+
+    test('issues a key for each time the form is shown, so a second tab has its own', async () => {
+      backend('admin')
+
+      const first = await get(`${MEMBERS_URL}/add`)
+      const second = await get(`${MEMBERS_URL}/add`)
+
+      expect(formKey(first)).toMatch(UUID)
+      expect(formKey(second)).toMatch(UUID)
+      expect(formKey(second)).not.toBe(formKey(first))
     })
 
     test('puts Search before Add, so that Enter in the text field searches instead of adding', async () => {
@@ -657,85 +675,203 @@ describe('#members', () => {
         expect(result).toContain('They can use the team straight away.')
       })
 
-      test('keeps the idempotency key for a retry of the same person and role, so the backend adds once', async () => {
-        backend('admin', {
-          [`POST ${TEAM_PATH}/members`]: reply(503, {
-            code: 'directory-unavailable'
-          })
+      // The idempotency key of each add the backend was sent, in order.
+      function sentKeys() {
+        return writes().map(([, options]) => options.headers['idempotency-key'])
+      }
+
+      describe('the idempotency key of each add', () => {
+        const unavailable = reply(503, { code: 'directory-unavailable' })
+
+        // Opens the form, as a tab does, and gives the key it carries.
+        async function openForm() {
+          return formKey(await get(`${MEMBERS_URL}/add`))
+        }
+
+        test('sends the key the form carried, so a retry of the same person and role adds once', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+
+          const key = await openForm()
+          const failed = await add({ idempotencyKey: key })
+
+          expect(failed.statusCode).toBe(statusCodes.serviceUnavailable)
+          expect(formKey(failed)).toBe(key)
+
+          await add({ idempotencyKey: formKey(failed) })
+
+          expect(sentKeys()).toEqual([key, key])
         })
 
-        await add()
-        await add()
+        test('sends the same key from overlapping submits of one form', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
 
-        const keys = writes().map(
-          ([, options]) => options.headers['idempotency-key']
-        )
+          const key = await openForm()
 
-        expect(keys[0]).toMatch(UUID)
-        expect(keys[1]).toBe(keys[0])
-      })
+          await Promise.all([
+            add({ idempotencyKey: key }),
+            add({ idempotencyKey: key })
+          ])
 
-      test('uses a new key for a different person or a different role, so the backend cannot replay the first choice', async () => {
-        backend('admin', {
-          [`POST ${TEAM_PATH}/members`]: reply(503, {
-            code: 'directory-unavailable'
-          })
+          expect(sentKeys()).toEqual([key, key])
         })
 
-        await add()
-        await add({ oid: OTHER_OID })
-        await add({ oid: OTHER_OID, role: 'admin' })
-        await add({ oid: OTHER_OID, role: 'admin' })
+        test('keeps the key of each tab, so a retry of the first add replays it after another tab has added someone else (A, B, retry A)', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
 
-        const keys = writes().map(
-          ([, options]) => options.headers['idempotency-key']
-        )
+          const tabA = await openForm()
+          const tabB = await openForm()
 
-        expect(new Set(keys.slice(0, 3)).size).toBe(3)
-        expect(keys[3]).toBe(keys[2])
-      })
+          await add({ idempotencyKey: tabA })
+          await add({ idempotencyKey: tabB, oid: OTHER_OID })
+          await add({ idempotencyKey: tabA })
 
-      test('uses a new key once the person has been added, so adding them again after they are removed is a new add', async () => {
-        backend('admin', {
-          [`POST ${TEAM_PATH}/members`]: reply(201, {
-            member: { displayName: 'Sam Carter' }
-          })
+          expect(tabB).not.toBe(tabA)
+          expect(sentKeys()).toEqual([tabA, tabB, tabA])
         })
 
-        await add()
-        await add()
+        test('keeps the key of the first choice in one form when the admin changes their mind and back (A, B, retry A)', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
 
-        const keys = writes().map(
-          ([, options]) => options.headers['idempotency-key']
-        )
+          const key = await openForm()
 
-        expect(keys[0]).toMatch(UUID)
-        expect(keys[1]).toMatch(UUID)
-        expect(keys[1]).not.toBe(keys[0])
-      })
+          await add({ idempotencyKey: key })
+          await add({ idempotencyKey: key, oid: OTHER_OID })
+          await add({ idempotencyKey: key })
 
-      test('keeps a person’s key to their own session', async () => {
-        backend('admin', {
-          [`POST ${TEAM_PATH}/members`]: reply(503, {
-            code: 'directory-unavailable'
-          })
+          const [a, b, again] = sentKeys()
+
+          expect(a).toBe(key)
+          expect(b).not.toBe(key)
+          expect(again).toBe(key)
         })
 
-        await add()
+        test('never uses one key for a different person or a different role, and the form comes back with the key of the choice that failed', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
 
-        cookies = await signInViaOidc(server, fetchMock)
-        backend('admin', {
-          [`POST ${TEAM_PATH}/members`]: reply(503, {
-            code: 'directory-unavailable'
+          const key = await openForm()
+          const asUser = await add({ idempotencyKey: key })
+          const other = await add({ idempotencyKey: key, oid: OTHER_OID })
+          const otherAdmin = await add({
+            idempotencyKey: key,
+            oid: OTHER_OID,
+            role: 'admin'
           })
+          const retried = await add({
+            idempotencyKey: formKey(otherAdmin),
+            oid: OTHER_OID,
+            role: 'admin'
+          })
+
+          const keys = sentKeys()
+
+          expect(new Set(keys.slice(0, 3)).size).toBe(3)
+          expect(keys[3]).toBe(keys[2])
+          expect(formKey(asUser)).toBe(keys[0])
+          expect(formKey(other)).toBe(keys[1])
+          expect(formKey(retried)).toBe(keys[2])
         })
-        await add()
 
-        const keys = writes().map(
-          ([, options]) => options.headers['idempotency-key']
-        )
+        test('replays a person who was added when the same form is sent again, and gives a new form a new key', async () => {
+          backend('admin', {
+            [`POST ${TEAM_PATH}/members`]: reply(201, {
+              member: { displayName: 'Sam Carter' }
+            })
+          })
 
-        expect(keys[1]).not.toBe(keys[0])
+          const key = await openForm()
+          const added = await add({ idempotencyKey: key })
+          const again = await add({ idempotencyKey: key })
+
+          expect(added.statusCode).toBe(statusCodes.seeOther)
+          expect(again.statusCode).toBe(statusCodes.seeOther)
+          expect(sentKeys()).toEqual([key, key])
+          expect(await openForm()).not.toBe(key)
+        })
+
+        test('makes a new key when the form carried none, a malformed one, or one this session did not issue', async () => {
+          backend('admin', {
+            [`POST ${TEAM_PATH}/members`]: reply(201, {
+              member: { displayName: 'Sam Carter' }
+            })
+          })
+
+          const forged = '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
+
+          for (const idempotencyKey of [undefined, '', 'not a key', forged]) {
+            const { statusCode } = await add({ idempotencyKey })
+
+            expect(statusCode).toBe(statusCodes.seeOther)
+          }
+
+          const keys = sentKeys()
+
+          expect(keys).toHaveLength(4)
+          expect(new Set(keys).size).toBe(4)
+          expect(keys.every((key) => UUID.test(key))).toBe(true)
+          expect(keys).not.toContain(forged)
+        })
+
+        test('keeps a person’s key to their own session', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+
+          const key = await openForm()
+
+          cookies = await signInViaOidc(server, fetchMock)
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+          await add({ idempotencyKey: key })
+
+          expect(sentKeys()[0]).not.toBe(key)
+        })
+
+        test('forgets the oldest keys, so a session holds a bounded few', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+
+          const oldest = await openForm()
+          let newest
+
+          for (let tab = 0; tab < MAX_KEYS; tab++) {
+            newest = await openForm()
+          }
+
+          await add({ idempotencyKey: oldest })
+          await add({ idempotencyKey: newest })
+
+          const [first, last] = sentKeys()
+
+          expect(first).not.toBe(oldest)
+          expect(last).toBe(newest)
+        }, 30_000)
+
+        test('carries the key on every page of the form: a search, and a refusal to add', async () => {
+          backend('admin', {
+            [`POST ${SEARCH_PATH}`]: { items: [sam] },
+            [`POST ${TEAM_PATH}/members`]: unavailable
+          })
+
+          const key = await openForm()
+          const searched = await post(`${MEMBERS_URL}/add`, {
+            action: 'search',
+            search: 'sam',
+            idempotencyKey: key
+          })
+          const refused = await add({ idempotencyKey: key, role: undefined })
+
+          expect(formKey(searched)).toBe(key)
+          expect(refused.statusCode).toBe(statusCodes.badRequest)
+          expect(formKey(refused)).toBe(key)
+        })
+
+        test('carries a new key when a search comes with one that is not known', async () => {
+          backend('admin', { [`POST ${SEARCH_PATH}`]: { items: [sam] } })
+
+          const searched = await post(`${MEMBERS_URL}/add`, {
+            action: 'search',
+            search: 'sam',
+            idempotencyKey: 'not a key'
+          })
+
+          expect(formKey(searched)).toMatch(UUID)
+        })
       })
 
       test('refuses an add with no role, shows the GOV.UK error with no role chosen, and adds no one', async () => {
@@ -905,7 +1041,7 @@ describe('#members', () => {
         }
       )
 
-      test('says the add could not be completed, keeps the choice and uses a fresh key on the next try, when the backend refuses a reused key', async () => {
+      test('says the add could not be completed, keeps the choice and carries a fresh key on the form, when the backend refuses a reused key', async () => {
         backend('admin', {
           [`POST ${TEAM_PATH}/members`]: reply(409, {
             code: 'idempotency-key-reused'
@@ -913,7 +1049,9 @@ describe('#members', () => {
           [`POST ${SEARCH_PATH}`]: { items: [sam, alex] }
         })
 
-        const { statusCode, result } = await add({ role: 'admin' })
+        const key = formKey(await get(`${MEMBERS_URL}/add`))
+        const refused = await add({ role: 'admin', idempotencyKey: key })
+        const { statusCode, result } = refused
         const $ = load(result)
 
         expect(statusCode).toBe(statusCodes.conflict)
@@ -925,16 +1063,17 @@ describe('#members', () => {
         expect(result).not.toContain('No one found')
         expect($('select[name="oid"]').val()).toBe(OID)
         expect($('input[name="role"]:checked').attr('value')).toBe('admin')
+        expect(formKey(refused)).toMatch(UUID)
+        expect(formKey(refused)).not.toBe(key)
 
-        await add({ role: 'admin' })
+        await add({ role: 'admin', idempotencyKey: formKey(refused) })
 
         const keys = writes().map(
           ([, options]) => options.headers['idempotency-key']
         )
 
-        expect(keys[0]).toMatch(UUID)
-        expect(keys[1]).toMatch(UUID)
-        expect(keys[1]).not.toBe(keys[0])
+        expect(keys[0]).toBe(key)
+        expect(keys[1]).toBe(formKey(refused))
       })
 
       test('does not say no one was found beside "already a member", when the person has just been left out of the matches', async () => {

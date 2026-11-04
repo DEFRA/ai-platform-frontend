@@ -1,13 +1,12 @@
-import { randomUUID } from 'node:crypto'
-
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError } from '#/server/common/helpers/api-client.js'
+import { setAccountNotification } from '#/server/common/helpers/session.js'
 import {
-  clearAddMemberKey,
-  getAddMemberKey,
-  setAccountNotification,
-  setAddMemberKey
-} from '#/server/common/helpers/session.js'
+  carryAddKey,
+  issueAddKey,
+  keyForAdd,
+  voidAddKey
+} from './add-member-keys.js'
 import {
   errorOn,
   joiErrors,
@@ -62,9 +61,18 @@ function placeErrors(errors, hasList) {
 // `people` is the matches to choose from, or null when nobody has searched
 // (or the search could not be made again). `searched` is for a page that is
 // the answer to a search: only then does an empty list mean "no one found".
+// `idempotencyKey` is the key of the add this form is for (see
+// add-member-keys.js), carried in the form.
 function addMemberView(
   h,
-  { team, values, people = null, searched = false, errors = noErrors() }
+  {
+    team,
+    values,
+    idempotencyKey,
+    people = null,
+    searched = false,
+    errors = noErrors()
+  }
 ) {
   const hasList = Boolean(people?.length)
   const placed = placeErrors(errors, hasList)
@@ -76,6 +84,7 @@ function addMemberView(
     backUrl: membersUrl(team),
     searchUrl: `${membersUrl(team)}/add/people`,
     values,
+    idempotencyKey,
     personItems: hasList ? personItems(people, values.oid) : null,
     personCount: people?.length,
     noMatches: searched && people?.length === 0,
@@ -145,11 +154,18 @@ async function matchesAgain(request, team, values) {
 
 async function searchPeople(request, h, team, values) {
   const shown = { ...values, oid: '' }
+  const idempotencyKey = carryAddKey(request, team.slug, values.idempotencyKey)
 
   try {
     const people = await searchTeamPeople(request, team.slug, values.search)
 
-    return addMemberView(h, { team, values: shown, people, searched: true })
+    return addMemberView(h, {
+      team,
+      values: shown,
+      idempotencyKey,
+      people,
+      searched: true
+    })
   } catch (error) {
     const problem = personProblem(error)
 
@@ -160,31 +176,20 @@ async function searchPeople(request, h, team, values) {
     return addMemberView(h, {
       team,
       values: shown,
+      idempotencyKey,
       errors: errorOn('search', problem.text)
     }).code(problem.statusCode)
   }
 }
 
-// The key for adding this person with this role: the same for a retry of the
-// same choice, so the backend adds once, and new for any other, so it cannot
-// answer a different choice with an earlier one. It is kept in the session.
-function keyForAdd(request, team, { oid, role }) {
-  const choice = `${team.slug}|${oid}|${role}`
-  const saved = getAddMemberKey(request)
-
-  if (saved?.choice === choice) {
-    return saved.key
-  }
-
-  const key = randomUUID()
-
-  setAddMemberKey(request, { choice, key })
-
-  return key
-}
-
 async function addPerson(request, h, team, values) {
   const { oid, role } = values
+  let idempotencyKey = keyForAdd(
+    request,
+    team.slug,
+    { oid, role },
+    values.idempotencyKey
+  )
   let member
 
   try {
@@ -192,7 +197,7 @@ async function addPerson(request, h, team, values) {
       request,
       team.slug,
       { oid, role },
-      keyForAdd(request, team, values)
+      idempotencyKey
     )
   } catch (error) {
     const problem = personProblem(error)
@@ -201,20 +206,24 @@ async function addPerson(request, h, team, values) {
       return refusalView(h, team, error, ADD_PEOPLE)
     }
 
-    // The next try is a new add, with a fresh key.
+    // The backend knows this key for another choice: the next try is a new
+    // add, with a new key. Any other refusal is tried again with this key.
     if (error.code === 'idempotency-key-reused') {
-      clearAddMemberKey(request)
+      voidAddKey(request, idempotencyKey)
+      idempotencyKey = issueAddKey(request, team.slug)
     }
+
     return addMemberView(h, {
       team,
       values,
+      idempotencyKey,
       people: await matchesAgain(request, team, values),
       errors: errorOn('oid', problem.text)
     }).code(problem.statusCode)
   }
 
-  clearAddMemberKey(request)
-
+  // The key is kept: the same form sent again (a double click, the back
+  // button) is the same add, and the backend answers it as it did the first.
   setAccountNotification(request, {
     type: 'success',
     heading: `${member.displayName ?? 'This person'} has been added`,
@@ -238,7 +247,8 @@ export const addMemberController = {
         page ??
         addMemberView(h, {
           team: loaded.team,
-          values: submittedValues()
+          values: submittedValues(),
+          idempotencyKey: issueAddKey(request, loaded.team.slug)
         })
       )
     }
@@ -263,6 +273,11 @@ export const addMemberController = {
           return addMemberView(h, {
             team: loaded.team,
             values,
+            idempotencyKey: carryAddKey(
+              request,
+              loaded.team.slug,
+              request.payload?.idempotencyKey
+            ),
             people,
             errors: joiErrors(error)
           })

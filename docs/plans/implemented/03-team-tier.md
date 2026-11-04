@@ -100,8 +100,11 @@ Built 4 November 2026 on two branches (backend `feat/team-directory-add-by-oid`,
 - **Frontend.** Screen 14 (`/teams/{slug}/members/add`) has a search field, Search and Add buttons and a role. One POST
   with `action=search|add` works without JavaScript (a select list of matches; a failed add searches again so the choice
   stays). With JavaScript, `accessible-autocomplete` 3.0.2 (a second Vite entry, `people-search-entry.js`, loaded only
-  by this page) calls the JSON route `POST /teams/{slug}/members/add/people`. The idempotency key is kept in the
-  session per person and role. The Members list no longer shows "Not signed in yet".
+  by this page) calls the JSON route `POST /teams/{slug}/members/add/people`. The idempotency key is per add: issued
+  when the form is shown and carried in a hidden field, kept in the session (at most 10, for an hour) for the team and,
+  once used, the person and role it was used for. A retry or an overlapping submit of the same add sends the same key;
+  another person or role, or a key the session did not issue, gets a new one. The Members list no longer shows "Not
+  signed in yet".
 - **Proof.** Real-browser axe: 0 violations with and without JavaScript. Not covered: a screen-reader pass, iOS
   styling, and the journey that the added person sees the team (journey T14, needs the real backend).
 

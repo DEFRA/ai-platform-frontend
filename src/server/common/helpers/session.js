@@ -5,7 +5,7 @@ const PENDING_TEAM_KEY = 'pendingTeam'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
-const ADD_MEMBER_KEY = 'addMemberKey'
+const ADD_MEMBER_KEYS = 'addMemberKeys'
 
 export function getSessionUser(request) {
   // yar's session store is only initialised for matched routes (onPreAuth
@@ -99,20 +99,14 @@ export function takeOidcLoginState(request) {
   return value
 }
 
-// The idempotency key of the add in progress, and which add it is for
-// (`{ choice, key }`): a retry of the same choice sends the same key.
-export function getAddMemberKey(request) {
-  return request.yar.get(ADD_MEMBER_KEY)
+// The idempotency keys the add form has issued, each for its own add
+// (`[{ key, team, choice, issuedAt }]`, a few at most): see add-member-keys.js.
+export function getAddMemberKeys(request) {
+  return request.yar.get(ADD_MEMBER_KEYS)
 }
 
-export function setAddMemberKey(request, value) {
-  request.yar.set(ADD_MEMBER_KEY, value)
-}
-
-// Once the person is added the key is done with: adding them again later, after
-// they are removed, is a new add.
-export function clearAddMemberKey(request) {
-  request.yar.clear(ADD_MEMBER_KEY)
+export function setAddMemberKeys(request, value) {
+  request.yar.set(ADD_MEMBER_KEYS, value)
 }
 
 export function setAccountNotification(request, value) {
