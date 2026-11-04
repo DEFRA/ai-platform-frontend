@@ -126,7 +126,8 @@ export const authController = {
 
       let oidcConfig
       try {
-        oidcConfig = await getOidcConfig()
+        // The code grant authenticates the client (design E #portal).
+        oidcConfig = await getOidcConfig({ authenticateClient: true })
       } catch (error) {
         request.logger.error({ err: error }, 'Entra ID sign-in is unavailable')
         return unavailableView(h)

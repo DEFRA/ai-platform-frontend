@@ -223,11 +223,7 @@ export async function loadHomeView(request) {
   )
 
   deploymentReads.forEach((read) =>
-    logFailed(
-      request,
-      read,
-      'Could not read a teamâ€™s models for the home page'
-    )
+    logFailed(request, read, 'Could not read a team’s models for the home page')
   )
 
   const teamReads = (teams ?? []).map((team, index) => ({

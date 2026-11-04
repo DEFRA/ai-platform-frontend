@@ -15,7 +15,7 @@ const isFederated = () => config.get('azureAd.authMethod') === 'federated'
 // The one way this frontend proves itself to Entra when it federates (design
 // E #portal): a client assertion, the CDP Web Identity token, sent with the
 // code, refresh and client-credentials grants alike. The library's hook is
-// synchronous, so the assertion is fetched in getOidcConfig() just before a
+// synchronous, so the assertion is fetched by getOidcConfig({ authenticateClient: true }) just before a
 // grant and read here.
 function federatedClientAuthentication(_server, clientMetadata, body) {
   body.set('client_id', clientMetadata.client_id)
@@ -85,11 +85,15 @@ function discover() {
 }
 
 /**
- * The Entra ID OIDC configuration for a grant or a redirect, discovered once
- * and cached. When federating, the client assertion is refreshed first, so
- * whatever grant the caller makes next is authenticated.
+ * The Entra ID OIDC configuration, discovered once and cached. Pass
+ * `{ authenticateClient: true }` before a grant (code, refresh or client
+ * credentials): when federating, the client assertion is then refreshed, so
+ * the grant is authenticated. The sign-in and end-session addresses are not
+ * grants and need no assertion, so sign-out still ends the Entra session when
+ * CDP Web Identity is failing.
+ * @param {{ authenticateClient?: boolean }} [options]
  */
-export async function getOidcConfig() {
+export async function getOidcConfig({ authenticateClient = false } = {}) {
   if (!discoveryPromise) {
     // A failed discovery is not kept: the next request tries again.
     discoveryPromise = discover().catch((error) => {
@@ -100,7 +104,7 @@ export async function getOidcConfig() {
 
   const oidcConfig = await discoveryPromise
 
-  if (isFederated()) {
+  if (authenticateClient && isFederated()) {
     await refreshClientAssertion()
   }
 

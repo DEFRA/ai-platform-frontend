@@ -165,6 +165,7 @@ describe('#authController', () => {
     const [request] = fetchMock.requests()
     expect(request.method).toBe('PUT')
     expect(new URL(request.url).pathname).toBe('/v1/users/me')
+    expect(getOidcConfig).toHaveBeenCalledWith({ authenticateClient: true })
     expect(request.headers.get('authorization')).toBe(
       'Bearer user-access-token'
     )
@@ -179,7 +180,7 @@ describe('#authController', () => {
     expect(Object.values(cookies).join(';')).not.toContain('user-refresh-token')
 
     fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
-    await server.inject({
+    const page = await server.inject({
       method: 'GET',
       url: '/models',
       headers: { cookie: cookieHeader(cookies) }
@@ -188,6 +189,11 @@ describe('#authController', () => {
     expect(fetchMock.requests().at(-1).headers.get('authorization')).toBe(
       'Bearer user-access-token'
     )
+    // Nor in the page, nor in any header it comes with.
+    for (const token of ['user-access-token', 'user-refresh-token']) {
+      expect(page.payload).not.toContain(token)
+      expect(JSON.stringify(page.headers)).not.toContain(token)
+    }
   })
 
   test('GET /auth/login asks for offline access and the API scope as well as the OpenID scopes', async () => {

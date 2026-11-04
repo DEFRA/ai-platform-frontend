@@ -38,7 +38,7 @@ async function refresh(tokens) {
     throw new Error('The session holds no refresh token')
   }
 
-  const oidcConfig = await getOidcConfig()
+  const oidcConfig = await getOidcConfig({ authenticateClient: true })
   const response = await client.refreshTokenGrant(
     oidcConfig,
     tokens.refreshToken,
@@ -103,7 +103,7 @@ export async function getUserToken(request) {
 }
 
 async function requestAppToken() {
-  const oidcConfig = await getOidcConfig()
+  const oidcConfig = await getOidcConfig({ authenticateClient: true })
   const response = await client.clientCredentialsGrant(oidcConfig, {
     scope: appScope()
   })

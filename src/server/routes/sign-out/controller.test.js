@@ -70,6 +70,21 @@ describe('#signOutController', () => {
     )
   })
 
+  test('POST /sign-out asks for the configuration without authenticating the client, so it does not need CDP Web Identity', async () => {
+    const cookies = await signInViaOidc(server, fetchMock)
+    getOidcConfig.mockClear()
+
+    await server.inject({
+      method: 'POST',
+      url: '/sign-out',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(getOidcConfig).toHaveBeenCalledTimes(1)
+    expect(getOidcConfig).toHaveBeenCalledWith()
+  })
+
   test('falls back to / if the Entra ID end-session URL cannot be built', async () => {
     const cookies = await signInViaOidc(server, fetchMock)
     getOidcConfig.mockRejectedValueOnce(new Error('discovery failed'))

@@ -5,7 +5,7 @@ import {
   resetAppToken,
   tokensFromResponse
 } from './access-token.js'
-import { getSessionTokens, setSessionTokens } from './session.js'
+import { getSessionTokens } from './session.js'
 
 const refreshTokenGrant = vi.fn()
 const clientCredentialsGrant = vi.fn()
@@ -114,6 +114,7 @@ describe('#access tokens', () => {
 
       await expect(getUserToken(request)).resolves.toBe('access-2')
 
+      expect(getOidcConfig).toHaveBeenCalledWith({ authenticateClient: true })
       expect(refreshTokenGrant).toHaveBeenCalledWith(
         'oidc-config',
         'refresh-1',
@@ -225,13 +226,14 @@ describe('#access tokens', () => {
   })
 
   describe('#getAppToken', () => {
-    test("asks Entra for the frontend's own token for the API, with the federated or secret client authentication", async () => {
+    test("asks Entra for the frontend's own token for the API's default scope, with the client authenticated for the grant", async () => {
       clientCredentialsGrant.mockResolvedValue(
         grantResponse({ access_token: 'app-1', refresh_token: undefined })
       )
 
       await expect(getAppToken()).resolves.toBe('app-1')
 
+      expect(getOidcConfig).toHaveBeenCalledWith({ authenticateClient: true })
       expect(clientCredentialsGrant).toHaveBeenCalledWith('oidc-config', {
         scope: `api://${API}/.default`
       })
@@ -286,13 +288,5 @@ describe('#access tokens', () => {
 
       await expect(getAppToken()).rejects.toMatchObject({ statusCode: 502 })
     })
-  })
-
-  test('keeps tokens in the session and nowhere else', () => {
-    const request = mockRequest()
-
-    setSessionTokens(request, sessionTokens())
-
-    expect(getSessionTokens(request)).toEqual(sessionTokens())
   })
 })

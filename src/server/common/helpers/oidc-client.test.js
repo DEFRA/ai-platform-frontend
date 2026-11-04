@@ -126,9 +126,11 @@ describe('#getOidcConfig', () => {
       })
     })
 
+    const GRANT = { authenticateClient: true }
+
     async function clientAuthentication() {
       const { discovery } = await import('openid-client')
-      await getOidcConfig()
+      await getOidcConfig(GRANT)
 
       return discovery.mock.calls.at(-1)[3]
     }
@@ -136,7 +138,7 @@ describe('#getOidcConfig', () => {
     test('discovers with a client-authentication function and no secret', async () => {
       const { discovery } = await import('openid-client')
 
-      await getOidcConfig()
+      await getOidcConfig(GRANT)
 
       expect(discovery).toHaveBeenCalledWith(
         ISSUER,
@@ -148,7 +150,7 @@ describe('#getOidcConfig', () => {
     })
 
     test('asks CDP Web Identity for a token for the configured audience', async () => {
-      await getOidcConfig()
+      await getOidcConfig(GRANT)
 
       expect(WebIdentityTokenProvider).toHaveBeenCalledTimes(1)
       expect(WebIdentityTokenProvider).toHaveBeenCalledWith({
@@ -170,11 +172,11 @@ describe('#getOidcConfig', () => {
       })
     })
 
-    test('uses a fresh token each time the configuration is asked for', async () => {
+    test('uses a fresh token each time the configuration is asked for a grant', async () => {
       const authenticate = await clientAuthentication()
       getCredentials.mockResolvedValue('web-identity-token-2')
 
-      await getOidcConfig()
+      await getOidcConfig(GRANT)
       const body = new URLSearchParams()
       authenticate({}, { client_id: 'client-123' }, body, new Headers())
 
@@ -182,12 +184,28 @@ describe('#getOidcConfig', () => {
       expect(WebIdentityTokenProvider).toHaveBeenCalledTimes(1)
     })
 
-    test('does not give a configuration when there is no token to prove itself with', async () => {
+    test('does not give a configuration for a grant when there is no token to prove itself with', async () => {
       getCredentials.mockResolvedValue(undefined)
 
-      await expect(getOidcConfig()).rejects.toThrow(
+      await expect(getOidcConfig(GRANT)).rejects.toThrow(
         'CDP Web Identity gave no client assertion'
       )
+    })
+
+    describe('for the sign-in and sign-out addresses, which are not grants', () => {
+      test('does not ask CDP Web Identity for anything', async () => {
+        await expect(getOidcConfig()).resolves.toBe('discovered-config')
+
+        expect(getCredentials).not.toHaveBeenCalled()
+        expect(WebIdentityTokenProvider).not.toHaveBeenCalled()
+      })
+
+      test('still gives the configuration when CDP Web Identity is failing, so sign-out can end the Entra session', async () => {
+        getCredentials.mockRejectedValue(new Error('STS is down'))
+
+        await expect(getOidcConfig()).resolves.toBe('discovered-config')
+        await expect(getOidcConfig(GRANT)).rejects.toThrow('STS is down')
+      })
     })
   })
 })
