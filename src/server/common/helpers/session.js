@@ -6,6 +6,7 @@ const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
 const ADD_MEMBER_KEYS = 'addMemberKeys'
+const ADD_MEMBER_GENERATION = 'addMemberGeneration'
 
 export function getSessionUser(request) {
   // yar's session store is only initialised for matched routes (onPreAuth
@@ -107,6 +108,17 @@ export function getAddMemberKeys(request) {
 
 export function setAddMemberKeys(request, value) {
   request.yar.set(ADD_MEMBER_KEYS, value)
+}
+
+// A number that moves on after an add has succeeded or its key was refused as
+// reused, so the key made for a person and role without a form key is a new
+// one for the next add of them: see add-member-keys.js.
+export function getAddMemberGeneration(request) {
+  return request.yar.get(ADD_MEMBER_GENERATION) ?? 0
+}
+
+export function setAddMemberGeneration(request, value) {
+  request.yar.set(ADD_MEMBER_GENERATION, value)
 }
 
 export function setAccountNotification(request, value) {

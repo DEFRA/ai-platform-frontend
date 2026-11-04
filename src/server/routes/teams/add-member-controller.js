@@ -5,6 +5,7 @@ import {
   carryAddKey,
   issueAddKey,
   keyForAdd,
+  nextAddKeyGeneration,
   voidAddKey
 } from './add-member-keys.js'
 import {
@@ -207,9 +208,11 @@ async function addPerson(request, h, team, values) {
     }
 
     // The backend knows this key for another choice: the next try is a new
-    // add, with a new key. Any other refusal is tried again with this key.
+    // add, with a new key (the form's, and the one made without a form key).
+    // Any other refusal is tried again with this key.
     if (error.code === 'idempotency-key-reused') {
       voidAddKey(request, idempotencyKey)
+      nextAddKeyGeneration(request)
       idempotencyKey = issueAddKey(request, team.slug)
     }
 
@@ -224,6 +227,8 @@ async function addPerson(request, h, team, values) {
 
   // The key is kept: the same form sent again (a double click, the back
   // button) is the same add, and the backend answers it as it did the first.
+  // A later add of the same person and role without a form key is a new one.
+  nextAddKeyGeneration(request)
   setAccountNotification(request, {
     type: 'success',
     heading: `${member.displayName ?? 'This person'} has been added`,

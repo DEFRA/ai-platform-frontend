@@ -1,9 +1,12 @@
+import { config } from '#/config/config.js'
+
 import {
   carryAddKey,
   issueAddKey,
   keyForAdd,
   KEY_LIFETIME_MS,
   MAX_KEYS,
+  nextAddKeyGeneration,
   voidAddKey
 } from './add-member-keys.js'
 
@@ -14,13 +17,16 @@ const OTHER_OID = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
 const TEAM = 'flood-risk-team'
 const NOW = 1_000_000
 
-// A request with only the session a key is kept in.
-function aRequest() {
+// A request with only the session a key is kept in. Two requests made with
+// the same id and no state are two requests of one session that each loaded
+// their own snapshot of it, as concurrent requests do.
+function aRequest(id = 'session-one') {
   const store = new Map()
 
   return {
     store,
     yar: {
+      id,
       get: (name) => store.get(name),
       set: (name, v) => store.set(name, v)
     }
@@ -67,9 +73,7 @@ describe('#add-member-keys', () => {
       )
 
       expect(used).not.toBe(key)
-      expect(
-        request.store.get('addMemberKeys').map((e) => e.key)
-      ).not.toContain(key)
+      expect(carryAddKey(request, TEAM, key, later)).not.toBe(key)
     })
   })
 
@@ -165,7 +169,7 @@ describe('#add-member-keys', () => {
         '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
       ]
     ])(
-      'makes a new key for %s, and remembers it for a retry',
+      'makes a key for %s, and sends it again for a retry',
       (_name, offered) => {
         const key = keyForAdd(request, TEAM, person, offered, NOW)
 
@@ -181,14 +185,14 @@ describe('#add-member-keys', () => {
       expect(keyForAdd(request, TEAM, person, key, NOW)).not.toBe(key)
     })
 
-    test('stays within the bound however many choices are made', () => {
+    test('keeps one key for the form however many choices are made with it', () => {
       const key = issueAddKey(request, TEAM, NOW)
 
       for (let i = 0; i < MAX_KEYS * 3; i++) {
         keyForAdd(request, TEAM, { oid: OID, role: `role-${i}` }, key, NOW)
       }
 
-      expect(request.store.get('addMemberKeys')).toHaveLength(MAX_KEYS)
+      expect(request.store.get('addMemberKeys')).toHaveLength(1)
     })
 
     describe('a double submit of a form whose key is no longer known (R3-2)', () => {
@@ -258,13 +262,104 @@ describe('#add-member-keys', () => {
         expect(new Set([first, ...keys]).size).toBe(4)
       })
 
-      test('does not reuse a key that has itself expired', () => {
+      test('does not depend on the time: the key stays the same for the same operation however late the retry', () => {
         const offered = '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
         const first = keyForAdd(request, TEAM, person, offered, NOW)
 
         expect(
           keyForAdd(request, TEAM, person, offered, NOW + KEY_LIFETIME_MS)
-        ).not.toBe(first)
+        ).toBe(first)
+      })
+    })
+
+    describe('concurrent submits that each loaded their own snapshot of the session (thread r4468297939)', () => {
+      const offered = '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
+
+      test('send the same key when none of them has a key this session issued', () => {
+        const first = keyForAdd(aRequest(), TEAM, person, undefined, NOW)
+        const second = keyForAdd(aRequest(), TEAM, person, offered, NOW)
+
+        expect(first).toMatch(UUID)
+        expect(second).toBe(first)
+      })
+
+      test('send the same key when the form key expired, in two snapshots', () => {
+        const expired = aRequest()
+        const key = issueAddKey(expired, TEAM, NOW)
+        const later = NOW + KEY_LIFETIME_MS
+
+        expect(keyForAdd(expired, TEAM, person, key, later)).toBe(
+          keyForAdd(aRequest(), TEAM, person, key, later)
+        )
+      })
+
+      test('send the same key for the same oid in another case', () => {
+        expect(
+          keyForAdd(
+            aRequest(),
+            TEAM,
+            { oid: OID.toUpperCase(), role: 'user' },
+            undefined,
+            NOW
+          )
+        ).toBe(keyForAdd(aRequest(), TEAM, person, undefined, NOW))
+      })
+
+      test('never send one key for another session, person, role or team', () => {
+        const keys = [
+          keyForAdd(aRequest(), TEAM, person, undefined, NOW),
+          keyForAdd(aRequest('session-two'), TEAM, person, undefined, NOW),
+          keyForAdd(
+            aRequest(),
+            TEAM,
+            { oid: OTHER_OID, role: 'user' },
+            undefined,
+            NOW
+          ),
+          keyForAdd(
+            aRequest(),
+            TEAM,
+            { oid: OID, role: 'admin' },
+            undefined,
+            NOW
+          ),
+          keyForAdd(aRequest(), 'other-team', person, undefined, NOW)
+        ]
+
+        expect(new Set(keys).size).toBe(5)
+      })
+
+      test('send a new key after the generation moves on, and still the same one to each other', () => {
+        const before = keyForAdd(aRequest(), TEAM, person, undefined, NOW)
+        const a = aRequest()
+        const b = aRequest()
+
+        nextAddKeyGeneration(a)
+        nextAddKeyGeneration(b)
+
+        const afterA = keyForAdd(a, TEAM, person, undefined, NOW)
+
+        expect(afterA).not.toBe(before)
+        expect(keyForAdd(b, TEAM, person, undefined, NOW)).toBe(afterA)
+        expect(keyForAdd(a, TEAM, person, undefined, NOW)).toBe(afterA)
+      })
+
+      test('are not derivable without the server secret', () => {
+        const before = keyForAdd(aRequest(), TEAM, person, undefined, NOW)
+        const password = config.get('session.cookie.password')
+
+        try {
+          config.set(
+            'session.cookie.password',
+            'another-password-that-is-at-least-32-characters'
+          )
+
+          expect(keyForAdd(aRequest(), TEAM, person, undefined, NOW)).not.toBe(
+            before
+          )
+        } finally {
+          config.set('session.cookie.password', password)
+        }
       })
     })
   })

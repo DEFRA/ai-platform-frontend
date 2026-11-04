@@ -793,18 +793,14 @@ describe('#members', () => {
         })
 
         test('makes a key of its own when the form carried none, a malformed one, or one this session did not issue, the same for the same person and role', async () => {
-          backend('admin', {
-            [`POST ${TEAM_PATH}/members`]: reply(201, {
-              member: { displayName: 'Sam Carter' }
-            })
-          })
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
 
           const forged = '2f6a8e0c-9d2b-4a3e-8b57-6a1c0f3d9e11'
 
           for (const idempotencyKey of [undefined, '', 'not a key', forged]) {
             const { statusCode } = await add({ idempotencyKey })
 
-            expect(statusCode).toBe(statusCodes.seeOther)
+            expect(statusCode).toBe(statusCodes.serviceUnavailable)
           }
 
           const keys = sentKeys()
@@ -813,6 +809,38 @@ describe('#members', () => {
           expect(new Set(keys).size).toBe(1)
           expect(keys.every((key) => UUID.test(key))).toBe(true)
           expect(keys).not.toContain(forged)
+        })
+
+        test('sends one key from overlapping submits that have no key this session issued', async () => {
+          backend('admin', { [`POST ${TEAM_PATH}/members`]: unavailable })
+
+          await Promise.all([
+            add({ idempotencyKey: undefined }),
+            add({ idempotencyKey: undefined }),
+            add({ idempotencyKey: undefined })
+          ])
+
+          const keys = sentKeys()
+
+          expect(keys).toHaveLength(3)
+          expect(new Set(keys).size).toBe(1)
+        })
+
+        test('makes a new key for the next add of the same person and role without a form key, once the first has succeeded', async () => {
+          backend('admin', {
+            [`POST ${TEAM_PATH}/members`]: reply(201, {
+              member: { displayName: 'Sam Carter' }
+            })
+          })
+
+          await add({ idempotencyKey: undefined })
+          await add({ idempotencyKey: undefined })
+
+          const [first, second] = sentKeys()
+
+          expect(first).toMatch(UUID)
+          expect(second).toMatch(UUID)
+          expect(second).not.toBe(first)
         })
 
         test('keeps a person’s key to their own session', async () => {
@@ -1078,6 +1106,27 @@ describe('#members', () => {
 
         expect(keys[0]).toBe(key)
         expect(keys[1]).toBe(formKey(refused))
+      })
+
+      test('sends a fresh key, not the one the backend refused, for a keyless retry after a refusal of a reused key', async () => {
+        backend('admin', {
+          [`POST ${TEAM_PATH}/members`]: reply(409, {
+            code: 'idempotency-key-reused'
+          }),
+          [`POST ${SEARCH_PATH}`]: { items: [sam] }
+        })
+
+        // No key the session issued, so the first key is the one made from
+        // the operation; the refusal moves the session on from it.
+        await add({ idempotencyKey: undefined })
+        await add({ idempotencyKey: undefined })
+
+        const [first, second] = writes().map(
+          ([, options]) => options.headers['idempotency-key']
+        )
+
+        expect(second).toMatch(UUID)
+        expect(second).not.toBe(first)
       })
 
       test('does not say no one was found beside "already a member", when the person has just been left out of the matches', async () => {
