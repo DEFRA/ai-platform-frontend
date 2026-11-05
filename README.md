@@ -187,7 +187,9 @@ A refused account sees "You cannot sign in with this account".
 and email are both on an allowed domain, passes, because nothing in that token says it is a guest. Microsoft sends
 `idp` for guests, so this should not happen; adding the `acct` optional claim to the ID token in the app registration
 would close it. The backend does not close it: it is sent only the email, and applies the same address rule to that.
-Until the backend validates tokens itself (B27), it relies on this check for guests.
+The backend validates the access token itself since B27 (deployed and validated in CDP dev, 5 Nov 2026), so it no longer
+relies on this check, but the frontend still applies it at sign-in; whether to retire it is an open decision (see
+[06 Shared services](docs/plans/implemented/06-shared-services-and-security.md#b27-decisions-and-evidence)).
 
 The two sides run the same table of addresses (`eligibility-rule.test.js` here, `directory-eligibility.test.js` in the
 backend); change one, change the other. They differ in what they see: the frontend sees the claims, the backend only
