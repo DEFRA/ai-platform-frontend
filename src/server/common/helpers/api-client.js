@@ -1,4 +1,5 @@
 import { config } from '#/config/config.js'
+import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError, markUnauthorised } from './api-error.js'
 import { getAppToken, getUserToken } from './access-token.js'
 import { getSessionTokens, getSessionUser } from './session.js'
@@ -26,7 +27,7 @@ async function bearerFor(hapiRequest) {
   try {
     return `Bearer ${await accessTokenFor(hapiRequest)}`
   } catch (error) {
-    if (error.statusCode === 401) {
+    if (error.statusCode === statusCodes.unauthorized) {
       markUnauthorised(hapiRequest)
     }
 
@@ -78,7 +79,7 @@ async function callApi(
     response.status === 204 ? null : await response.json().catch(() => null)
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === statusCodes.unauthorized) {
       markUnauthorised(hapiRequest)
     }
 
