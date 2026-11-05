@@ -10,6 +10,7 @@ are those of `ai-platform-discovery-docs` `build-stories.md`, the authority for 
 | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | --------------------------------------- |
 | 1       | Identity and credentials | B18: real team client secret and federations                                                                                                                                                                                                                                         | Not started (placeholder built)                        | Entra admin consent                     |
 | 1       | Identity and credentials | B27: federated sign-in; backend validates an Entra token on every route                                                                                                                                                                                                              | Planned: decided 22 Oct; nothing built                 | Entra objects (by hand)                 |
+| 1       | Identity and credentials | Directory search: switch the add-member search from the seeded mock to Microsoft Graph (`DIRECTORY_MODE=graph`)                                                                                                                                                                      | Built against a mock; Graph refused until B27          | B27, Graph consent                      |
 | 1       | Identity and credentials | B15: Entra consent, `entra.enabled` back on in Infradev                                                                                                                                                                                                                              | Not started                                            | Entra admin consent                     |
 | 2       | Limits and reporting     | B17: limits page and increase requests                                                                                                                                                                                                                                               | Not started                                            | None                                    |
 | 2       | Limits and reporting     | B19: team usage and chargeback                                                                                                                                                                                                                                                       | Not started                                            | Agreed tariff and period                |
@@ -129,35 +130,21 @@ audience and reuses them unchanged.
 The rights are the ones the services enforce today; B27 adds the token and moves the checks into `access.js`. A test
 lists every route with its declared access, so a new route fails until it declares one.
 
-**Team invitations.** An Admin invites a member by Defra email, and the membership binds to the person at their next
-sign-in (design F `#membership`). Today `addMember` stores the invitation with `userId: null` and `upsertUser`
-activates it from whatever email `POST /v1/users` is sent. P1 keeps the binding but makes it safe:
-
-- It runs only inside `PUT /v1/users/me`, after a valid token from a member of the Defra tenant (`tid`, `acct: 0`), and
-  only for invitations whose email equals the token's `email` claim.
-- Each invitation binds once: one atomic update moves it from `invited` with no `userId` to `active` with the person's
-  `userId`, and the binding is audited with the team and `uti`. A bound invitation never moves to another person, and
-  the email grants nothing after that.
-- Two members cannot hold the same address at once: Entra keeps `proxyAddresses` unique across a tenant's users,
-  groups and contacts and refuses a clashing `mail`
-  ([user resource](https://learn.microsoft.com/en-us/graph/api/resources/user), checked 22 October 2026). The
-  remaining risk is a directory administrator reassigning an address while an invitation is still pending; the Admin
-  sees who joined and can remove them.
-- Not chosen: resolving the invitee's `oid` through Microsoft Graph when the invitation is made. It binds on an
-  immutable ID, but needs a tenant-wide directory read permission and admin consent for the backend identity.
-
-This is separate from finding 6: the legacy bind of a whole person record by email is removed.
+**Team membership.** There are no invitations and no binding by email: an Admin adds a person chosen from the
+directory by `oid` (built 4 November 2026, see [03 Team tier](implemented/03-team-tier.md#adding-a-member-from-the-directory)).
+B27 does no membership work. It is needed only to switch the real directory on, in
+[Directory search: Graph switch-on](#directory-search-graph-switch-on).
 
 **Review of the built code (22 October 2026)**
 
 | #   | Finding                                                                                                                                                         | Where                                                                            | Severity | Phase |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------- | ----- |
 | 1   | Every backend route trusts an `x-user-id` header (a Joi string), so anything inside CDP can act as anyone, Platform Admin included                              | backend `src/routes/*.js`                                                        | Critical | P1    |
-| 2   | `POST /v1/users` is unauthenticated and upserts any `oid`, `tid` and email, which also binds pending team invitations by email                                  | backend `routes/users.js`, `services/user-service.js`                            | Critical | P1    |
+| 2   | `POST /v1/users` is unauthenticated and upserts any `oid`, `tid` and email                                                                                      | backend `routes/users.js`, `services/user-service.js`                            | Critical | P1    |
 | 3   | Team rights are checked four ways (`getMemberRole`, inline `teamMembers` reads, `credential.actorRole`), and no refused request is audited                      | backend `team-service.js`, `credential-service.js`, `team-deployment-removal.js` | Medium   | P1    |
 | 4   | The CDP template's `/example` routes are still registered, unauthenticated                                                                                      | backend `routes/example.js`, `plugins/router.js`                                 | Medium   | P1    |
 | 5   | Eligibility is an email-domain allow-list, on a claim Microsoft says never to authorise on; nothing checks `tid` or guest status                                | both, `allowedEmailDomains`                                                      | Medium   | P1    |
-| 6   | A person record without `oid` is still bound by email at sign-in                                                                                                | backend `user-service.js`, partial `{ oid, tid }` index                          | Low      | P1    |
+| 6   | Built 4 Nov 2026 (directory add): no bind by email; a backfill deletes person records without `oid`                                                             | backend `user-service.js`, partial `{ oid, tid }` index                          | Low      | Done  |
 | 7   | Audit records `actorUserId` only: no `tid`, `azp`, `uti` or role used                                                                                           | backend `audit-service.js`                                                       | Low      | P1    |
 | 8   | `PLATFORM_ADMIN_ROLE` is checked but nothing assigns it                                                                                                         | backend `user-service.js`                                                        | Low      | P3    |
 | 9   | The frontend authenticates to Entra with `AZURE_CLIENT_SECRET` in every environment                                                                             | frontend `oidc-client.js`, `config.js`                                           | High     | P2    |
@@ -215,17 +202,11 @@ right gets a stable 403 code such as `admin-required`; audit with a 30-day TTL; 
   services in CDP ([CDP proxy guide](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/proxy.md)).
 - **P1 Backend: the API enforces it.** Findings 1 to 7. Add `@hapi/jwt` and the backend modules above, give every route
   its access from the route table, and take the actor from `request.auth.credentials` in every service. Remove
-  `x-user-id` from every route schema, `POST /v1/users`, the `/example` routes, `allowedEmailDomains` and the legacy
-  person-record email bind (finding 6), with a dated backfill deleting person records without `oid`; invitation
-  binding moves into `PUT /v1/users/me` as set out above. Tests: a helper mints tokens with a test RSA key and
+  `x-user-id` from every route schema, `POST /v1/users`, the `/example` routes and `allowedEmailDomains` (the email bind
+  and invitations are already gone, finding 6). Tests: a helper mints tokens with a test RSA key and
   serves its JWKS through `nock`; one table-driven test sends every bad token in B27 to a protected route and expects
   401; `access.js` tests cover 404, 403 and the refusal audit; the route-table test above; route tests send a bearer
-  token. Invitation tests:
-  - an invitee's first sign-in joins the team once, with an audit record;
-  - a second team's pending invitation for the same email binds to the same person;
-  - a guest's or another tenant's token with the same email binds nothing;
-  - a different `oid` with the same email after binding gets nothing;
-  - a sign-in with no matching invitation changes no membership.
+  token. Also a guest's or another tenant's token with a matching email gets nothing.
 
   Done when B27's acceptance criteria pass against the test keys.
 
@@ -243,6 +224,21 @@ right gets a stable 403 code such as `admin-required`; audit with a 30-day TTL; 
 Agreed on 22 October 2026: the first Platform Admin is set by hand; the maintenance route stays as built; a stolen
 access token stays valid until it expires, accepted because tokens never leave the server-side session and CDP's
 network is private; Terraform, other upgrades and sign-in policies such as MFA are out of scope.
+
+### Directory search: Graph switch-on
+
+The add-member page searches a seeded mock directory (`DIRECTORY_MODE=mock`, the default). The Microsoft Graph adapter
+is built and tested but refused at start-up, and production refuses `mock`, so production cannot start until this is
+done. Design: [ai-platform-discovery-docs#38](https://github.com/DEFRA/ai-platform-discovery-docs/pull/38). To switch
+on:
+
+- B27 supplies the signed-in Admin's token, which the adapter exchanges on behalf of the Admin.
+- An Entra admin grants tenant-wide consent for the delegated Graph permission `User.ReadBasic.All` on the portal API
+  app registration (`api-aip-portal`), and the CDP egress allow-list includes `graph.microsoft.com`.
+- Allow `graph` in the backend's directory registry, then set `DIRECTORY_MODE=graph` and redeploy.
+
+The backfill `2026-11-03-team-members-directory-only` runs when the backend first deploys with this change, not at
+switch-on. Read its start-up log counts (teams without an Admin, `credentialsOrphaned`).
 
 ## 2. Limits and reporting
 

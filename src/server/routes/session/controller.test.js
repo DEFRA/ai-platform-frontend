@@ -20,7 +20,11 @@ vi.mock('openid-client', () => ({
     () => new URL('https://login.microsoftonline.com/tenant/authorize')
   ),
   authorizationCodeGrant: vi.fn(async () => ({
-    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+    claims: () => ({
+      preferred_username: 'test.user@defra.gov.uk',
+      email: 'test.user@defra.gov.uk',
+      name: 'Test User'
+    })
   }))
 }))
 

@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         htmlAssets: 'src/client/assets.html',
         application: 'src/client/javascripts/application.js',
+        peopleSearch: 'src/client/javascripts/people-search-entry.js',
         applicationCss: 'src/client/stylesheets/application.scss'
       }
     },

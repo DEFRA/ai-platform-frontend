@@ -63,8 +63,9 @@ export function isNotFound(error) {
   return error instanceof ApiError && error.statusCode === statusCodes.notFound
 }
 
-// Only an admin needs to see a colleague's full address (to manage invites);
-// everyone else gets a masked form so the page isn't a team-wide email list.
+// Only an admin needs to see a colleague's full address (to manage the
+// members); everyone else gets a masked form so the page isn't a team-wide
+// email list.
 function maskEmail(email) {
   const [localPart, domain] = email.split('@')
 
