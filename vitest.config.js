@@ -24,6 +24,12 @@ export default defineConfig({
           functions: 95,
           branches: 95,
           statements: 95
+        },
+        'src/client/javascripts/session-timeout.js': {
+          lines: 95,
+          functions: 95,
+          branches: 95,
+          statements: 95
         }
       },
       exclude: [

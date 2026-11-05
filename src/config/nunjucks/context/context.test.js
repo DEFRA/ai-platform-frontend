@@ -85,6 +85,32 @@ describe('context and cache', () => {
         })
       })
 
+      describe('For a signed-in person', () => {
+        const signedIn = (clock) => ({
+          path: '/',
+          yar: {
+            get: (key) => ({ user: { id: 'user-1' }, sessionClock: clock })[key]
+          }
+        })
+
+        test('Should give the pages the time left on each session limit', () => {
+          const now = Date.now()
+          const { sessionTimeout } = contextImport.context(
+            signedIn({ startedAt: now, lastSeenAt: now })
+          )
+
+          expect(sessionTimeout).toEqual({
+            idleSeconds: 1800,
+            maxAgeSeconds: 28800,
+            warningSeconds: 120
+          })
+        })
+
+        test('Should give nothing to a signed-out visitor', () => {
+          expect(contextResult.sessionTimeout).toBeUndefined()
+        })
+      })
+
       describe('With invalid asset path', () => {
         test('Should provide expected asset', () => {
           expect(contextResult.getAssetPath('an-image.png')).toBe(

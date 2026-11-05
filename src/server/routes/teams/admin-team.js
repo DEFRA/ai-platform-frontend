@@ -1,5 +1,4 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
-import { requireSignIn } from '#/server/common/helpers/require-sign-in.js'
 import {
   isNotFound,
   loadTeamForView,
@@ -35,8 +34,9 @@ export function adminRequiredView(h, team, action, tab) {
 
 /**
  * The team for a page only its admins may use, or the page to show instead:
- * a signed-out person is sent to sign in, a team that is not theirs is not
- * found, and a member is told it is for admins.
+ * a team that is not theirs is not found, and a member is told it is for
+ * admins. The global sign-in gate (`onPostAuth`, before validation) has already
+ * sent a signed-out person to sign in.
  * @param {import('@hapi/hapi').Request} request
  * @param {import('@hapi/hapi').ResponseToolkit} h
  * @param {string} action - What only an admin can do, for example "add people".
@@ -44,14 +44,6 @@ export function adminRequiredView(h, team, action, tab) {
  * @returns {Promise<{page: object} | {loaded: object}>}
  */
 export async function loadAdminTeam(request, h, action, tab) {
-  // A failed validation runs before the global sign-in gate, so a signed-out
-  // person (with a still-valid CSRF token) is sent to sign in here.
-  const signIn = requireSignIn(request, h)
-
-  if (signIn !== h.continue) {
-    return { page: signIn }
-  }
-
   let loaded
 
   try {

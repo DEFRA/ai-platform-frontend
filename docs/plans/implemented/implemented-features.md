@@ -8,16 +8,17 @@ Last updated: 4 Nov 2026.
 
 ## What you can do
 
-| Journey                                                             | Status                                                | Detail                                                  |
-| ------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
-| Home page, sign in with Defra Entra ID, flat Defra design           | Built (Sept 2026)                                     | [01 Portal journeys](01-portal-journeys.md)             |
-| Browse the model catalogue, including ineligible and retired models | Built (Sept to Oct 2026)                              | [04 Catalogue and gateway](04-catalogue-and-gateway.md) |
-| Get a personal research key, renew, revoke, re-reveal with a reason | Built, live in Infradev                               | [02 Research tier](02-research-tier.md)                 |
-| Create a team, manage members and roles, set a service code         | Built (Sept to Oct 2026)                              | [03 Team tier](03-team-tier.md)                         |
-| Add a team member by searching the directory (mock until Graph)     | Built (4 Nov 2026), directory is a seeded mock        | [03 Team tier](03-team-tier.md)                         |
-| Request one or several dedicated models, follow the GitOps progress | Built, live in Infradev                               | [03 Team tier](03-team-tier.md)                         |
-| Remove a model from a team (ready models only)                      | Built (18 Oct 2026, ready only 2 Nov 2026)            | [03 Team tier](03-team-tier.md)                         |
-| Rotate and revoke a team credential (Admin)                         | Built; the secret is a labelled placeholder until B18 | [03 Team tier](03-team-tier.md)                         |
+| Journey                                                             | Status                                                | Detail                                                   |
+| ------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
+| Home page, sign in with Defra Entra ID, flat Defra design           | Built (Sept 2026)                                     | [01 Portal journeys](01-portal-journeys.md)              |
+| Browse the model catalogue, including ineligible and retired models | Built (Sept to Oct 2026)                              | [04 Catalogue and gateway](04-catalogue-and-gateway.md)  |
+| Get a personal research key, renew, revoke, re-reveal with a reason | Built, live in Infradev                               | [02 Research tier](02-research-tier.md)                  |
+| Create a team, manage members and roles, set a service code         | Built (Sept to Oct 2026)                              | [03 Team tier](03-team-tier.md)                          |
+| Add a team member by searching the directory (mock until Graph)     | Built (4 Nov 2026), directory is a seeded mock        | [03 Team tier](03-team-tier.md)                          |
+| Request one or several dedicated models, follow the GitOps progress | Built, live in Infradev                               | [03 Team tier](03-team-tier.md)                          |
+| Remove a model from a team (ready models only)                      | Built (18 Oct 2026, ready only 2 Nov 2026)            | [03 Team tier](03-team-tier.md)                          |
+| Rotate and revoke a team credential (Admin)                         | Built; the secret is a labelled placeholder until B18 | [03 Team tier](03-team-tier.md)                          |
+| Session ends after 30 minutes idle or 8 hours, with a warning       | Built (4 Nov 2026), part of B27                       | [06 Shared services](06-shared-services-and-security.md) |
 
 ## What it runs on
 
@@ -30,7 +31,7 @@ Last updated: 4 Nov 2026.
 
 ## Not built yet
 
-Team client secrets and federations (B18), federated portal sign-in with token validation on the backend (B27), the Graph switch-on for directory search, limits
+Team client secrets and federations (B18), federated portal sign-in and token validation on the backend (B27, session renewal built), the Graph switch-on for directory search, limits
 (B17), usage and chargeback (B19), observability (B20 to B22), the gateway
 authorisation layers' built state (B23), research-tier journey tests and the liveness reconcile, and the delivery-quality
 work, and B28's journey tests and end-to-end check. See [remaining.md](../remaining.md).

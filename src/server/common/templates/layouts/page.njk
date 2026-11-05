@@ -7,6 +7,7 @@
 
 {# Import custom components globally #}
 {% from "heading/macro.njk" import appHeading %}
+{% from "session-timeout/macro.njk" import appSessionTimeout %}
 
 {% set mainClasses = "app-main-wrapper" %}
 
@@ -95,6 +96,14 @@
 {% endblock %}
 
 {% block bodyEnd %}
+  {% if sessionTimeout %}
+    {{ appSessionTimeout({
+      idleSeconds: sessionTimeout.idleSeconds,
+      maxAgeSeconds: sessionTimeout.maxAgeSeconds,
+      warningSeconds: sessionTimeout.warningSeconds,
+      crumb: crumb
+    }) }}
+  {% endif %}
   <script type="module" src="{{ getAssetPath('src/client/javascripts/application.js') }}"></script>
 {% endblock %}
 
