@@ -127,9 +127,43 @@ AZURE_CLIENT_SECRET=mock-secret
 `dev:mock-oidc` loads the same `.env` as `npm run dev`, so if you already have
 real `AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET` values set, both processes will
 use them consistently — you only need to add `OIDC_MOCK_ISSUER_URL`. Signing
-in always logs in as one fixed mock user (`dev.user@defra.gov.uk`). This path
+in always logs in as one fixed mock user (`dev.user@defra.gov.uk`, as `preferred_username` and `email`). This path
 is never used in production: it's gated behind `OIDC_MOCK_ISSUER_URL` being
 set **and** the app not running in production.
+
+#### Who can sign in
+
+The frontend decides this in the sign-in callback, from the claims of the ID token, which is the only place they are
+seen, and a refused account is not sent to the backend and nothing about it is logged. The checks, all of which must
+pass:
+
+- **Not a guest.** Microsoft's [ID token claims reference](https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference)
+  (read 4 Nov 2026) says `idp` "is identical to the value of the issuer claim unless the user account isn't in the same
+  tenant as the issuer - guests, for instance", and that it "should always be sent in managed domain scenarios". A guest
+  is refused when `idp` is present and is not this tenant (its tenant ID is not the token's `tid`, which for a guest is
+  the resource tenant, and it is not `iss`; `live.com` and `google.com` have no tenant and are refused). `acct` is the
+  other documented signal ([optional claims reference](https://learn.microsoft.com/en-us/entra/identity-platform/optional-claims-reference),
+  `acct` 0 member, 1 guest): it is refused when it is present and not 0, but the app registration does not send it yet
+  (a manual Entra step, a follow-up, which would remove the one gap below). An `#EXT#` name in any claim is refused by
+  the address rule.
+- **Eligible by address.** The domain is decided on the person's own sign-in name (`preferred_username`, else `upn`),
+  and the `email` and `upn` claims, when present, must be eligible too: the claims Microsoft says are mutable can only
+  refuse, never admit. The rule is the one in `eligibility-rule.js`, the same as the backend's `isEligible`: the whole
+  address is trimmed and lower-cased, has exactly one `@`, no `#EXT#` anywhere, and a domain that is an exact match for
+  one in `ALLOWED_EMAIL_DOMAINS` (a comma-separated list, default `defra.gov.uk,defra.onmicrosoft.com`), so a subdomain
+  (`x@sub.defra.gov.uk`) or a look-alike (`x@defra.gov.uk.example.com`) is refused. A blank `email` is no email.
+
+A refused account sees "You cannot sign in with this account".
+
+**What this does not catch:** a guest whose token has no `idp`, no `acct` and no `#EXT#` name, and whose sign-in name
+and email are both on an allowed domain, passes, because nothing in that token says it is a guest. Microsoft sends
+`idp` for guests, so this should not happen; adding the `acct` optional claim to the ID token in the app registration
+would close it. The backend does not close it: it is sent only the email, and applies the same address rule to that.
+Until the backend validates tokens itself (B27), it relies on this check for guests.
+
+The two sides run the same table of addresses (`eligibility-rule.test.js` here, `directory-eligibility.test.js` in the
+backend); change one, change the other. They differ in what they see: the frontend sees the claims, the backend only
+the address it is sent. Keep the list the same as the backend's.
 
 ### Production
 

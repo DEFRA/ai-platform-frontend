@@ -257,15 +257,14 @@ it cannot be renewed again" when at the cap, action "Get a new key". No tags. Li
 
 ### 9. Members (13, 14, 15)
 
-**13 `/teams/{slug}/members`**: sub-navigation, button "Add a member" (admins). Table Name ("{name} (you)", or "Not signed
-in yet" in grey) | Email (masked for non-admins, as today) | Role | "Change" (admins). Under it: "Members can use the
+**13 `/teams/{slug}/members`**: sub-navigation, button "Add a member" (admins). Table Name ("{name} (you)") | Email (masked for non-admins, as today) | Role | "Change" (admins). Under it: "Members can use the
 team's models and add new ones. Admins can also see and rotate client secrets, add people, change roles and remove
 models."
 
-**14 `/teams/{slug}/members/add`**: caption team, H1 "Add a member". "Email address", hint "Their Defra work address, for
-example name@defra.gov.uk". Radios "Role": "Member" (default; hint "Can use the team's models and add new ones"), "Admin"
-(hint "Can also see and rotate client secrets, add people, change roles and remove models"). Inset "They will see the
-team when they next sign in." (D3). Button "Add a member".
+**14 `/teams/{slug}/members/add`**: caption team, H1 "Add a member". "Name or email address", hint "Enter at least 2 characters of their name or Defra email address"; button "Search" (removed when JavaScript runs); matches as an autocomplete or, without JavaScript, a "Person" select list; button "Add". Radios "Role": "Member" (hint "Can use the team's
+models and add new ones"), "Admin" (hint "Can also see and rotate client secrets, add people, change roles and remove
+models"); a role is required ("Select a role"). Inset "They can use the team straight away". Built 4 Nov 2026 against a
+seeded mock directory; see [03 Team tier](../../plans/implemented/03-team-tier.md#adding-a-member-from-the-directory).
 
 **15 `/teams/{slug}/members/{memberId}/role`** (`me` for yourself): H1 "Change your role" or "Change {name}'s role". The
 same radios. Last admin: error summary and field error "You are the only admin. Add another admin before you change your

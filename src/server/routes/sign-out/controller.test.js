@@ -24,7 +24,11 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
-    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+    claims: () => ({
+      preferred_username: 'test.user@defra.gov.uk',
+      email: 'test.user@defra.gov.uk',
+      name: 'Test User'
+    })
   })),
   buildEndSessionUrl: vi.fn(
     () => new URL('https://login.microsoftonline.com/tenant/oauth2/v2.0/logout')

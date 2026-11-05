@@ -1,87 +1,29 @@
-import { randomUUID } from 'node:crypto'
-import Joi from 'joi'
-
 import { statusCodes } from '#/server/common/constants/status-codes.js'
-import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
+import { ApiError, apiClient } from '#/server/common/helpers/api-client.js'
 import {
   getSessionUser,
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
 import {
-  buildErrorSummary,
-  buildFieldErrors
-} from '#/server/common/helpers/govuk-errors.js'
+  errorOn,
+  joiErrors,
+  loadAdminTeam,
+  memberNotFoundView,
+  membersUrl,
+  noErrors,
+  refusalView
+} from './member-pages.js'
+import { memberRoleSchema } from './members-schemas.js'
 import {
-  adminRequiredView as adminRequired,
-  loadAdminTeam as loadAdmin
-} from './admin-team.js'
-import {
-  isForbidden,
   isNotFound,
   loadTeamForView,
   teamNotFoundView,
-  teamTabs,
-  teamUrl
+  teamTabs
 } from './team-view.js'
-
-const MAX_EMAIL_LENGTH = 254
-
-const roleField = Joi.string().valid('admin', 'user').messages({
-  'any.only': 'Select a role',
-  'any.required': 'Select a role'
-})
-
-const memberRoleSchema = Joi.object({ role: roleField.required() })
-
-const addMemberSchema = Joi.object({
-  email: Joi.string()
-    .trim()
-    .email()
-    .max(MAX_EMAIL_LENGTH)
-    .required()
-    .messages({
-      'string.empty': 'Enter an email address',
-      'any.required': 'Enter an email address',
-      'string.email':
-        'Enter an email address in the correct format, like name@defra.gov.uk',
-      'string.max': `Email address must be ${MAX_EMAIL_LENGTH} characters or fewer`
-    }),
-  role: roleField.default('user')
-})
-
-function membersUrl(team) {
-  return `${teamUrl(team)}/members`
-}
-
-// What a person is called in a heading or a banner: their name once they
-// have signed in, otherwise the address they were invited by.
-function memberName(member) {
-  return member.displayName ?? member.email ?? 'this person'
-}
 
 function roleText(role) {
   return role === 'admin' ? 'Admin' : 'Member'
-}
-
-function adminRequiredView(h, team, action) {
-  return adminRequired(h, team, action, 'members')
-}
-
-function memberNotFoundView(h, team) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Member not found',
-      heading: 'Member not found',
-      message: `This person is not a member of ${team.name}, or has already been removed.`,
-      actionHref: membersUrl(team),
-      actionText: 'Back to the members'
-    })
-    .code(statusCodes.notFound)
-}
-
-function loadAdminTeam(request, h, action) {
-  return loadAdmin(request, h, action, 'members')
 }
 
 // The member a page is about: `me` is the signed-in person.
@@ -104,43 +46,6 @@ async function loadAdminMember(request, h, action) {
   return { ...result, member }
 }
 
-// A change the backend refused for a reason the person cannot fix on the
-// page (they are not an admin, or it is not there): the page to show instead.
-// Anything else is a fault, so it is thrown.
-function refusalView(h, team, error, action) {
-  if (!(error instanceof ApiError)) {
-    throw error
-  }
-
-  if (isForbidden(error)) {
-    return adminRequiredView(h, team, action)
-  }
-
-  if (isNotFound(error)) {
-    return memberNotFoundView(h, team)
-  }
-
-  throw error
-}
-
-function errorOn(field, text) {
-  return {
-    errorSummary: [{ text, href: `#${field}` }],
-    fieldErrors: { [field]: { text } }
-  }
-}
-
-function noErrors() {
-  return { errorSummary: null, fieldErrors: {} }
-}
-
-function joiErrors(error) {
-  return {
-    errorSummary: buildErrorSummary(error),
-    fieldErrors: buildFieldErrors(error)
-  }
-}
-
 function memberUrl(request, suffix) {
   const { slug, memberId } = request.params
 
@@ -154,7 +59,7 @@ function memberApiPath(team, member) {
 function roleView(h, request, { team, member, role, errors = noErrors() }) {
   const heading = member.isYou
     ? 'Change your role'
-    : `Change ${memberName(member)}’s role`
+    : `Change ${member.displayName}’s role`
 
   return h.view('teams/member-role', {
     pageTitle: `${errors.errorSummary ? 'Error: ' : ''}${heading}`,
@@ -165,13 +70,13 @@ function roleView(h, request, { team, member, role, errors = noErrors() }) {
     removeUrl: memberUrl(request, 'remove'),
     removeText: member.isYou
       ? 'Remove yourself from this team'
-      : `Remove ${memberName(member)} from this team`,
+      : `Remove ${member.displayName} from this team`,
     ...errors
   })
 }
 
 function removeView(h, request, { team, member, errors = noErrors() }) {
-  const heading = `Remove ${memberName(member)} from ${team.name}?`
+  const heading = `Remove ${member.displayName} from ${team.name}?`
 
   return h.view('teams/remove-member', {
     pageTitle: `${errors.errorSummary ? 'Error: ' : ''}${heading}`,
@@ -179,18 +84,7 @@ function removeView(h, request, { team, member, errors = noErrors() }) {
     team,
     backUrl: memberUrl(request, 'role'),
     cancelUrl: membersUrl(team),
-    buttonText: `Remove ${memberName(member)}`,
-    ...errors
-  })
-}
-
-function addMemberView(h, { team, values, errors = noErrors() }) {
-  return h.view('teams/add-member', {
-    pageTitle: `${errors.errorSummary ? 'Error: ' : ''}Add a member`,
-    heading: 'Add a member',
-    team,
-    backUrl: membersUrl(team),
-    values,
+    buttonText: `Remove ${member.displayName}`,
     ...errors
   })
 }
@@ -198,7 +92,7 @@ function addMemberView(h, { team, values, errors = noErrors() }) {
 function lastAdminMessage(member, change) {
   return member.isYou
     ? `You are the only admin. Add another admin before you ${change.you}.`
-    : `A team must keep at least one admin. Add another admin before you ${change.other(memberName(member))}.`
+    : `A team must keep at least one admin. Add another admin before you ${change.other(member.displayName)}.`
 }
 
 const ROLE_CHANGE = {
@@ -211,14 +105,10 @@ const REMOVE_CHANGE = {
   other: (name) => `remove ${name} from this team`
 }
 
-function memberRow(member, { team, isAdmin, sessionUser }) {
-  const name =
-    member.displayName ?? (member.isYou ? sessionUser.displayName : null)
-
+function memberRow(member, { team, isAdmin }) {
   return {
-    name: member.isYou ? `${name ?? 'You'} (you)` : name,
-    notSignedIn: !name,
-    email: member.email ?? 'Team creator',
+    name: member.isYou ? `${member.displayName} (you)` : member.displayName,
+    email: member.email,
     role: roleText(member.role),
     changeUrl: isAdmin
       ? `${membersUrl(team)}/${member.isYou ? 'me' : encodeURIComponent(member._id)}/role`
@@ -246,7 +136,6 @@ export const membersController = {
       }
 
       const { team, isAdmin, members } = loaded
-      const sessionUser = getSessionUser(request)
 
       return h.view('teams/members', {
         pageTitle: `${team.name} members`,
@@ -256,91 +145,8 @@ export const membersController = {
         notification: takeAccountNotification(request),
         isAdmin,
         addMemberUrl: `${membersUrl(team)}/add`,
-        members: members.map((member) =>
-          memberRow(member, { team, isAdmin, sessionUser })
-        )
+        members: members.map((member) => memberRow(member, { team, isAdmin }))
       })
-    }
-  }
-}
-
-/**
- * An admin adds someone by email, with a role (screen 14).
- */
-export const addMemberController = {
-  get: {
-    async handler(request, h) {
-      const { loaded, page } = await loadAdminTeam(request, h, 'add people')
-
-      return (
-        page ??
-        addMemberView(h, {
-          team: loaded.team,
-          values: { email: '', role: 'user' }
-        })
-      )
-    }
-  },
-  post: {
-    options: {
-      validate: {
-        payload: addMemberSchema,
-        async failAction(request, h, error) {
-          const { loaded, page } = await loadAdminTeam(request, h, 'add people')
-          const { email = '', role = 'user' } = request.payload ?? {}
-
-          return (
-            page ??
-            addMemberView(h, {
-              team: loaded.team,
-              values: { email, role },
-              errors: joiErrors(error)
-            }).code(statusCodes.badRequest)
-          ).takeover()
-        }
-      }
-    },
-    async handler(request, h) {
-      const { loaded, page } = await loadAdminTeam(request, h, 'add people')
-
-      if (page) {
-        return page
-      }
-
-      const { team } = loaded
-      const { email, role } = request.payload
-
-      try {
-        await apiClient(request).post(
-          `/v1/teams/${encodeURIComponent(team.slug)}/members`,
-          { email, role },
-          {
-            userId: getSessionUser(request).id,
-            idempotencyKey: randomUUID()
-          }
-        )
-      } catch (error) {
-        if (error instanceof ApiError && error.code === 'member-exists') {
-          return addMemberView(h, {
-            team,
-            values: { email, role },
-            errors: errorOn(
-              'email',
-              'This person is already a member of this team'
-            )
-          }).code(statusCodes.conflict)
-        }
-
-        return refusalView(h, team, error, 'add people')
-      }
-
-      setAccountNotification(request, {
-        type: 'success',
-        heading: `${email} has been added`,
-        message: 'They will see the team when they next sign in.'
-      })
-
-      return h.redirect(membersUrl(team)).code(statusCodes.seeOther)
     }
   }
 }
@@ -431,7 +237,7 @@ export const memberRoleController = {
         type: 'success',
         message: member.isYou
           ? `You are now ${now}.`
-          : `${memberName(member)} is now ${now}.`
+          : `${member.displayName} is now ${now}.`
       })
 
       return h.redirect(membersUrl(team)).code(statusCodes.seeOther)
@@ -492,7 +298,7 @@ export const removeMemberController = {
         type: 'success',
         message: member.isYou
           ? `You have been removed from ${team.name}.`
-          : `${memberName(member)} has been removed from ${team.name}.`
+          : `${member.displayName} has been removed from ${team.name}.`
       })
 
       // Someone who has removed themselves can no longer see the team.

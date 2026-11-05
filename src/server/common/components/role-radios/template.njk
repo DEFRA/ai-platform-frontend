@@ -1,6 +1,6 @@
 {#
   A team member's role, as two radios saying what each can do (screens 14, 15).
-  params.value: "admin" or "user" (default "user")
+  params.value: "admin" or "user" (default "user" when not given; "" shows neither chosen)
   params.errorMessage: { text } shown on the field
 #}
 {% from "govuk/components/radios/macro.njk" import govukRadios %}
@@ -15,7 +15,7 @@
     }
   },
   errorMessage: params.errorMessage,
-  value: params.value or "user",
+  value: params.value if params.value is defined else "user",
   items: [
     {
       value: "user",
