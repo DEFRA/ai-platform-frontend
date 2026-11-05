@@ -37,3 +37,7 @@ Behaviour every route depends on. All built and merged.
   (a gap, see [../remaining.md](../remaining.md)).
 - Backend-to-Azure: `AZURE_ARM_AUTH_METHOD=federated` builds a `ClientAssertionCredential` over `@defra/hapi-auth-oidc`'s
   `WebIdentityTokenProvider` (the STS audience is sent as a list); `client-secret` is for local use only.
+- Session renewal and idle timeout (4 November 2026, HVE #42; B27 partly built): the sign-in callback resets the session
+  ID and starts its clock (no session fixation); a session ends after 30 minutes idle or 8 hours overall, with a timeout
+  warning, a signed-out page and `no-store` responses (`plugins/require-sign-in-globally.js`, `session-lifetime.js`).
+  The federated client and user tokens are not built, see [../remaining.md](../remaining.md).
