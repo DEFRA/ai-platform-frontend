@@ -10,9 +10,20 @@ import {
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
+// The signed-in person's tokens are in the session; the access token is not
+// near its end, so no refresh is made.
 const request = {
   headers: {},
-  yar: { get: () => ({ id: 'user-1' }) }
+  yar: {
+    get: (key) =>
+      key === 'tokens'
+        ? {
+            accessToken: 'session-access-token',
+            refreshToken: 'session-refresh-token',
+            expiresAt: Date.now() + 60 * 60 * 1000
+          }
+        : { id: 'user-1' }
+  }
 }
 const OID = '0b8f6f4e-3c0f-4c46-9c58-2d3a8d2f1a11'
 const KEY = '3f1c1c36-6a7e-4a52-8a53-1d2f5f0c9b11'
@@ -36,7 +47,10 @@ describe('#team people API', () => {
       expect(result).toEqual(items)
       expect(sent.method).toBe('POST')
       expect(sent.url).toContain('/v1/teams/flood%20risk/people/search')
-      expect(sent.headers.get('x-user-id')).toBe('user-1')
+      expect(sent.headers.get('authorization')).toBe(
+        'Bearer session-access-token'
+      )
+      expect(sent.headers.has('x-user-id')).toBe(false)
       expect(await sent.json()).toEqual({ search: 'priya' })
     })
 
@@ -69,7 +83,10 @@ describe('#team people API', () => {
       expect(result).toEqual(member)
       expect(sent.method).toBe('POST')
       expect(sent.url).toContain('/v1/teams/flood-risk-team/members')
-      expect(sent.headers.get('x-user-id')).toBe('user-1')
+      expect(sent.headers.get('authorization')).toBe(
+        'Bearer session-access-token'
+      )
+      expect(sent.headers.has('x-user-id')).toBe(false)
       expect(sent.headers.get('idempotency-key')).toBe(KEY)
       expect(await sent.json()).toEqual({ oid: OID, role: 'admin' })
     })

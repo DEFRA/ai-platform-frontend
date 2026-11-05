@@ -30,6 +30,85 @@ describe('#config session lifetime', () => {
   })
 })
 
+describe('#config how the frontend authenticates to Entra', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  test('defaults to a client secret when run locally and to federation in production', async () => {
+    expect((await loadConfig({})).config.get('azureAd.authMethod')).toBe(
+      'client-secret'
+    )
+    expect(
+      (
+        await loadConfig({
+          NODE_ENV: 'production',
+          APP_BASE_URL: 'https://portal.example.test'
+        })
+      ).config.get('azureAd.authMethod')
+    ).toBe('federated')
+  })
+
+  test('takes the federated audience and the API client ID from the environment', async () => {
+    const { config } = await loadConfig({
+      AZURE_API_CLIENT_ID: '44444444-4444-4444-8444-444444444444'
+    })
+
+    expect(config.get('azureAd.federatedAudience')).toBe(
+      'api://AzureADTokenExchange'
+    )
+    expect(config.get('azureAd.apiClientId')).toBe(
+      '44444444-4444-4444-8444-444444444444'
+    )
+  })
+
+  test('allows a client secret only off production and on localhost', async () => {
+    const local = await loadConfig({
+      AZURE_AUTH_METHOD: 'client-secret',
+      APP_BASE_URL: 'http://localhost:3000'
+    })
+
+    expect(local.config.get('azureAd.authMethod')).toBe('client-secret')
+  })
+
+  test.each([
+    ['in production', { NODE_ENV: 'production' }],
+    ['off localhost', { APP_BASE_URL: 'https://portal.dev.example.test' }],
+    [
+      'on a host that only starts with localhost',
+      { APP_BASE_URL: 'http://localhost.evil.example' }
+    ]
+  ])('refuses a client secret %s', async (_name, env) => {
+    await expect(
+      loadConfig({ AZURE_AUTH_METHOD: 'client-secret', ...env })
+    ).rejects.toThrow(/client-secret.*localhost/)
+  })
+
+  test('allows federation anywhere', async () => {
+    const { config } = await loadConfig({
+      NODE_ENV: 'production',
+      AZURE_AUTH_METHOD: 'federated',
+      APP_BASE_URL: 'https://portal.dev.example.test'
+    })
+
+    expect(config.get('azureAd.authMethod')).toBe('federated')
+  })
+
+  test('refuses a method it does not know', async () => {
+    await expect(
+      loadConfig({ AZURE_AUTH_METHOD: 'password' })
+    ).rejects.toThrow()
+  })
+
+  test('keeps the email-domain allow-list the sign-in gate decides on', async () => {
+    const { config } = await loadConfig({})
+
+    expect(config.get('allowedEmailDomains')).toBe(
+      'defra.gov.uk,defra.onmicrosoft.com'
+    )
+  })
+})
+
 describe('#config research environment and gateway', () => {
   afterEach(() => {
     vi.unstubAllEnvs()

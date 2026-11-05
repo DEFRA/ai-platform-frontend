@@ -1,7 +1,6 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError, apiClient } from '#/server/common/helpers/api-client.js'
 import {
-  getSessionUser,
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
@@ -213,11 +212,7 @@ export const memberRoleController = {
       const { role } = request.payload
 
       try {
-        await apiClient(request).patch(
-          memberApiPath(team, member),
-          { role },
-          { userId: getSessionUser(request).id }
-        )
+        await apiClient(request).patch(memberApiPath(team, member), { role })
       } catch (error) {
         if (error instanceof ApiError && error.code === 'last-admin') {
           return roleView(h, request, {
@@ -276,9 +271,7 @@ export const removeMemberController = {
       const { team } = loaded
 
       try {
-        await apiClient(request).del(memberApiPath(team, member), {
-          userId: getSessionUser(request).id
-        })
+        await apiClient(request).del(memberApiPath(team, member))
       } catch (error) {
         if (error instanceof ApiError && error.code === 'last-admin') {
           return removeView(h, request, {

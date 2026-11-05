@@ -17,9 +17,18 @@ fetchMock.enableMocks()
 const team = { _id: 'team-1', slug: 'flood-risk-team', name: 'Flood Risk Team' }
 
 function requestFor(userId) {
+  const session = {
+    user: { id: userId },
+    tokens: {
+      accessToken: 'user-access-token',
+      refreshToken: 'user-refresh-token',
+      expiresAt: Date.now() + 60 * 60 * 1000
+    }
+  }
+
   return {
     headers: {},
-    yar: { get: () => ({ id: userId }) }
+    yar: { get: (key) => session[key] }
   }
 }
 
@@ -119,7 +128,7 @@ describe('#loadTeamForView', () => {
     const [url, init] = fetchMock.mock.calls.at(-1)
 
     expect(url).toContain('/v1/teams/flood-risk-team')
-    expect(init.headers['x-user-id']).toBe('user-1')
+    expect(init.headers).not.toHaveProperty('x-user-id')
   })
 
   test('keeps the environments the backend gives with their limits', async () => {

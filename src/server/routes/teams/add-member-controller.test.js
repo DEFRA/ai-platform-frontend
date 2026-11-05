@@ -34,6 +34,9 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
     claims: () => ({
       preferred_username: 'test.user@defra.gov.uk',
       email: 'test.user@defra.gov.uk',
@@ -225,7 +228,7 @@ describe('#add member', () => {
 
         expect(statusCode).toBe(statusCodes.ok)
         expect(JSON.parse(searches()[0][1].body)).toEqual({ search: 'sa' })
-        expect(searches()[0][1].headers['x-user-id']).toBe('user-1')
+        expect(searches()[0][1].headers).not.toHaveProperty('x-user-id')
         expect($('label[for="oid"]').text().trim()).toBe('Person')
         expect($('#oid-hint').text().trim()).toBe('2 people found')
         expect(
@@ -395,7 +398,7 @@ describe('#add member', () => {
         expect(url).toContain(`${TEAM_PATH}/members`)
         expect(options.method).toBe('POST')
         expect(JSON.parse(options.body)).toEqual({ oid: OID, role: 'admin' })
-        expect(options.headers['x-user-id']).toBe('user-1')
+        expect(options.headers).not.toHaveProperty('x-user-id')
         expect(options.headers['idempotency-key']).toMatch(UUID)
 
         const { result } = await follow(response)

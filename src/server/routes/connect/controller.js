@@ -333,7 +333,7 @@ export const connectController = {
               tier: 'research',
               purpose: pendingAccess.purpose || undefined
             },
-            { userId: sessionUser.id, idempotencyKey: randomUUID() }
+            { idempotencyKey: randomUUID() }
           )
 
           const model = await apiClient(request).get(

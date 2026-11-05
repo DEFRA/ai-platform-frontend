@@ -21,7 +21,11 @@ export function safeReturnTo(value, fallback = '/') {
       return fallback
     }
 
-    return `${url.pathname}${url.search}${url.hash}`
+    const safe = `${url.pathname}${url.search}${url.hash}`
+
+    // Dot segments can normalise to a path that starts `//` (`/.//host`),
+    // which a browser reads as another host: refuse it, and `/\`.
+    return /^\/[/\\]/.test(safe) ? fallback : safe
   } catch {
     return fallback
   }

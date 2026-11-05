@@ -1,6 +1,5 @@
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { apiClient } from '#/server/common/helpers/api-client.js'
-import { getSessionUser } from '#/server/common/helpers/session.js'
 import {
   DEPLOYMENT_FAILURE_STATUSES,
   DEPLOYMENT_REMOVED_STATUS,
@@ -224,7 +223,6 @@ export function buildModelsTab(params) {
  */
 export async function loadModelsTab(request, { team, isAdmin, environments }) {
   const client = apiClient(request)
-  const userId = getSessionUser(request).id
   // The names can be read alongside the deployments. The credentials are read
   // only once the deployments are: reading them lists the deployments afresh,
   // and a model that has just turned active has its team secret granted then,
@@ -232,13 +230,11 @@ export async function loadModelsTab(request, { team, isAdmin, environments }) {
   // show a ready model beside a secret that is "not ready".
   const catalogueRead = settled(client.get('/v1/models?includeIneligible=true'))
   const deployments = await settled(
-    client.get(`/v1/teams/${encodeURIComponent(team.slug)}/deployments`, {
-      userId
-    })
+    client.get(`/v1/teams/${encodeURIComponent(team.slug)}/deployments`)
   )
   const credentials =
     deployments.status === 'fulfilled'
-      ? await settled(client.get('/v1/credentials', { userId }))
+      ? await settled(client.get('/v1/credentials'))
       : null
   const catalogue = await catalogueRead
 

@@ -19,6 +19,9 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
     claims: () => ({
       iss: 'https://login.microsoftonline.com/7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d/v2.0',
       oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
@@ -63,6 +66,33 @@ const ISS = `https://login.microsoftonline.com/${TID}/v2.0`
 
 describe('#authController', () => {
   let server
+
+  async function signedInJar() {
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: {
+          _id: 'user-1',
+          email: 'test.user@defra.gov.uk',
+          displayName: 'Test User'
+        },
+        team: null
+      })
+    )
+
+    const callback = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    return mergeCookies(cookies, callback)
+  }
 
   beforeAll(async () => {
     server = await createServer()
@@ -112,7 +142,7 @@ describe('#authController', () => {
     expect(headers.location).toBe('/sign-in')
   })
 
-  test('GET /auth/callback exchanges the code, upserts the user and redirects to /', async () => {
+  test('GET /auth/callback exchanges the code, signs the person in with the backend using their access token and redirects to /', async () => {
     const loginResponse = await server.inject({
       method: 'GET',
       url: '/auth/login'
@@ -138,12 +168,133 @@ describe('#authController', () => {
 
     expect(statusCode).toBe(statusCodes.seeOther)
     expect(headers.location).toBe('/')
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
-      tid: '7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
-      email: 'test.user@defra.gov.uk',
-      displayName: 'Test User'
+
+    const [request] = fetchMock.requests()
+    expect(request.method).toBe('PUT')
+    expect(new URL(request.url).pathname).toBe('/v1/users/me')
+    expect(getOidcConfig).toHaveBeenCalledWith({ authenticateClient: true })
+    expect(request.headers.get('authorization')).toBe(
+      'Bearer user-access-token'
+    )
+    expect(request.headers.get('x-user-id')).toBeNull()
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined()
+  })
+
+  test('GET /auth/callback keeps the tokens in the session, so later calls use them, and not in the browser', async () => {
+    const cookies = await signedInJar()
+
+    expect(Object.values(cookies).join(';')).not.toContain('user-access-token')
+    expect(Object.values(cookies).join(';')).not.toContain('user-refresh-token')
+
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    const page = await server.inject({
+      method: 'GET',
+      url: '/models',
+      headers: { cookie: cookieHeader(cookies) }
     })
+
+    expect(fetchMock.requests().at(-1).headers.get('authorization')).toBe(
+      'Bearer user-access-token'
+    )
+    // Nor in the page, nor in any header it comes with.
+    for (const token of ['user-access-token', 'user-refresh-token']) {
+      expect(page.payload).not.toContain(token)
+      expect(JSON.stringify(page.headers)).not.toContain(token)
+    }
+  })
+
+  test('GET /auth/login asks for offline access and the API scope as well as the OpenID scopes', async () => {
+    const { buildAuthorizationUrl } = await import('openid-client')
+
+    await server.inject({ method: 'GET', url: '/auth/login' })
+
+    const { scope } = buildAuthorizationUrl.mock.calls.at(-1)[1]
+    expect(scope.split(' ')).toEqual(
+      expect.arrayContaining([
+        'openid',
+        'profile',
+        'email',
+        'offline_access',
+        expect.stringMatching(/^api:\/\/.+\/Portal\.Access$/)
+      ])
+    )
+  })
+
+  test('GET /auth/callback gives the signed-in person a new session ID, not the one they had before sign-in', async () => {
+    const ids = {}
+    server.ext('onPreResponse', (request, h) => {
+      ids[request.path] = request.yar.id
+      return h.continue
+    })
+
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: {
+          _id: 'user-1',
+          email: 'test.user@defra.gov.uk',
+          displayName: 'Test User'
+        },
+        team: null
+      })
+    )
+
+    const { statusCode } = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(statusCode).toBe(statusCodes.seeOther)
+    expect(ids['/auth/login']).toBeDefined()
+    expect(ids['/auth/callback']).toBeDefined()
+    expect(ids['/auth/callback']).not.toBe(ids['/auth/login'])
+  })
+
+  test("GET /auth/callback renews the session first and then keeps the tokens, so the next backend call carries the new session's user token (not the app token)", async () => {
+    const ids = {}
+    server.ext('onPreResponse', (request, h) => {
+      ids[request.path] = request.yar.id
+      return h.continue
+    })
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        user: { _id: 'user-1', email: 'a@defra.gov.uk', displayName: 'A' },
+        team: null
+      })
+    )
+
+    const callback = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    mergeCookies(cookies, callback)
+    fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+    await server.inject({
+      method: 'GET',
+      url: '/models',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(ids['/auth/callback']).not.toBe(ids['/auth/login'])
+    expect(ids['/models']).toBe(ids['/auth/callback'])
+    expect(
+      fetchMock.requests().map((r) => r.headers.get('authorization'))
+    ).toEqual(['Bearer user-access-token', 'Bearer user-access-token'])
+    expect(fetchMock.requests().at(-1).headers.get('authorization')).toBe(
+      'Bearer user-access-token'
+    )
   })
 
   test('GET /auth/callback gives the signed-in person a new session ID, not the one they had before sign-in', async () => {
@@ -210,35 +361,45 @@ describe('#authController', () => {
     expect(headers.location).toBe('/manage')
   })
 
-  test('GET /auth/callback ignores an off-site returnTo and falls back to /', async () => {
-    const loginResponse = await server.inject({
-      method: 'GET',
-      url: '/auth/login?returnTo=https%3A%2F%2Fattacker.example'
-    })
-    const cookies = mergeCookies({}, loginResponse)
-
-    fetchMock.mockResponseOnce(
-      JSON.stringify({
-        user: {
-          _id: 'user-1',
-          email: 'test.user@defra.gov.uk',
-          displayName: 'Test User'
-        },
-        team: null
+  test.each([
+    ['an off-site address', 'https%3A%2F%2Fattacker.example'],
+    ['dot segments that normalise to //evil.com', '%2F.%2F%2Fevil.com'],
+    [
+      'a parent segment that normalises to //evil.com',
+      '%2Fa%2F..%2F%2Fevil.com'
+    ]
+  ])(
+    'GET /auth/callback ignores %s as returnTo and falls back to /',
+    async (_name, returnTo) => {
+      const loginResponse = await server.inject({
+        method: 'GET',
+        url: `/auth/login?returnTo=${returnTo}`
       })
-    )
+      const cookies = mergeCookies({}, loginResponse)
 
-    const { statusCode, headers } = await server.inject({
-      method: 'GET',
-      url: '/auth/callback?code=abc&state=state-123',
-      headers: { cookie: cookieHeader(cookies) }
-    })
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          user: {
+            _id: 'user-1',
+            email: 'test.user@defra.gov.uk',
+            displayName: 'Test User'
+          },
+          team: null
+        })
+      )
 
-    expect(statusCode).toBe(statusCodes.seeOther)
-    expect(headers.location).toBe('/')
-  })
+      const { statusCode, headers } = await server.inject({
+        method: 'GET',
+        url: '/auth/callback?code=abc&state=state-123',
+        headers: { cookie: cookieHeader(cookies) }
+      })
 
-  test('GET /auth/callback shows a safe error page for a disallowed email domain', async () => {
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/')
+    }
+  )
+
+  test('GET /auth/callback shows the refusal page, and ends the session, when the backend refuses the token (a guest)', async () => {
     const loginResponse = await server.inject({
       method: 'GET',
       url: '/auth/login'
@@ -246,23 +407,62 @@ describe('#authController', () => {
     const cookies = mergeCookies({}, loginResponse)
 
     fetchMock.mockResponseOnce(
-      JSON.stringify({ code: 'domain-not-allowed', message: 'Not allowed' }),
-      { status: 403 }
+      JSON.stringify({ code: 'invalid-token', message: 'Unauthorized' }),
+      { status: 401 }
     )
 
-    const { statusCode, result } = await server.inject({
+    const callback = await server.inject({
       method: 'GET',
       url: '/auth/callback?code=abc&state=state-123',
       headers: { cookie: cookieHeader(cookies) }
     })
 
-    expect(statusCode).toBe(statusCodes.forbidden)
-    expect(result).toEqual(
+    expect(callback.statusCode).toBe(statusCodes.forbidden)
+    expect(callback.result).toEqual(
       expect.stringContaining('You cannot sign in with this account')
     )
-    expect(result).toEqual(
+    expect(callback.result).toEqual(
       expect.stringContaining('/sign-in?prompt=select_account')
     )
+
+    // Nothing of the sign-in was kept: no tokens, no person.
+    mergeCookies(cookies, callback)
+    const next = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(next.statusCode).toBe(statusCodes.found)
+    expect(next.headers.location).toBe('/sign-in?returnTo=%2Fmanage')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('GET /auth/callback ends the session and shows an error page when the backend fails for another reason', async () => {
+    const loginResponse = await server.inject({
+      method: 'GET',
+      url: '/auth/login'
+    })
+    const cookies = mergeCookies({}, loginResponse)
+
+    fetchMock.mockResponseOnce(JSON.stringify({ code: 'error' }), {
+      status: 500
+    })
+
+    const callback = await server.inject({
+      method: 'GET',
+      url: '/auth/callback?code=abc&state=state-123',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+    mergeCookies(cookies, callback)
+    const next = await server.inject({
+      method: 'GET',
+      url: '/manage',
+      headers: { cookie: cookieHeader(cookies) }
+    })
+
+    expect(callback.statusCode).toBe(statusCodes.internalServerError)
+    expect(next.headers.location).toBe('/sign-in?returnTo=%2Fmanage')
   })
 
   describe('the account that signs in', () => {
@@ -275,6 +475,9 @@ describe('#authController', () => {
       const cookies = mergeCookies({}, loginResponse)
 
       authorizationCodeGrant.mockResolvedValueOnce({
+        access_token: 'user-access-token',
+        refresh_token: 'user-refresh-token',
+        expires_in: 3600,
         claims: () => ({
           iss: ISS,
           oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
@@ -325,10 +528,10 @@ describe('#authController', () => {
         },
         'sam@defra.gov.uk'
       ]
-    ])('signs in an account on %s', async (_name, claims, sent) => {
+    ])('signs in an account on %s', async (_name, claims, address) => {
       fetchMock.mockResponseOnce(
         JSON.stringify({
-          user: { _id: 'user-1', email: sent, displayName: 'Test User' }
+          user: { _id: 'user-1', email: address, displayName: 'Test User' }
         })
       )
 
@@ -336,7 +539,14 @@ describe('#authController', () => {
 
       expect(statusCode).toBe(statusCodes.seeOther)
       expect(headers.location).toBe('/')
-      expect(JSON.parse(fetchMock.mock.calls[0][1].body).email).toBe(sent)
+
+      // The backend reads the person from the access token: nothing about
+      // them is sent in the call.
+      const [request] = fetchMock.requests()
+
+      expect(request.method).toBe('PUT')
+      expect(new URL(request.url).pathname).toBe('/v1/users/me')
+      expect(fetchMock.mock.calls[0][1].body).toBeUndefined()
     })
 
     // A B2B guest as Entra sends the token: a home user name and an email on

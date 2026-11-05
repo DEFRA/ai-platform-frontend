@@ -112,9 +112,10 @@ npm run dev
 
 #### Local sign-in without a real Entra ID tenant
 
-Entra ID (Azure AD) OIDC sign-in normally needs a real `AZURE_TENANT_ID` and
-`AZURE_CLIENT_ID`. For local development without one, run the bundled mock
-OIDC provider alongside the app:
+Entra ID (Azure AD) OIDC sign-in normally needs a real `AZURE_TENANT_ID`,
+`AZURE_CLIENT_ID` (the frontend's registration) and `AZURE_API_CLIENT_ID` (the
+API registration whose `Portal.Access` scope the backend requires). For local
+development without them, run the bundled mock OIDC provider alongside the app:
 
 ```bash
 npm run dev:mock-oidc
@@ -124,17 +125,39 @@ Then in your local `.env` set:
 
 ```env
 OIDC_MOCK_ISSUER_URL=http://localhost:3100
-AZURE_TENANT_ID=mock-tenant
-AZURE_CLIENT_ID=mock-client
+AZURE_TENANT_ID=22222222-2222-4222-8222-222222222222
+AZURE_CLIENT_ID=33333333-3333-4333-8333-333333333333
+AZURE_API_CLIENT_ID=44444444-4444-4444-8444-444444444444
 AZURE_CLIENT_SECRET=mock-secret
 ```
 
-`dev:mock-oidc` loads the same `.env` as `npm run dev`, so if you already have
-real `AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET` values set, both processes will
-use them consistently — you only need to add `OIDC_MOCK_ISSUER_URL`. Signing
-in always logs in as one fixed mock user (`dev.user@defra.gov.uk`, as `preferred_username` and `email`). This path
-is never used in production: it's gated behind `OIDC_MOCK_ISSUER_URL` being
-set **and** the app not running in production.
+`AZURE_AUTH_METHOD` defaults to `client-secret` outside production, which the
+app accepts only with `APP_BASE_URL` on `localhost`; every deployed instance
+uses `federated` (a CDP Web Identity client assertion, no secret) with
+`AZURE_FEDERATED_AUDIENCE` (default `api://AzureADTokenExchange`).
+
+| Variable                   | Value                                                                                                                                  |
+| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+| `AZURE_AUTH_METHOD`        | `federated` (every deployed instance; the default in production) or `client-secret` (localhost only; the app refuses it anywhere else) |
+| `AZURE_FEDERATED_AUDIENCE` | The audience of the CDP Web Identity token used as the client assertion, as set on the federated credential in Entra                   |
+| `AZURE_API_CLIENT_ID`      | The client ID of this instance's `api-aip-portal-{instance}` registration; every token the frontend asks for is for it                 |
+| `AZURE_CLIENT_SECRET`      | Local use only, with `client-secret`                                                                                                   |
+| `NODE_USE_ENV_PROXY`       | `1` in every deployed instance, so the Entra token calls go through the CDP proxy (see [Proxy](#proxy))                                |
+
+The mock issues what Entra issues for the portal: an ID token, and v2 JWT access
+tokens for the API with `idtyp`, `scp`, `acct`, `azp`, `azpacr`, `tid`, `oid`
+and `ver`, signed with keys served at `/jwks`; and a client-credentials token
+(`idtyp` `app`) for the frontend itself. To run the backend against it, set
+`PORTAL_AUTH_MOCK_ISSUER_URL=http://localhost:3100`,
+`PORTAL_AUTH_TENANT_ID`, `PORTAL_AUTH_AUDIENCE` (the API id) and
+`PORTAL_AUTH_CLIENT_ID` (the frontend id) to the values above; the same
+validation runs as for Entra.
+
+`dev:mock-oidc` loads the same `.env` as `npm run dev`, so both use the same
+ids. Signing in always logs in as one fixed mock user
+(`dev.user@defra.gov.uk`, as `preferred_username` and `email`). This path is
+never used in production: it's gated behind `OIDC_MOCK_ISSUER_URL` being set
+**and** the app not running in production.
 
 #### Who can sign in
 

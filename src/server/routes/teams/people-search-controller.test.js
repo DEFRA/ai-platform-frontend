@@ -25,6 +25,9 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
     claims: () => ({
       preferred_username: 'test.user@defra.gov.uk',
       email: 'test.user@defra.gov.uk',
@@ -113,7 +116,7 @@ describe('#people search route', () => {
     const [[, options]] = searchesMade()
 
     expect(JSON.parse(options.body)).toEqual({ search: 'sam' })
-    expect(options.headers['x-user-id']).toBe('user-1')
+    expect(options.headers).not.toHaveProperty('x-user-id')
   })
 
   test('answers with no matches as an empty list', async () => {

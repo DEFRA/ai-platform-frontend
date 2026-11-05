@@ -16,11 +16,11 @@ What is built, and what is left, in two places only.
 | [03-team-tier.md](implemented/03-team-tier.md)                                       | Team tier                    | Teams and roles, dedicated models, GitOps provisioning, status, client secrets, add a member from the directory |
 | [04-catalogue-and-gateway.md](implemented/04-catalogue-and-gateway.md)               | Catalogue and gateway        | Catalogue from `ai-platform-infra`, hosting and gateway shape                                                   |
 | [05-platform-and-gitops-pipeline.md](implemented/05-platform-and-gitops-pipeline.md) | Platform infrastructure      | The repositories and the GitOps worker, how a change flows (B28), Infradev, CDP dev, operating notes            |
-| [06-shared-services-and-security.md](implemented/06-shared-services-and-security.md) | Shared services and security | Idempotency, audit, locks, backfills, security baseline, federated auth, session renewal                        |
+| [06-shared-services-and-security.md](implemented/06-shared-services-and-security.md) | Shared services and security | Idempotency, audit, locks, backfills, security baseline, federated auth, portal sign-in (B27), session renewal  |
 
 ## Remaining
 
-[remaining.md](remaining.md): identity and credentials (B18, B27 portal sign-in and API access, session renewal built), limits and reporting (B17, B19), observability (B20 to B22),
+[remaining.md](remaining.md): identity and credentials (B18, the B27 rollout, session renewal built), limits and reporting (B17, B19), observability (B20 to B22),
 gateway authorisation (B23), research tier follow-ups, quality and delivery, platform operations, and the discovery-docs
 record.
 
