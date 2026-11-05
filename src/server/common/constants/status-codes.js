@@ -10,6 +10,7 @@ export const statusCodes = {
   notFound: 404,
   imATeapot: 418,
   conflict: 409,
+  unprocessableEntity: 422,
   internalServerError: 500,
   notImplemented: 501,
   serviceUnavailable: 503

@@ -65,7 +65,9 @@ journey tests, the joint deploy to CDP `dev` and deleting the client secret) is 
   (`route-access.test.js`). Background work acts as the system actor (`actorUserId` `app:ai-platform-backend`; expiry audit
   records are found by `resourceId`). Audit records add `tid`, `azp`, `uti` and the role used, never a token.
 - **People.** `PUT /v1/users/me` upserts from the token's claims (no body) and returns 200 `{ user, team }`;
-  `POST /v1/users`, `x-user-id`, `allowedEmailDomains` and the CDP template `/example` routes are removed. Team
+  `POST /v1/users`, `x-user-id`, the backend's `allowedEmailDomains` and the CDP template `/example` routes are removed.
+  The frontend keeps its sign-in gate on the ID token claims (a guest, or an address off `ALLOWED_EMAIL_DOMAINS`; frontend
+  PR #80), which runs before the backend checks the access token. Team
   invitations and email binds were not changed (backend PR #64, frontend PR #80, item #65).
 - **Local.** The mock provider (`dev/mock-oidc-provider.js`) issues Entra-shaped access tokens and a client-credentials
   token; the backend trusts it through `PORTAL_AUTH_MOCK_ISSUER_URL`, refused in production.

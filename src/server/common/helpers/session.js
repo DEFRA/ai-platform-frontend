@@ -7,6 +7,8 @@ const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
 const SESSION_CLOCK_KEY = 'sessionClock'
 const TOKENS_KEY = 'tokens'
+const ADD_MEMBER_KEYS = 'addMemberKeys'
+const ADD_MEMBER_GENERATION = 'addMemberGeneration'
 
 // When the person signed in and when they last made a request: the two
 // times the idle and overall session limits are measured from.
@@ -124,6 +126,27 @@ export function takeOidcLoginState(request) {
   const value = request.yar.get(OIDC_LOGIN_KEY)
   request.yar.clear(OIDC_LOGIN_KEY)
   return value
+}
+
+// The idempotency keys the add form has issued, each for its own add
+// (`[{ key, team, choice, issuedAt }]`, a few at most): see add-member-keys.js.
+export function getAddMemberKeys(request) {
+  return request.yar.get(ADD_MEMBER_KEYS)
+}
+
+export function setAddMemberKeys(request, value) {
+  request.yar.set(ADD_MEMBER_KEYS, value)
+}
+
+// A number that moves on after an add has succeeded or its key was refused as
+// reused, so the key made for a person and role without a form key is a new
+// one for the next add of them: see add-member-keys.js.
+export function getAddMemberGeneration(request) {
+  return request.yar.get(ADD_MEMBER_GENERATION) ?? 0
+}
+
+export function setAddMemberGeneration(request, value) {
+  request.yar.set(ADD_MEMBER_GENERATION, value)
 }
 
 export function setAccountNotification(request, value) {

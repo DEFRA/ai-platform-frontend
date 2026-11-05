@@ -10,6 +10,13 @@ import {
   cookieHeader
 } from '#/test-helpers/oidc-session-helpers.js'
 import { sampleTeam } from '#/test-helpers/team-connect-helpers.js'
+import {
+  MEMBERS_URL,
+  TEAM_PATH,
+  membersHelpers,
+  priya,
+  you
+} from '#/test-helpers/members-test-helpers.js'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
   getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
@@ -30,42 +37,16 @@ vi.mock('openid-client', () => ({
     access_token: 'user-access-token',
     refresh_token: 'user-refresh-token',
     expires_in: 3600,
-    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+    claims: () => ({
+      preferred_username: 'test.user@defra.gov.uk',
+      email: 'test.user@defra.gov.uk',
+      name: 'Test User'
+    })
   }))
 }))
 
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
-
-const TEAM_PATH = `/v1/teams/${sampleTeam.slug}`
-const TEAM_URL = `/teams/${sampleTeam.slug}`
-const MEMBERS_URL = `${TEAM_URL}/members`
-const NOT_FOUND = reply(404, { code: 'not-found', message: 'Not Found' })
-
-const you = (role) => ({
-  _id: 'member-1',
-  userId: 'user-1',
-  displayName: 'Test User',
-  email: 'test.user@defra.gov.uk',
-  role,
-  status: 'active'
-})
-const priya = (role = 'admin') => ({
-  _id: 'member-2',
-  userId: 'user-2',
-  displayName: 'Priya Raman',
-  email: 'priya.raman@defra.gov.uk',
-  role,
-  status: 'active'
-})
-const tom = {
-  _id: 'member-3',
-  userId: null,
-  displayName: null,
-  email: 'tom.ellis@defra.gov.uk',
-  role: 'user',
-  status: 'invited'
-}
 
 function roleUrl(memberId) {
   return `${MEMBERS_URL}/${memberId}/role`
@@ -96,54 +77,11 @@ describe('#members', () => {
     cookies = await signInViaOidc(server, fetchMock)
   })
 
-  // The signed-in person is a member or an admin of the team, with Priya an
-  // admin and Tom invited; or (no role) is not in the team at all, which the
-  // backend answers as not found.
-  function backend(role, extra = {}) {
-    mockApi(fetchMock, {
-      [`GET ${TEAM_PATH}`]: role
-        ? {
-            team: sampleTeam,
-            members: [you(role), priya(), tom],
-            environments: []
-          }
-        : NOT_FOUND,
-      'GET /v1/teams': { items: [] },
-      ...extra
-    })
-  }
-
-  function get(url, jar = cookies) {
-    return server.inject({
-      method: 'GET',
-      url,
-      headers: { cookie: cookieHeader(jar) }
-    })
-  }
-
-  function post(url, payload = {}) {
-    return server.inject({
-      method: 'POST',
-      url,
-      headers: { cookie: cookieHeader(cookies) },
-      payload: { crumb: cookies.crumb, ...payload }
-    })
-  }
-
-  // Follows a redirect with the session the response set, as the browser does.
-  function follow(response) {
-    return get(
-      response.headers.location,
-      mergeCookies({ ...cookies }, response)
-    )
-  }
-
-  function writes() {
-    return fetchMock.mock.calls.filter(
-      ([url, options]) =>
-        url.includes('/v1/teams') && options?.method && options.method !== 'GET'
-    )
-  }
+  const { backend, get, post, follow, writes } = membersHelpers({
+    fetchMock,
+    getServer: () => server,
+    getCookies: () => cookies
+  })
 
   describe('the Members tab', () => {
     test('GET /teams/{slug}/members redirects to /sign-in when signed out', async () => {
@@ -196,7 +134,7 @@ describe('#members', () => {
         'Priya Raman',
         'p**********@defra.gov.uk',
         'Admin',
-        'Not signed in yet',
+        'Tom Ellis',
         't********@defra.gov.uk',
         'Member'
       ])
@@ -219,9 +157,13 @@ describe('#members', () => {
       expect($('[data-testid="add-member"]').text().trim()).toBe('Add a member')
       expect(result).toContain('priya.raman@defra.gov.uk')
       expect(result).toContain('tom.ellis@defra.gov.uk')
-      expect($('[data-testid="member-not-signed-in"]').text()).toContain(
-        'Not signed in yet'
-      )
+      expect(
+        $('[data-testid="member-row"]')
+          .map((_, row) => $(row).find('td').first().text().trim())
+          .get()
+      ).toEqual(['Test User (you)', 'Priya Raman', 'Tom Ellis'])
+      expect(result).not.toContain('Not signed in yet')
+      expect(result).not.toContain('member-not-signed-in')
       expect(
         $('[data-testid="member-change"]')
           .map((_, link) => $(link).attr('href'))
@@ -244,9 +186,6 @@ describe('#members', () => {
           .parent()
           .hasClass('govuk-table__cell--numeric')
       ).toBe(true)
-      expect(
-        $('[data-testid="member-not-signed-in"] .app-table-hint')
-      ).toHaveLength(1)
     })
 
     test('masks a colleague’s name when it is their address, for a member but not for an admin', async () => {
@@ -274,42 +213,14 @@ describe('#members', () => {
 
       expect(asAdmin.result).toContain('priya.raman@defra.gov.uk')
     })
-    test('names a person who has not signed in by their address for a screen reader', async () => {
+    test('names each person by their name for a screen reader', async () => {
       backend('admin')
 
       const { result } = await get(MEMBERS_URL)
 
       expect(result).toContain(
-        'Change<span class="govuk-visually-hidden"> role of tom.ellis@defra.gov.uk'
+        'Change<span class="govuk-visually-hidden"> role of Tom Ellis'
       )
-    })
-
-    test('shows a creator with no address as the team creator', async () => {
-      mockApi(fetchMock, {
-        [`GET ${TEAM_PATH}`]: {
-          team: sampleTeam,
-          members: [{ ...you('admin'), email: undefined }],
-          environments: []
-        }
-      })
-
-      const { result } = await get(MEMBERS_URL)
-
-      expect(result).toContain('Team creator')
-    })
-
-    test('shows the person’s own name from their session before they have one on record', async () => {
-      mockApi(fetchMock, {
-        [`GET ${TEAM_PATH}`]: {
-          team: sampleTeam,
-          members: [{ ...you('admin'), displayName: null }],
-          environments: []
-        }
-      })
-
-      const { result } = await get(MEMBERS_URL)
-
-      expect(result).toContain('Test User (you)')
     })
 
     test('shows the team’s change banner once, then not again', async () => {
@@ -337,7 +248,11 @@ describe('#members', () => {
 
   describe('signed out, with a valid CSRF token', () => {
     test.each([
-      ['adding a member', `${MEMBERS_URL}/add`, { email: 'nope' }],
+      [
+        'adding a member',
+        `${MEMBERS_URL}/add`,
+        { action: 'search', search: 'x' }
+      ],
       ['changing a role', `${MEMBERS_URL}/member-2/role`, { role: 'owner' }]
     ])(
       'sends an invalid submission for %s to sign in, without reading the team',
@@ -362,192 +277,6 @@ describe('#members', () => {
         ).toHaveLength(0)
       }
     )
-  })
-  describe('adding a member', () => {
-    test('for a person with only their own keys: is not found', async () => {
-      backend(null)
-
-      const page = await get(`${MEMBERS_URL}/add`)
-      const submitted = await post(`${MEMBERS_URL}/add`, {
-        email: 'new.person@defra.gov.uk'
-      })
-
-      expect(page.statusCode).toBe(statusCodes.notFound)
-      expect(submitted.statusCode).toBe(statusCodes.notFound)
-      expect(writes()).toHaveLength(0)
-    })
-
-    test('for a member: says only an admin can, and does not add anyone', async () => {
-      backend('user')
-
-      const page = await get(`${MEMBERS_URL}/add`)
-      const submitted = await post(`${MEMBERS_URL}/add`, {
-        email: 'new.person@defra.gov.uk'
-      })
-      const invalid = await post(`${MEMBERS_URL}/add`, { email: 'nope' })
-
-      for (const response of [page, submitted, invalid]) {
-        expect(response.statusCode).toBe(statusCodes.forbidden)
-        expect(response.result).toContain(
-          'Only an admin of Flood Risk Team can add people.'
-        )
-        expect(response.result).toContain(`href="${MEMBERS_URL}"`)
-      }
-
-      expect(writes()).toHaveLength(0)
-    })
-
-    test('for an admin: asks for an address and a role, Member being the default, with no email promise', async () => {
-      backend('admin')
-
-      const { statusCode, result } = await get(`${MEMBERS_URL}/add`)
-      const $ = load(result)
-
-      expect(statusCode).toBe(statusCodes.ok)
-      expect($('.govuk-back-link').attr('href')).toBe(MEMBERS_URL)
-      expect($('[data-testid="app-heading-caption"]').text()).toBe(
-        'Flood Risk Team'
-      )
-      expect($('h1').text()).toBe('Add a member')
-      expect($('label[for="email"]').text().trim()).toBe('Email address')
-      expect($('#email-hint').text().trim()).toBe(
-        'Their Defra work address, for example name@defra.gov.uk'
-      )
-      expect($('input[name="role"]:checked').attr('value')).toBe('user')
-      expect($('.govuk-inset-text').text().trim()).toBe(
-        'They will see the team when they next sign in.'
-      )
-      expect($('[data-testid="add-member-submit"]').text().trim()).toBe(
-        'Add a member'
-      )
-      expect(result).not.toContain('email them')
-    })
-
-    test('adds the person with the address and role, once, and goes back to the Members tab with a banner', async () => {
-      backend('admin', {
-        [`POST ${TEAM_PATH}/members`]: reply(201, {
-          member: { _id: 'member-4', status: 'invited' }
-        })
-      })
-
-      const response = await post(`${MEMBERS_URL}/add`, {
-        email: ' New.Person@defra.gov.uk ',
-        role: 'admin'
-      })
-
-      expect(response.statusCode).toBe(statusCodes.seeOther)
-      expect(response.headers.location).toBe(MEMBERS_URL)
-
-      const [[url, options]] = writes()
-
-      expect(url).toContain(`${TEAM_PATH}/members`)
-      expect(options.method).toBe('POST')
-      expect(JSON.parse(options.body)).toEqual({
-        email: 'New.Person@defra.gov.uk',
-        role: 'admin'
-      })
-      expect(options.headers).not.toHaveProperty('x-user-id')
-      expect(options.headers['idempotency-key']).toEqual(expect.any(String))
-
-      const { result } = await follow(response)
-
-      expect(result).toContain('New.Person@defra.gov.uk has been added')
-      expect(result).toContain('They will see the team when they next sign in.')
-    })
-
-    test('adds a member when no role is chosen', async () => {
-      backend('admin', {
-        [`POST ${TEAM_PATH}/members`]: reply(201, { member: {} })
-      })
-
-      await post(`${MEMBERS_URL}/add`, { email: 'new.person@defra.gov.uk' })
-
-      expect(JSON.parse(writes()[0][1].body).role).toBe('user')
-    })
-
-    test.each([
-      ['', 'Enter an email address'],
-      [
-        'not-an-address',
-        'Enter an email address in the correct format, like name@defra.gov.uk'
-      ]
-    ])(
-      'shows an error for the address "%s", keeps what was typed and adds no one',
-      async (email, message) => {
-        backend('admin')
-
-        const { statusCode, result } = await post(`${MEMBERS_URL}/add`, {
-          email,
-          role: 'admin'
-        })
-        const $ = load(result)
-
-        expect(statusCode).toBe(statusCodes.badRequest)
-        expect($('.govuk-error-summary__list a').attr('href')).toBe('#email')
-        expect($('.govuk-error-summary__list').text()).toContain(message)
-        expect($('#email-error').text()).toContain(message)
-        expect($('#email').attr('value')).toBe(email)
-        expect($('input[name="role"]:checked').attr('value')).toBe('admin')
-        expect($('title').text()).toContain('Error: Add a member')
-        expect(writes()).toHaveLength(0)
-      }
-    )
-
-    test('shows an error for a role that is not one', async () => {
-      backend('admin')
-
-      const { statusCode, result } = await post(`${MEMBERS_URL}/add`, {
-        email: 'new.person@defra.gov.uk',
-        role: 'owner'
-      })
-
-      expect(statusCode).toBe(statusCodes.badRequest)
-      expect(load(result)('#role-error').text()).toContain('Select a role')
-      expect(writes()).toHaveLength(0)
-    })
-
-    test('says so on the address when the person is already a member', async () => {
-      backend('admin', {
-        [`POST ${TEAM_PATH}/members`]: reply(409, {
-          code: 'member-exists',
-          message: 'This person is already a member of the team'
-        })
-      })
-
-      const { statusCode, result } = await post(`${MEMBERS_URL}/add`, {
-        email: 'priya.raman@defra.gov.uk',
-        role: 'user'
-      })
-      const $ = load(result)
-
-      expect(statusCode).toBe(statusCodes.conflict)
-      expect($('#email-error').text()).toContain(
-        'This person is already a member of this team'
-      )
-      expect($('#email').attr('value')).toBe('priya.raman@defra.gov.uk')
-    })
-
-    test('shows the page for a refusal that arrives after the team was read, and fails on anything else', async () => {
-      backend('admin', {
-        [`POST ${TEAM_PATH}/members`]: reply(403, { code: 'admin-required' })
-      })
-
-      const refused = await post(`${MEMBERS_URL}/add`, {
-        email: 'new.person@defra.gov.uk'
-      })
-
-      expect(refused.statusCode).toBe(statusCodes.forbidden)
-
-      backend('admin', {
-        [`POST ${TEAM_PATH}/members`]: reply(500, { code: 'internal' })
-      })
-
-      const failed = await post(`${MEMBERS_URL}/add`, {
-        email: 'new.person@defra.gov.uk'
-      })
-
-      expect(failed.statusCode).toBe(statusCodes.internalServerError)
-    })
   })
 
   describe('changing a role', () => {
@@ -627,14 +356,12 @@ describe('#members', () => {
       expect(load(result)('h1').text()).toBe('Change your role')
     })
 
-    test('names a person who has not signed in by their address', async () => {
+    test('names any other member by their name', async () => {
       backend('admin')
 
       const { result } = await get(`${MEMBERS_URL}/member-3/role`)
 
-      expect(load(result)('h1').text()).toBe(
-        'Change tom.ellis@defra.gov.uk’s role'
-      )
+      expect(load(result)('h1').text()).toBe('Change Tom Ellis’s role')
     })
 
     test('is not found for someone who is not in the team', async () => {

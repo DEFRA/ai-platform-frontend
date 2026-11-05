@@ -104,7 +104,7 @@ export function createMockProvider(settings) {
     ],
     claims: {
       openid: ['sub', 'oid', 'tid'],
-      profile: ['name'],
+      profile: ['name', 'preferred_username'],
       email: ['email']
     },
     findAccount(_ctx, sub) {
@@ -118,6 +118,9 @@ export function createMockProvider(settings) {
           return {
             sub,
             email: mockAccount.email,
+            // Entra puts the sign-in name in `preferred_username`, which the
+            // frontend's eligibility rule decides on.
+            preferred_username: mockAccount.email,
             name: mockAccount.name,
             oid: mockAccount.oid,
             tid: mockAccount.tid

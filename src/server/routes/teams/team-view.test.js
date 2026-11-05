@@ -144,7 +144,7 @@ describe('#loadTeamForView', () => {
     expect(result.environments).toEqual(environments)
   })
 
-  test('says an active admin is one, and a member or an invited admin is not', async () => {
+  test('says an active admin is one, and a member or a removed admin is not', async () => {
     respondWith([admin()])
     expect((await loadTeamForView(requestFor('user-1'), 'x')).isAdmin).toBe(
       true
@@ -155,7 +155,7 @@ describe('#loadTeamForView', () => {
       false
     )
 
-    respondWith([admin({ status: 'invited' })])
+    respondWith([admin({ status: 'removed' })])
     expect((await loadTeamForView(requestFor('user-1'), 'x')).isAdmin).toBe(
       false
     )

@@ -36,7 +36,11 @@ vi.mock('openid-client', () => ({
     access_token: 'user-access-token',
     refresh_token: 'user-refresh-token',
     expires_in: 3600,
-    claims: () => ({ email: 'test.user@defra.gov.uk', name: 'Test User' })
+    claims: () => ({
+      preferred_username: 'test.user@defra.gov.uk',
+      email: 'test.user@defra.gov.uk',
+      name: 'Test User'
+    })
   }))
 }))
 

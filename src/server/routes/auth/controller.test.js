@@ -23,8 +23,10 @@ vi.mock('openid-client', () => ({
     refresh_token: 'user-refresh-token',
     expires_in: 3600,
     claims: () => ({
+      iss: 'https://login.microsoftonline.com/7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d/v2.0',
       oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
       tid: '7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d',
+      preferred_username: 'test.user@defra.gov.uk',
       email: 'test.user@defra.gov.uk',
       name: 'Test User'
     })
@@ -56,6 +58,11 @@ function cookieHeader(jar) {
 
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
+
+// This tenant, and the home tenant of a guest in it.
+const TID = '7a1d2b3c-4e5f-4a6b-8c7d-9e0f1a2b3c4d'
+const HOME_TID = '3c9d8e7f-1a2b-4c3d-9e4f-5a6b7c8d9e0f'
+const ISS = `https://login.microsoftonline.com/${TID}/v2.0`
 
 describe('#authController', () => {
   let server
@@ -420,6 +427,206 @@ describe('#authController', () => {
 
     expect(callback.statusCode).toBe(statusCodes.internalServerError)
     expect(next.headers.location).toBe('/sign-in?returnTo=%2Fmanage')
+  })
+
+  describe('the account that signs in', () => {
+    async function callbackWith(claims) {
+      const { authorizationCodeGrant } = await import('openid-client')
+      const loginResponse = await server.inject({
+        method: 'GET',
+        url: '/auth/login'
+      })
+      const cookies = mergeCookies({}, loginResponse)
+
+      authorizationCodeGrant.mockResolvedValueOnce({
+        access_token: 'user-access-token',
+        refresh_token: 'user-refresh-token',
+        expires_in: 3600,
+        claims: () => ({
+          iss: ISS,
+          oid: '0f8fad5b-d9cb-469f-a165-70867728950e',
+          tid: TID,
+          name: 'Test User',
+          ...claims
+        })
+      })
+
+      return server.inject({
+        method: 'GET',
+        url: '/auth/callback?code=abc&state=state-123',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+    }
+
+    test.each([
+      [
+        'defra.gov.uk',
+        { preferred_username: 'sam@defra.gov.uk', email: 'sam@defra.gov.uk' },
+        'sam@defra.gov.uk'
+      ],
+      [
+        'defra.onmicrosoft.com',
+        {
+          preferred_username: 'sam@defra.onmicrosoft.com',
+          email: 'sam@defra.onmicrosoft.com'
+        },
+        'sam@defra.onmicrosoft.com'
+      ],
+      [
+        'DEFRA.GOV.UK, in any case',
+        { preferred_username: 'Sam@DEFRA.GOV.UK', email: 'Sam@DEFRA.GOV.UK' },
+        'Sam@DEFRA.GOV.UK'
+      ],
+      [
+        'defra.onmicrosoft.com as the user name when there is no email',
+        { preferred_username: 'sam@defra.onmicrosoft.com' },
+        'sam@defra.onmicrosoft.com'
+      ],
+      [
+        'defra.gov.uk, signed in by this tenant (idp is the issuer)',
+        {
+          preferred_username: 'sam@defra.gov.uk',
+          email: 'sam@defra.gov.uk',
+          idp: ISS,
+          acct: 0
+        },
+        'sam@defra.gov.uk'
+      ]
+    ])('signs in an account on %s', async (_name, claims, address) => {
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          user: { _id: 'user-1', email: address, displayName: 'Test User' }
+        })
+      )
+
+      const { statusCode, headers } = await callbackWith(claims)
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/')
+
+      // The backend reads the person from the access token: nothing about
+      // them is sent in the call.
+      const [request] = fetchMock.requests()
+
+      expect(request.method).toBe('PUT')
+      expect(new URL(request.url).pathname).toBe('/v1/users/me')
+      expect(fetchMock.mock.calls[0][1].body).toBeUndefined()
+    })
+
+    // A B2B guest as Entra sends the token: a home user name and an email on
+    // Defra's domain, `idp` for the home tenant, and `tid` of this tenant.
+    const BORN_GUEST = {
+      preferred_username: 'sam.carter@defra.gov.uk',
+      email: 'sam.carter@defra.gov.uk',
+      idp: `https://sts.windows.net/${HOME_TID}/`
+    }
+
+    test.each([
+      ['a B2B guest of another Defra tenant', BORN_GUEST],
+      [
+        'a B2B guest whose home tenant signs in on login.microsoftonline.com',
+        {
+          ...BORN_GUEST,
+          idp: `https://login.microsoftonline.com/${HOME_TID}/v2.0`
+        }
+      ],
+      [
+        'a guest with a personal Microsoft account',
+        { ...BORN_GUEST, idp: 'live.com' }
+      ],
+      [
+        'a guest by acct, when the app asks for it',
+        {
+          preferred_username: 'sam.carter@defra.gov.uk',
+          email: 'sam.carter@defra.gov.uk',
+          acct: 1
+        }
+      ],
+      [
+        'a guest by the #EXT# upn',
+        {
+          preferred_username: 'sam.carter@defra.gov.uk',
+          email: 'sam.carter@defra.gov.uk',
+          upn: 'sam.carter_defra.gov.uk#EXT#@defra.onmicrosoft.com'
+        }
+      ],
+      [
+        'a guest of defra.onmicrosoft.com by the #EXT# user name',
+        { preferred_username: 'sam_gmail.com#EXT#@defra.onmicrosoft.com' }
+      ],
+      [
+        'a home user name on another tenant with a Defra email',
+        {
+          preferred_username: 'sam@othertenant.example',
+          email: 'sam@defra.gov.uk'
+        }
+      ],
+      [
+        'a Defra user name with an email on another domain',
+        {
+          preferred_username: 'sam@defra.gov.uk',
+          email: 'sam@example.com'
+        }
+      ],
+      [
+        'a subdomain of defra.gov.uk',
+        { preferred_username: 'sam@sub.defra.gov.uk' }
+      ],
+      [
+        'a subdomain of defra.onmicrosoft.com',
+        { preferred_username: 'sam@sub.defra.onmicrosoft.com' }
+      ],
+      [
+        'a look-alike domain that starts with Defra’s',
+        { preferred_username: 'sam@defra.gov.uk.example.com' }
+      ],
+      ['a look-alike domain', { preferred_username: 'sam@notdefra.gov.uk' }],
+      ['another domain', { preferred_username: 'sam@example.com' }],
+      ['an email and no user name', { email: 'sam@defra.gov.uk' }],
+      ['no email or user name at all', {}]
+    ])(
+      'refuses %s with the same page as the backend’s refusal, and signs no one in',
+      async (_name, claims) => {
+        const { statusCode, result } = await callbackWith(claims)
+
+        expect(statusCode).toBe(statusCodes.forbidden)
+        expect(result).toContain('You cannot sign in with this account')
+        expect(result).toContain('/sign-in?prompt=select_account')
+        expect(fetchMock.mock.calls).toHaveLength(0)
+      }
+    )
+
+    test('logs a refusal without who it was, and calls no backend', async () => {
+      const spies = []
+      let watching = true
+
+      // Call-through spies on the request's real logger.
+      server.ext('onRequest', (request, h) => {
+        if (watching) {
+          for (const level of ['trace', 'debug', 'info', 'warn', 'error']) {
+            spies.push(vi.spyOn(request.logger, level))
+          }
+        }
+
+        return h.continue
+      })
+
+      await callbackWith(BORN_GUEST)
+      watching = false
+
+      const logged = spies.flatMap((spy) => spy.mock.calls)
+      const text = JSON.stringify(logged)
+
+      expect(logged).toContainEqual([
+        'Sign-in refused: the account is not eligible'
+      ])
+      expect(text).not.toContain('sam.carter')
+      expect(text).not.toContain('defra.gov.uk')
+      expect(text).not.toContain(HOME_TID)
+      expect(fetchMock.mock.calls).toHaveLength(0)
+
+      spies.forEach((spy) => spy.mockRestore())
+    })
   })
 
   test('GET /auth/login passes prompt=select_account through to the authorization request', async () => {

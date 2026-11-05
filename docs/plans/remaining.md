@@ -11,6 +11,7 @@ are those of `ai-platform-discovery-docs` `build-stories.md`, the authority for 
 | 1       | Identity and credentials | B18: real team client secret and federations                                                                                                                                                                                                                                         | Not started (placeholder built)                                                                            | Entra admin consent                     |
 | 1       | Identity and credentials | B27: federated sign-in; backend validates an Entra token on every route                                                                                                                                                                                                              | Built, not released or deployed (HVE #42, 4 Nov); journey tests, Entra objects and the joint deploy remain | Entra objects (by hand)                 |
 | 1       | Identity and credentials | B15: Entra consent, `entra.enabled` back on in Infradev                                                                                                                                                                                                                              | Not started                                                                                                | Entra admin consent                     |
+| 1       | Identity and credentials | Directory search: switch the add-member search from the seeded mock to Microsoft Graph (`DIRECTORY_MODE=graph`)                                                                                                                                                                      | Built against a mock; Graph needs B27 deployed                                                             | B27 deployed, Graph consent             |
 | 2       | Limits and reporting     | B17: limits page and increase requests                                                                                                                                                                                                                                               | Not started                                                                                                | None                                    |
 | 2       | Limits and reporting     | B19: team usage and chargeback                                                                                                                                                                                                                                                       | Not started                                                                                                | Agreed tariff and period                |
 | 3       | Observability            | B20 to B22: telemetry, dashboards, alerts                                                                                                                                                                                                                                            | Not started (infra groundwork only)                                                                        | None; gates creating DEV                |
@@ -110,6 +111,16 @@ Entra objects are created by hand now and by Terraform later. Out of scope: B18,
 `route-access.test.js`), `PUT /v1/users/me`, and the fixes for findings 1 to 7 and 9 to 12 of the 22 October review.
 Finding 8 is open: nothing assigns `PLATFORM_ADMIN_ROLE`, so the first Platform Admin is set by hand.
 
+**Team membership.** There are no invitations and no binding by email: an Admin adds a person chosen from the
+directory by `oid` (built 4 November 2026, see [03 Team tier](implemented/03-team-tier.md#adding-a-member-from-the-directory)).
+B27 does no membership work. It is needed only to switch the real directory on, in
+[Directory search: Graph switch-on](#directory-search-graph-switch-on).
+
+**Open decision.** The frontend still refuses an account at the sign-in callback from the ID token claims (a guest, or
+an address off `ALLOWED_EMAIL_DOMAINS`), as frontend #80 built it, before the backend checks the access token (`tid`,
+`acct`, `scp`). B27's acceptance criterion says the tenant check replaces the email-domain allow-list; keeping both is
+the cautious merge. Decide whether to retire the frontend rule.
+
 Kept as built: PKCE `S256` with `state` and `nonce`; ID token validation by `openid-client`; the server-side `yar`
 session (`maxCookieSize: 0`); the deny-by-default sign-in gate with explicit `app.public`; `@hapi/crumb`; the Blankie
 CSP; the safe `returnTo`; Joi on every route; a non-member learns nothing about a team (404) and a member without the
@@ -135,6 +146,21 @@ right gets a stable 403 code such as `admin-required`; audit with a 30-day TTL; 
 **Agreed on 22 October 2026:** the first Platform Admin is set by hand; the maintenance route stays as built; a stolen
 access token stays valid until it expires, accepted because tokens never leave the server-side session and CDP's
 network is private; Terraform, other upgrades and sign-in policies such as MFA are out of scope.
+
+### Directory search: Graph switch-on
+
+The add-member page searches a seeded mock directory (`DIRECTORY_MODE=mock`, the default). The Microsoft Graph adapter
+is built and tested but refused at start-up, and production refuses `mock`, so production cannot start until this is
+done. Design: [ai-platform-discovery-docs#38](https://github.com/DEFRA/ai-platform-discovery-docs/pull/38). To switch
+on:
+
+- B27 supplies the signed-in Admin's token, which the adapter exchanges on behalf of the Admin.
+- An Entra admin grants tenant-wide consent for the delegated Graph permission `User.ReadBasic.All` on the portal API
+  app registration (`api-aip-portal`), and the CDP egress allow-list includes `graph.microsoft.com`.
+- Allow `graph` in the backend's directory registry, then set `DIRECTORY_MODE=graph` and redeploy.
+
+The backfill `2026-11-03-team-members-directory-only` runs when the backend first deploys with this change, not at
+switch-on. Read its start-up log counts (teams without an Admin, `credentialsOrphaned`).
 
 ## 2. Limits and reporting
 

@@ -100,10 +100,12 @@ describe('#config how the frontend authenticates to Entra', () => {
     ).rejects.toThrow()
   })
 
-  test('no longer has an email-domain allow-list', async () => {
+  test('keeps the email-domain allow-list the sign-in gate decides on', async () => {
     const { config } = await loadConfig({})
 
-    expect(config.has('allowedEmailDomains')).toBe(false)
+    expect(config.get('allowedEmailDomains')).toBe(
+      'defra.gov.uk,defra.onmicrosoft.com'
+    )
   })
 })
 

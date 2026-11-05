@@ -4,6 +4,7 @@ import Joi from 'joi'
 import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
+import { isEligibleAccount } from '#/server/common/helpers/sign-in-eligibility.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { tokensFromResponse } from '#/server/common/helpers/access-token.js'
 import { userScope } from '#/server/common/helpers/portal-scopes.js'
@@ -60,9 +61,11 @@ function failedView(h) {
     .code(statusCodes.badRequest)
 }
 
-// Shown when sign-in succeeds at Entra ID but the backend refuses the token
-// (401): a guest, or an account from another tenant. The session has ended, so
-// there is no loop back through sign-in.
+// Shown when sign-in succeeds at Entra ID but the account is not eligible: not
+// on an allowed email domain (e.g. the wrong tenant) or a guest, which the
+// frontend tells from the ID token claims before anything is kept, or an
+// account the backend refuses the access token for (401). The session has
+// ended, so there is no loop back through sign-in.
 function notEligibleView(h) {
   return h
     .view('error/index', {
@@ -147,6 +150,15 @@ export const authController = {
       } catch (error) {
         request.logger.warn({ err: error }, 'Entra ID sign-in callback failed')
         return failedView(h)
+      }
+
+      // The frontend decides eligibility from the ID token claims, the only
+      // place a guest can be told from a member; the backend then checks the
+      // access token it is given. Nothing of a refused sign-in is kept.
+      if (!isEligibleAccount(tokens.claims())) {
+        // Not logged with the address: it says who, and the page says enough.
+        request.logger.warn('Sign-in refused: the account is not eligible')
+        return notEligibleView(h)
       }
 
       // A new session ID at sign-in, so one planted or seen before sign-in

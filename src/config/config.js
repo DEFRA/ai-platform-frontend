@@ -273,6 +273,12 @@ export const config = convict({
       env: 'GATEWAY_RESEARCH_API_ID'
     }
   },
+  allowedEmailDomains: {
+    doc: 'Comma-separated list of email domains allowed to sign in, each an exact match with no regard to case (no subdomains); the sign-in name (preferred_username, else upn) and any email or upn claim must all be on one, and a guest (idp for another tenant, acct other than 0, or an #EXT# name) is never allowed. Keep it the same as the backend’s',
+    format: String,
+    default: 'defra.gov.uk,defra.onmicrosoft.com',
+    env: 'ALLOWED_EMAIL_DOMAINS'
+  },
   appBaseUrl: {
     doc: 'Public base URL of this frontend, used to build the Entra ID redirect and post-logout URIs',
     format: String,

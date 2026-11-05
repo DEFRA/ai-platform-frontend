@@ -92,10 +92,10 @@ describe('#buildTeamRow', () => {
     ).toBe('Member')
   })
 
-  test('counts the members who have not been removed, invited ones included', () => {
+  test('counts the members who have not been removed', () => {
     const members = [
       { status: 'active' },
-      { status: 'invited' },
+      { status: 'active' },
       { status: 'removed' }
     ]
 
