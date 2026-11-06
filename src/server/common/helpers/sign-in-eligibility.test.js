@@ -133,6 +133,11 @@ describe('#sign-in-eligibility', () => {
       ['a guest whose idp is empty', guest({ idp: '' })],
       ['a guest by acct 1', member({ acct: 1 })],
       ['a guest by acct "1"', member({ acct: '1' })],
+      ['an otherwise eligible account with acct [0]', member({ acct: [0] })],
+      [
+        'an otherwise eligible account with acct ["0"]',
+        member({ acct: ['0'] })
+      ],
       [
         'a guest by the #EXT# upn, with a home user name and no idp',
         member({
