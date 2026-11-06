@@ -5,13 +5,13 @@
 // worldwide deployment).
 
 const TEAM_TIER = 'team'
-const ALLOWED_REGIONS = [
+const ALLOWED_REGIONS = new Set([
   'uksouth',
   'ukwest',
   'swedencentral',
   'northeurope',
   'westeurope'
-]
+])
 const WORLDWIDE_SKU_PREFIX = 'global'
 const CAPACITY_DUPLICATE_SUFFIX = '-2'
 
@@ -50,9 +50,7 @@ function inAllowedRegions(regions) {
   return (
     Array.isArray(regions) &&
     regions.length > 0 &&
-    regions.every((region) =>
-      ALLOWED_REGIONS.includes(String(region).toLowerCase())
-    )
+    regions.every((region) => ALLOWED_REGIONS.has(String(region).toLowerCase()))
   )
 }
 

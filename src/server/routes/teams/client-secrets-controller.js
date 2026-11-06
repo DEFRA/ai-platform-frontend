@@ -19,6 +19,7 @@ import { joinNames } from '#/server/routes/connect/team-model-choices.js'
 import { isNotFound, loadTeamForView, teamUrl } from './team-view.js'
 
 const SECRET_NAME = 'client secret'
+const ADMIN_REQUIRED = 'admin-required'
 
 function clientSecretNotFound(h, slug) {
   return h
@@ -120,7 +121,7 @@ function failAsBanner(request, h, error, message) {
 }
 
 function revealErrorMessage(error) {
-  if (error.code === 'admin-required') {
+  if (error.code === ADMIN_REQUIRED) {
     return 'Only a team admin can view this client secret.'
   }
 
@@ -311,7 +312,7 @@ export const clientSecretsController = {
             request,
             h,
             error,
-            error.code === 'admin-required'
+            error.code === ADMIN_REQUIRED
               ? 'Only a team admin can rotate this client secret.'
               : 'This client secret could not be rotated.'
           )
@@ -390,7 +391,7 @@ export const clientSecretsController = {
               request,
               h,
               error,
-              error.code === 'admin-required'
+              error.code === ADMIN_REQUIRED
                 ? 'Only a team admin can revoke this client secret.'
                 : 'This client secret could not be revoked.'
             )

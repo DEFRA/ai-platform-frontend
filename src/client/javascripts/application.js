@@ -36,10 +36,16 @@ initSessionTimeout()
 // work with no JavaScript). A field is copied by its value, code by its text.
 document.querySelectorAll('[data-copy-target]').forEach((button) => {
   button.hidden = false
-  button.addEventListener('click', () => {
+  button.addEventListener('click', async () => {
     const source = document.getElementById(button.dataset.copyTarget)
-    if (source) {
-      navigator.clipboard?.writeText(source.value ?? source.textContent)
+    if (!source) {
+      return
+    }
+
+    try {
+      await navigator.clipboard?.writeText(source.value ?? source.textContent)
+    } catch {
+      // The browser refused the copy: the field and the code stay selectable.
     }
   })
 })

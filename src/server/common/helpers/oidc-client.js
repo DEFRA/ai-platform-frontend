@@ -6,9 +6,9 @@ import { createLogger } from '#/server/common/helpers/logging/logger.js'
 const CLIENT_ASSERTION_TYPE =
   'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
 
-let discoveryPromise
-let assertionProvider
-let currentAssertion
+let discoveryPromise = null
+let assertionProvider = null
+let currentAssertion = null
 
 const isFederated = () => config.get('azureAd.authMethod') === 'federated'
 
@@ -75,7 +75,7 @@ function discover() {
       clientId,
       clientSecret,
       clientAuthentication,
-      { execute: [client.allowInsecureRequests] }
+      { execute: [client.allowInsecureRequests] } // NOSONAR: deprecated only to flag it as unsafe; local development only
     )
   }
 
@@ -97,7 +97,7 @@ export async function getOidcConfig({ authenticateClient = false } = {}) {
   if (!discoveryPromise) {
     // A failed discovery is not kept: the next request tries again.
     discoveryPromise = discover().catch((error) => {
-      discoveryPromise = undefined
+      discoveryPromise = null
       throw error
     })
   }
@@ -115,7 +115,7 @@ export async function getOidcConfig({ authenticateClient = false } = {}) {
  * Test-only: clears the memoized discovery and assertion so config changes take effect.
  */
 export function resetOidcConfig() {
-  discoveryPromise = undefined
-  assertionProvider = undefined
-  currentAssertion = undefined
+  discoveryPromise = null
+  assertionProvider = null
+  currentAssertion = null
 }

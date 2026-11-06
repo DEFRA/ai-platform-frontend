@@ -37,19 +37,25 @@ export function requestUrl(team, deployment) {
   return `/connect/team/request/${encodeURIComponent(team.slug)}/${encodeURIComponent(deployment._id)}`
 }
 
+function modelDetail(deployment, { team, failed, inProgress }) {
+  if (failed) {
+    return { text: 'See what happened', href: requestUrl(team, deployment) }
+  }
+
+  if (inProgress && deployment.status !== DEPLOYMENT_REMOVING_STATUS) {
+    return { text: 'See progress', href: requestUrl(team, deployment) }
+  }
+
+  return null
+}
+
 // One model in an environment: its state, what a person can do about it, and
 // (for an admin) the way to remove it, which only a ready model has.
 function modelRow(deployment, { team, isAdmin, modelNames }) {
   const { status } = deployment
   const failed = DEPLOYMENT_FAILURE_STATUSES.includes(status)
   const inProgress = isDeploymentInProgress(status)
-  let detail = null
-
-  if (failed) {
-    detail = { text: 'See what happened', href: requestUrl(team, deployment) }
-  } else if (inProgress && status !== DEPLOYMENT_REMOVING_STATUS) {
-    detail = { text: 'See progress', href: requestUrl(team, deployment) }
-  }
+  const detail = modelDetail(deployment, { team, failed, inProgress })
 
   return {
     name: modelNames[deployment.modelSlug] ?? deployment.modelSlug,

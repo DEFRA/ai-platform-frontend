@@ -18,6 +18,8 @@ import {
 } from '#/server/common/helpers/session.js'
 import { startSessionClock } from '#/server/common/helpers/session-lifetime.js'
 
+const ERROR_VIEW = 'error/index'
+
 export const loginQuerySchema = Joi.object({
   returnTo: Joi.string().optional(),
   prompt: Joi.string().valid('select_account').optional()
@@ -38,7 +40,7 @@ function currentUrl(request) {
 // bounce straight back to /auth/login and loop forever while Entra ID can't be reached.
 function unavailableView(h) {
   return h
-    .view('error/index', {
+    .view(ERROR_VIEW, {
       pageTitle: 'Sign-in unavailable',
       heading: 'Sign-in is currently unavailable',
       message:
@@ -51,7 +53,7 @@ function unavailableView(h) {
 
 function failedView(h) {
   return h
-    .view('error/index', {
+    .view(ERROR_VIEW, {
       pageTitle: 'Sign-in problem',
       heading: 'We could not sign you in',
       message: 'Your sign-in attempt did not complete.',
@@ -68,7 +70,7 @@ function failedView(h) {
 // ended, so there is no loop back through sign-in.
 function notEligibleView(h) {
   return h
-    .view('error/index', {
+    .view(ERROR_VIEW, {
       pageTitle: 'Sign-in not allowed',
       heading: 'You cannot sign in with this account',
       message: 'Your account is not eligible to use this service.',

@@ -13,8 +13,8 @@ import {
 const RENEW_EARLY_MS = 2 * 60 * 1000
 const MS_PER_SECOND = 1000
 
-let appToken
-let appTokenRequest
+let appToken = null
+let appTokenRequest = null
 const userTokenRequests = new Map()
 
 /**
@@ -152,7 +152,7 @@ export async function getAppToken() {
   }
 
   appTokenRequest ??= requestAppToken().finally(() => {
-    appTokenRequest = undefined
+    appTokenRequest = null
   })
 
   try {
@@ -170,7 +170,7 @@ export async function getAppToken() {
  * Test-only: forgets the cached app token and any request in flight.
  */
 export function resetAppToken() {
-  appToken = undefined
-  appTokenRequest = undefined
+  appToken = null
+  appTokenRequest = null
   userTokenRequests.clear()
 }

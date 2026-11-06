@@ -1,7 +1,3 @@
-import { formatDate } from './format-date.js'
-import { formatCurrency } from './format-currency.js'
-import { formatLabel } from './format-label.js'
-
 function assign(object, ...sources) {
   for (const source of sources) {
     if (source == null) {
@@ -26,4 +22,7 @@ function assign(object, ...sources) {
   return object
 }
 
-export { assign, formatDate, formatCurrency, formatLabel }
+export { formatDate } from './format-date.js'
+export { formatCurrency } from './format-currency.js'
+export { formatLabel } from './format-label.js'
+export { assign }
