@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
@@ -13,13 +12,8 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
+import { defaultTeamEnvironment } from '#/server/common/helpers/environment-names.js'
 import {
-  defaultTeamEnvironment,
-  environmentName,
-  environmentSetUpUrl
-} from '#/server/common/helpers/environment-names.js'
-import {
-  MAX_MODELS_PER_REQUEST,
   changeQuerySchema,
   hasCompletedTeamJourney,
   hasTeamJourneyState,
@@ -28,66 +22,32 @@ import {
   stepUrl,
   teamJourneyOf
 } from './team-journey.js'
+import { CREATE_TEAM_VALUE, loadTeamChoices } from './team-choices.js'
+import { pickableSlugs, unavailableSlugs } from './team-model-choices.js'
 import {
-  CREATE_TEAM_VALUE,
-  buildTeamItems,
-  loadTeamChoices
-} from './team-choices.js'
+  detailsSchema,
+  selectModelsSchema,
+  selectTeamSchema
+} from './team-schemas.js'
 import {
-  buildModelCheckboxes,
-  joinNames,
-  loadModelChoices,
-  notInRegionsSentence,
-  pickableSlugs,
-  unavailableSlugs
-} from './team-model-choices.js'
-
-const SELECT_URL = '/connect/team/select'
-const MODEL_URL = '/connect/team/model'
-const DETAILS_URL = '/connect/team/details'
-const CHECK_URL = '/connect/team/check'
-const NEW_TEAM_URL = `/teams/new?returnTo=${encodeURIComponent(SELECT_URL)}`
-
-const SELECT_HEADING = 'Which team is this for?'
-const MODEL_HEADING = 'Which models does your team need?'
-const DETAILS_HEADING = 'What will your team use it for? (optional)'
+  CHECK_URL,
+  DETAILS_URL,
+  MODEL_URL,
+  NEW_TEAM_URL,
+  checkAnswersView,
+  detailsView,
+  environmentUnavailableView,
+  modelStepView,
+  redirectToStart,
+  selectView
+} from './team-views.js'
+import {
+  findChosenTeam,
+  isSingleModelFromItsPage,
+  loadChoicesFor
+} from './team-loaders.js'
 
 const querySchema = { query: changeQuerySchema }
-
-const selectTeamSchema = Joi.object({
-  team: Joi.string()
-    .pattern(/^([a-z0-9-]+|\+create)$/)
-    .required()
-    .messages({
-      'any.required': 'Select a team',
-      'string.empty': 'Select a team',
-      'string.pattern.base': 'Select a team from the list'
-    })
-})
-
-// One ticked box posts a string, several post a list; both become a list.
-const selectModelsSchema = Joi.object({
-  modelSlugs: Joi.array()
-    .items(Joi.string().pattern(/^[a-z0-9-]+$/))
-    .single()
-    .unique()
-    .min(1)
-    .max(MAX_MODELS_PER_REQUEST)
-    .required()
-    .messages({
-      'any.required': 'Select at least one model',
-      'array.min': 'Select at least one model',
-      'array.max': `Select no more than ${MAX_MODELS_PER_REQUEST} models`,
-      'array.unique': 'Select each model only once',
-      'string.pattern.base': 'Select models from the list'
-    })
-})
-
-const detailsSchema = Joi.object({
-  purpose: Joi.string().trim().max(500).allow('').optional().messages({
-    'string.max': 'Purpose must be 500 characters or fewer'
-  })
-})
 
 function errorMessageForCode(error) {
   if (error.code === 'deployment-exists') {
@@ -107,172 +67,6 @@ function errorMessageForCode(error) {
   }
 
   return error.message
-}
-
-function redirectToStart(h) {
-  return h.redirect('/models').takeover()
-}
-
-// No environment is configured for teams to deploy to, so there is nothing
-// to state or save on the details step: say so rather than lose the journey.
-function environmentUnavailableView(h) {
-  return h
-    .view('error/index', {
-      pageTitle: 'No environment is available yet',
-      heading: 'No environment is available yet',
-      message:
-        'Models cannot be set up for a team in any environment yet. Try again later.',
-      actionHref: '/models',
-      actionText: 'Browse models'
-    })
-    .code(statusCodes.serviceUnavailable)
-}
-
-// The previous step of the journey, or the check page for a step opened from
-// "Change" there. The model step is skipped when one model came from its
-// page, so the details step goes back past it.
-const BACK_LINKS = {
-  select: (pendingAccess) =>
-    pendingAccess.modelSlug ? `/models/${pendingAccess.modelSlug}` : '/models',
-  model: () => SELECT_URL,
-  details: (pendingAccess) =>
-    pendingAccess.modelStepSkipped ? SELECT_URL : MODEL_URL
-}
-
-// The page before the check page: the details step, or for models set up in
-// another environment, that environment's own page, which skips the rest.
-function checkBackLink(pendingAccess) {
-  return pendingAccess.environment &&
-    pendingAccess.environment !== defaultTeamEnvironment()
-    ? environmentSetUpUrl(pendingAccess.teamSlug, pendingAccess.environment)
-    : DETAILS_URL
-}
-
-function backHref(step, pendingAccess, change) {
-  // The check page only takes a person back once every answer is there: after
-  // changing the team the models are asked for again.
-  return change && hasCompletedTeamJourney(pendingAccess)
-    ? CHECK_URL
-    : BACK_LINKS[step](pendingAccess)
-}
-
-// A form of a step posts back to its own address, `?change=check` included.
-function selectView(h, { teams, pendingAccess, change, problem = {} }) {
-  return h.view('connect/team/select', {
-    pageTitle: `${problem.errorSummary ? 'Error: ' : ''}${SELECT_HEADING}`,
-    heading: SELECT_HEADING,
-    backLink: backHref('select', pendingAccess, change),
-    teamItems: buildTeamItems(teams, pendingAccess.teamSlug),
-    errorSummary: problem.errorSummary ?? null,
-    fieldErrors: problem.fieldErrors ?? {}
-  })
-}
-
-function modelStepView(
-  h,
-  { choices, selected, pendingAccess, change, problem = {} }
-) {
-  return h.view('connect/team/model', {
-    pageTitle: `${problem.errorSummary ? 'Error: ' : ''}${MODEL_HEADING}`,
-    heading: MODEL_HEADING,
-    teamName: pendingAccess.teamName,
-    backLink: backHref('model', pendingAccess, change),
-    modelItems: buildModelCheckboxes(choices, selected),
-    notInRegionsText: notInRegionsSentence(choices.notInRegionsNames),
-    errorSummary: problem.errorSummary ?? null,
-    fieldErrors: problem.fieldErrors ?? {}
-  })
-}
-
-function detailsView(h, { pendingAccess, change, values, problem = {} }) {
-  return h.view('connect/team/details', {
-    pageTitle: `${problem.errorSummary ? 'Error: ' : ''}${DETAILS_HEADING}`,
-    heading: DETAILS_HEADING,
-    teamName: pendingAccess.teamName,
-    backLink: backHref('details', pendingAccess, change),
-    values,
-    environmentName: environmentName(
-      pendingAccess.environment ?? defaultTeamEnvironment()
-    ),
-    errorSummary: problem.errorSummary ?? null,
-    fieldErrors: problem.fieldErrors ?? {}
-  })
-}
-
-async function checkAnswersView(request, h, pendingAccess, problem = {}) {
-  const models = await Promise.all(
-    pendingAccess.modelSlugs.map((slug) =>
-      apiClient(request).get(`/v1/models/${slug}`)
-    )
-  )
-
-  return h.view('connect/team/check', {
-    pageTitle: 'Check your answers',
-    heading: 'Check your answers',
-    teamName: pendingAccess.teamName,
-    backLink: checkBackLink(pendingAccess),
-    teamChangeUrl: stepUrl(SELECT_URL, true),
-    modelsChangeUrl: stepUrl(MODEL_URL, true),
-    purposeChangeUrl: stepUrl(DETAILS_URL, true),
-    modelNames: joinNames(models.map(({ displayName }) => displayName)),
-    models,
-    purpose: pendingAccess.purpose,
-    environmentName: environmentName(pendingAccess.environment),
-    errorMessage: problem.errorMessage ?? null,
-    existingRequestUrl: problem.existingRequestUrl ?? null
-  })
-}
-
-// The team a person chose, as the backend knows it. A team the person does
-// not belong to is the same answer as one that does not exist.
-async function findChosenTeam(request, slug) {
-  try {
-    const { team } = await apiClient(request).get(
-      `/v1/teams/${encodeURIComponent(slug)}`
-    )
-
-    return team
-  } catch (error) {
-    if (
-      error instanceof ApiError &&
-      [statusCodes.forbidden, statusCodes.notFound].includes(error.statusCode)
-    ) {
-      return null
-    }
-
-    throw error
-  }
-}
-
-function modelEnvironment(pendingAccess) {
-  return pendingAccess.environment ?? defaultTeamEnvironment()
-}
-
-function loadChoicesFor(request, pendingAccess) {
-  const environment = modelEnvironment(pendingAccess)
-
-  return loadModelChoices(request, {
-    teamSlug: pendingAccess.teamSlug,
-    environment,
-    // Another environment is set up from the models the team has ready in the
-    // first one, so changing the models or the team offers the same ones.
-    readyIn:
-      environment === defaultTeamEnvironment()
-        ? undefined
-        : defaultTeamEnvironment()
-  })
-}
-
-// A model a person came to from its page is the whole choice when it is the
-// only one on offer, so the step is skipped.
-function isSingleModelFromItsPage(pendingAccess, choices) {
-  const pickable = pickableSlugs(choices)
-
-  return (
-    !pendingAccess.modelSlugs?.length &&
-    pickable.length === 1 &&
-    pendingAccess.modelSlug === pickable[0]
-  )
 }
 
 export const teamConnectController = {
@@ -341,8 +135,8 @@ export const teamConnectController = {
         if (request.payload.team === CREATE_TEAM_VALUE) {
           setPendingAccess(request, {
             ...pendingAccess,
-            teamSlug: undefined,
-            teamName: undefined,
+            teamSlug: null,
+            teamName: null,
             userId: getSessionUser(request).id
           })
 
@@ -437,7 +231,7 @@ export const teamConnectController = {
 
             return modelStepView(h, {
               choices,
-              selected: [].concat(request.payload?.modelSlugs ?? []),
+              selected: [request.payload?.modelSlugs ?? []].flat(),
               pendingAccess,
               change: isChange(request),
               problem: {

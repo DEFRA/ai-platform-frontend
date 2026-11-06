@@ -61,6 +61,58 @@ function changeView(h, { team, field, value, errors = noErrors() }) {
   })
 }
 
+async function showChangeFailure(request, h, error, { field, action }) {
+  const { loaded, page } = await loadAdminTeam(request, h, action, 'details')
+
+  return (
+    page ??
+    changeView(h, {
+      team: loaded.team,
+      field,
+      value: request.payload?.[field] ?? '',
+      errors: {
+        errorSummary: buildErrorSummary(error),
+        fieldErrors: buildFieldErrors(error)
+      }
+    }).code(statusCodes.badRequest)
+  ).takeover()
+}
+
+async function applyChange(request, h, { field, action, success }) {
+  const { loaded, page } = await loadAdminTeam(request, h, action, 'details')
+
+  if (page) {
+    return page
+  }
+
+  const { team } = loaded
+
+  try {
+    await apiClient(request).patch(
+      `/v1/teams/${encodeURIComponent(team.slug)}`,
+      { [field]: request.payload[field] }
+    )
+  } catch (error) {
+    if (!(error instanceof ApiError)) {
+      throw error
+    }
+
+    if (isForbidden(error)) {
+      return adminRequiredView(h, team, action, 'details')
+    }
+
+    if (isNotFound(error)) {
+      return teamNotFoundView(h)
+    }
+
+    throw error
+  }
+
+  setAccountNotification(request, { type: 'success', message: success })
+
+  return h.redirect(detailsUrl(team)).code(statusCodes.seeOther)
+}
+
 function changeController(field) {
   const { action, success, schema } = CHANGES[field]
 
@@ -88,68 +140,12 @@ function changeController(field) {
       options: {
         validate: {
           payload: schema,
-          async failAction(request, h, error) {
-            const { loaded, page } = await loadAdminTeam(
-              request,
-              h,
-              action,
-              'details'
-            )
-
-            return (
-              page ??
-              changeView(h, {
-                team: loaded.team,
-                field,
-                value: request.payload?.[field] ?? '',
-                errors: {
-                  errorSummary: buildErrorSummary(error),
-                  fieldErrors: buildFieldErrors(error)
-                }
-              }).code(statusCodes.badRequest)
-            ).takeover()
-          }
+          failAction: (request, h, error) =>
+            showChangeFailure(request, h, error, { field, action })
         }
       },
-      async handler(request, h) {
-        const { loaded, page } = await loadAdminTeam(
-          request,
-          h,
-          action,
-          'details'
-        )
-
-        if (page) {
-          return page
-        }
-
-        const { team } = loaded
-
-        try {
-          await apiClient(request).patch(
-            `/v1/teams/${encodeURIComponent(team.slug)}`,
-            { [field]: request.payload[field] }
-          )
-        } catch (error) {
-          if (!(error instanceof ApiError)) {
-            throw error
-          }
-
-          if (isForbidden(error)) {
-            return adminRequiredView(h, team, action, 'details')
-          }
-
-          if (isNotFound(error)) {
-            return teamNotFoundView(h)
-          }
-
-          throw error
-        }
-
-        setAccountNotification(request, { type: 'success', message: success })
-
-        return h.redirect(detailsUrl(team)).code(statusCodes.seeOther)
-      }
+      handler: (request, h) =>
+        applyChange(request, h, { field, action, success })
     }
   }
 }

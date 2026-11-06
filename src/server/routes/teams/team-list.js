@@ -12,23 +12,23 @@ const REMOVED_MEMBER_STATUS = 'removed'
 // What a model's line says after its name, worst first: a model in two
 // environments reads as the worse of its two states. A ready model needs no
 // words.
-const MODEL_STATES = [
-  { suffix: 'could not be set up', failed: true },
-  { suffix: 'setting up' },
-  { suffix: 'being removed' },
-  { suffix: null }
-]
+// Ordered most urgent first: a team's model shows its most urgent state.
+const COULD_NOT_BE_SET_UP = { suffix: 'could not be set up', failed: true }
+const SETTING_UP = { suffix: 'setting up' }
+const BEING_REMOVED = { suffix: 'being removed' }
+const READY = { suffix: null }
+const MODEL_STATES = [COULD_NOT_BE_SET_UP, SETTING_UP, BEING_REMOVED, READY]
 
 function modelStateOf(status) {
   if (DEPLOYMENT_FAILURE_STATUSES.includes(status)) {
-    return MODEL_STATES[0]
+    return COULD_NOT_BE_SET_UP
   }
 
   if (status === DEPLOYMENT_REMOVING_STATUS) {
-    return MODEL_STATES[2]
+    return BEING_REMOVED
   }
 
-  return isDeploymentInProgress(status) ? MODEL_STATES[1] : MODEL_STATES[3]
+  return isDeploymentInProgress(status) ? SETTING_UP : READY
 }
 
 /**

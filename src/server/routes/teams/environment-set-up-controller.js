@@ -215,7 +215,7 @@ export const environmentSetUpController = {
             result.page ??
             setUpView(h, {
               ...result,
-              selected: [].concat(request.payload?.modelSlugs ?? []),
+              selected: [request.payload?.modelSlugs ?? []].flat(),
               problem: {
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)

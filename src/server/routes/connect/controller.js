@@ -33,16 +33,20 @@ const selectModelSchema = Joi.object({
 })
 
 const MODEL_PLACEHOLDER = '{model}'
+const THIS_MODEL = 'this model'
+const CHOOSE_MODEL_TITLE = 'Choose a model'
+const CHECK_ANSWERS_TITLE = 'Check your answers'
+const MAX_PURPOSE_LENGTH = 500
 
 const detailsSchema = Joi.object({
   purpose: Joi.string()
     .trim()
-    .max(500)
+    .max(MAX_PURPOSE_LENGTH)
     .required()
     .messages({
       'string.empty': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
       'any.required': `Enter what you will use ${MODEL_PLACEHOLDER} for`,
-      'string.max': 'Purpose must be 500 characters or fewer'
+      'string.max': `Purpose must be ${MAX_PURPOSE_LENGTH} characters or fewer`
     }),
   agreeToTerms: Joi.string().valid('true').required().messages({
     'any.required': 'Confirm that you understand the limits',
@@ -55,7 +59,11 @@ function redirectToStart(h) {
 }
 
 function substituteModelPlaceholder(text, modelDisplayName) {
-  return text.replaceAll(MODEL_PLACEHOLDER, modelDisplayName ?? 'this model')
+  return text.replaceAll(MODEL_PLACEHOLDER, modelDisplayName ?? THIS_MODEL)
+}
+
+function detailsHeading(modelDisplayName) {
+  return `What will you use ${modelDisplayName ?? THIS_MODEL} for?`
 }
 
 function buildDetailsErrorSummary(error, modelDisplayName) {
@@ -175,8 +183,8 @@ export const connectController = {
         const items = await listTryableModels(request)
 
         return h.view('connect/shared/model', {
-          pageTitle: 'Choose a model',
-          heading: 'Choose a model',
+          pageTitle: CHOOSE_MODEL_TITLE,
+          heading: CHOOSE_MODEL_TITLE,
           modelItems: buildModelItems(items, pendingAccess.modelSlug),
           errorSummary: null,
           fieldErrors: {}
@@ -192,8 +200,8 @@ export const connectController = {
 
             return h
               .view('connect/shared/model', {
-                pageTitle: 'Error: Choose a model',
-                heading: 'Choose a model',
+                pageTitle: `Error: ${CHOOSE_MODEL_TITLE}`,
+                heading: CHOOSE_MODEL_TITLE,
                 modelItems: buildModelItems(items, request.payload.modelSlug),
                 errorSummary: buildErrorSummary(error),
                 fieldErrors: buildFieldErrors(error)
@@ -233,7 +241,7 @@ export const connectController = {
           request,
           pendingAccess.modelSlug
         )
-        const heading = `What will you use ${modelDisplayName ?? 'this model'} for?`
+        const heading = detailsHeading(modelDisplayName)
 
         return h.view('connect/shared/details', {
           pageTitle: heading,
@@ -254,7 +262,7 @@ export const connectController = {
               request,
               pendingAccess?.modelSlug
             )
-            const heading = `What will you use ${modelDisplayName ?? 'this model'} for?`
+            const heading = detailsHeading(modelDisplayName)
 
             return h
               .view('connect/shared/details', {
@@ -300,8 +308,8 @@ export const connectController = {
         )
 
         return h.view('connect/shared/check', {
-          pageTitle: 'Check your answers',
-          heading: 'Check your answers',
+          pageTitle: CHECK_ANSWERS_TITLE,
+          heading: CHECK_ANSWERS_TITLE,
           model,
           summaryRows: buildCheckAnswersRows(model, pendingAccess.purpose),
           purpose: pendingAccess.purpose,
@@ -353,8 +361,8 @@ export const connectController = {
 
             return h
               .view('connect/shared/check', {
-                pageTitle: 'Check your answers',
-                heading: 'Check your answers',
+                pageTitle: CHECK_ANSWERS_TITLE,
+                heading: CHECK_ANSWERS_TITLE,
                 model,
                 summaryRows: buildCheckAnswersRows(
                   model,

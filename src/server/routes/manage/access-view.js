@@ -11,7 +11,7 @@ const TEAM_TIER = 'team'
 // after a retry was exhausted/reconciled) was never a usable key, and a
 // revoked one is gone - nothing to view/renew/revoke. Surfacing them would
 // show a permanent dead-end row.
-const HIDDEN_CREDENTIAL_STATUSES = ['pending', 'failed', 'revoked']
+const HIDDEN_CREDENTIAL_STATUSES = new Set(['pending', 'failed', 'revoked'])
 
 function renewedHint(renewalCount, { atCap }) {
   if (!renewalCount) {
@@ -91,7 +91,7 @@ export function buildKeyRows(credentials, modelNames) {
     .filter(
       (credential) =>
         credential.tier !== TEAM_TIER &&
-        !HIDDEN_CREDENTIAL_STATUSES.includes(credential.status)
+        !HIDDEN_CREDENTIAL_STATUSES.has(credential.status)
     )
     .map((credential) => keyRow(credential, modelNames))
 }

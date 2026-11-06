@@ -250,8 +250,9 @@ function failedView(request, h, { team, failed, allDeployments, catalogue }) {
   const reasons = failed.map((deployment) =>
     failureSentence(catalogue[deployment.modelSlug], deployment, team)
   )
+  const verb = others.length > 1 ? 'are' : 'is'
   const notAffected = others.length
-    ? ` ${joinNames(others)} ${others.length > 1 ? 'are' : 'is'} not affected.`
+    ? ` ${joinNames(others)} ${verb} not affected.`
     : ''
   const references = failed.map(({ operationId }) =>
     supportReference(operationId)

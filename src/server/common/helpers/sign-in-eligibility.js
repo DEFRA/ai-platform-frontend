@@ -57,7 +57,11 @@ function signedInByThisTenant({ idp, iss, tid }) {
  * @returns {boolean}
  */
 function isGuest(claims) {
-  const guestByAccountStatus = !absent(claims.acct) && `${claims.acct}` !== '0'
+  const { acct } = claims
+  const isMemberAccount =
+    (typeof acct === 'string' || typeof acct === 'number') &&
+    String(acct) === '0'
+  const guestByAccountStatus = !absent(acct) && !isMemberAccount
 
   return guestByAccountStatus || !signedInByThisTenant(claims)
 }

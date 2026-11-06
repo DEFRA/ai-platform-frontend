@@ -34,14 +34,22 @@ import {
 } from './team-view.js'
 
 const MODELS_STATUS_PARTIAL = 'teams/partials/models-status'
+const CREATE_TEAM_TITLE = 'Create a team'
+const MIN_TEAM_NAME_LENGTH = 3
+const MAX_TEAM_NAME_LENGTH = 60
 
 const newTeamSchema = Joi.object({
-  name: Joi.string().trim().min(3).max(60).required().messages({
-    'string.min': 'Team name must be 3 characters or more',
-    'string.max': 'Team name must be 60 characters or fewer',
-    'string.empty': 'Enter a team name',
-    'any.required': 'Enter a team name'
-  }),
+  name: Joi.string()
+    .trim()
+    .min(MIN_TEAM_NAME_LENGTH)
+    .max(MAX_TEAM_NAME_LENGTH)
+    .required()
+    .messages({
+      'string.min': `Team name must be ${MIN_TEAM_NAME_LENGTH} characters or more`,
+      'string.max': `Team name must be ${MAX_TEAM_NAME_LENGTH} characters or fewer`,
+      'string.empty': 'Enter a team name',
+      'any.required': 'Enter a team name'
+    }),
   serviceCode: serviceCodeField,
   description: descriptionField,
   // Same-origin paths only - this value is redirected to after team creation.
@@ -95,8 +103,8 @@ export const teamsController = {
         const pendingTeam = getPendingTeam(request) ?? {}
 
         return h.view('teams/new', {
-          pageTitle: 'Create a team',
-          heading: 'Create a team',
+          pageTitle: CREATE_TEAM_TITLE,
+          heading: CREATE_TEAM_TITLE,
           values: {
             name: pendingTeam.name ?? '',
             serviceCode: pendingTeam.serviceCode ?? '',
@@ -121,8 +129,8 @@ export const teamsController = {
           failAction: (request, h, error) =>
             h
               .view('teams/new', {
-                pageTitle: 'Error: Create a team',
-                heading: 'Create a team',
+                pageTitle: `Error: ${CREATE_TEAM_TITLE}`,
+                heading: CREATE_TEAM_TITLE,
                 values: request.payload,
                 returnTo: request.payload.returnTo ?? '',
                 backUrl: newTeamBackUrl(request.payload.returnTo),

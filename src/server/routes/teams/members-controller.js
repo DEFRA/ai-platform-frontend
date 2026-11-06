@@ -25,6 +25,9 @@ function roleText(role) {
   return role === 'admin' ? 'Admin' : 'Member'
 }
 
+const CHANGE_ROLES = 'change roles'
+const REMOVE_PEOPLE = 'remove people'
+
 // The member a page is about: `me` is the signed-in person.
 async function loadAdminMember(request, h, action) {
   const result = await loadAdminTeam(request, h, action)
@@ -105,13 +108,13 @@ const REMOVE_CHANGE = {
 }
 
 function memberRow(member, { team, isAdmin }) {
+  const memberSegment = member.isYou ? 'me' : encodeURIComponent(member._id)
+
   return {
     name: member.isYou ? `${member.displayName} (you)` : member.displayName,
     email: member.email,
     role: roleText(member.role),
-    changeUrl: isAdmin
-      ? `${membersUrl(team)}/${member.isYou ? 'me' : encodeURIComponent(member._id)}/role`
-      : null
+    changeUrl: isAdmin ? `${membersUrl(team)}/${memberSegment}/role` : null
   }
 }
 
@@ -161,7 +164,7 @@ export const memberRoleController = {
       const { loaded, member, page } = await loadAdminMember(
         request,
         h,
-        'change roles'
+        CHANGE_ROLES
       )
 
       return (
@@ -182,7 +185,7 @@ export const memberRoleController = {
           const { loaded, member, page } = await loadAdminMember(
             request,
             h,
-            'change roles'
+            CHANGE_ROLES
           )
 
           return (
@@ -201,7 +204,7 @@ export const memberRoleController = {
       const { loaded, member, page } = await loadAdminMember(
         request,
         h,
-        'change roles'
+        CHANGE_ROLES
       )
 
       if (page) {
@@ -223,7 +226,7 @@ export const memberRoleController = {
           }).code(statusCodes.conflict)
         }
 
-        return refusalView(h, team, error, 'change roles')
+        return refusalView(h, team, error, CHANGE_ROLES)
       }
 
       const now = role === 'admin' ? 'an admin' : 'a member'
@@ -250,7 +253,7 @@ export const removeMemberController = {
       const { loaded, member, page } = await loadAdminMember(
         request,
         h,
-        'remove people'
+        REMOVE_PEOPLE
       )
 
       return page ?? removeView(h, request, { team: loaded.team, member })
@@ -261,7 +264,7 @@ export const removeMemberController = {
       const { loaded, member, page } = await loadAdminMember(
         request,
         h,
-        'remove people'
+        REMOVE_PEOPLE
       )
 
       if (page) {
@@ -284,7 +287,7 @@ export const removeMemberController = {
           }).code(statusCodes.conflict)
         }
 
-        return refusalView(h, team, error, 'remove people')
+        return refusalView(h, team, error, REMOVE_PEOPLE)
       }
 
       setAccountNotification(request, {

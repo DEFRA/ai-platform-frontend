@@ -20,118 +20,127 @@ export const connect = {
     // @defra/hapi-connect plugin, which registers itself as 'connect'.
     name: 'connect-routes',
     register(server) {
-      server.route([
-        {
-          method: 'GET',
-          path: '/connect/shared/start',
-          options: startController.shared.get.options,
-          handler: startController.shared.get.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/team/start',
-          options: startController.team.get.options,
-          handler: startController.team.get.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/shared/model',
-          handler: connectController.selectModel.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/connect/shared/model',
-          options: {
-            validate: connectController.selectModel.post.options.validate
-          },
-          handler: connectController.selectModel.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/shared/details',
-          handler: connectController.details.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/connect/shared/details',
-          options: {
-            validate: connectController.details.post.options.validate
-          },
-          handler: connectController.details.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/shared/check',
-          handler: connectController.check.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/connect/shared/check',
-          handler: connectController.check.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/shared/credential',
-          handler: connectController.credential.get.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/team/select',
-          options: teamConnectController.selectTeam.get.options,
-          handler: teamConnectController.selectTeam.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/connect/team/select',
-          options: {
-            validate: teamConnectController.selectTeam.post.options.validate
-          },
-          handler: teamConnectController.selectTeam.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/team/model',
-          options: teamConnectController.selectModels.get.options,
-          handler: teamConnectController.selectModels.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/connect/team/model',
-          options: {
-            validate: teamConnectController.selectModels.post.options.validate
-          },
-          handler: teamConnectController.selectModels.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/team/details',
-          options: teamConnectController.details.get.options,
-          handler: teamConnectController.details.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/connect/team/details',
-          options: {
-            validate: teamConnectController.details.post.options.validate
-          },
-          handler: teamConnectController.details.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/team/check',
-          handler: teamConnectController.check.get.handler
-        },
-        {
-          method: 'POST',
-          path: '/connect/team/check',
-          handler: teamConnectController.check.post.handler
-        },
-        {
-          method: 'GET',
-          path: '/connect/team/request/{team}/{id}',
-          handler: teamRequestController.request.get.handler
-        }
-      ])
+      server.route([...sharedRoutes(), ...teamRoutes()])
     }
   }
+}
+
+function sharedRoutes() {
+  return [
+    {
+      method: 'GET',
+      path: '/connect/shared/start',
+      options: startController.shared.get.options,
+      handler: startController.shared.get.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/shared/model',
+      handler: connectController.selectModel.get.handler
+    },
+    {
+      method: 'POST',
+      path: '/connect/shared/model',
+      options: {
+        validate: connectController.selectModel.post.options.validate
+      },
+      handler: connectController.selectModel.post.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/shared/details',
+      handler: connectController.details.get.handler
+    },
+    {
+      method: 'POST',
+      path: '/connect/shared/details',
+      options: {
+        validate: connectController.details.post.options.validate
+      },
+      handler: connectController.details.post.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/shared/check',
+      handler: connectController.check.get.handler
+    },
+    {
+      method: 'POST',
+      path: '/connect/shared/check',
+      handler: connectController.check.post.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/shared/credential',
+      handler: connectController.credential.get.handler
+    }
+  ]
+}
+
+function teamRoutes() {
+  return [
+    {
+      method: 'GET',
+      path: '/connect/team/start',
+      options: startController.team.get.options,
+      handler: startController.team.get.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/team/select',
+      options: teamConnectController.selectTeam.get.options,
+      handler: teamConnectController.selectTeam.get.handler
+    },
+    {
+      method: 'POST',
+      path: '/connect/team/select',
+      options: {
+        validate: teamConnectController.selectTeam.post.options.validate
+      },
+      handler: teamConnectController.selectTeam.post.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/team/model',
+      options: teamConnectController.selectModels.get.options,
+      handler: teamConnectController.selectModels.get.handler
+    },
+    {
+      method: 'POST',
+      path: '/connect/team/model',
+      options: {
+        validate: teamConnectController.selectModels.post.options.validate
+      },
+      handler: teamConnectController.selectModels.post.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/team/details',
+      options: teamConnectController.details.get.options,
+      handler: teamConnectController.details.get.handler
+    },
+    {
+      method: 'POST',
+      path: '/connect/team/details',
+      options: {
+        validate: teamConnectController.details.post.options.validate
+      },
+      handler: teamConnectController.details.post.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/team/check',
+      handler: teamConnectController.check.get.handler
+    },
+    {
+      method: 'POST',
+      path: '/connect/team/check',
+      handler: teamConnectController.check.post.handler
+    },
+    {
+      method: 'GET',
+      path: '/connect/team/request/{team}/{id}',
+      handler: teamRequestController.request.get.handler
+    }
+  ]
 }

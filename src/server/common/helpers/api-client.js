@@ -76,7 +76,9 @@ async function callApi(
   }
 
   const body =
-    response.status === 204 ? null : await response.json().catch(() => null)
+    response.status === statusCodes.noContent
+      ? null
+      : await response.json().catch(() => null)
 
   if (!response.ok) {
     if (response.status === statusCodes.unauthorized) {

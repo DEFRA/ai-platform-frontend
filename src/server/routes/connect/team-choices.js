@@ -13,11 +13,11 @@ import { joinNames } from './team-model-choices.js'
 // team slug can never hold a "+".
 export const CREATE_TEAM_VALUE = '+create'
 
-const GONE_STATUSES = [
+const GONE_STATUSES = new Set([
   DEPLOYMENT_REMOVED_STATUS,
   DEPLOYMENT_REMOVING_STATUS,
   ...DEPLOYMENT_FAILURE_STATUSES
-]
+])
 
 function roleText(team) {
   return team.role === 'admin' ? 'You are an admin.' : 'You are a member.'
@@ -35,7 +35,7 @@ function modelsText(team, deployments, environment, modelNames) {
       deployments
         .filter(
           ({ status, environment: deployed }) =>
-            deployed === environment && !GONE_STATUSES.includes(status)
+            deployed === environment && !GONE_STATUSES.has(status)
         )
         .map(({ modelSlug }) => modelSlug)
     )
