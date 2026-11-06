@@ -11,6 +11,7 @@ import {
 } from 'govuk-frontend'
 
 import { initProgressRefresh } from './progress-refresh.js'
+import { initSessionTimeout } from './session-timeout.js'
 
 createAll(Button)
 createAll(CharacterCount)
@@ -24,6 +25,11 @@ createAll(Tabs)
 // Progressive enhancement: a page following a change (a request, a team's
 // Models tab) checks its status again by itself while it is in progress.
 initProgressRefresh()
+
+// Progressive enhancement: warn before the session ends, and let the person
+// stay signed in (the dialog is closed, and the server still ends the
+// session, without script).
+initSessionTimeout()
 
 // Progressive enhancement: reveal and wire up "Copy key" and "Copy code"
 // buttons (hidden by default so the readonly key field and the code still

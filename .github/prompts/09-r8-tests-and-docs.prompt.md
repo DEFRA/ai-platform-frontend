@@ -4,7 +4,7 @@ description: 'R8 - journey tests, README values, implemented-features and the di
 ---
 
 You are implementing **Phase R8** of
-`ai-platform-frontend/docs/plans/remaining.md` (section 5, R8). Read that phase in
+`ai-platform-frontend/docs/plans/remaining.md` (section 4, R8). Read that phase in
 full first.
 
 **Last.** It records what the other phases did, so it needs them done.

@@ -24,10 +24,11 @@ export function cookieHeader(jar) {
     .join('; ')
 }
 
-// Drives GET /auth/login -> GET /auth/callback (both mocked), which upserts
-// the user via the backend API and signs them straight in - there is no
-// separate team step. Callers must mock the POST /v1/users response on
-// fetchMock before calling this (see signInViaOidc for the common case).
+// Drives GET /auth/login -> GET /auth/callback (both mocked), which signs the
+// person in with PUT /v1/users/me on the backend API and signs them straight
+// in - there is no separate team step. Callers must mock the PUT /v1/users/me
+// response on fetchMock before calling this (see signInViaOidc for the common
+// case).
 export async function completeOidcLogin(server) {
   const loginResponse = await server.inject({
     method: 'GET',
@@ -44,7 +45,7 @@ export async function completeOidcLogin(server) {
   return mergeCookies(cookies, callbackResponse)
 }
 
-// Completes the full sign-in journey (Entra ID + backend user upsert) and
+// Completes the full sign-in journey (Entra ID + PUT /v1/users/me) and
 // returns the authenticated session's cookie jar for use by subsequent
 // server.inject calls.
 export async function signInViaOidc(server, fetchMock) {

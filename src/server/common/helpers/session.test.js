@@ -1,5 +1,7 @@
 import {
   getSessionUser,
+  getSessionTokens,
+  setSessionTokens,
   setSessionUser,
   getPendingAccess,
   setPendingAccess,
@@ -32,6 +34,38 @@ function mockRequest() {
 }
 
 describe('#session helpers', () => {
+  test('keeps the tokens in the session, and reading them on a request with no session store is safe', () => {
+    const request = mockRequest()
+
+    expect(getSessionTokens(request)).toBeUndefined()
+
+    setSessionTokens(request, { accessToken: 'a', refreshToken: 'r' })
+    expect(getSessionTokens(request)).toEqual({
+      accessToken: 'a',
+      refreshToken: 'r'
+    })
+
+    expect(getSessionTokens({})).toBeUndefined()
+    expect(
+      getSessionTokens({
+        yar: {
+          get: () => {
+            throw new Error('no session store')
+          }
+        }
+      })
+    ).toBeUndefined()
+  })
+
+  test('ends the tokens with the session', () => {
+    const request = mockRequest()
+    setSessionTokens(request, { accessToken: 'a' })
+
+    resetSession(request)
+
+    expect(getSessionTokens(request)).toBeUndefined()
+  })
+
   test('sets and gets the session user', () => {
     const request = mockRequest()
 

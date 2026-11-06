@@ -1,0 +1,38 @@
+{# Timeout warning: a modal dialog with progressive enhancement, closed until
+   src/client/javascripts/session-timeout.js opens it. Pattern: HMRC's timeout
+   dialog (the GOV.UK Design System has no timeout component yet), built on the
+   native <dialog> element so the browser traps focus inside it and puts it back
+   on close; GOV.UK buttons and button group inside. WCAG 2.2 SC 2.2.1. #}
+<dialog class="app-timeout-dialog"
+        data-module="app-session-timeout"
+        data-status-url="/session/status"
+        data-signed-out-url="/signed-out"
+        data-idle-seconds="{{ params.idleSeconds }}"
+        data-max-age-seconds="{{ params.maxAgeSeconds }}"
+        data-warning-seconds="{{ params.warningSeconds }}"
+        aria-labelledby="app-timeout-heading"
+        aria-describedby="app-timeout-description">
+  <h2 class="govuk-heading-m" id="app-timeout-heading">You are about to be signed out</h2>
+
+  <p class="govuk-body" id="app-timeout-description">
+    For your security, we will sign you out in <strong data-timeout-remaining></strong>.
+  </p>
+
+  <p class="govuk-body" data-timeout-overall-note hidden>
+    This is the longest a session can last. Sign in again to carry on.
+  </p>
+
+  <p class="govuk-visually-hidden" role="status" aria-live="polite" data-timeout-announcement></p>
+
+  <div class="govuk-button-group">
+    <form method="post" action="/session/extend" data-timeout-extend novalidate>
+      <input type="hidden" name="crumb" value="{{ params.crumb }}">
+      <button type="submit" class="govuk-button" data-module="govuk-button">Stay signed in</button>
+    </form>
+
+    <form method="post" action="/sign-out" novalidate>
+      <input type="hidden" name="crumb" value="{{ params.crumb }}">
+      <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Sign out</button>
+    </form>
+  </div>
+</dialog>

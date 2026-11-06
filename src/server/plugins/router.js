@@ -5,6 +5,8 @@ import { about } from '../routes/about/index.js'
 import { health } from '../routes/health/index.js'
 import { signIn } from '../routes/sign-in/index.js'
 import { signOut } from '../routes/sign-out/index.js'
+import { signedOut } from '../routes/signed-out/index.js'
+import { session } from '../routes/session/index.js'
 import { auth } from '../routes/auth/index.js'
 import { models } from '../routes/models/index.js'
 import { connect } from '../routes/connect/index.js'
@@ -28,6 +30,8 @@ export const router = {
         about,
         signIn,
         signOut,
+        signedOut,
+        session,
         auth,
         models,
         connect,

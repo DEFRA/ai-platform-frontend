@@ -39,6 +39,15 @@ Where models come from, how they are described, and how every one is reached thr
 - No Bedrock offering ships yet. A new gateway needs an issuer and vault adapter in the two registries and its config
   keys in `REQUIRED_CONFIG_BY_GATEWAY`; the services do not change.
 
+## Gateway authorisation layers (B23)
+
+Design merged 19 Oct 2026 (discovery-docs #25). The global gateway guard merged in infra #16 (v0.8.0, 19 Oct); the
+authorisation layers merged in infra #42 (HVE #42, 5 Nov 2026; v0.11.0), with fixes #44 and #46 (v0.11.1, v0.11.2).
+**Validated 5 Nov 2026 (user's confirmation):** the Infradev apply, the probe in infra's
+`docs/gateway-authorisation-probe.md` and the p95 measure (at most 5 ms added) all passed. The user's words: "all deploy
+and gateway validation passed already, i tested it in cdp works all fine". No run identifiers or measured figures were
+supplied, so none are recorded here.
+
 ## Where the code is
 
 - Backend: `src/adapters/catalogue-source.js` (port), `file-catalogue-source.js`, `github/github-catalogue-source.js`,

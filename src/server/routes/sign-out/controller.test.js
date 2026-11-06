@@ -24,6 +24,9 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
     claims: () => ({
       preferred_username: 'test.user@defra.gov.uk',
       email: 'test.user@defra.gov.uk',
@@ -69,6 +72,21 @@ describe('#signOutController', () => {
     expect(headers.location).toBe(
       'https://login.microsoftonline.com/tenant/oauth2/v2.0/logout'
     )
+  })
+
+  test('POST /sign-out asks for the configuration without authenticating the client, so it does not need CDP Web Identity', async () => {
+    const cookies = await signInViaOidc(server, fetchMock)
+    getOidcConfig.mockClear()
+
+    await server.inject({
+      method: 'POST',
+      url: '/sign-out',
+      headers: { cookie: cookieHeader(cookies) },
+      payload: { crumb: cookies.crumb }
+    })
+
+    expect(getOidcConfig).toHaveBeenCalledTimes(1)
+    expect(getOidcConfig).toHaveBeenCalledWith()
   })
 
   test('falls back to / if the Entra ID end-session URL cannot be built', async () => {

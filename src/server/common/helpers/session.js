@@ -5,8 +5,36 @@ const PENDING_TEAM_KEY = 'pendingTeam'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
+const SESSION_CLOCK_KEY = 'sessionClock'
+const TOKENS_KEY = 'tokens'
 const ADD_MEMBER_KEYS = 'addMemberKeys'
 const ADD_MEMBER_GENERATION = 'addMemberGeneration'
+
+// When the person signed in and when they last made a request: the two
+// times the idle and overall session limits are measured from.
+export function getSessionClock(request) {
+  return request.yar.get(SESSION_CLOCK_KEY)
+}
+
+export function setSessionClock(request, value) {
+  request.yar.set(SESSION_CLOCK_KEY, value)
+}
+
+// The person's access and refresh tokens, and when the access token ends.
+// They live in the server-side session and nowhere else: never in a cookie,
+// a page or a log. Reading is safe on a request with no session store (a
+// 404), as for the signed-in user.
+export function getSessionTokens(request) {
+  try {
+    return request.yar?.get(TOKENS_KEY)
+  } catch {
+    return undefined
+  }
+}
+
+export function setSessionTokens(request, tokens) {
+  request.yar.set(TOKENS_KEY, tokens)
+}
 
 export function getSessionUser(request) {
   // yar's session store is only initialised for matched routes (onPreAuth

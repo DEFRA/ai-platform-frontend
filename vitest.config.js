@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     clearMocks: true,
+    setupFiles: ['./test-helpers/setup-tokens.js'],
     // First-time module graph / dynamic imports (e.g. vite, server.js) can be slow in CI/sandboxes
     hookTimeout: 30000,
     coverage: {
@@ -20,6 +21,12 @@ export default defineConfig({
         branches: 92.25,
         statements: 94.4,
         'src/client/javascripts/progress-refresh.js': {
+          lines: 95,
+          functions: 95,
+          branches: 95,
+          statements: 95
+        },
+        'src/client/javascripts/session-timeout.js': {
           lines: 95,
           functions: 95,
           branches: 95,

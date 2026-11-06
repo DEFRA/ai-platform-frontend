@@ -30,6 +30,9 @@ vi.mock('openid-client', () => ({
       )
   ),
   authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
     claims: () => ({
       preferred_username: 'test.user@defra.gov.uk',
       email: 'test.user@defra.gov.uk',
@@ -220,7 +223,7 @@ describe('#removeModelController', () => {
           url.includes(DEPLOYMENT_PATH) && options.method === 'DELETE'
       )
 
-      expect(init.headers['x-user-id']).toBe('user-1')
+      expect(init.headers).not.toHaveProperty('x-user-id')
 
       const jar = mergeCookies(cookies, removed)
       const page = await openTeamPage(removed)

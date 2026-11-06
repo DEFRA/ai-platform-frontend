@@ -75,8 +75,7 @@ async function loadTeamAndDeployments(request, team) {
   try {
     const result = await loadTeamForView(request, team)
     const { items } = await apiClient(request).get(
-      `/v1/teams/${encodeURIComponent(team)}/deployments`,
-      { userId: getSessionUser(request).id }
+      `/v1/teams/${encodeURIComponent(team)}/deployments`
     )
 
     return { ...result, deployments: items }
@@ -155,9 +154,7 @@ function waitView(request, h, { team, live, catalogue }) {
 // backend grants the models to it when they turn active, so it exists by now.
 // It can be shown once it is in the vault.
 async function findTeamCredential(request, deployment, deployments) {
-  const { items } = await apiClient(request).get('/v1/credentials', {
-    userId: getSessionUser(request).id
-  })
+  const { items } = await apiClient(request).get('/v1/credentials')
   const { state, credential } = teamSecretFor(items, deployments, {
     teamId: deployment.teamId,
     environment: deployment.environment

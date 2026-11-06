@@ -59,7 +59,12 @@ Please note: CatboxMemory (`memory`) is _not_ suitable for production use! The c
 instance of the service and it will not persist between restarts.
 
 Sessions are always held in this cache (the cookie carries only a session id), so a person, a half-made request and a
-client secret awaiting display never sit in the browser, and signing out ends the session for good.
+client secret awaiting display never sit in the browser, and signing out ends the session for good. The session ID is
+renewed at sign-in, and a session ends after 30 minutes without a request from the person (a page polling for its status
+in the background does not count) or 8 hours after sign-in
+(`SESSION_IDLE_TIMEOUT_MS`, `SESSION_MAX_AGE_MS`). With JavaScript a dialog warns `SESSION_WARNING_LEAD_MS` (2 minutes)
+before the end and lets the person stay signed in; without it the next request goes to the signed-out page. Signed-in
+pages are sent with `Cache-Control: no-store`.
 
 ## Redis
 
@@ -107,9 +112,10 @@ npm run dev
 
 #### Local sign-in without a real Entra ID tenant
 
-Entra ID (Azure AD) OIDC sign-in normally needs a real `AZURE_TENANT_ID` and
-`AZURE_CLIENT_ID`. For local development without one, run the bundled mock
-OIDC provider alongside the app:
+Entra ID (Azure AD) OIDC sign-in normally needs a real `AZURE_TENANT_ID`,
+`AZURE_CLIENT_ID` (the frontend's registration) and `AZURE_API_CLIENT_ID` (the
+API registration whose `Portal.Access` scope the backend requires). For local
+development without them, run the bundled mock OIDC provider alongside the app:
 
 ```bash
 npm run dev:mock-oidc
@@ -119,17 +125,39 @@ Then in your local `.env` set:
 
 ```env
 OIDC_MOCK_ISSUER_URL=http://localhost:3100
-AZURE_TENANT_ID=mock-tenant
-AZURE_CLIENT_ID=mock-client
+AZURE_TENANT_ID=22222222-2222-4222-8222-222222222222
+AZURE_CLIENT_ID=33333333-3333-4333-8333-333333333333
+AZURE_API_CLIENT_ID=44444444-4444-4444-8444-444444444444
 AZURE_CLIENT_SECRET=mock-secret
 ```
 
-`dev:mock-oidc` loads the same `.env` as `npm run dev`, so if you already have
-real `AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET` values set, both processes will
-use them consistently — you only need to add `OIDC_MOCK_ISSUER_URL`. Signing
-in always logs in as one fixed mock user (`dev.user@defra.gov.uk`, as `preferred_username` and `email`). This path
-is never used in production: it's gated behind `OIDC_MOCK_ISSUER_URL` being
-set **and** the app not running in production.
+`AZURE_AUTH_METHOD` defaults to `client-secret` outside production, which the
+app accepts only with `APP_BASE_URL` on `localhost`; every deployed instance
+uses `federated` (a CDP Web Identity client assertion, no secret) with
+`AZURE_FEDERATED_AUDIENCE` (default `api://AzureADTokenExchange`).
+
+| Variable                   | Value                                                                                                                                  |
+| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+| `AZURE_AUTH_METHOD`        | `federated` (every deployed instance; the default in production) or `client-secret` (localhost only; the app refuses it anywhere else) |
+| `AZURE_FEDERATED_AUDIENCE` | The audience of the CDP Web Identity token used as the client assertion, as set on the federated credential in Entra                   |
+| `AZURE_API_CLIENT_ID`      | The client ID of this instance's `api-aip-portal-{instance}` registration; every token the frontend asks for is for it                 |
+| `AZURE_CLIENT_SECRET`      | Local use only, with `client-secret`                                                                                                   |
+| `NODE_USE_ENV_PROXY`       | `1` in every deployed instance, so the Entra token calls go through the CDP proxy (see [Proxy](#proxy))                                |
+
+The mock issues what Entra issues for the portal: an ID token, and v2 JWT access
+tokens for the API with `idtyp`, `scp`, `acct`, `azp`, `azpacr`, `tid`, `oid`
+and `ver`, signed with keys served at `/jwks`; and a client-credentials token
+(`idtyp` `app`) for the frontend itself. To run the backend against it, set
+`PORTAL_AUTH_MOCK_ISSUER_URL=http://localhost:3100`,
+`PORTAL_AUTH_TENANT_ID`, `PORTAL_AUTH_AUDIENCE` (the API id) and
+`PORTAL_AUTH_CLIENT_ID` (the frontend id) to the values above; the same
+validation runs as for Entra.
+
+`dev:mock-oidc` loads the same `.env` as `npm run dev`, so both use the same
+ids. Signing in always logs in as one fixed mock user
+(`dev.user@defra.gov.uk`, as `preferred_username` and `email`). This path is
+never used in production: it's gated behind `OIDC_MOCK_ISSUER_URL` being set
+**and** the app not running in production.
 
 #### Who can sign in
 
@@ -159,7 +187,9 @@ A refused account sees "You cannot sign in with this account".
 and email are both on an allowed domain, passes, because nothing in that token says it is a guest. Microsoft sends
 `idp` for guests, so this should not happen; adding the `acct` optional claim to the ID token in the app registration
 would close it. The backend does not close it: it is sent only the email, and applies the same address rule to that.
-Until the backend validates tokens itself (B27), it relies on this check for guests.
+The backend validates the access token itself since B27 (deployed and validated in CDP dev, 5 Nov 2026), so it no longer
+relies on this check, but the frontend still applies it at sign-in; whether to retire it is an open decision (see
+[06 Shared services](docs/plans/implemented/06-shared-services-and-security.md#b27-decisions-and-evidence)).
 
 The two sides run the same table of addresses (`eligibility-rule.test.js` here, `directory-eligibility.test.js` in the
 backend); change one, change the other. They differ in what they see: the frontend sees the claims, the backend only

@@ -7,7 +7,6 @@ import {
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
 import {
-  getSessionUser,
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
@@ -129,8 +128,7 @@ function changeController(field) {
         try {
           await apiClient(request).patch(
             `/v1/teams/${encodeURIComponent(team.slug)}`,
-            { [field]: request.payload[field] },
-            { userId: getSessionUser(request).id }
+            { [field]: request.payload[field] }
           )
         } catch (error) {
           if (!(error instanceof ApiError)) {

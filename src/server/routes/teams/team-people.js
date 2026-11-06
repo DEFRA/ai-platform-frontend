@@ -1,6 +1,5 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
-import { getSessionUser } from '#/server/common/helpers/session.js'
 
 // What the directory search accepts, as the backend does.
 export const MIN_SEARCH_LENGTH = 2
@@ -44,8 +43,7 @@ function teamPath(teamSlug) {
 export async function searchTeamPeople(request, teamSlug, search) {
   const { items } = await apiClient(request).post(
     `${teamPath(teamSlug)}/people/search`,
-    { search },
-    { userId: getSessionUser(request).id }
+    { search }
   )
 
   return items
@@ -68,7 +66,7 @@ export async function addTeamMember(
   const { member } = await apiClient(request).post(
     `${teamPath(teamSlug)}/members`,
     { oid, role },
-    { userId: getSessionUser(request).id, idempotencyKey }
+    { idempotencyKey }
   )
 
   return member

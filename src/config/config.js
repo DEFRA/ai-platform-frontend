@@ -6,8 +6,13 @@ import convictFormatWithValidator from 'convict-format-with-validator'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
+const twoMinutesMs = 120000
+const thirtyMinutesMs = 1800000
 const eightHoursMs = 28800000
 const oneWeekMs = 604800000
+
+const AUTH_METHOD_CLIENT_SECRET = 'client-secret'
+const AUTH_METHOD_FEDERATED = 'federated'
 
 const isProduction = process.env.NODE_ENV === 'production'
 const isTest = process.env.NODE_ENV === 'test'
@@ -114,6 +119,24 @@ export const config = convict({
     env: 'ENABLE_SECURE_CONTEXT'
   },
   session: {
+    idleTimeoutMs: {
+      doc: 'A signed-in session ends after this long without a request (design E #portal: 30 minutes)',
+      format: 'nat',
+      default: thirtyMinutesMs,
+      env: 'SESSION_IDLE_TIMEOUT_MS'
+    },
+    maxAgeMs: {
+      doc: 'A signed-in session ends this long after sign-in, however active (design E #portal: 8 hours)',
+      format: 'nat',
+      default: eightHoursMs,
+      env: 'SESSION_MAX_AGE_MS'
+    },
+    warningLeadMs: {
+      doc: 'How long before a session ends the timeout warning appears',
+      format: 'nat',
+      default: twoMinutesMs,
+      env: 'SESSION_WARNING_LEAD_MS'
+    },
     cache: {
       engine: {
         doc: 'backend cache is written to',
@@ -271,14 +294,33 @@ export const config = convict({
       env: 'AZURE_TENANT_ID'
     },
     clientId: {
-      doc: 'Entra ID app registration client id',
+      doc: 'Entra ID app registration client id (app-aip-portal-{instance}, this frontend)',
       format: String,
       nullable: true,
       default: null,
       env: 'AZURE_CLIENT_ID'
     },
+    apiClientId: {
+      doc: 'Client id of the API registration (api-aip-portal-{instance}) whose Portal.Access scope the backend requires; every token this frontend asks for is for it',
+      format: String,
+      nullable: true,
+      default: null,
+      env: 'AZURE_API_CLIENT_ID'
+    },
+    authMethod: {
+      doc: 'How this frontend proves itself to Entra: federated (a client assertion from CDP Web Identity, no secret) in every deployed instance, or client-secret on localhost only (design E #portal)',
+      format: [AUTH_METHOD_CLIENT_SECRET, AUTH_METHOD_FEDERATED],
+      default: isProduction ? AUTH_METHOD_FEDERATED : AUTH_METHOD_CLIENT_SECRET,
+      env: 'AZURE_AUTH_METHOD'
+    },
+    federatedAudience: {
+      doc: 'Audience of the CDP Web Identity token used as the client assertion, as set on the federated credential in Entra',
+      format: String,
+      default: 'api://AzureADTokenExchange',
+      env: 'AZURE_FEDERATED_AUDIENCE'
+    },
     clientSecret: {
-      doc: 'Entra ID app registration client secret',
+      doc: 'Entra ID app registration client secret, for localhost only (authMethod client-secret)',
       format: String,
       nullable: true,
       default: null,
@@ -296,6 +338,17 @@ export const config = convict({
 })
 
 config.validate({ allowed: 'strict' })
+
+// A client secret is the one way a deployed instance must never start (design
+// E #portal): only a developer's own machine may hold one.
+if (
+  config.get('azureAd.authMethod') === AUTH_METHOD_CLIENT_SECRET &&
+  (isProduction || new URL(config.get('appBaseUrl')).hostname !== 'localhost')
+) {
+  throw new Error(
+    'AZURE_AUTH_METHOD "client-secret" is only allowed outside production with APP_BASE_URL on localhost; use "federated"'
+  )
+}
 
 // Samples for a key issued today must show a real host, so fail at startup
 // rather than render a made-up one.

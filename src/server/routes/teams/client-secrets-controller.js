@@ -11,7 +11,6 @@ import {
   revokeConfirmSchema
 } from '#/server/common/helpers/credential-schemas.js'
 import {
-  getSessionUser,
   setAccountNotification,
   setIssuedCredential,
   takeIssuedCredentialIf
@@ -43,15 +42,13 @@ function secretUrl(slug, credentialId, step) {
 // otherwise null, which reads as not found.
 async function loadClientSecret(request) {
   const { slug, credentialId } = request.params
-  const userId = getSessionUser(request).id
   let loaded
   let credential
 
   try {
     loaded = await loadTeamForView(request, slug)
     credential = await apiClient(request).get(
-      `/v1/credentials/${encodeURIComponent(credentialId)}`,
-      { userId }
+      `/v1/credentials/${encodeURIComponent(credentialId)}`
     )
   } catch (error) {
     if (isNotFound(error)) {
@@ -212,8 +209,7 @@ export const clientSecretsController = {
         try {
           const { secret } = await apiClient(request).post(
             `/v1/credentials/${encodeURIComponent(credentialId)}/reveal`,
-            { reason: request.payload.reason },
-            { userId: getSessionUser(request).id }
+            { reason: request.payload.reason }
           )
 
           setIssuedCredential(request, {
@@ -302,9 +298,7 @@ export const clientSecretsController = {
 
         try {
           const { credential, secret } = await apiClient(request).post(
-            `/v1/credentials/${encodeURIComponent(credentialId)}/rotate`,
-            undefined,
-            { userId: getSessionUser(request).id }
+            `/v1/credentials/${encodeURIComponent(credentialId)}/rotate`
           )
 
           setIssuedCredential(request, { credential, secret, modelNamesText })
@@ -384,8 +378,7 @@ export const clientSecretsController = {
         if (request.payload.confirmRevoke === 'yes') {
           try {
             await apiClient(request).del(
-              `/v1/credentials/${encodeURIComponent(credentialId)}`,
-              { userId: getSessionUser(request).id }
+              `/v1/credentials/${encodeURIComponent(credentialId)}`
             )
 
             setAccountNotification(request, {
