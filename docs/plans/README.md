@@ -9,15 +9,15 @@ What is built, and what is left, in two places only.
 
 ## Implemented
 
-| File                                                                                 | Category                     | What it covers                                                                                                    |
-| ------------------------------------------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [01-portal-journeys.md](implemented/01-portal-journeys.md)                           | Portal journeys              | Routes 0 to 3, sign-in, pages, flat Defra design                                                                  |
-| [02-research-tier.md](implemented/02-research-tier.md)                               | Research tier                | Personal API keys, real Azure, Key Vault, environments, Infradev IaC                                              |
-| [03-team-tier.md](implemented/03-team-tier.md)                                       | Team tier                    | Teams and roles, dedicated models, GitOps provisioning, status, client secrets, add a member from the directory   |
-| [04-catalogue-and-gateway.md](implemented/04-catalogue-and-gateway.md)               | Catalogue and gateway        | Catalogue from `ai-platform-infra`, hosting and gateway shape, gateway authorisation layers (B23)                 |
-| [05-platform-and-gitops-pipeline.md](implemented/05-platform-and-gitops-pipeline.md) | Platform infrastructure      | The repositories and the GitOps worker, how a change flows (B28), Infradev, CDP dev, operating notes              |
-| [06-shared-services-and-security.md](implemented/06-shared-services-and-security.md) | Shared services and security | Idempotency, audit, locks, backfills, security baseline, federated auth, portal sign-in (B27), session renewal    |
-| [07-environments-and-deployments.md](implemented/07-environments-and-deployments.md) | Environments and deployments | The Environments section (B30): overview, an environment's page, deploy, limits, progress, the Teams Overview tab |
+| File                                                                                 | Category                     | What it covers                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [01-portal-journeys.md](implemented/01-portal-journeys.md)                           | Portal journeys              | Routes 0 to 3, sign-in, pages, flat Defra design                                                                                                                               |
+| [02-research-tier.md](implemented/02-research-tier.md)                               | Research tier                | Personal API keys, real Azure, Key Vault, environments, Infradev IaC                                                                                                           |
+| [03-team-tier.md](implemented/03-team-tier.md)                                       | Team tier                    | Teams and roles, dedicated models, GitOps provisioning, status, client secrets, add a member from the directory                                                                |
+| [04-catalogue-and-gateway.md](implemented/04-catalogue-and-gateway.md)               | Catalogue and gateway        | Catalogue from `ai-platform-infra`, hosting and gateway shape, gateway authorisation layers (B23)                                                                              |
+| [05-platform-and-gitops-pipeline.md](implemented/05-platform-and-gitops-pipeline.md) | Platform infrastructure      | The repositories and the GitOps worker, how a change flows (B28), Infradev, CDP dev, operating notes                                                                           |
+| [06-shared-services-and-security.md](implemented/06-shared-services-and-security.md) | Shared services and security | Idempotency, audit, locks, backfills, security baseline, federated auth, portal sign-in (B27), session renewal                                                                 |
+| [07-environments-and-deployments.md](implemented/07-environments-and-deployments.md) | Environments and deployments | The Environments section (B30): overview, an environment's page, deploy, limits, progress, the Teams Overview tab; B18's applications, Federate journey and connection details |
 
 ## Remaining
 
