@@ -15,7 +15,7 @@
         attributes: { "data-testid": "ready-panel" }
       }) }}
 
-      {% set federateHtml %}Federate each CDP service that will call {{ modelNames }}, so it needs no stored secret. <a class="govuk-link" href="{{ federateUrl }}">Federate an application</a>{% endset %}
+      {% set federateHtml %}Federate each CDP service that will call {{ modelNames }}, so it needs no stored secret. <a class="govuk-link" href="{{ federateUrl }}">Create Passwordless Credential</a>{% endset %}
       {{ govukInsetText({
         html: federateHtml,
         attributes: { "data-testid": "federate-recommendation" }

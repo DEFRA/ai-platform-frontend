@@ -460,7 +460,7 @@ describe('#teamRequestController', () => {
       const $ = load(result)
 
       expect($('[data-testid="federate-recommendation"]').text().trim()).toBe(
-        'Federate each CDP service that will call GPT-4o, so it needs no stored secret. Federate an application'
+        'Federate each CDP service that will call GPT-4o, so it needs no stored secret. Create Passwordless Credential'
       )
       expect($('[data-testid="federate-recommendation"] a').attr('href')).toBe(
         '/environments/flood-risk-team/federate?environment=infradev'

@@ -90,11 +90,17 @@
   {% endif %}
 
   {% if applications %}
-    <h2 class="govuk-heading-l" id="applications">Applications</h2>
+    {% set federateHtml %}
+      {{ govukButton({
+        html: 'Create Passwordless Credential<span class="govuk-visually-hidden"> in ' + (heading | escape) + '</span>',
+        href: applications.federateUrl,
+        classes: "govuk-button--secondary",
+        attributes: { "data-testid": "federate-an-application" }
+      }) }}
+    {% endset %}
+    {% call appSectionCard({ title: "Applications", actionsHtml: federateHtml if applications.federateUrl, attributes: { id: "applications", "data-testid": "section-applications" } }) %}
     <p class="govuk-body" data-testid="applications-count">{{ applications.countText }}. An application here gets your team’s access to every model in {{ heading }}.</p>
-    {% if applications.federateUrl %}
-      <p class="govuk-body"><a class="govuk-link" href="{{ applications.federateUrl }}" data-testid="federate-an-application">Federate an application<span class="govuk-visually-hidden"> in {{ heading }}</span></a></p>
-    {% elif applications.fullMessage %}
+    {% if applications.fullMessage and not applications.federateUrl %}
       <p class="govuk-body" data-testid="applications-full">{{ applications.fullMessage }}</p>
     {% endif %}
 
@@ -127,6 +133,7 @@
     {% else %}
       <p class="govuk-body" data-testid="no-applications">No applications are federated in {{ heading }} yet.</p>
     {% endif %}
+    {% endcall %}
   {% endif %}
 
   {% include "environments/partials/recent.njk" %}

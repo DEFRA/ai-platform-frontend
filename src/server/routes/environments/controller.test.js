@@ -631,7 +631,13 @@ describe('#environmentsController', () => {
             text($(card), '.govuk-summary-card__title-wrapper > h2')
           )
           .get()
-      ).toEqual(['Changes in progress', 'Models', 'Limits', 'Recent changes'])
+      ).toEqual([
+        'Changes in progress',
+        'Models',
+        'Limits',
+        'Applications',
+        'Recent changes'
+      ])
       expect($('.govuk-heading-l')).toHaveLength(0)
       expect(status.closest('.govuk-grid-column-two-thirds')).toHaveLength(0)
       expect(

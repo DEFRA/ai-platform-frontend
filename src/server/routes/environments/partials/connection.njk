@@ -8,6 +8,7 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "copy-value/macro.njk" import appCopyValue %}
+{% from "section-card/macro.njk" import appSectionCard %}
 
 {% macro codeBlock(id, text, label) %}
   <p class="app-code-examples__actions"><button type="button" class="govuk-link app-copy-value__button" data-copy-target="{{ id }}" hidden>Copy<span class="govuk-visually-hidden"> {{ label }}</span></button></p>
@@ -15,7 +16,7 @@
 {% endmacro %}
 
 {% if connection %}
-  <h2 class="govuk-heading-l" id="connection-details">Connection details</h2>
+  {% call appSectionCard({ title: "Connection details", attributes: { id: "connection-details", "data-testid": "section-connection" } }) %}
   {% if connection.placeholder %}
     {{ govukInsetText({
       html: "<strong>These are example values.</strong> They work once the platform’s Entra set-up is finished.",
@@ -50,4 +51,5 @@
     html: tokenHtml,
     attributes: { id: "how-to-get-a-token", "data-testid": "how-to-get-a-token" }
   }) }}
+  {% endcall %}
 {% endif %}

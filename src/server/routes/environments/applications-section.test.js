@@ -102,7 +102,7 @@ describe('an environment’s applications and connection details', () => {
   }
 
   describe('Applications (F9)', () => {
-    test('says how many of 20 are used and links to Federate while there is room (AC17)', async () => {
+    test('says how many of 20 are used and links to Create Passwordless Credential while there is room (AC17)', async () => {
       backend({
         environment: {
           applications: applicationsOf([federatedApplication()], 3)
@@ -111,7 +111,9 @@ describe('an environment’s applications and connection details', () => {
 
       const { $ } = await page()
 
-      expect($('h2#applications').text()).toBe('Applications')
+      expect(
+        text($, '#applications > .govuk-summary-card__title-wrapper > h2')
+      ).toBe('Applications')
       expect(text($, '[data-testid="applications-count"]')).toContain(
         '3 of 20 used'
       )
@@ -121,7 +123,30 @@ describe('an environment’s applications and connection details', () => {
       expect($('[data-testid="applications-full"]')).toHaveLength(0)
     })
 
-    test('says why a full registration offers no Federate link (AC17)', async () => {
+    test('puts Applications in a summary card with Create Passwordless Credential as a button at the right of its title', async () => {
+      backend({
+        environment: {
+          applications: applicationsOf([federatedApplication()], 3)
+        }
+      })
+
+      const { $ } = await page()
+      const card = $('#applications')
+      const button = card.find(
+        '.app-section-card__actions a.govuk-button[data-testid="federate-an-application"]'
+      )
+
+      expect(card.hasClass('govuk-summary-card')).toBe(true)
+      expect(button).toHaveLength(1)
+      expect(button.text().replace(/\s+/g, ' ').trim()).toBe(
+        'Create Passwordless Credential in Infradev'
+      )
+      expect(card.find('[data-testid="application-row"]')).toHaveLength(1)
+      expect($('.govuk-heading-l')).toHaveLength(0)
+      expect($('body').text()).not.toContain('Federate an application')
+    })
+
+    test('says why a full registration offers no Create Passwordless Credential link (AC17)', async () => {
       backend({
         environment: {
           applications: applicationsOf([federatedApplication()], 20)
@@ -287,7 +312,13 @@ describe('an environment’s applications and connection details', () => {
       const { $ } = await page()
       const rows = $('[data-testid="connection-row"]')
 
-      expect($('h2#connection-details').text()).toBe('Connection details')
+      expect(
+        text($, '#connection-details > .govuk-summary-card__title-wrapper > h2')
+      ).toBe('Connection details')
+      expect($('#connection-details').hasClass('govuk-summary-card')).toBe(true)
+      expect(
+        $('#connection-details').find('[data-testid="connection-row"]')
+      ).toHaveLength(7)
       expect(
         rows
           .map((_, row) => $(row).find('dt').text().trim())
@@ -342,7 +373,7 @@ describe('an environment’s applications and connection details', () => {
       const { $ } = await page()
 
       expect($('[data-testid="connection-placeholder-notice"]')).toHaveLength(0)
-      expect($('h2#connection-details')).toHaveLength(1)
+      expect($('#connection-details')).toHaveLength(1)
     })
 
     test('shows a Member the same details', async () => {
@@ -381,7 +412,7 @@ describe('an environment’s applications and connection details', () => {
 
       const { $ } = await page()
 
-      expect($('h2#connection-details')).toHaveLength(0)
+      expect($('#connection-details')).toHaveLength(0)
       expect($('details#how-to-get-a-token')).toHaveLength(0)
     })
 
