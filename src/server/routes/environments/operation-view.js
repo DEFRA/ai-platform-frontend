@@ -6,6 +6,7 @@
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { environmentRegistryName } from '#/server/common/helpers/environment-names.js'
 import { joinNames } from '#/server/routes/connect/team-model-choices.js'
+import { maskIfAddress } from '#/server/routes/teams/team-view.js'
 
 const numberFormat = new Intl.NumberFormat('en-GB')
 
@@ -151,7 +152,9 @@ function httpsOnly(url) {
 }
 
 function askedBy(operation) {
-  const who = operation.requestedBy?.name
+  // A name that is an address (sign-in fell back to the email) is masked as it
+  // is for colleagues on the Members tab.
+  const who = maskIfAddress(operation.requestedBy?.name)
   const time = timeOf(operation.createdAt)
 
   const byWho = who ? ` by ${who}` : ''

@@ -78,7 +78,7 @@ function maskEmail(email) {
 
 // A name is an address when Entra gave no name and sign-in fell back to the
 // email, so it is masked the same way.
-function maskIfAddress(name) {
+export function maskIfAddress(name) {
   return name?.includes('@') ? maskEmail(name) : name
 }
 

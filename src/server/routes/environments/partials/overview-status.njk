@@ -12,12 +12,12 @@
   <p class="govuk-body">In the order teams usually use them. You can deploy to any environment that is available.</p>
 
   {% for card in cards %}
-    <div class="govuk-summary-card{{ ' app-environment-card--unavailable' if not card.available }}" data-testid="environment-card-{{ card.code }}">
-      <div class="govuk-summary-card__title-wrapper">
-        <h3 class="govuk-summary-card__title">{{ card.name }} <span class="govuk-!-font-weight-regular">{{ card.displayName }}</span></h3>
+    <div class="govuk-summary-card app-environment-card{{ ' app-environment-card--unavailable' if not card.available }}" data-testid="environment-card-{{ card.code }}">
+      <div class="govuk-summary-card__title-wrapper app-environment-card__title-wrapper">
+        <h3 class="govuk-summary-card__title app-environment-card__title">{{ card.name }} <span class="govuk-!-font-weight-regular">{{ card.displayName }}</span></h3>
         {{ govukTag({ text: card.tag.text, classes: card.tag.tagClass, attributes: { "data-testid": "card-tag" } }) }}
       </div>
-      <div class="govuk-summary-card__content">
+      <div class="govuk-summary-card__content app-environment-card__content">
         {% if not card.available %}
           <p class="govuk-body" data-testid="card-message">{{ card.message }}</p>
         {% elif card.unreadable %}

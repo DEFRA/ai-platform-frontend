@@ -253,6 +253,13 @@ describe('#environmentsController', () => {
         const card = $(`[data-testid="environment-card-${code}"]`)
 
         expect(text(card, '[data-testid="card-tag"]')).toBe('Not available yet')
+        // Styled through its own classes, never by overriding GOV.UK's.
+        expect(card.hasClass('app-environment-card--unavailable')).toBe(true)
+        expect(card.find('.app-environment-card__title-wrapper')).toHaveLength(
+          1
+        )
+        expect(card.find('.app-environment-card__title')).toHaveLength(1)
+        expect(card.find('.app-environment-card__content')).toHaveLength(1)
         expect(card.find('a')).toHaveLength(0)
         expect(card.find('button')).toHaveLength(0)
       }
@@ -951,6 +958,26 @@ describe('#environmentsController', () => {
 
         expect(statusCode).toBe(statusCodes.ok)
         expect(pageOf(result)('a[data-testid="change-team"]')).toHaveLength(0)
+      })
+
+      test('masks an email-shaped name of whoever asked, for a Member looking at an open change', async () => {
+        backend(
+          {
+            [`GET ${TEAM_PATH}/operations`]: operationsAnswer({
+              open: [
+                openOperation({
+                  requestedBy: { name: 'jo.bloggs@defra.gov.uk' }
+                })
+              ]
+            })
+          },
+          'user'
+        )
+
+        const { result } = await get(INFRADEV_URL)
+
+        expect(result).toContain('Asked for by j********@defra.gov.uk at 10:41')
+        expect(result).not.toContain('jo.bloggs@defra.gov.uk')
       })
 
       test('says the changes could not be read on an environment’s page, and still shows its models', async () => {

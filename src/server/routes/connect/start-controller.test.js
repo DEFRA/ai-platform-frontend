@@ -456,6 +456,55 @@ describe('#startController', () => {
       )
     })
 
+    describe('directly into an environment after the first', () => {
+      const QA_START = `/connect/team/start?teamId=${sampleTeam.slug}&environment=qa`
+
+      beforeEach(() => {
+        config.set('teamEnvironments', ['infradev', 'qa'])
+      })
+
+      test('offers every model available there, not only those ready in the first environment', async () => {
+        const { cookies } = await started(QA_START)
+
+        // Nothing is deployed in Development, as for a team new to the platform.
+        mockModelChoices({ models: [sampleModel, nanoModel], deployments: [] })
+        const model = await get(server, cookies, '/connect/team/model')
+        const $ = load(model.result)
+
+        expect(model.statusCode).toBe(statusCodes.ok)
+        expect(fetchMock.mock.calls.at(-3)[0]).toContain(
+          '/v1/models?tier=team&environment=qa'
+        )
+        expect($('input[name="modelSlugs"]')).toHaveLength(2)
+      })
+
+      test('goes back from the check page to the details, not to the set-up journey', async () => {
+        const { cookies } = await started(QA_START)
+
+        mockModelChoices({ models: [sampleModel, nanoModel] })
+        const chosen = mergeCookies(
+          cookies,
+          await post(server, cookies, '/connect/team/model', {
+            modelSlugs: ['gpt-4o']
+          })
+        )
+        const answered = mergeCookies(
+          chosen,
+          await post(server, chosen, '/connect/team/details', {
+            purpose: 'Flood alerts'
+          })
+        )
+
+        mockResponse(sampleModel)
+        const check = await get(server, answered, '/connect/team/check')
+
+        expect(check.statusCode).toBe(statusCodes.ok)
+        expect(load(check.result)('a.govuk-back-link').attr('href')).toBe(
+          '/connect/team/details'
+        )
+      })
+    })
+
     test('with no environment, starts in the first available one and goes back to the overview', async () => {
       const { response, cookies } = await started(
         `/connect/team/start?teamId=${sampleTeam.slug}`

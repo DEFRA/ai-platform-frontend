@@ -300,6 +300,16 @@ describe('buildOperationItem', () => {
     ).toBe('QA')
   })
 
+  test('masks a requester whose name is an email address, as the Members tab does', () => {
+    const item = buildOperationItem(
+      operation({ requestedBy: { name: 'jo.bloggs@defra.gov.uk' } }),
+      { modelNames }
+    )
+
+    expect(item.askedBy).toBe('Asked for by j********@defra.gov.uk at 10:41')
+    expect(item.askedBy).not.toContain('jo.bloggs')
+  })
+
   test('copes with a change that carries no changes, steps, time or reason', () => {
     const bare = buildOperationItem(
       {

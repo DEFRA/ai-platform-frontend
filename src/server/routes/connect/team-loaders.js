@@ -30,16 +30,16 @@ function modelEnvironment(pendingAccess) {
 
 export function loadChoicesFor(request, pendingAccess) {
   const environment = modelEnvironment(pendingAccess)
+  // Only setting up another environment copies what the team has ready in the
+  // first one. A deploy started from the Environments section picks any model
+  // available in the environment it was started for.
+  const copiesFromFirst =
+    !pendingAccess.origin && environment !== defaultTeamEnvironment()
 
   return loadModelChoices(request, {
     teamSlug: pendingAccess.teamSlug,
     environment,
-    // Another environment is set up from the models the team has ready in the
-    // first one, so changing the models or the team offers the same ones.
-    readyIn:
-      environment === defaultTeamEnvironment()
-        ? undefined
-        : defaultTeamEnvironment()
+    readyIn: copiesFromFirst ? defaultTeamEnvironment() : undefined
   })
 }
 

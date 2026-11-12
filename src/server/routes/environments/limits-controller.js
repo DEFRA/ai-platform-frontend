@@ -30,6 +30,12 @@ const answersSchema = Joi.object({
   requestsPerMinute: Joi.string().allow('').default('')
 })
 
+// The check page posts back the key of the answers it showed. Any value is let
+// through to be compared, so a forged one is the same refusal as a stale one.
+const confirmSchema = Joi.object({
+  key: Joi.any().default('')
+})
+
 function limitsUrl(slug, environment) {
   return `${environmentPageUrl(slug, environment)}/limits`
 }
@@ -216,6 +222,8 @@ function checkView(h, { team, environment, pending, errorMessage }) {
     heading: 'Check your answers',
     teamName: team.name,
     backLink: url,
+    // The key of the answers shown, posted back with the confirmation.
+    key: pending.key,
     errorSummary: errorMessage
       ? [{ text: errorMessage, href: '#change-tokensPerMinute' }]
       : null,
@@ -423,6 +431,7 @@ export const limitsController = {
       }
     },
     post: {
+      options: { validate: { payload: confirmSchema } },
       async handler(request, h) {
         const result = await load(request, h)
 
@@ -437,6 +446,17 @@ export const limitsController = {
           return h
             .redirect(limitsUrl(team.slug, environment.environment))
             .code(statusCodes.seeOther)
+        }
+
+        // The answers are shared by every window of the session, so what is
+        // confirmed is what this page showed, not whatever was answered last.
+        if (request.payload.key !== pending.key) {
+          return checkView(h, {
+            ...result,
+            pending,
+            errorMessage:
+              'Your answers changed in another window. Check the answers shown now, then change the limits.'
+          }).code(statusCodes.conflict)
         }
 
         try {

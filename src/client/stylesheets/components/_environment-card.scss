@@ -3,15 +3,16 @@
 // An environment the team cannot use yet keeps its card, greyed, so the
 // layout does not change when it opens. The text stays dark enough to read
 // (dark grey on white is 7:1); only the card title and border step back.
+// The card's own classes are targeted, never GOV.UK's.
 .app-environment-card--unavailable {
   border-color: govuk-colour("mid-grey");
 
-  .govuk-summary-card__title-wrapper {
+  .app-environment-card__title-wrapper {
     background-color: govuk-colour("light-grey");
   }
 
-  .govuk-summary-card__title,
-  .govuk-summary-card__content {
+  .app-environment-card__title,
+  .app-environment-card__content {
     color: govuk-colour("dark-grey");
   }
 }

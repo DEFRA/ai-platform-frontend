@@ -45,6 +45,8 @@
 
       <form method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        {# The answers shown, so a second window cannot change what this confirms. #}
+        <input type="hidden" name="key" value="{{ key }}">
 
         {{ govukButton({ text: "Change limits" }) }}
       </form>

@@ -61,9 +61,12 @@ const BACK_LINKS = {
 }
 
 // The page before the check page: the details step, or for models set up in
-// another environment, that environment's own page, which skips the rest.
+// another environment, that environment's own page, which skips the rest. A
+// deploy started from the Environments section has the details step, whatever
+// the environment, as it was never set up from another one.
 function checkBackLink(pendingAccess) {
-  return pendingAccess.environment &&
+  return !pendingAccess.origin &&
+    pendingAccess.environment &&
     pendingAccess.environment !== defaultTeamEnvironment()
     ? environmentSetUpUrl(pendingAccess.teamSlug, pendingAccess.environment)
     : DETAILS_URL

@@ -105,13 +105,26 @@ describe('#limitsController', () => {
     })
   }
 
-  function post(url, payload = {}, jar = cookies) {
+  // A form posts what its page showed. The check page shows a key for its
+  // answers, so a post to it carries that key (read as a person's browser
+  // would) unless a test gives one, or none, itself.
+  async function post(url, payload = {}, jar = cookies) {
+    const body = { crumb: jar.crumb, ...payload }
+
+    if (url === CHECK_URL && !('key' in payload)) {
+      body.key = shownKey(load((await get(CHECK_URL, jar)).result))
+    }
+
     return server.inject({
       method: 'POST',
       url,
       headers: { cookie: cookieHeader(jar) },
-      payload: { crumb: jar.crumb, ...payload }
+      payload: body
     })
+  }
+
+  function shownKey($) {
+    return $('input[name="key"]').attr('value') ?? ''
   }
 
   // The questions answered, ready for the check page.
@@ -987,6 +1000,68 @@ describe('#limitsController', () => {
 
       expect(check.statusCode).toBe(statusCodes.seeOther)
       expect(check.headers.location).toBe(LIMITS_URL)
+    })
+  })
+
+  describe('answers changed in another window (Copilot review 1)', () => {
+    test('shows the key of the answers on the check page, for the form to post back', async () => {
+      const jar = await answered()
+
+      const $ = load((await get(CHECK_URL, jar)).result)
+
+      expect(shownKey($)).toMatch(/^[0-9a-f-]{36}$/)
+    })
+
+    test('does not confirm answers a second window has since changed, and shows the new ones to check', async () => {
+      const jar = await answered({ tokensPerMinute: '2000' })
+      const staleKey = shownKey(load((await get(CHECK_URL, jar)).result))
+
+      // A second window, in the same session, answers differently.
+      await post(
+        LIMITS_URL,
+        { tokensPerMinute: '2500', requestsPerMinute: '120' },
+        jar
+      )
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(202, { operation: openOperation() })
+      })
+      const stale = await post(CHECK_URL, { key: staleKey }, jar)
+      const $ = load(stale.result)
+
+      expect(stale.statusCode).toBe(statusCodes.conflict)
+      expect(putCalls()).toHaveLength(0)
+      expect(text($, '.govuk-error-summary')).toContain(
+        'Your answers changed in another window'
+      )
+      expect(text($, '.govuk-summary-list')).toContain('2,500')
+      expect(shownKey($)).not.toBe(staleKey)
+
+      // Confirming what the page now shows is the one change, for those answers.
+      const confirmed = await post(CHECK_URL, { key: shownKey($) }, jar)
+
+      expect(confirmed.statusCode).toBe(statusCodes.seeOther)
+      expect(putCalls()).toHaveLength(1)
+      expect(JSON.parse(putCalls()[0][1].body)).toEqual({
+        tokensPerMinute: 2500,
+        requestsPerMinute: 120
+      })
+    })
+
+    test.each([
+      ['no key', { key: undefined }],
+      ['an empty key', { key: '' }],
+      ['a key that was never shown', { key: 'not-the-key' }]
+    ])('does not confirm with %s', async (_name, payload) => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(202, { operation: openOperation() })
+      })
+      const response = await post(CHECK_URL, payload, jar)
+
+      expect(response.statusCode).toBe(statusCodes.conflict)
+      expect(putCalls()).toHaveLength(0)
     })
   })
 })
