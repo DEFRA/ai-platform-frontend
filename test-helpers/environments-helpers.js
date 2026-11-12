@@ -136,6 +136,40 @@ export function detail(overrides = {}) {
   }
 }
 
+/**
+ * One application as `applications.items` lists it: a CDP service federated
+ * in Infradev and ready.
+ */
+export function federatedApplication(overrides = {}) {
+  return {
+    id: 'app-1',
+    name: 'flood-api',
+    host: 'cdp',
+    service: 'flood-api',
+    status: 'ready',
+    operationId: 'op-fed-1',
+    failureReason: null,
+    ...overrides
+  }
+}
+
+/** The placeholder connection details the backend gives under the mock. */
+export const connectionDetails = {
+  placeholder: true,
+  gatewayUrl: 'https://gateway.example/flood-risk-team',
+  tokenEndpoint:
+    'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/v2.0/token',
+  clientId: '00000000-0000-0000-0000-000000000001',
+  tenantId: '00000000-0000-0000-0000-000000000000',
+  scope: 'api://00000000-0000-0000-0000-000000000002/.default',
+  cdpAudience: 'api://AzureADTokenExchange'
+}
+
+/** The applications part of an environment read. */
+export function applicationsOf(items, used = items.length) {
+  return { used, limit: 20, items }
+}
+
 /** The environments read for the sample team. */
 export function environmentsRead(environments = [summary()]) {
   return {

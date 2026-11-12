@@ -449,6 +449,24 @@ describe('#teamRequestController', () => {
       expect(result).not.toContain('http-equiv="refresh"')
     })
 
+    test('recommends federating each CDP service, to every member, linking to the journey for this environment (choice C, AC26)', async () => {
+      mockPage({
+        role: 'user',
+        deployments: [deployment()],
+        credentials: undefined
+      })
+
+      const { result } = await page()
+      const $ = load(result)
+
+      expect($('[data-testid="federate-recommendation"]').text().trim()).toBe(
+        'Federate each CDP service that will call GPT-4o, so it needs no stored secret. Federate an application'
+      )
+      expect($('[data-testid="federate-recommendation"] a').attr('href')).toBe(
+        '/environments/flood-risk-team/federate?environment=infradev'
+      )
+    })
+
     test('never shows a client secret, which only a reveal with a reason can', async () => {
       mockPage({
         deployments: [deployment()],

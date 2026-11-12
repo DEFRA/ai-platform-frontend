@@ -2,7 +2,8 @@ import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import {
   getRequestedDeployments,
-  getSessionUser
+  getSessionUser,
+  takeAccountNotification
 } from '#/server/common/helpers/session.js'
 import {
   DEPLOYMENT_REMOVED_STATUS,
@@ -30,6 +31,7 @@ import {
   teamSecretFor
 } from '#/server/routes/teams/team-secret.js'
 import { loadTeamForView, teamUrl } from '#/server/routes/teams/team-view.js'
+import { federateUrl } from '#/server/routes/environments/federation-urls.js'
 import { joinNames } from './team-model-choices.js'
 import {
   FAILURE_STATUSES,
@@ -143,6 +145,7 @@ function waitView(request, h, { team, live, catalogue }) {
     pageTitle: heading,
     heading,
     teamName: team.name,
+    notification: takeAccountNotification(request),
     environmentUrl: environmentPageUrl(team.slug, environment),
     environmentLabel: environmentRegistryName(environment),
     lead: queued
@@ -196,6 +199,8 @@ async function readyView(
     pageTitle: heading,
     heading,
     teamName: team.name,
+    notification: takeAccountNotification(request),
+    federateUrl: federateUrl(team.slug, '', { environment }),
     environmentUrl: environmentPageUrl(team.slug, environment),
     environmentLabel: environmentRegistryName(environment),
     environmentName: environmentName(environment),

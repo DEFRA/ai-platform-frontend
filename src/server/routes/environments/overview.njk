@@ -17,6 +17,14 @@
     {% if changeTeamUrl %}
       <a class="govuk-link" href="{{ changeTeamUrl }}" data-testid="change-team">Change team<span class="govuk-visually-hidden"> from {{ team.name }}</span></a>
     {% endif %}
+    {% if federateUrl %}
+      {{ govukButton({
+        text: "Create Passwordless Credential",
+        href: federateUrl,
+        classes: "govuk-button--secondary",
+        attributes: { "data-testid": "federate-an-application" }
+      }) }}
+    {% endif %}
     {{ govukButton({
       text: "Deploy a model",
       href: deployUrl,

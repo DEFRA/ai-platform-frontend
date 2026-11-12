@@ -89,5 +89,45 @@
     {% endcall %}
   {% endif %}
 
+  {% if applications %}
+    <h2 class="govuk-heading-l" id="applications">Applications</h2>
+    <p class="govuk-body" data-testid="applications-count">{{ applications.countText }}. An application here gets your team’s access to every model in {{ heading }}.</p>
+    {% if applications.federateUrl %}
+      <p class="govuk-body"><a class="govuk-link" href="{{ applications.federateUrl }}" data-testid="federate-an-application">Federate an application<span class="govuk-visually-hidden"> in {{ heading }}</span></a></p>
+    {% elif applications.fullMessage %}
+      <p class="govuk-body" data-testid="applications-full">{{ applications.fullMessage }}</p>
+    {% endif %}
+
+    {% if applications.items.length %}
+      <dl class="govuk-summary-list app-summary-list--table">
+        {% for application in applications.items %}
+          <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (application.changeUrl or application.removeUrl) }}" data-testid="application-row">
+            <dt class="govuk-summary-list__key">{{ application.name }} <span class="govuk-hint govuk-!-margin-bottom-0">{{ application.kind }}</span></dt>
+            <dd class="govuk-summary-list__value">
+              <strong class="govuk-tag {{ application.tag.tagClass }}">{{ application.tag.text }}</strong>
+              {% if application.reason %}
+                <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0" data-testid="application-reason">{{ application.reason }}</p>
+              {% endif %}
+            </dd>
+            {% if application.changeUrl or application.removeUrl %}
+              <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
+                <div class="app-button-group govuk-!-margin-bottom-0">
+                  {% if application.changeUrl %}
+                    <a class="govuk-link" href="{{ application.changeUrl }}" data-testid="application-change">Change<span class="govuk-visually-hidden"> {{ application.name }} in {{ heading }}</span></a>
+                  {% endif %}
+                  {% if application.removeUrl %}
+                    <a class="govuk-link" href="{{ application.removeUrl }}" data-testid="application-remove">Remove<span class="govuk-visually-hidden"> {{ application.name }} from {{ heading }}</span></a>
+                  {% endif %}
+                </div>
+              </dd>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </dl>
+    {% else %}
+      <p class="govuk-body" data-testid="no-applications">No applications are federated in {{ heading }} yet.</p>
+    {% endif %}
+  {% endif %}
+
   {% include "environments/partials/recent.njk" %}
 </div>

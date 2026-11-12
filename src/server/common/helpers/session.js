@@ -10,6 +10,8 @@ const TOKENS_KEY = 'tokens'
 const ADD_MEMBER_KEYS = 'addMemberKeys'
 const ADD_MEMBER_GENERATION = 'addMemberGeneration'
 const PENDING_LIMITS_KEY = 'pendingLimits'
+const PENDING_FEDERATION_KEY = 'pendingFederation'
+const REQUESTED_FEDERATIONS_KEY = 'requestedFederations'
 
 // When the person signed in and when they last made a request: the two
 // times the idle and overall session limits are measured from.
@@ -163,6 +165,32 @@ export function setPendingLimits(request, value) {
 
 export function clearPendingLimits(request) {
   request.yar.clear(PENDING_LIMITS_KEY)
+}
+
+// The application a person is federating (or changing) and has not yet
+// confirmed, with the key that makes confirming it the same request however
+// many times it is sent (see routes/environments/federation-journey.js).
+export function getPendingFederation(request) {
+  return request.yar.get(PENDING_FEDERATION_KEY)
+}
+
+export function setPendingFederation(request, value) {
+  request.yar.set(PENDING_FEDERATION_KEY, value)
+}
+
+export function clearPendingFederation(request) {
+  request.yar.clear(PENDING_FEDERATION_KEY)
+}
+
+// The application just federated and the operation each environment made for
+// it (`{ userId, teamSlug, name, items: [{ environment, operationId }] }`), so
+// the page that follows it can show each environment's progress.
+export function getRequestedFederations(request) {
+  return request.yar.get(REQUESTED_FEDERATIONS_KEY)
+}
+
+export function setRequestedFederations(request, value) {
+  request.yar.set(REQUESTED_FEDERATIONS_KEY, value)
 }
 
 export function setAccountNotification(request, value) {

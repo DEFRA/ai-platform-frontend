@@ -32,6 +32,12 @@ const MODEL_VERBS = {
 }
 const GENERIC_MODEL_VERB = { plain: 'Change', progressive: 'Changing' }
 
+const FEDERATION_VERBS = {
+  add: { plain: 'Federate', progressive: 'Federating' },
+  change: { plain: 'Change', progressive: 'Changing' },
+  remove: { plain: 'Remove', progressive: 'Removing' }
+}
+
 function timeOf(at) {
   return at ? formatDate(at, 'HH:mm') : null
 }
@@ -84,6 +90,16 @@ function modelPhrases(changes, modelNames, form) {
   return [...byVerb].map(([verb, names]) => `${verb} ${joinNames(names)}`)
 }
 
+// An application change names the application and what is done to it; one the
+// backend did not name is "applications".
+function federationPhrase({ change, application }, form) {
+  const verb = FEDERATION_VERBS[change]?.[form]
+
+  return verb && application?.name
+    ? `${verb} ${application.name}`
+    : `${form === 'plain' ? 'Change' : 'Changing'} applications`
+}
+
 function phrasesOf(operation, modelNames, form) {
   const phrases = []
   const changes = operation.changes ?? []
@@ -96,7 +112,7 @@ function phrasesOf(operation, modelNames, form) {
     if (change.kind === 'limits') {
       phrases.push(limitsPhrase(change, verb))
     } else {
-      phrases.push(`${verb} applications`)
+      phrases.push(federationPhrase(change, form))
     }
   }
 

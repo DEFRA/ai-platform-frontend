@@ -1,0 +1,18 @@
+@use 'govuk-frontend' as *;
+
+// A value a person copies into their own code. It wraps anywhere, so a long
+// address or ID fits at 320 px (WCAG 1.4.10), and "Copy" sits beside it as a
+// link that is a button.
+.app-copy-value__text {
+  overflow-wrap: anywhere;
+}
+
+.app-copy-value__button {
+  @include govuk-font($size: 19);
+
+  margin-left: govuk-spacing(2);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}

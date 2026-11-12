@@ -1,0 +1,50 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/panel/macro.njk" import govukPanel %}
+
+{% block content %}
+  {% if allReady %}
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+        {{ govukPanel({
+          titleText: heading,
+          text: "in " + environmentNames,
+          attributes: { "data-testid": "federated-panel" }
+        }) }}
+
+        <h2 class="govuk-heading-m">Connect {{ applicationName }}</h2>
+        <p class="govuk-body">Each environment has its own client ID. Everyone in {{ caption }} can see the values on that environment’s page.</p>
+        <ul class="govuk-list" data-testid="connect-links">
+          {% for link in readyLinks %}
+            <li><a class="govuk-link" href="{{ link.connectionUrl }}">Connection details for {{ link.name }}</a></li>
+            <li><a class="govuk-link" href="{{ link.tokenUrl }}">How {{ applicationName }} gets a token in {{ link.name }}</a></li>
+          {% endfor %}
+        </ul>
+        <p class="govuk-body"><a class="govuk-link" href="{{ overviewUrl }}">Back to all environments</a></p>
+      </div>
+    </div>
+  {% else %}
+    {{ appHeading({
+      text: heading,
+      caption: caption,
+      captionAbove: true
+    }) }}
+
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+        {% if inProgress %}
+          <p class="govuk-body-l" data-testid="federate-lead">This usually takes a few minutes. You can leave this page and come back. Progress also shows on each environment’s page.</p>
+        {% else %}
+          <p class="govuk-body-l" data-testid="federate-lead">Where it did not work, the reason is below. Nothing has changed in an environment where it failed.</p>
+        {% endif %}
+
+        {# Checked again by progress-refresh.js; without script, "Check progress" does it. #}
+        <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
+          {% include "environments/partials/federate-status.njk" %}
+        </div>
+
+        <p class="govuk-body"><a class="govuk-link" href="{{ overviewUrl }}">Back to all environments</a></p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

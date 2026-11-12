@@ -29,6 +29,8 @@ import {
   teamNotFoundView
 } from '#/server/routes/teams/team-view.js'
 import { deployUrl } from './environment-view.js'
+import { loadFederableServices } from './federation-follow-up.js'
+import { setUpApplicationsUrl } from './set-up-applications.js'
 
 const CHECK_URL = '/connect/team/check'
 
@@ -225,7 +227,7 @@ export const environmentSetUpController = {
         return result.page
       }
 
-      const { team, target, offered } = result
+      const { team, target, source, offered } = result
       const { modelSlugs } = request.payload
       const onOffer = new Set(offered.map(({ slug }) => slug))
 
@@ -244,6 +246,14 @@ export const environmentSetUpController = {
         }).code(statusCodes.badRequest)
       }
 
+      // The CDP services the team federated in the first environment are
+      // offered next (choice B), each ticked, before the answers are checked.
+      const services = await loadFederableServices(request, {
+        teamSlug: team.slug,
+        source: source.environment,
+        target: target.environment
+      })
+
       // The request journey, joined at its check page with every answer in
       // place. What the team uses it for is not asked again.
       setPendingAccess(request, {
@@ -254,10 +264,17 @@ export const environmentSetUpController = {
         purpose: savedAnswers(request, team, target)?.purpose ?? '',
         environment: target.environment,
         requestKey: randomUUID(),
-        userId: getSessionUser(request).id
+        userId: getSessionUser(request).id,
+        federationsOffered: services.length > 0
       })
 
-      return h.redirect(CHECK_URL).code(statusCodes.seeOther)
+      return h
+        .redirect(
+          services.length > 0
+            ? setUpApplicationsUrl(team.slug, target.environment)
+            : CHECK_URL
+        )
+        .code(statusCodes.seeOther)
     }
   }
 }

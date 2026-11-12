@@ -265,7 +265,7 @@ describe('#environmentsController', () => {
       }
     })
 
-    test('offers Deploy a model with the team already chosen, and no Create Passwordless Credential action yet', async () => {
+    test('offers Deploy a model with the team already chosen, and Create Passwordless Credential while an environment has room', async () => {
       backend()
 
       const $ = pageOf((await get(OVERVIEW_URL)).result)
@@ -275,7 +275,12 @@ describe('#environmentsController', () => {
       expect(deploy.attr('href')).toBe(
         `/connect/team/start?teamId=${sampleTeam.slug}`
       )
-      expect(text($, 'main')).not.toContain('Create Passwordless Credential')
+      expect($('a[data-testid="federate-an-application"]').attr('href')).toBe(
+        `${OVERVIEW_URL}/federate`
+      )
+      expect($('a[data-testid="federate-an-application"]').text().trim()).toBe(
+        'Create Passwordless Credential'
+      )
     })
 
     test('lays the environment cards side by side, and puts the changes in progress and the recent changes in cards of their own, across the full width', async () => {
@@ -335,6 +340,32 @@ describe('#environmentsController', () => {
           .find('a[data-testid="deploy-a-model"]')
           .hasClass('govuk-!-margin-bottom-0')
       ).toBe(true)
+    })
+
+    test('keeps no Create Passwordless Credential action when every environment is full or not set up', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary({ applications: { used: 20, limit: 20 } })
+        ])
+      })
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+
+      expect($('a[data-testid="federate-an-application"]')).toHaveLength(0)
+    })
+
+    test('shows each environment’s applications out of 20 on its card', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary({ applications: { used: 3, limit: 20 } })
+        ])
+      })
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+
+      expect(text($, '[data-testid="environment-card-infradev"]')).toContain(
+        'Applications 3 of 20'
+      )
     })
 
     test('shows Change team only to a person with more than one team', async () => {

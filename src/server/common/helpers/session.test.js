@@ -9,6 +9,11 @@ import {
   getPendingLimits,
   setPendingLimits,
   clearPendingLimits,
+  getPendingFederation,
+  setPendingFederation,
+  clearPendingFederation,
+  getRequestedFederations,
+  setRequestedFederations,
   getRequestedDeployments,
   setRequestedDeployments,
   resetSession,
@@ -50,6 +55,27 @@ describe('#session helpers', () => {
 
     clearPendingLimits(request)
     expect(getPendingLimits(request)).toBeUndefined()
+  })
+
+  test('keeps the application a person is federating until it is cleared', () => {
+    const request = mockRequest()
+
+    expect(getPendingFederation(request)).toBeUndefined()
+
+    setPendingFederation(request, { key: 'k', host: 'cdp' })
+    expect(getPendingFederation(request)).toEqual({ key: 'k', host: 'cdp' })
+
+    clearPendingFederation(request)
+    expect(getPendingFederation(request)).toBeUndefined()
+  })
+
+  test('remembers the applications just federated, for the page that follows them', () => {
+    const request = mockRequest()
+
+    expect(getRequestedFederations(request)).toBeUndefined()
+
+    setRequestedFederations(request, { name: 'flood-api' })
+    expect(getRequestedFederations(request)).toEqual({ name: 'flood-api' })
   })
 
   test('keeps the tokens in the session, and reading them on a request with no session store is safe', () => {

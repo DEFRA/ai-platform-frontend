@@ -5,9 +5,11 @@ import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import {
   clearPendingAccess,
   getSessionUser,
+  setAccountNotification,
   setPendingAccess,
   setRequestedDeployments
 } from '#/server/common/helpers/session.js'
+import { federateAfterRequest } from '#/server/routes/environments/federation-follow-up.js'
 import {
   buildErrorSummary,
   buildFieldErrors
@@ -413,6 +415,21 @@ export const teamConnectController = {
             teamSlug,
             ids: deployments.map(({ _id }) => _id)
           })
+
+          // The CDP services confirmed for the environment just requested
+          // (choice B) are asked for as that environment's own changes, after
+          // the request. A refusal is said on the page that follows; it never
+          // undoes the request.
+          const followUp = await federateAfterRequest(request, {
+            teamSlug,
+            environment,
+            services: pendingAccess.federateServices ?? []
+          })
+
+          if (followUp) {
+            setAccountNotification(request, followUp)
+          }
+
           clearPendingAccess(request)
 
           return h

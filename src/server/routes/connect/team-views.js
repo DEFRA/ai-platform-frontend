@@ -6,6 +6,7 @@ import {
   environmentSetUpUrl
 } from '#/server/common/helpers/environment-names.js'
 import { hasCompletedTeamJourney, stepUrl } from './team-journey.js'
+import { setUpApplicationsUrl } from '#/server/routes/environments/set-up-applications.js'
 import { buildTeamItems } from './team-choices.js'
 import {
   buildModelCheckboxes,
@@ -60,11 +61,19 @@ const BACK_LINKS = {
     pendingAccess.modelStepSkipped ? firstStepBack(pendingAccess) : MODEL_URL
 }
 
-// The page before the check page: the details step, or for models set up in
-// another environment, that environment's own page, which skips the rest. A
-// deploy started from the Environments section has the details step, whatever
-// the environment, as it was never set up from another one.
+// The page before the check page: the question about CDP services when one
+// was asked, the details step, or for models set up in another environment,
+// that environment's own page, which skips the rest. A deploy started from the
+// Environments section has the details step, whatever the environment, as it
+// was never set up from another one.
 function checkBackLink(pendingAccess) {
+  if (pendingAccess.federationsOffered) {
+    return setUpApplicationsUrl(
+      pendingAccess.teamSlug,
+      pendingAccess.environment
+    )
+  }
+
   return !pendingAccess.origin &&
     pendingAccess.environment &&
     pendingAccess.environment !== defaultTeamEnvironment()
@@ -150,6 +159,13 @@ export async function checkAnswersView(
     models,
     purpose: pendingAccess.purpose,
     environmentName: environmentName(pendingAccess.environment),
+    federateServices: pendingAccess.federationsOffered
+      ? (pendingAccess.federateServices ?? []).map(({ service }) => service)
+      : null,
+    federateChangeUrl: setUpApplicationsUrl(
+      pendingAccess.teamSlug,
+      pendingAccess.environment
+    ),
     errorMessage: problem.errorMessage ?? null,
     existingRequestUrl: problem.existingRequestUrl ?? null
   })
