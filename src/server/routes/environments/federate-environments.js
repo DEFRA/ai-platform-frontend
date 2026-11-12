@@ -243,7 +243,7 @@ export async function refusedEnvironmentsView(
         ...refusals.map(({ environment }) => environment)
       ])
     ],
-    selected: pending.environments ?? [],
+    selected: pending.environments,
     problem: problemFrom(refusals, pending)
   }).code(statusCodes.conflict)
 }
@@ -336,7 +336,7 @@ export const federateEnvironments = {
           return environmentsView(h, {
             request,
             ...step,
-            selected: [request.payload?.environments ?? []].flat(),
+            selected: [request.payload.environments ?? []].flat(),
             problem: {
               errorSummary: [{ text, href: '#environments' }],
               fieldErrors: { environments: { text } }

@@ -130,7 +130,7 @@ function textView(h, { request, team, pending, step, problem }) {
 
 function problemOf(request, error) {
   return {
-    values: request.payload ?? {},
+    values: request.payload,
     errorSummary: buildErrorSummary(error),
     fieldErrors: buildFieldErrors(error)
   }

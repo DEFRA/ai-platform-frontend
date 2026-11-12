@@ -281,11 +281,11 @@ async function failed(request, h, error, { team, pending }) {
     }).code(statusCodes.serviceUnavailable)
   }
 
-  if (error.code === 'federation-refused') {
+  if (error.code === 'federation-refused' && error.environments?.length) {
     return refusedEnvironmentsView(request, h, {
       team,
       pending,
-      refusals: error.environments ?? []
+      refusals: error.environments
     })
   }
 

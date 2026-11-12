@@ -16,8 +16,10 @@ import {
   OVERVIEW_URL,
   INFRADEV_URL,
   TEAM_PATH,
+  applicationsOf,
   detail,
   environmentsRead,
+  federatedApplication,
   operationsAnswer
 } from '#/test-helpers/environments-helpers.js'
 import {
@@ -915,6 +917,215 @@ describe('the Federate journey', () => {
       })
 
       expect(response.headers.location).toBe(PROGRESS_URL)
+    })
+  })
+
+  describe('a person who is not a member of the team', () => {
+    const notMember = {
+      [`GET ${TEAM_PATH}`]: reply(404, { code: 'error', message: 'Not found' })
+    }
+
+    test.each([
+      ['GET', FEDERATE_URL, undefined],
+      ['GET', SERVICE_URL, undefined],
+      ['GET', PRINCIPAL_URL, undefined],
+      ['GET', NAME_URL, undefined],
+      ['GET', ENVIRONMENTS_URL, undefined],
+      ['GET', CHECK_URL, undefined],
+      ['GET', PROGRESS_URL, undefined],
+      ['POST', FEDERATE_URL, { host: 'cdp' }],
+      ['POST', SERVICE_URL, { service: 'flood-api' }],
+      ['POST', PRINCIPAL_URL, { principalId: PRINCIPAL_ID }],
+      ['POST', NAME_URL, { name: 'flood-reports' }],
+      ['POST', ENVIRONMENTS_URL, { environments: ['infradev'] }],
+      ['POST', CHECK_URL, { key: 'k' }],
+      // An answer that fails validation is still the same 404.
+      ['POST', FEDERATE_URL, {}],
+      ['POST', SERVICE_URL, { service: '' }],
+      ['POST', PRINCIPAL_URL, { principalId: '' }],
+      ['POST', NAME_URL, { name: '' }],
+      ['POST', ENVIRONMENTS_URL, {}],
+      ['POST', CHECK_URL, { key: ['a', 'b'] }]
+    ])(
+      'gets a 404 with nothing about the team for %s %s %j (AC2)',
+      async (method, url, payload) => {
+        backend(notMember)
+
+        const send = method === 'GET' ? get(url) : post(url, payload)
+        const { response, $ } = await send
+
+        expect(response.statusCode).toBe(statusCodes.notFound)
+        expect(text($, 'h1')).toBe('Team not found')
+        expect(calls('POST', FEDERATIONS_PATH)).toHaveLength(0)
+        expect(calls('POST', CHECK_PATH)).toHaveLength(0)
+      }
+    )
+
+    test('is an error, not a page, when the backend answers a team read in a way the page does not know', async () => {
+      backend({ [`GET ${TEAM_PATH}`]: reply(400, { code: 'something-new' }) })
+
+      const { response } = await get(FEDERATE_URL)
+
+      expect(response.statusCode).toBe(statusCodes.internalServerError)
+    })
+  })
+
+  describe('a question reached without its journey', () => {
+    test.each([
+      ['a valid answer', SERVICE_URL, { service: 'flood-api' }],
+      ['an invalid answer', SERVICE_URL, { service: '' }],
+      ['a valid name', NAME_URL, { name: 'flood-reports' }]
+    ])(
+      'sends %s to %s back to the first question',
+      async (_name, url, payload) => {
+        backend()
+
+        const { response } = await post(url, payload)
+
+        expect(response.statusCode).toBe(statusCodes.seeOther)
+        expect(response.headers.location).toBe(FEDERATE_URL)
+      }
+    )
+
+    test('sends a confirmation with no answers, and a malformed one, back to the first question', async () => {
+      backend()
+
+      const valid = await post(CHECK_URL, { key: 'k' })
+      const malformed = await post(CHECK_URL, { key: ['a', 'b'] })
+
+      expect(valid.response.headers.location).toBe(FEDERATE_URL)
+      expect(malformed.response.headers.location).toBe(FEDERATE_URL)
+      expect(calls('POST', FEDERATIONS_PATH)).toHaveLength(0)
+    })
+
+    test('asks the first question afresh, ticking nothing, after a change to an application was started', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+          applications: applicationsOf([federatedApplication()])
+        })
+      })
+
+      await get(`${INFRADEV_URL}/applications/app-1/change`)
+      const { $ } = await get(FEDERATE_URL)
+
+      expect($('input[name="host"][checked]')).toHaveLength(0)
+    })
+  })
+
+  describe('the questions the journey asks again', () => {
+    test('goes back to the check page from the environments when it was opened from there', async () => {
+      backend()
+      await toCdpService('flood-api')
+      await post(ENVIRONMENTS_URL, { environments: ['infradev', 'qa'] })
+
+      const { $ } = await get(`${ENVIRONMENTS_URL}?change=check`)
+
+      expect($('a.govuk-back-link').attr('href')).toBe(CHECK_URL)
+      expect(
+        $('input[name="environments"][checked]')
+          .map((_, el) => $(el).val())
+          .get()
+      ).toEqual(['infradev', 'qa'])
+    })
+
+    test('says an Azure application is trusted from the Defra tenant, not by a CDP environment', async () => {
+      backend()
+      await toAzureName()
+
+      const { $ } = await get(ENVIRONMENTS_URL)
+
+      expect(text($, '#environments-item-hint')).toBe(
+        'Trusts flood-reports from the Defra tenant'
+      )
+    })
+
+    test('says it is not found when the backend does not know the team at the dry run', async () => {
+      backend({ [`POST ${CHECK_PATH}`]: reply(404, { code: 'error' }) })
+      await toCdpService('flood-api')
+
+      const { response } = await get(ENVIRONMENTS_URL)
+
+      expect(response.statusCode).toBe(statusCodes.notFound)
+    })
+
+    test('is an error when the dry run refuses in a way the page does not know', async () => {
+      backend({ [`POST ${CHECK_PATH}`]: reply(400, { code: 'something-new' }) })
+      await toCdpService('flood-api')
+
+      const { response } = await get(ENVIRONMENTS_URL)
+
+      expect(response.statusCode).toBe(statusCodes.internalServerError)
+    })
+  })
+
+  describe('a confirmation the backend answers in another way', () => {
+    async function confirmWith(answer) {
+      backend({ [`POST ${FEDERATIONS_PATH}`]: answer })
+      await toCdpService('flood-api')
+      await post(ENVIRONMENTS_URL, { environments: ['infradev', 'qa'] })
+      const { $ } = await get(CHECK_URL)
+
+      return post(CHECK_URL, { key: $('input[name="key"]').attr('value') })
+    }
+
+    test('is a 404 for an environment the backend says is not available', async () => {
+      const { response, $ } = await confirmWith(
+        reply(404, { code: 'environment-not-available' })
+      )
+
+      expect(response.statusCode).toBe(statusCodes.notFound)
+      expect(text($, 'h1')).toBe('Environment not found')
+    })
+
+    test('is an error when the backend refuses without saying which environments, so it is not hidden', async () => {
+      const { response } = await confirmWith(
+        reply(409, { code: 'federation-refused', message: 'Refused' })
+      )
+
+      expect(response.statusCode).toBe(statusCodes.internalServerError)
+    })
+
+    test('says it cannot check just now when the environments cannot be read again after a refusal', async () => {
+      const { response } = await confirmWith(
+        reply(409, {
+          code: 'federation-refused',
+          message: 'Refused',
+          environments: [{ environment: 'qa', code: 'federation-exists' }]
+        })
+      )
+
+      expect(response.statusCode).toBe(statusCodes.conflict)
+
+      backend({
+        [`POST ${FEDERATIONS_PATH}`]: reply(409, {
+          code: 'federation-refused',
+          environments: [{ environment: 'qa', code: 'federation-exists' }]
+        }),
+        [`POST ${CHECK_PATH}`]: reply(502, { code: 'upstream-unavailable' })
+      })
+      const { $ } = await get(CHECK_URL)
+      const again = await post(CHECK_URL, {
+        key: $('input[name="key"]').attr('value')
+      })
+
+      expect(again.response.statusCode).toBe(statusCodes.serviceUnavailable)
+    })
+
+    test('is an error for a refusal the page does not know, so it is not hidden', async () => {
+      const { response } = await confirmWith(
+        reply(409, { code: 'something-new', message: 'New' })
+      )
+
+      expect(response.statusCode).toBe(statusCodes.internalServerError)
+    })
+
+    test('says a Member cannot, when the backend refuses with admin-required', async () => {
+      const { response, $ } = await confirmWith(
+        reply(403, { code: 'admin-required', message: 'No' })
+      )
+
+      expect(response.statusCode).toBe(statusCodes.forbidden)
+      expect(text($, 'h1')).toBe('You cannot change this application')
     })
   })
 })

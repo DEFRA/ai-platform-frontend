@@ -188,7 +188,7 @@ export const setUpApplicationsController = {
             result.page ??
             applicationsView(h, {
               ...result,
-              selected: [request.payload?.services ?? []].flat(),
+              selected: [request.payload.services].flat(),
               problem: {
                 errorSummary: [{ text, href: '#services' }],
                 fieldErrors: { services: { text } }

@@ -160,6 +160,16 @@ describe('#buildApplications', () => {
 
     expect(item.tag).toEqual({ text: 'paused', tagClass: 'govuk-tag--grey' })
   })
+
+  test('names where an application runs with the host as given when it is not one it knows, and shows a failure with no reason as none', () => {
+    const [other, failed] = applications([
+      application({ host: 'other' }),
+      application({ id: 'app-2', status: 'failed', failureReason: undefined })
+    ]).items
+
+    expect(other.kind).toBe('other')
+    expect(failed.reason).toBeNull()
+  })
 })
 
 describe('#environmentHasRoom', () => {

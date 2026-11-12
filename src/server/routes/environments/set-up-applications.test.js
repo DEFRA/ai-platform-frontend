@@ -207,6 +207,45 @@ describe('the CDP services offered when another environment is set up (choice B)
     )
   })
 
+  test('offers every service of the first environment when the new one cannot be read yet', async () => {
+    backend({ [`GET ${QA_PATH}`]: reply(404, { code: 'error' }) })
+    await chooseModels()
+
+    const { $ } = await send('GET', APPLICATIONS_URL)
+
+    expect(
+      $('input[name="services"]')
+        .map((_, el) => $(el).val())
+        .get()
+    ).toEqual(['flood-api', 'flood-worker'])
+  })
+
+  test('keeps a service’s key while it stays chosen, so confirming again is the same request', async () => {
+    backend({
+      infradev: [floodApi, floodWorker],
+      qa: [],
+      [`POST ${TEAM_PATH}/deployments`]: reply(202, {
+        deployments: [{ _id: 'deployment-9' }]
+      }),
+      [`POST ${FEDERATIONS_PATH}`]: queued()
+    })
+    await chooseModels()
+    await send('POST', APPLICATIONS_URL, { services: ['flood-api'] })
+    await send('POST', APPLICATIONS_URL, {
+      services: ['flood-api', 'flood-worker']
+    })
+    await send('POST', CHECK_URL, {})
+    const keys = Object.fromEntries(
+      calls('POST', FEDERATIONS_PATH).map(([, init]) => [
+        JSON.parse(init.body).service,
+        init.headers['idempotency-key']
+      ])
+    )
+
+    expect(Object.keys(keys)).toEqual(['flood-api', 'flood-worker'])
+    expect(keys['flood-api']).not.toBe(keys['flood-worker'])
+  })
+
   test('offers a service that is still being set up, which the team chose', async () => {
     backend({ infradev: [floodWorker], qa: [] })
     await chooseModels()

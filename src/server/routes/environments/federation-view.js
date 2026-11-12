@@ -117,8 +117,7 @@ function pretty(value) {
 
 // The first model the team can call: ready in this environment.
 function firstReadyModel(detail) {
-  return (detail.models ?? []).find(({ status }) => status === ACTIVE_STATUS)
-    ?.modelSlug
+  return detail.models.find(({ status }) => status === ACTIVE_STATUS)?.modelSlug
 }
 
 // One form of call for each of the model's API profiles; no key and no

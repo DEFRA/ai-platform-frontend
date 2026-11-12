@@ -417,6 +417,23 @@ describe('changing and removing an application', () => {
 
       expect(response.statusCode).toBe(statusCodes.serviceUnavailable)
     })
+
+    test('says the team is not found when the backend refuses the environment read without a code, and is an error for an answer it does not know', async () => {
+      backend({ [`GET ${ENVIRONMENT_PATH}`]: reply(404, { code: 'error' }) })
+
+      const refused = await send('GET', CHANGE_URL)
+
+      expect(refused.response.statusCode).toBe(statusCodes.notFound)
+      expect(text(refused.$, 'h1')).toBe('Team not found')
+
+      backend({
+        [`GET ${ENVIRONMENT_PATH}`]: reply(400, { code: 'something-new' })
+      })
+
+      expect((await send('GET', CHANGE_URL)).response.statusCode).toBe(
+        statusCodes.internalServerError
+      )
+    })
   })
 
   describe('Remove', () => {

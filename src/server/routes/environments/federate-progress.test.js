@@ -361,6 +361,39 @@ describe('the page that follows a federation', () => {
     expect($('[data-testid="federated-panel"]')).toHaveLength(0)
   })
 
+  test('is a 404 for the status on its own when the backend does not know the operation, and an error for an answer it does not know', async () => {
+    backend({
+      ...operationRoutes([
+        federationOperation('infradev', [
+          'done',
+          'current',
+          'todo',
+          'todo',
+          'todo'
+        ])
+      ]),
+      [`GET ${TEAM_PATH}/operations/op-qa`]: reply(404, { code: 'error' })
+    })
+    await federated()
+
+    const fragment = await send('GET', `${PROGRESS_URL}?fragment=status`)
+
+    expect(fragment.response.statusCode).toBe(statusCodes.notFound)
+
+    backend({
+      [`GET ${TEAM_PATH}/operations/op-infradev`]: reply(400, {
+        code: 'something-new'
+      }),
+      [`GET ${TEAM_PATH}/operations/op-qa`]: reply(400, {
+        code: 'something-new'
+      })
+    })
+
+    const unknown = await send('GET', PROGRESS_URL)
+
+    expect(unknown.response.statusCode).toBe(statusCodes.internalServerError)
+  })
+
   test('is a 404 when the backend does not know the operation', async () => {
     backend({
       ...operationRoutes([
