@@ -86,7 +86,7 @@ describe('#manageController', () => {
     expect(headers.location).toBe('/sign-in?returnTo=%2Fmanage')
   })
 
-  describe('GET /manage (Your access)', () => {
+  describe('GET /manage (Personal access)', () => {
     const DAY_MS = 24 * 60 * 60 * 1000
     const HOUR_MS = 60 * 60 * 1000
     const NOW = new Date('2026-10-22T12:00:00.000Z')
@@ -148,7 +148,7 @@ describe('#manageController', () => {
       const { $, statusCode } = await getManage([ownKey()])
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect($('h1').text().trim()).toBe('Your access')
+      expect($('h1').text().trim()).toBe('Personal access')
       expect($('[data-testid="access-lead"]').text().trim()).toBe(
         'Keys for trying models on your own. A key works for 7 days, and you can renew it up to 3 times.'
       )

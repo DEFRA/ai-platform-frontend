@@ -13,7 +13,7 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { buildKeyRows } from '#/server/routes/manage/access-view.js'
 import { joinNames } from '#/server/routes/connect/team-model-choices.js'
-import { requestUrl } from '#/server/routes/teams/models-tab.js'
+import { requestUrl } from '#/server/routes/environments/environment-view.js'
 import { teamUrl } from '#/server/routes/teams/team-view.js'
 
 const ACTIVE_STATUS = 'active'
@@ -80,7 +80,7 @@ function keyAttention(keyRows) {
  * set up, a model being set up, then a personal key close to running out. Each
  * is a sentence and the link that follows it. Empty when nothing does.
  * @param {Array<{team: object, deployments: object[]}>} teamReads - Each of the person's teams with its deployments.
- * @param {object[]} keyRows - The person's own keys, as on Your access.
+ * @param {object[]} keyRows - The person's own keys, as on Personal access.
  * @param {Record<string, string>} modelNames - Display names by slug.
  * @returns {Array<{text: string, linkText: string, href: string}>}
  */
@@ -130,7 +130,7 @@ function modelSentences(deployments, modelNames) {
 }
 
 /**
- * One row of "Your teams": the team, linked to its Models tab, and what the
+ * One row of "Your teams": the team, linked to its page, and what the
  * person is in it and which models it has. A team whose deployments could not
  * be read says so rather than claiming it has none.
  * @param {{team: object, deployments: object[] | null}} teamRead
@@ -152,8 +152,8 @@ export function buildTeamRow({ team, deployments }, modelNames) {
 /**
  * The "Your own keys" line: how many keys the person holds themselves, for
  * which models, and when the first runs out. Expired keys are not counted:
- * Your access still lists them.
- * @param {object[]} keyRows - The person's own keys, as on Your access.
+ * Personal access still lists them.
+ * @param {object[]} keyRows - The person's own keys, as on Personal access.
  * @returns {{text: string, hasKeys: boolean}}
  */
 export function buildKeysSummary(keyRows) {

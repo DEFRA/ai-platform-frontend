@@ -186,6 +186,26 @@ describe('#homeController', () => {
   })
 
   describe('signed in as a person with only their own keys', () => {
+    test('shows the service navigation in order, with the service name linking home and no "Your access"', async () => {
+      const { $, result } = await signedInHome()
+
+      expect(
+        $('.govuk-service-navigation__link')
+          .map((_, link) => $(link).text().trim())
+          .get()
+          .filter((linkText) => linkText && linkText !== 'Sign out')
+      ).toEqual([
+        'Model catalogue',
+        'Personal access',
+        'Teams',
+        'Environments',
+        'Help'
+      ])
+      expect($('a[href="/environments"]').text()).toContain('Environments')
+      expect($('a.defra-header__svc').attr('href')).toBe('/')
+      expect(result).not.toMatch(/your access/i)
+    })
+
     test('offers the two ways in, team first, and no attention section', async () => {
       const { $, statusCode } = await signedInHome({
         'GET /v1/credentials': { items: [ownKey(10)] }
@@ -221,12 +241,12 @@ describe('#homeController', () => {
         'You are not a member of a team yet.'
       )
       expect(text($, 'home-keys')).toBe(
-        `You have 1 key, for GPT-4o. It expires on ${formatDate(key.expiresAt)}. Go to Your access`
+        `You have 1 key, for GPT-4o. It expires on ${formatDate(key.expiresAt)}. Go to Personal access`
       )
       expect($('[data-testid="home-keys"] a').attr('href')).toBe('/manage')
     })
 
-    test('says they have no keys of their own, with no link to Your access', async () => {
+    test('says they have no keys of their own, with no link to Personal access', async () => {
       const { $ } = await signedInHome({})
 
       expect(text($, 'home-keys')).toBe('You have no keys of your own.')
@@ -240,7 +260,7 @@ describe('#homeController', () => {
       })
 
       expect(text($, 'home-keys')).toBe(
-        `You have 2 keys, for GPT-4.1 nano and GPT-4o. The first expires on ${formatDate(soonest.expiresAt)}. Go to Your access`
+        `You have 2 keys, for GPT-4.1 nano and GPT-4o. The first expires on ${formatDate(soonest.expiresAt)}. Go to Personal access`
       )
     })
 
@@ -304,7 +324,7 @@ describe('#homeController', () => {
   })
 
   describe('signed in as a team admin', () => {
-    test('links the team to its Models tab with the models it has ready, by environment', async () => {
+    test('links the team to its page with the models it has ready, by environment', async () => {
       const { $ } = await signedInHome({
         'GET /v1/teams': { items: [adminTeam] },
         [`GET /v1/teams/${adminTeam.slug}/deployments`]: {
