@@ -2,36 +2,53 @@
 // slow first load of it cannot hit the pool's fixed 60 second worker start limit.
 import { JSDOM } from 'jsdom'
 
-const components = vi.hoisted(() => ({
-  createAll: vi.fn(),
-  Button: 'Button',
-  CharacterCount: 'CharacterCount',
-  Checkboxes: 'Checkboxes',
-  ErrorSummary: 'ErrorSummary',
-  Radios: 'Radios',
-  ServiceNavigation: 'ServiceNavigation',
-  SkipLink: 'SkipLink',
-  Tabs: 'Tabs'
-}))
+// GOV.UK Frontend is the real library, run against the page below. Only this
+// repo's own two enhancement modules are replaced, so their calls can be seen.
 const initProgressRefresh = vi.hoisted(() => vi.fn())
 const initSessionTimeout = vi.hoisted(() => vi.fn())
 
-vi.mock('govuk-frontend', () => components)
 vi.mock('./progress-refresh.js', () => ({ initProgressRefresh }))
 vi.mock('./session-timeout.js', () => ({ initSessionTimeout }))
 
-// Loads the page script against a page made of `body`, as a browser would.
+// What GOV.UK Frontend reads from the browser's global scope.
+const BROWSER_GLOBALS = [
+  'HTMLElement',
+  'HTMLInputElement',
+  'HTMLButtonElement',
+  'HTMLFormElement',
+  'HTMLAnchorElement',
+  'HTMLTextAreaElement',
+  'HTMLDialogElement',
+  'HTMLDetailsElement',
+  'HTMLSelectElement',
+  'SVGElement',
+  'Element',
+  'Node',
+  'NodeList',
+  'Document',
+  'Event',
+  'KeyboardEvent',
+  'MouseEvent',
+  'MutationObserver',
+  'URL'
+]
+
+// Loads the page script against a page made of `body`, as a browser would
+// after GOV.UK's own script has marked the page as supported.
 async function loadPage(body, { clipboard } = {}) {
   const { window } = new JSDOM(
-    `<!doctype html><html><body>${body}</body></html>`,
-    {
-      url: 'http://localhost/'
-    }
+    `<!doctype html><html><body class="govuk-frontend-supported">${body}</body></html>`,
+    { url: 'http://localhost/' }
   )
 
   vi.stubGlobal('window', window)
   vi.stubGlobal('document', window.document)
   vi.stubGlobal('navigator', { clipboard })
+
+  for (const name of BROWSER_GLOBALS) {
+    vi.stubGlobal(name, window[name])
+  }
+
   vi.resetModules()
   await import('./application.js')
 
@@ -43,23 +60,37 @@ describe('application.js', () => {
     vi.unstubAllGlobals()
   })
 
-  test('starts each GOV.UK component, then the progress refresh and the session timeout', async () => {
-    await loadPage('')
+  describe('GOV.UK Frontend components', () => {
+    test('starts the components on the page: an error summary takes focus and a checkbox with a conditional reveal is wired to it', async () => {
+      const window = await loadPage(`
+        <div class="govuk-error-summary" data-module="govuk-error-summary" tabindex="-1" id="summary">
+          <div role="alert"><h2>There is a problem</h2></div>
+        </div>
+        <div class="govuk-checkboxes" data-module="govuk-checkboxes">
+          <div class="govuk-checkboxes__item">
+            <input class="govuk-checkboxes__input" id="other" name="other" type="checkbox" data-aria-controls="reveal">
+            <label class="govuk-label govuk-checkboxes__label" for="other">Other</label>
+          </div>
+          <div class="govuk-checkboxes__conditional govuk-checkboxes__conditional--hidden" id="reveal">More</div>
+        </div>`)
+      const { document } = window
+      const input = document.getElementById('other')
 
-    expect(
-      components.createAll.mock.calls.map(([component]) => component)
-    ).toEqual([
-      'Button',
-      'CharacterCount',
-      'Checkboxes',
-      'ErrorSummary',
-      'Radios',
-      'ServiceNavigation',
-      'SkipLink',
-      'Tabs'
-    ])
-    expect(initProgressRefresh).toHaveBeenCalledTimes(1)
-    expect(initSessionTimeout).toHaveBeenCalledTimes(1)
+      expect(document.activeElement).toBe(document.getElementById('summary'))
+      expect(input.getAttribute('aria-controls')).toBe('reveal')
+      expect(input.getAttribute('aria-expanded')).toBe('false')
+
+      input.click()
+
+      expect(input.getAttribute('aria-expanded')).toBe('true')
+    })
+
+    test('starts the progress refresh and the session timeout, once each', async () => {
+      await loadPage('')
+
+      expect(initProgressRefresh).toHaveBeenCalledTimes(1)
+      expect(initSessionTimeout).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('copy buttons', () => {
@@ -118,8 +149,8 @@ describe('application.js', () => {
 
   describe('buttons that show they are working', () => {
     const page =
-      '<form id="form"><button id="go" class="app-button--loading-on-submit">Go</button></form>' +
-      '<button id="loose" class="app-button--loading-on-submit">No form</button>'
+      '<form id="form"><button id="go" type="button" class="app-button--loading-on-submit">Go</button></form>' +
+      '<button id="loose" type="button" class="app-button--loading-on-submit">No form</button>'
 
     function submit(window) {
       window.document

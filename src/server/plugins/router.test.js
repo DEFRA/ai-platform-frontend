@@ -1,88 +1,73 @@
+import Hapi from '@hapi/hapi'
+
+import { config } from '#/config/config.js'
+import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { router } from './router.js'
-import { serveStaticFiles } from './serve-static-files.js'
 
-const flags = vi.hoisted(() => ({ isProduction: false, isTest: false }))
-const createViteServer = vi.hoisted(() =>
-  vi.fn(async () => ({ middlewares: 'vite-middlewares' }))
-)
-
-vi.mock('#/config/config.js', async (importOriginal) => {
-  const { config } = await importOriginal()
-
-  return {
-    config: {
-      get: (key) => (key in flags ? flags[key] : config.get(key))
-    }
-  }
-})
-
-// Vite and the connect bridge are only for local development.
-vi.mock('vite', () => ({ createServer: createViteServer }))
-vi.mock('@defra/hapi-connect', () => ({ default: { name: 'hapi-connect' } }))
-
-function fakeServer() {
-  return { register: vi.fn(async () => undefined) }
-}
-
-function registered(server) {
-  return server.register.mock.calls.map(([plugins]) => plugins)
+// The real Hapi server, plugins, Vite and the connect bridge: nothing here is
+// faked, so what is checked is what a developer's server does.
+function pathsOf(server) {
+  return server.table().map(({ path }) => path)
 }
 
 describe('#router', () => {
+  const isTest = config.get('isTest')
+  const isProduction = config.get('isProduction')
+  let server
+
   beforeEach(() => {
-    flags.isProduction = false
-    flags.isTest = false
+    server = Hapi.server()
   })
 
-  test('registers the health check and every route plugin, the Environments section among them', async () => {
-    const server = fakeServer()
+  afterEach(async () => {
+    config.set('isTest', isTest)
+    config.set('isProduction', isProduction)
+    await server.stop({ timeout: 0 })
+  })
 
-    flags.isTest = true
-    await router.plugin.register(server)
+  test('registers the health check and the routes of every section, the Environments section among them', async () => {
+    await server.register(router)
 
-    const names = registered(server)
-      .flat()
-      .map((plugin) => plugin.plugin?.name ?? plugin.name)
-
-    expect(names).toEqual(
+    expect(pathsOf(server)).toEqual(
       expect.arrayContaining([
-        'health',
-        'home',
-        'models',
-        'connect-routes',
-        'manage',
-        'teams',
-        'environments'
+        '/health',
+        '/models',
+        '/manage',
+        '/teams',
+        '/environments',
+        '/environments/{slug}/{environment}/limits'
       ])
     )
   })
 
-  test('serves the built assets in test and in production, without Vite', async () => {
-    for (const mode of ['isTest', 'isProduction']) {
-      const server = fakeServer()
+  test.each([
+    ['in test', { isTest: true, isProduction: false }],
+    ['in production', { isTest: false, isProduction: true }]
+  ])('serves the built assets %s, without Vite', async (_name, flags) => {
+    config.set('isTest', flags.isTest)
+    config.set('isProduction', flags.isProduction)
 
-      flags.isTest = mode === 'isTest'
-      flags.isProduction = mode === 'isProduction'
-      await router.plugin.register(server)
+    await server.register(router)
 
-      expect(server.register).toHaveBeenLastCalledWith(serveStaticFiles)
-    }
-
-    expect(createViteServer).not.toHaveBeenCalled()
+    expect(pathsOf(server)).toContain('/public/{param*}')
   })
 
-  test('serves assets from Vite, through the connect bridge, in development', async () => {
-    const server = fakeServer()
+  test('serves assets from Vite through the connect bridge in development, and closes Vite when the server stops', async () => {
+    config.set('isTest', false)
+    config.set('isProduction', false)
 
-    await router.plugin.register(server)
+    await server.register(router)
+    await server.initialize()
 
-    expect(createViteServer).toHaveBeenCalledWith({
-      server: { middlewareMode: true },
-      appType: 'custom'
+    const { statusCode, headers } = await server.inject({
+      method: 'GET',
+      url: '/public/@vite/client',
+      headers: { host: 'localhost:3000' }
     })
-    expect(server.register).toHaveBeenLastCalledWith({
-      plugin: { name: 'hapi-connect' },
-      options: { path: '/public', middleware: ['vite-middlewares'] }
-    })
-  })
+
+    expect(statusCode).toBe(statusCodes.ok)
+    expect(headers['content-type']).toContain('javascript')
+
+    await expect(server.stop({ timeout: 0 })).resolves.toBeUndefined()
+  }, 60000)
 })
