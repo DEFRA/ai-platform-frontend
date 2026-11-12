@@ -1,6 +1,7 @@
 {% extends 'layouts/page.njk' %}
 
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "members-table/macro.njk" import appMembersTable %}
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 
 {% block content %}
@@ -24,33 +25,12 @@
         }) }}
       {% endif %}
 
-      <table class="govuk-table" data-testid="members-table">
-        <caption class="govuk-table__caption govuk-visually-hidden">Members of {{ team.name }}</caption>
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            <th class="govuk-table__header" scope="col">Name</th>
-            <th class="govuk-table__header" scope="col">Email</th>
-            <th class="govuk-table__header" scope="col">Role</th>
-            {% if isAdmin %}
-              <th class="govuk-table__header govuk-table__header--numeric" scope="col"><span class="govuk-visually-hidden">Change</span></th>
-            {% endif %}
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body">
-          {% for member in members %}
-            <tr class="govuk-table__row" data-testid="member-row">
-              <td class="govuk-table__cell">{{ member.name }}</td>
-              <td class="govuk-table__cell">{{ member.email }}</td>
-              <td class="govuk-table__cell">{{ member.role }}</td>
-              {% if isAdmin %}
-                <td class="govuk-table__cell govuk-table__cell--numeric">
-                  <a class="govuk-link" href="{{ member.changeUrl }}" data-testid="member-change">Change<span class="govuk-visually-hidden"> role of {{ member.name }}</span></a>
-                </td>
-              {% endif %}
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      {{ appMembersTable({
+        caption: "Members of " + team.name,
+        rows: members,
+        actionHeading: "Change" if isAdmin,
+        actionTestId: "member-change"
+      }) }}
 
       <p class="govuk-body govuk-hint">Members can use the team’s models and add new ones. Admins can also see and rotate client secrets, add people, change roles and remove models.</p>
     </div>

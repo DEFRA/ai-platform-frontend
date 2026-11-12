@@ -25,6 +25,12 @@ const PROBLEMS = {
   'idempotency-key-reused': {
     statusCode: statusCodes.conflict,
     text: 'We could not add this person. Check the person and role, then select Add again'
+  },
+  // A Platform Admin adding themselves: the backend refuses, and the admin
+  // is told, since there is nothing else on the page they can do about it.
+  'self-add-refused': {
+    statusCode: statusCodes.forbidden,
+    text: 'You cannot add yourself to a team. Ask another Platform Admin to add you'
   }
 }
 
@@ -33,16 +39,32 @@ function teamPath(teamSlug) {
 }
 
 /**
+ * Where a Platform Admin's calls about a team go: by the team's id, to the
+ * admin routes, which take the same bodies and answer with the same shapes.
+ * @param {string} teamId
+ * @returns {string}
+ */
+export function adminTeamPath(teamId) {
+  return `/v1/admin/teams/${encodeURIComponent(teamId)}`
+}
+
+/**
  * Searches the directory for people an admin of the team could add: eligible
  * people who are not already members.
  * @param {import('@hapi/hapi').Request} request
- * @param {string} teamSlug
+ * @param {string} teamRef - The team's slug, or its id with `pathOf` for admins.
  * @param {string} search - 2 to 100 characters of a name or email address.
+ * @param {(teamRef: string) => string} [pathOf] - The team's address on the backend.
  * @returns {Promise<Array<{oid: string, displayName: string, email: string}>>}
  */
-export async function searchTeamPeople(request, teamSlug, search) {
+export async function searchTeamPeople(
+  request,
+  teamRef,
+  search,
+  pathOf = teamPath
+) {
   const { items } = await apiClient(request).post(
-    `${teamPath(teamSlug)}/people/search`,
+    `${pathOf(teamRef)}/people/search`,
     { search }
   )
 
@@ -52,19 +74,21 @@ export async function searchTeamPeople(request, teamSlug, search) {
 /**
  * Adds a person from the directory to the team, by their `oid`.
  * @param {import('@hapi/hapi').Request} request
- * @param {string} teamSlug
+ * @param {string} teamRef - The team's slug, or its id with `pathOf` for admins.
  * @param {{oid: string, role: 'admin' | 'user'}} person
  * @param {string} idempotencyKey - The same key for the same add, so a retry adds once.
+ * @param {(teamRef: string) => string} [pathOf] - The team's address on the backend.
  * @returns {Promise<{displayName: string}>}
  */
 export async function addTeamMember(
   request,
-  teamSlug,
+  teamRef,
   { oid, role },
-  idempotencyKey
+  idempotencyKey,
+  pathOf = teamPath
 ) {
   const { member } = await apiClient(request).post(
-    `${teamPath(teamSlug)}/members`,
+    `${pathOf(teamRef)}/members`,
     { oid, role },
     { idempotencyKey }
   )

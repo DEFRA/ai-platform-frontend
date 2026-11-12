@@ -3,6 +3,7 @@ import createFetchMock from 'vitest-fetch-mock'
 import { ApiError } from '#/server/common/helpers/api-client.js'
 import {
   addTeamMember,
+  adminTeamPath,
   personProblem,
   searchTeamPeople
 } from './team-people.js'
@@ -90,6 +91,36 @@ describe('#team people API', () => {
       expect(sent.headers.get('idempotency-key')).toBe(KEY)
       expect(await sent.json()).toEqual({ oid: OID, role: 'admin' })
     })
+
+    test('posts to the admin route for a team’s id when given the admin path', async () => {
+      fetchMock.mockResponseOnce(JSON.stringify({ member: { _id: 'm' } }), {
+        status: 201
+      })
+
+      await addTeamMember(
+        request,
+        'team 1',
+        { oid: OID, role: 'user' },
+        KEY,
+        adminTeamPath
+      )
+
+      expect(fetchMock.requests()[0].url).toContain(
+        '/v1/admin/teams/team%201/members'
+      )
+    })
+  })
+
+  describe('adminTeamPath', () => {
+    test('searches the admin route for a team’s id when given the admin path', async () => {
+      fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+
+      await searchTeamPeople(request, 'team-1', 'priya', adminTeamPath)
+
+      expect(fetchMock.requests()[0].url).toContain(
+        '/v1/admin/teams/team-1/people/search'
+      )
+    })
   })
 
   describe('personProblem', () => {
@@ -109,6 +140,11 @@ describe('#team people API', () => {
         'idempotency-key-reused',
         409,
         'We could not add this person. Check the person and role, then select Add again'
+      ],
+      [
+        'self-add-refused',
+        403,
+        'You cannot add yourself to a team. Ask another Platform Admin to add you'
       ]
     ])('maps %s to its status and message', (code, statusCode, text) => {
       expect(personProblem(new ApiError({ statusCode, code }))).toEqual({

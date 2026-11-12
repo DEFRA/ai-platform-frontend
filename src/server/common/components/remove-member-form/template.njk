@@ -1,0 +1,30 @@
+{#
+  The warning and the buttons of the page that removes a person from a team
+  (screen 15). The warning's box is where an error on this page points to.
+  params.warningText: what removing the person leaves undone
+  params.buttonText: the red button, "Remove <name>"
+  params.cancelUrl: where Cancel goes
+  params.crumb: the CSRF token, which a macro cannot read from the page
+#}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+<div id="remove-member">
+  {{ govukWarningText({
+    text: params.warningText,
+    iconFallbackText: "Warning"
+  }) }}
+</div>
+
+<form method="post" novalidate>
+  <input type="hidden" name="crumb" value="{{ params.crumb }}">
+
+  <div class="govuk-button-group">
+    {{ govukButton({
+      text: params.buttonText,
+      classes: "govuk-button--warning",
+      attributes: { "data-testid": "remove-member-confirm" }
+    }) }}
+    <a class="govuk-link" href="{{ params.cancelUrl }}" data-testid="remove-member-cancel">Cancel</a>
+  </div>
+</form>

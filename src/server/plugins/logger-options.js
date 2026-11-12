@@ -17,11 +17,15 @@ const formatters = {
   'pino-pretty': { transport: { target: 'pino-pretty' } }
 }
 
+// What a person types to search (the admin Teams list, the people search) can
+// name a person, so it is never logged, whatever LOG_REDACT holds (AC18).
+const alwaysRedacted = ['req.query.search']
+
 export const loggerOptions = {
   enabled: logConfig.enabled,
   ignorePaths: ['/health'],
   redact: {
-    paths: logConfig.redact,
+    paths: [...new Set([...logConfig.redact, ...alwaysRedacted])],
     remove: true
   },
   level: logConfig.level,

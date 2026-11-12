@@ -2,6 +2,7 @@ import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getOidcConfig } from '#/server/common/helpers/oidc-client.js'
 import createFetchMock from 'vitest-fetch-mock'
+import { load } from 'cheerio'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
   getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
@@ -178,6 +179,66 @@ describe('#authController', () => {
     )
     expect(request.headers.get('x-user-id')).toBeNull()
     expect(fetchMock.mock.calls[0][1].body).toBeUndefined()
+  })
+
+  describe('the Admin link', () => {
+    async function navigationAfterSignIn(isPlatformAdmin) {
+      const loginResponse = await server.inject({
+        method: 'GET',
+        url: '/auth/login'
+      })
+      const cookies = mergeCookies({}, loginResponse)
+
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          user: {
+            _id: 'user-1',
+            email: 'test.user@defra.gov.uk',
+            displayName: 'Test User'
+          },
+          team: null,
+          ...(isPlatformAdmin === undefined ? {} : { isPlatformAdmin })
+        })
+      )
+
+      const callback = await server.inject({
+        method: 'GET',
+        url: '/auth/callback?code=abc&state=state-123',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      fetchMock.mockResponseOnce(JSON.stringify({ items: [] }))
+      const page = await server.inject({
+        method: 'GET',
+        url: '/models',
+        headers: { cookie: cookieHeader(mergeCookies(cookies, callback)) }
+      })
+
+      return load(page.payload)('.govuk-service-navigation__link')
+        .map((_, link) => load(link).text().trim())
+        .get()
+    }
+
+    test('is shown, after Teams, when the backend says the person is a Platform Admin', async () => {
+      const links = await navigationAfterSignIn(true)
+
+      expect(links.slice(0, 5)).toEqual([
+        'Models',
+        'Your access',
+        'Teams',
+        'Admin',
+        'Help'
+      ])
+    })
+
+    test.each([[false], [undefined]])(
+      'is not shown when the backend says %s',
+      async (isPlatformAdmin) => {
+        expect(await navigationAfterSignIn(isPlatformAdmin)).not.toContain(
+          'Admin'
+        )
+      }
+    )
   })
 
   test('GET /auth/callback keeps the tokens in the session, so later calls use them, and not in the browser', async () => {

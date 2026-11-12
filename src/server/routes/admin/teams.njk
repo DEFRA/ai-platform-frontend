@@ -1,0 +1,111 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "sub-navigation/macro.njk" import appSubNavigation %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+
+  {{ appHeading({
+    text: heading,
+    caption: "Admin",
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
+      {# A GET form, so a search or a filter is an address that can be shared and works without script. #}
+      <form method="get" action="/admin/teams" role="search" novalidate>
+        {{ govukInput({
+          id: "search",
+          name: "search",
+          value: values.search,
+          autocomplete: "off",
+          spellcheck: false,
+          classes: "govuk-!-width-two-thirds",
+          label: { text: "Search by team name", classes: "govuk-label--s" },
+          hint: { text: "Enter at least 2 characters" },
+          errorMessage: fieldErrors.search
+        }) }}
+
+        {{ govukSelect({
+          id: "status",
+          name: "status",
+          label: { text: "Status", classes: "govuk-label--s" },
+          items: statusItems,
+          errorMessage: fieldErrors.status
+        }) }}
+
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Search",
+            preventDoubleClick: true,
+            attributes: { "data-testid": "teams-search" }
+          }) }}
+          {% if filtered %}
+            <a class="govuk-link" href="{{ clearUrl }}" data-testid="teams-clear">Clear filters</a>
+          {% endif %}
+        </div>
+      </form>
+
+      {% if searched %}
+        {% if total == 0 %}
+          <div data-testid="teams-empty">
+            {% if filtered %}
+              <h2 class="govuk-heading-m">No teams match your search</h2>
+              <p class="govuk-body"><a class="govuk-link" href="{{ clearUrl }}">Clear filters</a> to see every team.</p>
+            {% else %}
+              <h2 class="govuk-heading-m">There are no teams yet</h2>
+            {% endif %}
+          </div>
+        {% else %}
+          <p class="govuk-body" data-testid="teams-count">Showing {{ first }} to {{ last }} of {{ total }} {{ "team" if total == 1 else "teams" }}</p>
+
+          <div class="app-table-scroll" role="region" tabindex="0" aria-label="Teams">
+          <table class="govuk-table" data-testid="teams-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Teams</caption>
+            <thead class="govuk-table__head">
+              <tr class="govuk-table__row">
+                <th class="govuk-table__header" scope="col">Team</th>
+                <th class="govuk-table__header" scope="col">Status</th>
+                <th class="govuk-table__header" scope="col">Environments</th>
+                <th class="govuk-table__header govuk-table__header--numeric" scope="col">Members</th>
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for team in rows %}
+                <tr class="govuk-table__row" data-testid="team-row">
+                  <td class="govuk-table__cell"><a class="govuk-link" href="{{ team.href }}">{{ team.name }}</a></td>
+                  <td class="govuk-table__cell">{{ govukTag({ text: team.status.text, classes: team.status.classes }) }}</td>
+                  <td class="govuk-table__cell">{{ team.environments }}</td>
+                  <td class="govuk-table__cell govuk-table__cell--numeric">{{ team.memberCount }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+
+          {% if pagination %}
+            {{ govukPagination(pagination) }}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
