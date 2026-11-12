@@ -4,6 +4,7 @@ import createFetchMock from 'vitest-fetch-mock'
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
+import { mockApi, reply } from '#/test-helpers/api-mock.js'
 import {
   signInViaOidc,
   mergeCookies,
@@ -886,5 +887,121 @@ describe('#manageController', () => {
         expect(statusCode).toBe(statusCodes.notFound)
       }
     )
+  })
+
+  describe('a key that is gone, refused or cannot be read', () => {
+    const KEY = '/v1/credentials/cred-1'
+
+    function backend(routes) {
+      mockApi(fetchMock, {
+        'GET /v1/credentials': { items: [] },
+        'GET /v1/models': { items: [] },
+        ...routes
+      })
+    }
+
+    test('does not hide a backend fault reading the key behind a redirect', async () => {
+      const cookies = await signIn(server)
+
+      backend({ [`GET ${KEY}`]: reply(500, { code: 'internal-error' }) })
+
+      const { statusCode } = await server.inject({
+        method: 'GET',
+        url: '/manage/credentials/cred-1/revoke',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
+    })
+
+    test.each([
+      ['revoke', { confirmRevoke: '' }],
+      ['view', { reason: '' }]
+    ])(
+      'POST %s with a bad answer goes back to Personal access when the key is gone',
+      async (step, payload) => {
+        const cookies = await signIn(server)
+
+        backend({ [`GET ${KEY}`]: reply(404, { code: 'not-found' }) })
+
+        const { statusCode, headers } = await server.inject({
+          method: 'POST',
+          url: `/manage/credentials/cred-1/${step}`,
+          headers: { cookie: cookieHeader(cookies) },
+          payload: { crumb: cookies.crumb, ...payload }
+        })
+
+        expect(statusCode).toBe(statusCodes.seeOther)
+        expect(headers.location).toBe('/manage')
+      }
+    )
+
+    test('renew says nothing when the key is gone', async () => {
+      const gone = await signIn(server)
+
+      backend({ [`POST ${KEY}/renew`]: reply(404, { code: 'not-found' }) })
+      const missing = await server.inject({
+        method: 'POST',
+        url: '/manage/credentials/cred-1/renew',
+        headers: { cookie: cookieHeader(gone) },
+        payload: { crumb: gone.crumb }
+      })
+      const page = await server.inject({
+        method: 'GET',
+        url: '/manage',
+        headers: { cookie: cookieHeader(mergeCookies(gone, missing)) }
+      })
+
+      expect(missing.headers.location).toBe('/manage')
+      expect(page.result).not.toContain('govuk-notification-banner')
+    })
+
+    test('revoke carries on quietly when the key goes between the check and the delete', async () => {
+      const cookies = await signIn(server)
+
+      backend({
+        [`GET ${KEY}`]: { ...sampleCredential, tier: 'research' },
+        [`DELETE ${KEY}`]: reply(404, { code: 'not-found' })
+      })
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/manage/credentials/cred-1/revoke',
+        headers: { cookie: cookieHeader(cookies) },
+        payload: { crumb: cookies.crumb, confirmRevoke: 'yes' }
+      })
+      const page = await server.inject({
+        method: 'GET',
+        url: '/manage',
+        headers: { cookie: cookieHeader(mergeCookies(cookies, response)) }
+      })
+
+      expect(response.statusCode).toBe(statusCodes.seeOther)
+      expect(page.result).not.toContain('Credential revoked.')
+    })
+
+    test('says the key has been revoked when the backend refuses to show a revoked key', async () => {
+      const cookies = await signIn(server)
+
+      backend({
+        [`GET ${KEY}`]: { ...sampleCredential, tier: 'research' },
+        [`POST ${KEY}/reveal`]: reply(409, { code: 'credential-revoked' })
+      })
+
+      const refused = await server.inject({
+        method: 'POST',
+        url: '/manage/credentials/cred-1/view',
+        headers: { cookie: cookieHeader(cookies) },
+        payload: { crumb: cookies.crumb, reason: 'Debugging a failed call' }
+      })
+      const page = await server.inject({
+        method: 'GET',
+        url: '/manage',
+        headers: { cookie: cookieHeader(mergeCookies(cookies, refused)) }
+      })
+
+      expect(refused.headers.location).toBe('/manage')
+      expect(page.result).toContain('This credential has been revoked.')
+    })
   })
 })

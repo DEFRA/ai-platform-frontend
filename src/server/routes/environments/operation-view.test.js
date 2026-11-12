@@ -299,4 +299,67 @@ describe('buildOperationItem', () => {
         .environmentName
     ).toBe('QA')
   })
+
+  test('copes with a change that carries no changes, steps, time or reason', () => {
+    const bare = buildOperationItem(
+      {
+        id: 'op-bare',
+        environment: 'infradev',
+        kind: 'model',
+        open: false,
+        requestedBy: null
+      },
+      { modelNames }
+    )
+
+    expect(bare).toMatchObject({
+      change: 'Change this environment',
+      askedBy: 'Asked for',
+      steps: [],
+      stepText: null,
+      failed: false,
+      result: { text: 'Not applied' }
+    })
+  })
+
+  test('says a failed change has no reason when the backend gave none', () => {
+    expect(
+      buildOperationItem(
+        operation({
+          open: false,
+          steps: steps(['done', 'failed', 'todo', 'todo', 'todo']),
+          failureReason: undefined,
+          supportReference: undefined
+        }),
+        { modelNames }
+      ).failure
+    ).toEqual({ reason: null, runUrl: null, reference: null })
+  })
+
+  test('says a change to a kind of thing it does not know, and a change of a model it has no verb for, plainly', () => {
+    expect(
+      describeChange(
+        operation({
+          changes: [{ kind: 'model', change: 'pause', modelSlug: 'gpt-4o' }]
+        }),
+        modelNames
+      )
+    ).toEqual({ plain: 'Change GPT-4o', progressive: 'Changing GPT-4o' })
+    expect(
+      describeChange(operation({ kind: 'model', changes: [] }), modelNames)
+        .plain
+    ).toBe('Change this environment')
+  })
+
+  test('has a step number only for a change that is open and has a step in progress', () => {
+    expect(
+      buildOperationItem(
+        operation({
+          open: true,
+          steps: steps(['done', 'todo', 'todo', 'todo', 'todo'])
+        }),
+        { modelNames }
+      ).stepText
+    ).toBeNull()
+  })
 })
