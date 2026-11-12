@@ -5,10 +5,20 @@
   `data-in-progress` is read by the script: when it is "false" the script stops.
   Without script, "Check progress" loads the page again.
 #}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "section-card/macro.njk" import appSectionCard %}
+
 <div data-in-progress="{{ 'true' if inProgress else 'false' }}" data-testid="environment-status">
   {% include "environments/partials/changes.njk" %}
 
-  <h2 class="govuk-heading-l">Models</h2>
+  {% set deployHtml %}
+    {{ govukButton({
+      text: "Deploy a model",
+      href: deployUrl,
+      attributes: { "data-testid": "deploy-a-model" }
+    }) }}
+  {% endset %}
+  {% call appSectionCard({ title: "Models", actionsHtml: deployHtml, attributes: { "data-testid": "section-models" } }) %}
   {% if models.length %}
     <dl class="govuk-summary-list app-summary-list--table">
       {% for model in models %}
@@ -55,27 +65,27 @@
       <p class="govuk-body"><a class="govuk-link" href="{{ setUpUrl }}" data-testid="set-up-environment">Set up {{ heading }}</a></p>
     {% endif %}
   {% endif %}
+  {% endcall %}
 
   {% if limits %}
-    <h2 class="govuk-heading-l">Limits</h2>
+    {% set changeLimitsHtml %}
+      <a class="govuk-link" href="{{ limits.changeUrl }}" data-testid="change-limits">Change<span class="govuk-visually-hidden"> the limits in {{ heading }}</span></a>
+    {% endset %}
+    {% call appSectionCard({ title: "Limits", actionsHtml: changeLimitsHtml if limits.changeUrl, attributes: { "data-testid": "section-limits" } }) %}
     <dl class="govuk-summary-list app-summary-list--table">
       <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="limits-row-tokens">
         <dt class="govuk-summary-list__key">Tokens a minute</dt>
         <dd class="govuk-summary-list__value">{{ limits.tokensPerMinute }}</dd>
       </div>
-      <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not limits.changeUrl }}" data-testid="limits-row-requests">
+      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="limits-row-requests">
         <dt class="govuk-summary-list__key">Requests a minute</dt>
         <dd class="govuk-summary-list__value">{{ limits.requestsPerMinute }}</dd>
-        {% if limits.changeUrl %}
-          <dd class="govuk-summary-list__actions">
-            <a class="govuk-link" href="{{ limits.changeUrl }}" data-testid="change-limits">Change<span class="govuk-visually-hidden"> the limits in {{ heading }}</span></a>
-          </dd>
-        {% endif %}
       </div>
     </dl>
     {% if limits.pending %}
       <p class="govuk-body govuk-hint" data-testid="limits-pending">{{ limits.pending }}</p>
     {% endif %}
+    {% endcall %}
   {% endif %}
 
   {% include "environments/partials/recent.njk" %}

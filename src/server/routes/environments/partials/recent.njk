@@ -6,8 +6,9 @@
   table still fits at 320 px (WCAG 1.4.10).
 #}
 {% from "environments/partials/failure.njk" import failureDetail %}
+{% from "section-card/macro.njk" import appSectionCard %}
 
-<h2 class="govuk-heading-l">Recent changes</h2>
+{% call appSectionCard({ title: "Recent changes", attributes: { "data-testid": "section-recent" } }) %}
 {% if changesUnavailable %}
   <p class="govuk-body">We could not read the changes just now.</p>
 {% elif recent.length %}
@@ -36,3 +37,4 @@
 {% else %}
   <p class="govuk-body" data-testid="no-recent-changes">No recent changes.</p>
 {% endif %}
+{% endcall %}

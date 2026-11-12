@@ -1,6 +1,5 @@
 {% extends 'layouts/page.njk' %}
 
-{% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/tag/macro.njk" import govukTag %}
 {% from "environment-strip/macro.njk" import appEnvironmentStrip %}
 
@@ -18,32 +17,18 @@
     captionAbove: true
   }) }}
 
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
-      <p class="govuk-body-l">
-        {{ displayName }}
-        {{ govukTag({ text: tag.text, classes: tag.tagClass, attributes: { "data-testid": "environment-tag" } }) }}
-      </p>
-      {% if pausedNote %}
-        <p class="govuk-body govuk-hint" data-testid="paused-note">{{ pausedNote }}</p>
-      {% endif %}
-    </div>
-  </div>
+  <p class="govuk-body-l">
+    {{ displayName }}
+    {{ govukTag({ text: tag.text, classes: tag.tagClass, attributes: { "data-testid": "environment-tag" } }) }}
+  </p>
+  {% if pausedNote %}
+    <p class="govuk-body govuk-hint" data-testid="paused-note">{{ pausedNote }}</p>
+  {% endif %}
 
   {{ appEnvironmentStrip({ items: strip }) }}
 
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
-      {{ govukButton({
-        text: "Deploy a model",
-        href: deployUrl,
-        attributes: { "data-testid": "deploy-a-model" }
-      }) }}
-
-      {# Checked again by progress-refresh.js while a change is open; without script, "Check progress" does it. #}
-      <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
-        {% include "environments/partials/environment-status.njk" %}
-      </div>
-    </div>
+  {# Checked again by progress-refresh.js while a change is open; without script, "Check progress" does it. #}
+  <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
+    {% include "environments/partials/environment-status.njk" %}
   </div>
 {% endblock %}

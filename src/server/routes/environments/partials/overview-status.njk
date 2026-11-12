@@ -11,6 +11,7 @@
   <h2 class="govuk-heading-l">Your environments</h2>
   <p class="govuk-body">In the order teams usually use them. You can deploy to any environment that is available.</p>
 
+  <div class="app-card-grid" data-testid="environment-cards">
   {% for card in cards %}
     <div class="govuk-summary-card app-environment-card{{ ' app-environment-card--unavailable' if not card.available }}" data-testid="environment-card-{{ card.code }}">
       <div class="govuk-summary-card__title-wrapper app-environment-card__title-wrapper">
@@ -50,6 +51,7 @@
       </div>
     </div>
   {% endfor %}
+  </div>
 
   {% include "environments/partials/changes.njk" %}
   {% include "environments/partials/recent.njk" %}

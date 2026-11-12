@@ -265,7 +265,7 @@ describe('#environmentsController', () => {
       }
     })
 
-    test('offers Deploy a model with the team already chosen, and no Federate action yet', async () => {
+    test('offers Deploy a model with the team already chosen, and no Create Passwordless Credential action yet', async () => {
       backend()
 
       const $ = pageOf((await get(OVERVIEW_URL)).result)
@@ -275,7 +275,60 @@ describe('#environmentsController', () => {
       expect(deploy.attr('href')).toBe(
         `/connect/team/start?teamId=${sampleTeam.slug}`
       )
-      expect(text($, 'main')).not.toContain('Federate an application')
+      expect(text($, 'main')).not.toContain('Create Passwordless Credential')
+    })
+
+    test('lays the environment cards side by side, and puts the changes in progress and the recent changes in cards of their own, across the full width', async () => {
+      backend()
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+      const grid = $('[data-testid="environment-cards"]')
+
+      expect(grid.hasClass('app-card-grid')).toBe(true)
+      expect(grid.children('.govuk-summary-card')).toHaveLength(4)
+      expect($('[data-testid="environments-status"] > h2').text().trim()).toBe(
+        'Your environments'
+      )
+
+      for (const [testId, title] of [
+        ['section-changes', 'Changes in progress'],
+        ['section-recent', 'Recent changes']
+      ]) {
+        const card = $(`[data-testid="${testId}"]`)
+
+        expect(card.hasClass('govuk-summary-card')).toBe(true)
+        expect(text(card, '.govuk-summary-card__title-wrapper > h2')).toBe(
+          title
+        )
+        expect(grid.find(`[data-testid="${testId}"]`)).toHaveLength(0)
+      }
+
+      expect(
+        $('.govuk-heading-l')
+          .map((_, heading) => $(heading).text().trim())
+          .get()
+      ).toEqual(['Your environments'])
+      expect(
+        $('[data-testid="environments-status"]').closest(
+          '.govuk-grid-column-two-thirds'
+        )
+      ).toHaveLength(0)
+      expect(
+        $('[data-testid="deploy-a-model"]').closest(
+          '.govuk-grid-column-two-thirds'
+        )
+      ).toHaveLength(0)
+    })
+
+    test('right aligns the actions above the cards', async () => {
+      backend({ 'GET /v1/teams': { items: [sampleTeam, coastal] } })
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+      const actions = $('[data-testid="page-actions"]')
+
+      expect(actions.hasClass('app-actions--end')).toBe(true)
+      expect(actions.find('a[data-testid="deploy-a-model"]')).toHaveLength(1)
+      expect(actions.find('a[data-testid="change-team"]')).toHaveLength(1)
     })
 
     test('shows Change team only to a person with more than one team', async () => {
@@ -526,6 +579,50 @@ describe('#environmentsController', () => {
       for (const url of operationCalls) {
         expect(url.searchParams.get('environment')).toBe('infradev')
       }
+    })
+
+    test('puts each section in a summary card of its own across the full width, with Deploy a model right aligned in the Models card', async () => {
+      backend()
+
+      const $ = pageOf((await get(INFRADEV_URL)).result)
+      const status = $('[data-testid="environment-status"]')
+
+      expect(
+        status
+          .children('.govuk-summary-card')
+          .map((_, card) =>
+            text($(card), '.govuk-summary-card__title-wrapper > h2')
+          )
+          .get()
+      ).toEqual(['Changes in progress', 'Models', 'Limits', 'Recent changes'])
+      expect($('.govuk-heading-l')).toHaveLength(0)
+      expect(status.closest('.govuk-grid-column-two-thirds')).toHaveLength(0)
+      expect(
+        $('nav[aria-label="Environments"]').closest(
+          '.govuk-grid-column-two-thirds'
+        )
+      ).toHaveLength(0)
+
+      const models = $('[data-testid="section-models"]')
+
+      expect(
+        models.find(
+          '.app-section-card__actions a.govuk-button[data-testid="deploy-a-model"]'
+        )
+      ).toHaveLength(1)
+      expect(
+        $('[data-testid="section-limits"]').find(
+          'a[data-testid="change-limits"]'
+        )
+      ).toHaveLength(1)
+      expect(
+        $('[data-testid="section-changes"]').find(
+          '[data-testid="no-changes-in-progress"]'
+        )
+      ).toHaveLength(1)
+      expect(
+        $('[data-testid="section-recent"]').find('table, p')
+      ).not.toHaveLength(0)
     })
 
     test('shows the strip with this environment marked current and the others not available', async () => {
