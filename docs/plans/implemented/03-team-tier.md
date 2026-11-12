@@ -36,7 +36,7 @@ Infradev and in CDP dev.
   queued, idempotent by a key made when the answers are given. One change per team file at a time, so a later request
   waits as `queued`.
 - The wait page follows every model, then shows one client secret that covers them all.
-- An Admin removes an `active` model from the team page (confirm page, then
+- An Admin removes an `active` model from the environment's page (since 12 Nov 2026; before that the team page; confirm page, then
   `DELETE /v1/teams/{teamId}/deployments/{id}`): a GitOps `remove` follow-up, `removing` then `removed`, back to
   `active` with a reason if it fails. Only an `active` model can be removed: a failed or timed-out one has no Remove,
   and its failed-setup page says to contact AI Platform Support quoting the reference (`AIP-` and the last five
@@ -60,7 +60,7 @@ Infradev and in CDP dev.
   (`POST /v1/admin/team-deployments/{id}/retry` and `/reconcile`).
 - While an admin has paused the environment (`AIP_PAUSED`), requests show as "Waiting", keep their file and commit
   nothing, and continue after `resumed`.
-- The wait page and the team Models tab update from a status fragment every 5 s with script (a polite live region; no
+- The wait page and the environment's page (B30, [07](07-environments-and-deployments.md)) update from a status fragment every 5 s with script (a polite live region; no
   meta refresh) and offer "Check progress" without it. The steps are Request recorded, Change committed, Setting up
   {model} in Azure, Checking your resources in Azure and Preparing your client secret. The wait page has no pipeline
   links; the failure page links the submit run and the apply run under "Technical details for the AI Platform team".

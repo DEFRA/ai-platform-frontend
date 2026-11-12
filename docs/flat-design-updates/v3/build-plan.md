@@ -291,6 +291,10 @@ new team listed and not selected; from Teams, to the new team's Members tab.
 
 ### 11. Set up Test (19)
 
+Moved 12 Nov 2026 (B30): the page is now **`/environments/{slug}/{code}/set-up`** (the registry code, for example `qa`);
+the old `/teams/{slug}/{name}` redirects with a 301, and the first environment goes to the request journey with the team
+and environment chosen (`/connect/team/start?teamId=&environment=`). The text below is unchanged.
+
 **`/teams/{slug}/test`** (any available environment by its lower-case name): caption team, H1 "Which models do you want in
 Test?" Hint "These are the models your team has in Development." Checkboxes ticked, hint "Ready in Development", only
 models the target environment can deploy. H2 "What happens next", "When you continue:" bullets "we set up a separate
@@ -314,6 +318,21 @@ team" and link "Try a model on your own". H2 "Needs your attention", only when n
 ("Your key for {model} runs out on {date}. Renew it"). H2 "Your teams": link to each team's Models tab and "{Admin or
 Member}. {model} in {Development}." or "{model} setting up." H2 "Your own keys": "You have {n} key(s), for {models}. It
 expires on {date}. Go to Your access" or "You have no keys of your own." Remove the expiry banner and team insets.
+
+### 14. Environments and deployments (B30, added 12 Nov 2026)
+
+Design F `#environments`, figures F2 to F4; built in [../../plans/implemented/07-environments-and-deployments.md](../../plans/implemented/07-environments-and-deployments.md).
+
+| Step | Route                                      | Page                                                                                   | Next                                    |
+| ---- | ------------------------------------------ | -------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1    | `/environments`                            | The person's own teams; one team redirects; none offers "Create a team"                | 2                                       |
+| 2    | `/environments/{team}`                     | "Deploy a model", a card per environment, Changes in progress, Recent changes          | 3, request journey                      |
+| 3    | `/environments/{team}/{env}`               | Strip with this environment current; changes, Models, Limits, Recent changes           | limits, request journey, remove, secret |
+| 4    | `.../limits`, `.../limits/check`           | Admin: tokens and requests a minute, check answers, one change; Member 403             | 3 with a banner and progress            |
+| 5    | `/connect/team/start?teamId=&environment=` | Request journey with the team and environment chosen (no team or environment question) | model, details, check, wait page        |
+
+The service navigation reads Model catalogue, Personal access, Teams, Environments and Help. The Teams page's tabs are
+Overview, Members and Details.
 
 ### 13. Clean-up and documents
 

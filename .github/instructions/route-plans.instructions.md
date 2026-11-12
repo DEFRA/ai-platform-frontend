@@ -19,6 +19,7 @@ navigation context), `src/server/plugins/router.js` and `test-helpers/`.
 - [04-catalogue-and-gateway.md](../../docs/plans/implemented/04-catalogue-and-gateway.md): the catalogue and the hosting/gateway shape. Read before touching model view models or anything showing where a model runs.
 - [05-platform-and-gitops-pipeline.md](../../docs/plans/implemented/05-platform-and-gitops-pipeline.md): the five repositories, Infradev, CDP dev and operating notes.
 - [06-shared-services-and-security.md](../../docs/plans/implemented/06-shared-services-and-security.md): idempotency, audit, locks, backfills, security.
+- [07-environments-and-deployments.md](../../docs/plans/implemented/07-environments-and-deployments.md): the Environments section (B30). Read before changing `/environments/*`, the Teams Overview tab, or how a change's progress is shown.
 
 **Not built** (one file): [docs/plans/remaining.md](../../docs/plans/remaining.md). Read it before starting any build story, to
 check whether the work is a refactor of something built rather than a new feature, and which items are blocked or deferred.
