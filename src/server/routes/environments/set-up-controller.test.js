@@ -47,7 +47,7 @@ const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
 const TEAM_PATH = `/v1/teams/${sampleTeam.slug}`
-const TEST_URL = `/teams/${sampleTeam.slug}/test`
+const TEST_URL = `/environments/${sampleTeam.slug}/qa/set-up`
 const TEST_MODELS_PATH = '/v1/models?tier=team&environment=qa'
 
 const cohereModel = {
@@ -221,7 +221,9 @@ describe('#environmentSetUpController', () => {
         'Test starts with the same limits as Development'
       )
       expect(result).toMatch(/<button[^>]*>\s*Continue\s*<\/button>/)
-      expect(result).toMatch(/href="\/teams\/flood-risk-team"[^>]*>\s*Back/)
+      expect(result).toMatch(
+        /href="\/environments\/flood-risk-team\/qa"[^>]*>\s*Back/
+      )
     })
 
     test('says so, with no button, when there is nothing to set up', async () => {
@@ -296,16 +298,13 @@ describe('#environmentSetUpController', () => {
   })
 
   describe('which environments it answers for', () => {
-    test.each([
-      ['preprod', 'pre-production'],
-      ['prod', 'production']
-    ])(
+    test.each(['preprod', 'prod'])(
       'returns 404 for %s, which is not in the teams environments',
-      async (_code, name) => {
+      async (code) => {
         backend()
 
         const { statusCode, result } = await get(
-          `/teams/${sampleTeam.slug}/${name}`
+          `/environments/${sampleTeam.slug}/${code}/set-up`
         )
 
         expect(statusCode).toBe(statusCodes.notFound)
@@ -316,7 +315,9 @@ describe('#environmentSetUpController', () => {
     test('returns 404 for a name that is not an environment', async () => {
       backend()
 
-      const { statusCode } = await get(`/teams/${sampleTeam.slug}/nowhere`)
+      const { statusCode } = await get(
+        `/environments/${sampleTeam.slug}/nowhere/set-up`
+      )
 
       expect(statusCode).toBe(statusCodes.notFound)
     })
@@ -330,14 +331,14 @@ describe('#environmentSetUpController', () => {
       expect(statusCode).toBe(statusCodes.notFound)
     })
 
-    test('answers for any available environment by its lower-case name', async () => {
+    test('answers for any available environment by its code', async () => {
       config.set('teamEnvironments', ['infradev', 'qa', 'preprod'])
       backend({
         'GET /v1/models?tier=team&environment=preprod': { items: [sampleModel] }
       })
 
       const { statusCode, result } = await get(
-        `/teams/${sampleTeam.slug}/pre-production`
+        `/environments/${sampleTeam.slug}/preprod/set-up`
       )
 
       expect(statusCode).toBe(statusCodes.ok)
@@ -347,13 +348,32 @@ describe('#environmentSetUpController', () => {
       )
     })
 
-    test('sends the first environment to the request journey, which is where a team starts', async () => {
+    test('sends the first environment to the request journey with the team and environment chosen, which is where a team starts', async () => {
       backend()
 
-      const response = await get(`/teams/${sampleTeam.slug}/development`)
+      const response = await get(
+        `/environments/${sampleTeam.slug}/infradev/set-up`
+      )
 
       expect(response.statusCode).toBe(statusCodes.seeOther)
-      expect(response.headers.location).toBe('/connect/team/start')
+      expect(response.headers.location).toBe(
+        `/connect/team/start?teamId=${sampleTeam.slug}&environment=infradev`
+      )
+    })
+
+    test('redirects the old address, which named the environment, to the new one', async () => {
+      backend()
+
+      const old = await get(`/teams/${sampleTeam.slug}/test`)
+
+      expect(old.statusCode).toBe(statusCodes.movedPermanently)
+      expect(old.headers.location).toBe(
+        `/environments/${sampleTeam.slug}/qa/set-up`
+      )
+
+      const unknown = await get(`/teams/${sampleTeam.slug}/nowhere`)
+
+      expect(unknown.statusCode).toBe(statusCodes.notFound)
     })
   })
 
@@ -458,7 +478,7 @@ describe('#environmentSetUpController', () => {
       })
 
       const { result } = await get(
-        `/teams/${sampleTeam.slug}/pre-production`,
+        `/environments/${sampleTeam.slug}/preprod/set-up`,
         jar
       )
 
@@ -540,7 +560,7 @@ describe('#environmentSetUpController', () => {
       expect(check.result).toContain('Flood Risk Team')
       expect(check.result).toContain('GPT-4o')
       expect(check.result).toMatch(
-        /href="\/teams\/flood-risk-team\/test"[^>]*>\s*Back/
+        /href="\/environments\/flood-risk-team\/qa\/set-up"[^>]*>\s*Back/
       )
 
       const confirmed = await server.inject({

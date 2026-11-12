@@ -16,6 +16,8 @@ import {
 import {
   defaultTeamEnvironment,
   environmentName,
+  environmentPageUrl,
+  environmentRegistryName,
   environmentSetUpUrl,
   teamEnvironmentList
 } from '#/server/common/helpers/environment-names.js'
@@ -53,7 +55,7 @@ function notFoundView(h) {
       message:
         'This request does not exist, or you are not a member of this team.',
       actionHref: '/manage',
-      actionText: 'Go to your access'
+      actionText: 'Go to personal access'
     })
     .code(statusCodes.notFound)
 }
@@ -141,7 +143,8 @@ function waitView(request, h, { team, live, catalogue }) {
     pageTitle: heading,
     heading,
     teamName: team.name,
-    teamUrl: teamUrl(team),
+    environmentUrl: environmentPageUrl(team.slug, environment),
+    environmentLabel: environmentRegistryName(environment),
     lead: queued
       ? 'Your request starts when the one before it finishes. You can leave this page and come back.'
       : `${duration} You can leave this page and come back.`,
@@ -193,7 +196,8 @@ async function readyView(
     pageTitle: heading,
     heading,
     teamName: team.name,
-    teamUrl: teamUrl(team),
+    environmentUrl: environmentPageUrl(team.slug, environment),
+    environmentLabel: environmentRegistryName(environment),
     environmentName: environmentName(environment),
     modelNames: joinNames(names),
     isAdmin,
@@ -320,7 +324,8 @@ export const teamRequestController = {
           return notFoundView(h)
         }
 
-        // A model being removed, or already gone, is the team page's to show.
+        // A model being removed, or already gone, is the environment page's
+        // to show.
         const live = asked.filter(
           ({ status }) =>
             status !== DEPLOYMENT_REMOVING_STATUS &&
@@ -328,7 +333,11 @@ export const teamRequestController = {
         )
 
         if (live.length === 0) {
-          return h.redirect(teamUrl(team)).code(statusCodes.seeOther)
+          const { environment } = asked.find(({ _id }) => _id === id)
+
+          return h
+            .redirect(environmentPageUrl(team.slug, environment))
+            .code(statusCodes.seeOther)
         }
 
         const catalogue = await loadCatalogue(request)

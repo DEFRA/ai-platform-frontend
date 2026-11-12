@@ -6,6 +6,9 @@ import {
   getPendingAccess,
   setPendingAccess,
   clearPendingAccess,
+  getPendingLimits,
+  setPendingLimits,
+  clearPendingLimits,
   getRequestedDeployments,
   setRequestedDeployments,
   resetSession,
@@ -34,6 +37,21 @@ function mockRequest() {
 }
 
 describe('#session helpers', () => {
+  test('keeps the limits a person has asked for until they are cleared', () => {
+    const request = mockRequest()
+
+    expect(getPendingLimits(request)).toBeUndefined()
+
+    setPendingLimits(request, { key: 'k', tokensPerMinute: 2000 })
+    expect(getPendingLimits(request)).toEqual({
+      key: 'k',
+      tokensPerMinute: 2000
+    })
+
+    clearPendingLimits(request)
+    expect(getPendingLimits(request)).toBeUndefined()
+  })
+
   test('keeps the tokens in the session, and reading them on a request with no session store is safe', () => {
     const request = mockRequest()
 

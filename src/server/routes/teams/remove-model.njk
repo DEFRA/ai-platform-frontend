@@ -6,7 +6,7 @@
 
 {% block beforeContent %}
   {{ super() }}
-  {{ govukBackLink({ text: "Back", href: teamUrl }) }}
+  {{ govukBackLink({ text: "Back", href: backUrl }) }}
 {% endblock %}
 
 {% block content %}
@@ -34,7 +34,7 @@
             classes: "govuk-button--warning",
             attributes: { "data-testid": "remove-model-confirm" }
           }) }}
-          <a class="govuk-link" href="{{ teamUrl }}" data-testid="remove-model-cancel">Cancel</a>
+          <a class="govuk-link" href="{{ backUrl }}" data-testid="remove-model-cancel">Cancel</a>
         </div>
       </form>
     </div>

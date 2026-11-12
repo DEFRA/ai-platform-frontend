@@ -58,14 +58,67 @@ export function defaultTeamEnvironment() {
 }
 
 /**
- * Where a team sets up an environment. The one place the address is built, so
- * it can later point at the Environments page by changing only this.
+ * The environment a person-facing address names by its registry code, when
+ * this instance lets teams use it. Anything else (an unknown code, one that
+ * is not available yet) is undefined.
+ * @param {string} code
+ * @returns {{environment: string, name: string, registryName: string, available: true} | undefined}
+ */
+export function environmentFromAddress(code) {
+  const item = teamEnvironmentList().find(
+    (candidate) => candidate.available && candidate.environment === code
+  )
+
+  return item && { ...item, registryName: environmentRegistryName(code) }
+}
+
+/**
+ * The environment an old address named by its lower-case display name
+ * (`/teams/{slug}/test`), available or not.
+ * @param {string} name
+ * @returns {{environment: string, name: string, available: boolean} | undefined}
+ */
+export function environmentFromName(name) {
+  return teamEnvironmentList().find((item) => item.name.toLowerCase() === name)
+}
+
+/**
+ * The environment as the registry names it: Infradev, then QA, PREPROD and
+ * PROD in capitals. The portal's own name (`environmentName`) goes under it.
+ * @param {string} code
+ * @returns {string}
+ */
+export function environmentRegistryName(code) {
+  return code === 'infradev' ? 'Infradev' : code.toUpperCase()
+}
+
+/**
+ * Where a team's environments are shown: the overview.
+ * @param {string} teamSlug
+ * @returns {string}
+ */
+export function teamEnvironmentsUrl(teamSlug) {
+  return `/environments/${encodeURIComponent(teamSlug)}`
+}
+
+/**
+ * A team's page for one environment.
+ * @param {string} teamSlug
+ * @param {string} environment the environment code
+ * @returns {string}
+ */
+export function environmentPageUrl(teamSlug, environment) {
+  return `${teamEnvironmentsUrl(teamSlug)}/${encodeURIComponent(environment)}`
+}
+
+/**
+ * Where a team sets up an environment. The one place the address is built.
  * @param {string} teamSlug
  * @param {string} environment the environment code
  * @returns {string}
  */
 export function environmentSetUpUrl(teamSlug, environment) {
-  return `/teams/${encodeURIComponent(teamSlug)}/${environmentName(environment).toLowerCase()}`
+  return `${environmentPageUrl(teamSlug, environment)}/set-up`
 }
 
 /**

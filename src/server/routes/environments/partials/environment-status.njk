@@ -1,0 +1,82 @@
+{#
+  An environment's status: what is changing in it, its models, its limits and
+  its recent changes. Shown by the page and, on its own, by `?fragment=status`;
+  the page wraps it in the polite live region the script swaps it into.
+  `data-in-progress` is read by the script: when it is "false" the script stops.
+  Without script, "Check progress" loads the page again.
+#}
+<div data-in-progress="{{ 'true' if inProgress else 'false' }}" data-testid="environment-status">
+  {% include "environments/partials/changes.njk" %}
+
+  <h2 class="govuk-heading-l">Models</h2>
+  {% if models.length %}
+    <dl class="govuk-summary-list app-summary-list--table">
+      {% for model in models %}
+        <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not model.removeUrl }}" data-testid="model-row">
+          <dt class="govuk-summary-list__key">{{ model.name }}</dt>
+          <dd class="govuk-summary-list__value">
+            <strong class="govuk-tag {{ model.tagClass }}">{{ model.statusText }}</strong>
+            {% if model.detail %}
+              <a class="govuk-link govuk-!-margin-left-2" href="{{ model.detail.href }}">{{ model.detail.text }}<span class="govuk-visually-hidden"> for {{ model.name }}</span></a>
+            {% endif %}
+            {% if model.reason %}
+              <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0" data-testid="model-reason">{{ model.reason }}</p>
+            {% endif %}
+          </dd>
+          {% if model.removeUrl %}
+            <dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="{{ model.removeUrl }}" data-testid="model-remove">Remove<span class="govuk-visually-hidden"> {{ model.name }} from {{ heading }}</span></a>
+            </dd>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      {% if secret %}
+        <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (secret.actions.length or secret.askAnAdmin) }}" data-testid="secret-row">
+          <dt class="govuk-summary-list__key">Client secret</dt>
+          <dd class="govuk-summary-list__value">{{ secret.text }}</dd>
+          {% if secret.actions.length %}
+            <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
+              <div class="app-button-group govuk-!-margin-bottom-0">
+                {% for action in secret.actions %}
+                  <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ heading }} client secret</span></a>
+                {% endfor %}
+              </div>
+            </dd>
+          {% elif secret.askAnAdmin %}
+            <dd class="govuk-summary-list__actions" data-testid="ask-an-admin">Ask an admin for it</dd>
+          {% endif %}
+        </div>
+      {% endif %}
+    </dl>
+  {% else %}
+    <p class="govuk-body" data-testid="no-models">No models in {{ heading }}.</p>
+    {% if setUpUrl %}
+      <p class="govuk-body"><a class="govuk-link" href="{{ setUpUrl }}" data-testid="set-up-environment">Set up {{ heading }}</a></p>
+    {% endif %}
+  {% endif %}
+
+  {% if limits %}
+    <h2 class="govuk-heading-l">Limits</h2>
+    <dl class="govuk-summary-list app-summary-list--table">
+      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="limits-row-tokens">
+        <dt class="govuk-summary-list__key">Tokens a minute</dt>
+        <dd class="govuk-summary-list__value">{{ limits.tokensPerMinute }}</dd>
+      </div>
+      <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not limits.changeUrl }}" data-testid="limits-row-requests">
+        <dt class="govuk-summary-list__key">Requests a minute</dt>
+        <dd class="govuk-summary-list__value">{{ limits.requestsPerMinute }}</dd>
+        {% if limits.changeUrl %}
+          <dd class="govuk-summary-list__actions">
+            <a class="govuk-link" href="{{ limits.changeUrl }}" data-testid="change-limits">Change<span class="govuk-visually-hidden"> the limits in {{ heading }}</span></a>
+          </dd>
+        {% endif %}
+      </div>
+    </dl>
+    {% if limits.pending %}
+      <p class="govuk-body govuk-hint" data-testid="limits-pending">{{ limits.pending }}</p>
+    {% endif %}
+  {% endif %}
+
+  {% include "environments/partials/recent.njk" %}
+</div>

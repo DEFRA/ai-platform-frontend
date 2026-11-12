@@ -45,13 +45,19 @@ export function environmentUnavailableView(h) {
 
 // The previous step of the journey, or the check page for a step opened from
 // "Change" there. The model step is skipped when one model came from its
-// page, so the details step goes back past it.
+// page, so the details step goes back past it. A journey started from the
+// Environments section has its team chosen, so its first step goes back to the
+// page it came from instead of a team step.
+function firstStepBack(pendingAccess) {
+  return pendingAccess.origin ?? SELECT_URL
+}
+
 const BACK_LINKS = {
   select: (pendingAccess) =>
     pendingAccess.modelSlug ? `/models/${pendingAccess.modelSlug}` : '/models',
-  model: () => SELECT_URL,
+  model: firstStepBack,
   details: (pendingAccess) =>
-    pendingAccess.modelStepSkipped ? SELECT_URL : MODEL_URL
+    pendingAccess.modelStepSkipped ? firstStepBack(pendingAccess) : MODEL_URL
 }
 
 // The page before the check page: the details step, or for models set up in
@@ -134,7 +140,7 @@ export async function checkAnswersView(
     heading: CHECK_ANSWERS_TITLE,
     teamName: pendingAccess.teamName,
     backLink: checkBackLink(pendingAccess),
-    teamChangeUrl: stepUrl(SELECT_URL, true),
+    teamChangeUrl: pendingAccess.origin ? null : stepUrl(SELECT_URL, true),
     modelsChangeUrl: stepUrl(MODEL_URL, true),
     purposeChangeUrl: stepUrl(DETAILS_URL, true),
     modelNames: joinNames(models.map(({ displayName }) => displayName)),

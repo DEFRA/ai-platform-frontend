@@ -1,11 +1,11 @@
 {#
-  params.items: [{ text, state: "done" | "current" | "waiting", hint? }]
-  A state that is not one of the three is shown as waiting.
+  params.items: [{ text, state: "done" | "current" | "failed" | "waiting", hint? }]
+  A state that is not one of the four is shown as waiting.
 #}
-{% set stateText = { done: "Done", current: "In progress", waiting: "Not started" } %}
+{% set stateText = { done: "Done", current: "In progress", failed: "Failed", waiting: "Not started" } %}
 <ol role="list" class="app-step-list{{ ' ' + params.classes if params.classes }}" data-testid="step-list">
   {% for item in params.items %}
-    {% set state = item.state if item.state in ["done", "current"] else "waiting" %}
+    {% set state = item.state if item.state in ["done", "current", "failed"] else "waiting" %}
     <li class="app-step-list__item app-step-list__item--{{ state }}" data-testid="step-list-item"{{ ' aria-current="step"' | safe if state == "current" }}>
       <span class="app-step-list__marker" aria-hidden="true"></span>
       <div class="app-step-list__content">

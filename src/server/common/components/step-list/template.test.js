@@ -72,6 +72,21 @@ describe('Step list component', () => {
     expect(labels($steps)).toEqual(['Not started: Odd'])
   })
 
+  test('Should show a failed step as failed, with its own look and no aria-current', () => {
+    const $steps = renderComponent('step-list', {
+      items: [
+        { text: 'Request received', state: 'done' },
+        { text: 'Checks passed', state: 'failed', hint: 'Failed at 10:43' }
+      ]
+    })
+    const $failed = $steps('[data-testid="step-list-item"]').eq(1)
+
+    expect(labels($steps)[1]).toBe('Failed: Checks passed')
+    expect($failed.hasClass('app-step-list__item--failed')).toBe(true)
+    expect($steps('[aria-current="step"]')).toHaveLength(0)
+    expect($failed.find('.app-step-list__hint').text()).toBe('Failed at 10:43')
+  })
+
   test('Should escape text and hints and add any extra classes', () => {
     const $steps = renderComponent('step-list', {
       classes: 'extra',

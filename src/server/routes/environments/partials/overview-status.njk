@@ -1,0 +1,56 @@
+{#
+  The overview's status: a card for each environment, then the team's changes.
+  Shown by the page and, on its own, by `?fragment=status`; the page wraps it in
+  the polite live region the script swaps it into. `data-in-progress` is read by
+  the script: when it is "false" the script stops. Without script, "Check
+  progress" loads the page again.
+#}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+<div data-in-progress="{{ 'true' if inProgress else 'false' }}" data-testid="environments-status">
+  <h2 class="govuk-heading-l">Your environments</h2>
+  <p class="govuk-body">In the order teams usually use them. You can deploy to any environment that is available.</p>
+
+  {% for card in cards %}
+    <div class="govuk-summary-card{{ ' app-environment-card--unavailable' if not card.available }}" data-testid="environment-card-{{ card.code }}">
+      <div class="govuk-summary-card__title-wrapper">
+        <h3 class="govuk-summary-card__title">{{ card.name }} <span class="govuk-!-font-weight-regular">{{ card.displayName }}</span></h3>
+        {{ govukTag({ text: card.tag.text, classes: card.tag.tagClass, attributes: { "data-testid": "card-tag" } }) }}
+      </div>
+      <div class="govuk-summary-card__content">
+        {% if not card.available %}
+          <p class="govuk-body" data-testid="card-message">{{ card.message }}</p>
+        {% elif card.unreadable %}
+          <p class="govuk-body">We could not read {{ card.name }} just now.</p>
+        {% elif card.rows %}
+          <dl class="govuk-summary-list app-summary-list--table">
+            {% for row in card.rows %}
+              <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
+                <dt class="govuk-summary-list__key">{{ row.key }}</dt>
+                <dd class="govuk-summary-list__value">{{ row.value }}</dd>
+              </div>
+            {% endfor %}
+          </dl>
+        {% else %}
+          <p class="govuk-body" data-testid="not-set-up">{{ card.notSetUp }}</p>
+        {% endif %}
+
+        {% if card.pausedNote %}
+          <p class="govuk-body govuk-hint">{{ card.pausedNote }}</p>
+        {% endif %}
+
+        {% if card.available %}
+          <p class="govuk-body">
+            {% if card.setUpUrl %}
+              <a class="govuk-link govuk-!-margin-right-4" href="{{ card.setUpUrl }}" data-testid="set-up-environment">{{ card.setUpText }}</a>
+            {% endif %}
+            <a class="govuk-link" href="{{ card.href }}" data-testid="card-link">{{ card.linkText }}</a>
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+
+  {% include "environments/partials/changes.njk" %}
+  {% include "environments/partials/recent.njk" %}
+</div>

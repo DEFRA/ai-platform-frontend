@@ -15,20 +15,33 @@
     <div class="govuk-grid-column-full">
       {{ appSubNavigation({ items: tabs, label: "Team" }) }}
 
+      <h2 class="govuk-heading-m">Models your team uses</h2>
       {% if unavailable %}
-        <p class="govuk-body" data-testid="team-models-unavailable">We could not list this team’s models just now. <a class="govuk-link" href="{{ teamUrl }}">Try again</a>.</p>
+        <p class="govuk-body" data-testid="overview-unavailable">We could not read this team’s environments just now. <a class="govuk-link" href="{{ teamUrl }}">Try again</a>.</p>
+      {% elif models.length %}
+        <ul class="govuk-list govuk-list--bullet" data-testid="team-models">
+          {% for model in models %}
+            <li>{{ model.name }}{% if model.suffix %}{% if model.failed %}<strong>, {{ model.suffix }}</strong>{% else %}, {{ model.suffix }}{% endif %}{% endif %}</li>
+          {% endfor %}
+        </ul>
       {% else %}
-        {# Checked again by progress-refresh.js while a model is changing; without script, "Check progress" does it. #}
-        <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
-          {% include "teams/partials/models-status.njk" %}
-        </div>
-
-        {% if notAvailableYet %}
-          <p class="govuk-body govuk-hint" data-testid="not-available-yet">{{ notAvailableYet }}</p>
-        {% endif %}
-
-        <p class="govuk-body govuk-hint">To change your limits, <a class="govuk-link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">contact the AI Platform team</a>.</p>
+        <p class="govuk-body" data-testid="team-models-none">No models yet.</p>
       {% endif %}
+
+      <h2 class="govuk-heading-m">Environments and deployments</h2>
+      {% if not unavailable %}
+        <dl class="govuk-summary-list app-summary-list--table">
+          {% for environment in environments %}
+            <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="overview-environment">
+              <dt class="govuk-summary-list__key">{{ environment.name }} <span class="govuk-!-font-weight-regular">{{ environment.displayName }}</span></dt>
+              <dd class="govuk-summary-list__value">{{ environment.text }}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      {% endif %}
+      <p class="govuk-body">
+        <a class="govuk-link" href="{{ environmentsUrl }}" data-testid="view-environments">View environments and deployments</a>
+      </p>
     </div>
   </div>
 {% endblock %}

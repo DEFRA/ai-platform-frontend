@@ -3,10 +3,15 @@ import {
   credentialEnvironment,
   credentialEnvironmentName,
   defaultTeamEnvironment,
+  environmentFromAddress,
+  environmentFromName,
   environmentName,
+  environmentPageUrl,
+  environmentRegistryName,
   environmentSetUpUrl,
   researchEnvironment,
-  teamEnvironmentList
+  teamEnvironmentList,
+  teamEnvironmentsUrl
 } from './environment-names.js'
 
 describe('environment-names', () => {
@@ -96,27 +101,74 @@ describe('environment-names', () => {
     })
   })
 
-  describe('environmentSetUpUrl', () => {
-    test('is the team slug and the lower case environment name', () => {
+  describe('environment addresses', () => {
+    test('the set up address is the team slug and the registry code, under the Environments section', () => {
       expect(environmentSetUpUrl('flood-risk-mapping', 'qa')).toBe(
-        '/teams/flood-risk-mapping/test'
-      )
-      expect(environmentSetUpUrl('flood-risk-mapping', 'dev')).toBe(
-        '/teams/flood-risk-mapping/development'
+        '/environments/flood-risk-mapping/qa/set-up'
       )
       expect(environmentSetUpUrl('flood-risk-mapping', 'infradev')).toBe(
-        '/teams/flood-risk-mapping/development'
+        '/environments/flood-risk-mapping/infradev/set-up'
       )
-      expect(environmentSetUpUrl('flood-risk-mapping', 'preprod')).toBe(
-        '/teams/flood-risk-mapping/pre-production'
+    })
+
+    test('the environment page and the overview are built the same way', () => {
+      expect(environmentPageUrl('flood-risk-mapping', 'infradev')).toBe(
+        '/environments/flood-risk-mapping/infradev'
       )
-      expect(environmentSetUpUrl('flood-risk-mapping', 'prod')).toBe(
-        '/teams/flood-risk-mapping/production'
+      expect(teamEnvironmentsUrl('flood-risk-mapping')).toBe(
+        '/environments/flood-risk-mapping'
       )
     })
 
     test('keeps a slug safe in an address', () => {
-      expect(environmentSetUpUrl('a/b?c', 'qa')).toBe('/teams/a%2Fb%3Fc/test')
+      expect(environmentSetUpUrl('a/b?c', 'qa')).toBe(
+        '/environments/a%2Fb%3Fc/qa/set-up'
+      )
+      expect(environmentPageUrl('a/b?c', 'qa')).toBe(
+        '/environments/a%2Fb%3Fc/qa'
+      )
+      expect(teamEnvironmentsUrl('a/b?c')).toBe('/environments/a%2Fb%3Fc')
+    })
+  })
+
+  describe('environmentRegistryName', () => {
+    test('names Infradev as the registry does, and the others in capitals', () => {
+      expect(environmentRegistryName('infradev')).toBe('Infradev')
+      expect(environmentRegistryName('dev')).toBe('DEV')
+      expect(environmentRegistryName('qa')).toBe('QA')
+      expect(environmentRegistryName('preprod')).toBe('PREPROD')
+      expect(environmentRegistryName('prod')).toBe('PROD')
+    })
+  })
+
+  describe('environmentFromAddress', () => {
+    test('finds an available environment by its code', () => {
+      config.set('teamEnvironments', ['infradev'])
+
+      expect(environmentFromAddress('infradev')).toEqual({
+        environment: 'infradev',
+        name: 'Development',
+        registryName: 'Infradev',
+        available: true
+      })
+    })
+
+    test.each(['qa', 'prod', 'nowhere', 'Infradev', ''])(
+      'is undefined for %j, which is not an available environment',
+      (code) => {
+        config.set('teamEnvironments', ['infradev'])
+
+        expect(environmentFromAddress(code)).toBeUndefined()
+      }
+    )
+
+    test('finds an environment by the lower case name an old address used', () => {
+      config.set('teamEnvironments', ['infradev', 'qa'])
+
+      expect(environmentFromName('development')?.environment).toBe('infradev')
+      expect(environmentFromName('test')?.environment).toBe('qa')
+      expect(environmentFromName('pre-production')?.environment).toBe('preprod')
+      expect(environmentFromName('nowhere')).toBeUndefined()
     })
   })
 

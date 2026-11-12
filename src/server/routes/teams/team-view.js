@@ -15,14 +15,14 @@ export function teamUrl(team) {
  * The team's tabs, with the current one marked. Everyone sees all three;
  * only admins see change actions on them.
  * @param {{slug: string}} team
- * @param {'models' | 'members' | 'details'} current
+ * @param {'overview' | 'members' | 'details'} current
  * @returns {Array<{text: string, href: string, current: boolean}>}
  */
 export function teamTabs(team, current) {
   const base = teamUrl(team)
 
   return [
-    { key: 'models', text: 'Models', href: base },
+    { key: 'overview', text: 'Overview', href: base },
     { key: 'members', text: 'Members', href: `${base}/members` },
     { key: 'details', text: 'Details', href: `${base}/details` }
   ].map(({ key, text, href }) => ({ text, href, current: key === current }))

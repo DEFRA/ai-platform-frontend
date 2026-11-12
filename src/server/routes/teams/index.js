@@ -1,8 +1,8 @@
 import { addMemberController } from './add-member-controller.js'
+import { addressRedirects } from './address-redirects.js'
 import { clientSecretsController } from './client-secrets-controller.js'
 import { teamsController } from './controller.js'
 import { detailsController } from './details-controller.js'
-import { environmentSetUpController } from './environment-set-up-controller.js'
 import {
   memberRoleController,
   membersController,
@@ -119,6 +119,11 @@ const routes = [
   },
   {
     method: 'GET',
+    path: '/teams/{slug}/models',
+    handler: addressRedirects.modelsTab.handler
+  },
+  {
+    method: 'GET',
     path: '/teams/{slug}/models/{deploymentId}/remove',
     handler: removeModelController.get.handler
   },
@@ -130,13 +135,7 @@ const routes = [
   {
     method: 'GET',
     path: '/teams/{slug}/{environment}',
-    handler: environmentSetUpController.get.handler
-  },
-  {
-    method: 'POST',
-    path: '/teams/{slug}/{environment}',
-    options: environmentSetUpController.post.options,
-    handler: environmentSetUpController.post.handler
+    handler: addressRedirects.environmentSetUp.handler
   },
   {
     method: 'GET',
@@ -184,7 +183,7 @@ const routes = [
 
 /**
  * Sets up the routes for a person's teams (B08): the list, creating a team,
- * a team's Models, Members and Details tabs, adding, changing and removing its members, changing its service code and description, removing one of its models, setting up another environment from its models in the first (`/teams/{slug}/{environment}`), and its client secrets.
+ * a team's Overview, Members and Details tabs, adding, changing and removing its members, changing its service code and description, removing one of its models, its client secrets, and the permanent redirects from the addresses that now belong to the Environments and deployments section.
  * Protected by the global sign-in gate (src/server/plugins/require-sign-in-globally.js).
  * These routes are registered in src/server/plugins/router.js.
  */

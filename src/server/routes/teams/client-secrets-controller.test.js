@@ -4,6 +4,10 @@ import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { mockApi, reply } from '#/test-helpers/api-mock.js'
 import {
+  detail,
+  operationsAnswer
+} from '#/test-helpers/environments-helpers.js'
+import {
   signInViaOidc,
   mergeCookies,
   cookieHeader
@@ -47,6 +51,8 @@ fetchMock.enableMocks()
 
 const TEAM_PATH = `/v1/teams/${sampleTeam.slug}`
 const TEAM_URL = `/teams/${sampleTeam.slug}`
+// Where a client secret's pages go back to: the page of its environment.
+const ENVIRONMENT_URL = `/environments/${sampleTeam.slug}/infradev`
 const SECRET_URL = `${TEAM_URL}/client-secrets/cred-1`
 const CREDENTIAL_PATH = '/v1/credentials/cred-1'
 const NOT_FOUND = reply(404, { code: 'not-found', message: 'Not Found' })
@@ -80,16 +86,16 @@ describe('#clientSecretsController', () => {
     cookies = await signInViaOidc(server, fetchMock)
   })
 
-  // What a person's team page and these pages read. `role: null` is a person
-  // who is not on the team, such as one with only their own keys.
+  // What a person's environment page and these pages read. `role: null` is a
+  // person who is not on the team, such as one with only their own keys.
   function backend({ role = 'admin', current = credential, ...routes } = {}) {
     mockApi(fetchMock, {
-      [`GET ${TEAM_PATH}`]: role
-        ? { ...teamWithMembers(role), environments: [] }
-        : NOT_FOUND,
+      [`GET ${TEAM_PATH}`]: role ? teamWithMembers(role) : NOT_FOUND,
       [`GET ${CREDENTIAL_PATH}`]: current,
       'GET /v1/models': { items: [sampleModel, nanoModel] },
       [`GET ${TEAM_PATH}/deployments`]: { items: [] },
+      [`GET ${TEAM_PATH}/environments/infradev`]: detail(),
+      [`GET ${TEAM_PATH}/operations`]: operationsAnswer(),
       'GET /v1/credentials': { items: [current] },
       ...routes
     })
@@ -196,7 +202,7 @@ describe('#clientSecretsController', () => {
   })
 
   describe('showing it', () => {
-    test('asks an admin why, names the environment and the team, and goes back to the Models tab', async () => {
+    test('asks an admin why, names the environment and the team, and goes back to the environment page', async () => {
       backend()
 
       const { statusCode, result } = await get(`${SECRET_URL}/view`)
@@ -207,7 +213,7 @@ describe('#clientSecretsController', () => {
       )
       expect(result).toContain('Why do you need to see this?')
       expect(result).toContain(
-        `<a href="${TEAM_URL}" class="govuk-back-link">Back</a>`
+        `<a href="${ENVIRONMENT_URL}" class="govuk-back-link">Back</a>`
       )
     })
 
@@ -260,12 +266,14 @@ describe('#clientSecretsController', () => {
       expect(page.headers['cache-control']).toContain('no-store')
       expect(page.result).toContain('full_client_secret')
       expect(page.result).toContain('Your client secret')
-      expect(page.result).toContain(`href="${TEAM_URL}">Back to the team`)
+      expect(page.result).toContain(
+        `href="${ENVIRONMENT_URL}">Back to the Infradev page`
+      )
 
       const again = await get(`${SECRET_URL}/revealed`, mergeCookies(jar, page))
 
       expect(again.statusCode).toBe(statusCodes.seeOther)
-      expect(again.headers.location).toBe(TEAM_URL)
+      expect(again.headers.location).toBe(ENVIRONMENT_URL)
     })
 
     test('warns that a mocked secret will not work against the gateway', async () => {
@@ -306,7 +314,7 @@ describe('#clientSecretsController', () => {
       const page = await get(`${SECRET_URL}/revealed`)
 
       expect(page.statusCode).toBe(statusCodes.seeOther)
-      expect(page.headers.location).toBe(TEAM_URL)
+      expect(page.headers.location).toBe(ENVIRONMENT_URL)
     })
 
     test.each([
@@ -314,7 +322,7 @@ describe('#clientSecretsController', () => {
       ['credential-revoked', 409, 'This client secret has been revoked.'],
       ['not-found', 404, 'This client secret could not be found.']
     ])(
-      'explains a refusal (%s) on the Models tab',
+      'explains a refusal (%s) on the environment page',
       async (code, status, message) => {
         backend({
           [`POST ${CREDENTIAL_PATH}/reveal`]: reply(status, {
@@ -326,9 +334,9 @@ describe('#clientSecretsController', () => {
         const refused = await post(`${SECRET_URL}/view`, { reason: 'Testing' })
 
         expect(refused.statusCode).toBe(statusCodes.seeOther)
-        expect(refused.headers.location).toBe(TEAM_URL)
+        expect(refused.headers.location).toBe(ENVIRONMENT_URL)
 
-        const page = await get(TEAM_URL, mergeCookies(cookies, refused))
+        const page = await get(ENVIRONMENT_URL, mergeCookies(cookies, refused))
 
         expect(page.result).toContain(message)
       }
@@ -367,10 +375,10 @@ describe('#clientSecretsController', () => {
       expect(result).toContain('Development')
       expect(result).toContain('Yes, rotate the client secret')
       expect(result).toContain(
-        `<a class="govuk-link" href="${TEAM_URL}">No, keep the client secret I have</a>`
+        `<a class="govuk-link" href="${ENVIRONMENT_URL}">No, keep the client secret I have</a>`
       )
       expect(result).toContain(
-        `<a href="${TEAM_URL}" class="govuk-back-link">Back to Flood Risk Team</a>`
+        `<a href="${ENVIRONMENT_URL}" class="govuk-back-link">Back to Flood Risk Team</a>`
       )
     })
 
@@ -408,12 +416,14 @@ describe('#clientSecretsController', () => {
         'The old secret for GPT-4o and GPT-4.1 nano no longer works'
       )
       expect(page.result).toContain('Does not expire')
-      expect(page.result).toContain(`href="${TEAM_URL}">Back to the team`)
+      expect(page.result).toContain(
+        `href="${ENVIRONMENT_URL}">Back to the Infradev page`
+      )
 
       const again = await get(`${SECRET_URL}/rotated`, mergeCookies(jar, page))
 
       expect(again.statusCode).toBe(statusCodes.seeOther)
-      expect(again.headers.location).toBe(TEAM_URL)
+      expect(again.headers.location).toBe(ENVIRONMENT_URL)
     })
 
     test('names the models before it rotates, so a failure to name them cannot lose the new secret', async () => {
@@ -449,7 +459,7 @@ describe('#clientSecretsController', () => {
       expect(page.result).not.toContain('new_client_secret')
     })
 
-    test('says so on the Models tab when the backend refuses a person who is no longer an admin', async () => {
+    test('says so on the environment page when the backend refuses a person who is no longer an admin', async () => {
       backend({
         [`POST ${CREDENTIAL_PATH}/rotate`]: reply(403, {
           code: 'admin-required',
@@ -461,7 +471,7 @@ describe('#clientSecretsController', () => {
 
       expect(refused.statusCode).toBe(statusCodes.seeOther)
 
-      const page = await get(TEAM_URL, mergeCookies(cookies, refused))
+      const page = await get(ENVIRONMENT_URL, mergeCookies(cookies, refused))
 
       expect(page.result).toContain(
         'Only a team admin can rotate this client secret.'
@@ -597,7 +607,7 @@ describe('#clientSecretsController', () => {
         const wrongPage = await get(`${SECRET_URL}/${step}`, jar)
 
         expect(wrongPage.statusCode).toBe(statusCodes.seeOther)
-        expect(wrongPage.headers.location).toBe(TEAM_URL)
+        expect(wrongPage.headers.location).toBe(ENVIRONMENT_URL)
         expect(wrongPage.result).not.toContain('secret_for_b')
 
         jar = mergeCookies(jar, wrongPage)
@@ -704,7 +714,7 @@ describe('#clientSecretsController', () => {
       expect(result).toContain('Yes, revoke the client secret')
       expect(result).toContain('No, take me back to Flood Risk Team')
       expect(result).toContain(
-        `<a href="${TEAM_URL}" class="govuk-back-link">Back</a>`
+        `<a href="${ENVIRONMENT_URL}" class="govuk-back-link">Back</a>`
       )
     })
 
@@ -729,7 +739,7 @@ describe('#clientSecretsController', () => {
       expect(statusCode).toBe(statusCodes.notFound)
     })
 
-    test('takes no action on "no", and goes back to the team', async () => {
+    test('takes no action on "no", and goes back to the environment page', async () => {
       backend()
 
       const { statusCode, headers } = await post(`${SECRET_URL}/revoke`, {
@@ -737,11 +747,11 @@ describe('#clientSecretsController', () => {
       })
 
       expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe(TEAM_URL)
+      expect(headers.location).toBe(ENVIRONMENT_URL)
       expect(calledWith('DELETE', '/v1/credentials')).toBe(false)
     })
 
-    test('revokes it on "yes" and says so on the Models tab', async () => {
+    test('revokes it on "yes" and says so on the environment page', async () => {
       backend({ [`DELETE ${CREDENTIAL_PATH}`]: reply(204) })
 
       const revoked = await post(`${SECRET_URL}/revoke`, {
@@ -749,16 +759,16 @@ describe('#clientSecretsController', () => {
       })
 
       expect(revoked.statusCode).toBe(statusCodes.seeOther)
-      expect(revoked.headers.location).toBe(TEAM_URL)
+      expect(revoked.headers.location).toBe(ENVIRONMENT_URL)
       expect(calledWith('DELETE', CREDENTIAL_PATH)).toBe(true)
 
-      const page = await get(TEAM_URL, mergeCookies(cookies, revoked))
+      const page = await get(ENVIRONMENT_URL, mergeCookies(cookies, revoked))
 
       expect(page.result).toContain('Client secret revoked.')
       expect(page.result).toContain('govuk-notification-banner--success')
     })
 
-    test('says so on the Models tab when the backend refuses a person who is no longer an admin', async () => {
+    test('says so on the environment page when the backend refuses a person who is no longer an admin', async () => {
       backend({
         [`DELETE ${CREDENTIAL_PATH}`]: reply(403, {
           code: 'admin-required',
@@ -769,7 +779,7 @@ describe('#clientSecretsController', () => {
       const refused = await post(`${SECRET_URL}/revoke`, {
         confirmRevoke: 'yes'
       })
-      const page = await get(TEAM_URL, mergeCookies(cookies, refused))
+      const page = await get(ENVIRONMENT_URL, mergeCookies(cookies, refused))
 
       expect(page.result).toContain(
         'Only a team admin can revoke this client secret.'
@@ -787,7 +797,7 @@ describe('#clientSecretsController', () => {
       const refused = await post(`${SECRET_URL}/revoke`, {
         confirmRevoke: 'yes'
       })
-      const page = await get(TEAM_URL, mergeCookies(cookies, refused))
+      const page = await get(ENVIRONMENT_URL, mergeCookies(cookies, refused))
 
       expect(page.result).toContain('This client secret could not be revoked.')
     })

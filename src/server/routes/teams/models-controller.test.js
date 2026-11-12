@@ -4,6 +4,10 @@ import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { mockApi, reply } from '#/test-helpers/api-mock.js'
 import {
+  detail,
+  operationsAnswer
+} from '#/test-helpers/environments-helpers.js'
+import {
   signInViaOidc,
   mergeCookies,
   cookieHeader
@@ -46,6 +50,7 @@ fetchMock.enableMocks()
 
 const TEAM_PATH = `/v1/teams/${sampleTeam.slug}`
 const TEAM_URL = `/teams/${sampleTeam.slug}`
+const ENVIRONMENT_URL = `/environments/${sampleTeam.slug}/infradev`
 const REMOVE_URL = `${TEAM_URL}/models/deployment-1/remove`
 const DEPLOYMENT_PATH = `${TEAM_PATH}/deployments/deployment-1`
 const NOT_FOUND = reply(404, { code: 'not-found', message: 'Not Found' })
@@ -105,16 +110,17 @@ describe('#removeModelController', () => {
     })
   }
 
-  // The Models tab, as the redirect after a removal opens it.
+  // The environment page, as the redirect after a removal opens it.
   async function openTeamPage(response) {
     mockApi(fetchMock, {
-      [`GET ${TEAM_PATH}`]: { ...teamWithMembers('admin'), environments: [] },
-      [`GET ${TEAM_PATH}/deployments`]: { items: [deployment()] },
+      [`GET ${TEAM_PATH}`]: teamWithMembers('admin'),
+      [`GET ${TEAM_PATH}/environments/infradev`]: detail(),
+      [`GET ${TEAM_PATH}/operations`]: operationsAnswer(),
       'GET /v1/models': { items: [sampleModel] },
       'GET /v1/credentials': { items: [] }
     })
 
-    return get(TEAM_URL, mergeCookies(cookies, response))
+    return get(ENVIRONMENT_URL, mergeCookies(cookies, response))
   }
 
   describe('asking an admin to confirm', () => {
@@ -137,10 +143,10 @@ describe('#removeModelController', () => {
         /govuk-button--warning[^>]*>\s*Remove GPT-4o\s*<\/button>/
       )
       expect(result).toContain(
-        `href="${TEAM_URL}" data-testid="remove-model-cancel">Cancel`
+        `href="${ENVIRONMENT_URL}" data-testid="remove-model-cancel">Cancel`
       )
       expect(result).toContain(
-        `<a href="${TEAM_URL}" class="govuk-back-link">Back</a>`
+        `<a href="${ENVIRONMENT_URL}" class="govuk-back-link">Back</a>`
       )
     })
 
@@ -206,7 +212,7 @@ describe('#removeModelController', () => {
   })
 
   describe('removing it', () => {
-    test('asks the backend to remove it, and the Models tab says it is on its way, once', async () => {
+    test('asks the backend to remove it, and the environment page says it is on its way, once', async () => {
       backend({
         [`DELETE ${DEPLOYMENT_PATH}`]: reply(202, {
           deployment: deployment({ status: 'removing' })
@@ -216,7 +222,7 @@ describe('#removeModelController', () => {
       const removed = await post()
 
       expect(removed.statusCode).toBe(statusCodes.seeOther)
-      expect(removed.headers.location).toBe(TEAM_URL)
+      expect(removed.headers.location).toBe(ENVIRONMENT_URL)
 
       const [, init] = fetchMock.mock.calls.find(
         ([url, options]) =>
@@ -241,7 +247,7 @@ describe('#removeModelController', () => {
         page.result.indexOf('govuk-caption-xl')
       )
 
-      const again = await get(TEAM_URL, mergeCookies(jar, page))
+      const again = await get(ENVIRONMENT_URL, mergeCookies(jar, page))
 
       expect(again.result).not.toContain('data-testid="team-notification"')
     })
@@ -282,7 +288,7 @@ describe('#removeModelController', () => {
       const removed = await post()
 
       expect(removed.statusCode).toBe(statusCodes.seeOther)
-      expect(removed.headers.location).toBe(TEAM_URL)
+      expect(removed.headers.location).toBe(ENVIRONMENT_URL)
 
       const page = await openTeamPage(removed)
 

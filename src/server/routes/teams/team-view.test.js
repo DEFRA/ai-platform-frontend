@@ -43,13 +43,13 @@ describe('#teamUrl', () => {
 })
 
 describe('#teamTabs', () => {
-  test.each(['models', 'members', 'details'])(
-    'lists Models, Members and Details, with only %s current',
+  test.each(['overview', 'members', 'details'])(
+    'lists Overview, Members and Details, with only %s current',
     (current) => {
       const tabs = teamTabs(team, current)
 
       expect(tabs.map(({ text }) => text)).toEqual([
-        'Models',
+        'Overview',
         'Members',
         'Details'
       ])

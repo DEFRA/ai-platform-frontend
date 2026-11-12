@@ -31,7 +31,7 @@ describe('#apiClient', () => {
     expect(result).toEqual({ items: [] })
   })
 
-  test('put() sends no body', async () => {
+  test('put() sends no body when it is given none', async () => {
     fetchMock.mockResponseOnce(JSON.stringify({ user: {} }))
 
     await apiClient(signedIn()).put('/v1/users/me')
@@ -39,6 +39,24 @@ describe('#apiClient', () => {
     const [, init] = fetchMock.mock.calls[0]
     expect(init.method).toBe('PUT')
     expect(init.body).toBeUndefined()
+  })
+
+  test('put() sends a JSON body and the Idempotency-Key header it is given', async () => {
+    fetchMock.mockResponseOnce(JSON.stringify({ operation: { id: 'op-1' } }))
+
+    await apiClient(signedIn()).put(
+      '/v1/teams/flood/environments/infradev/limits',
+      { tokensPerMinute: 2000, requestsPerMinute: 120 },
+      { idempotencyKey: 'key-1' }
+    )
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body)).toEqual({
+      tokensPerMinute: 2000,
+      requestsPerMinute: 120
+    })
+    expect(fetchMock.requests()[0].headers.get('idempotency-key')).toBe('key-1')
   })
 
   describe('who the call is for', () => {

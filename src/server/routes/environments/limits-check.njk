@@ -1,0 +1,49 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading,
+    caption: teamName,
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+
+      {% set summaryRows = [] %}
+      {% for row in rows %}
+        {% set summaryRows = (summaryRows.push({
+          key: { text: row.key },
+          value: { text: row.value },
+          actions: { items: [{ href: row.changeUrl, text: "Change", visuallyHiddenText: row.hidden }] } if row.changeUrl
+        }), summaryRows) %}
+      {% endfor %}
+      {{ govukSummaryList({ rows: summaryRows }) }}
+
+      <h2 class="govuk-heading-m">Now change the limits</h2>
+      <p class="govuk-body">This makes one change to your team’s file. It usually takes a few minutes, and you can leave the page while it happens.</p>
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        {{ govukButton({ text: "Change limits" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}
