@@ -1049,6 +1049,44 @@ describe('#limitsController', () => {
     })
 
     test.each([
+      ['a repeated key field', { key: ['a', 'b'] }],
+      ['a key that is not text', { key: { nested: 'x' } }]
+    ])(
+      'refuses %s as an answer it could not read, without a change',
+      async (_name, payload) => {
+        const jar = await answered()
+
+        backend({
+          [`PUT ${LIMITS_PATH}`]: reply(202, { operation: openOperation() })
+        })
+        const response = await post(CHECK_URL, payload, jar)
+
+        expect(response.statusCode).toBe(statusCodes.badRequest)
+        expect(putCalls()).toHaveLength(0)
+        expect(text(load(response.result), '.govuk-error-summary')).toContain(
+          'We could not read your answers'
+        )
+        expect(shownKey(load(response.result))).not.toBe('')
+      }
+    )
+
+    test('sends a malformed confirmation with no answers held back to the question', async () => {
+      backend()
+      const response = await post(CHECK_URL, { key: ['a', 'b'] })
+
+      expect(response.statusCode).toBe(statusCodes.seeOther)
+      expect(response.headers.location).toBe(LIMITS_URL)
+    })
+
+    test('tells a Member they cannot change the limits, for a malformed confirmation too', async () => {
+      backend({ role: 'user' })
+      const response = await post(CHECK_URL, { key: ['a', 'b'] })
+
+      expect(response.statusCode).toBe(statusCodes.forbidden)
+      expect(putCalls()).toHaveLength(0)
+    })
+
+    test.each([
       ['no key', { key: undefined }],
       ['an empty key', { key: '' }],
       ['a key that was never shown', { key: 'not-the-key' }]

@@ -39,6 +39,7 @@ const routes = [
   {
     method: 'POST',
     path: `${limits}/check`,
+    options: limitsController.check.post.options,
     handler: limitsController.check.post.handler
   },
   {

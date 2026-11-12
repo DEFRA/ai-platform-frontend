@@ -30,10 +30,10 @@ const answersSchema = Joi.object({
   requestsPerMinute: Joi.string().allow('').default('')
 })
 
-// The check page posts back the key of the answers it showed. Any value is let
-// through to be compared, so a forged one is the same refusal as a stale one.
+// The check page posts back the key of the answers it showed: text, which may
+// be empty or wrong (that is a stale confirmation, refused after the compare).
 const confirmSchema = Joi.object({
-  key: Joi.any().default('')
+  key: Joi.string().allow('').default('')
 })
 
 function limitsUrl(slug, environment) {
@@ -431,7 +431,40 @@ export const limitsController = {
       }
     },
     post: {
-      options: { validate: { payload: confirmSchema } },
+      options: {
+        validate: {
+          payload: confirmSchema,
+          // A key that is not text (a forged or repeated field) gets the check
+          // page again, with the answers now held and their key, and no change.
+          async failAction(request, h) {
+            const result = await load(request, h)
+
+            if (result.page) {
+              return result.page.takeover()
+            }
+
+            const pending = pendingFor(request, result)
+
+            if (!pending) {
+              return h
+                .redirect(
+                  limitsUrl(result.team.slug, result.environment.environment)
+                )
+                .code(statusCodes.seeOther)
+                .takeover()
+            }
+
+            return checkView(h, {
+              ...result,
+              pending,
+              errorMessage:
+                'We could not read your answers. Check the answers shown, then change the limits.'
+            })
+              .code(statusCodes.badRequest)
+              .takeover()
+          }
+        }
+      },
       async handler(request, h) {
         const result = await load(request, h)
 
