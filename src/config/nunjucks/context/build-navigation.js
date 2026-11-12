@@ -1,4 +1,7 @@
-import { getSessionUser } from '#/server/common/helpers/session.js'
+import {
+  getSessionUser,
+  isSessionPlatformAdmin
+} from '#/server/common/helpers/session.js'
 
 function navigationItem(request, text, href) {
   return {
@@ -10,8 +13,10 @@ function navigationItem(request, text, href) {
 
 /**
  * The service navigation. There is no Home item, as the service name links to
- * `/`. Signed in people also see "Your access" and "Teams"; "Signed in as",
- * "Sign out" and "Sign in" are added by the page layout.
+ * `/`. Signed in people also see "Your access" and "Teams", and a Platform
+ * Admin (as the backend said at sign-in) "Admin" after them; "Signed in as",
+ * "Sign out" and "Sign in" are added by the page layout. The link only
+ * shows the area: every `/admin` page asks the backend.
  * @param {object} request the Hapi request
  * @returns {Array<{text: string, href: string, current: boolean}>}
  */
@@ -23,6 +28,10 @@ export function buildNavigation(request) {
       navigationItem(request, 'Your access', '/manage'),
       navigationItem(request, 'Teams', '/teams')
     )
+
+    if (isSessionPlatformAdmin(request)) {
+      navigation.push(navigationItem(request, 'Admin', '/admin'))
+    }
   }
 
   navigation.push({

@@ -1,0 +1,39 @@
+{#
+  A team's members, one row each (screen 13).
+  params.caption: what the table lists, said only to a screen reader
+  params.rows: [{ name, email, role, actionUrl?, actionText?, actionHidden? }]
+  params.actionHeading: when given, the table has an action column, named for a
+    screen reader with this; a row without an actionUrl has no link
+  params.actionTestId: the data-testid of each action link (default "member-action")
+#}
+<div class="app-table-scroll" role="region" tabindex="0" aria-label="{{ params.caption }}">
+<table class="govuk-table" data-testid="members-table">
+  <caption class="govuk-table__caption govuk-visually-hidden">{{ params.caption }}</caption>
+  <thead class="govuk-table__head">
+    <tr class="govuk-table__row">
+      <th class="govuk-table__header" scope="col">Name</th>
+      <th class="govuk-table__header" scope="col">Email</th>
+      <th class="govuk-table__header" scope="col">Role</th>
+      {% if params.actionHeading %}
+        <th class="govuk-table__header govuk-table__header--numeric" scope="col"><span class="govuk-visually-hidden">{{ params.actionHeading }}</span></th>
+      {% endif %}
+    </tr>
+  </thead>
+  <tbody class="govuk-table__body">
+    {% for row in params.rows %}
+      <tr class="govuk-table__row" data-testid="member-row">
+        <td class="govuk-table__cell">{{ row.name }}</td>
+        <td class="govuk-table__cell">{{ row.email }}</td>
+        <td class="govuk-table__cell">{{ row.role }}</td>
+        {% if params.actionHeading %}
+          <td class="govuk-table__cell govuk-table__cell--numeric">
+            {% if row.actionUrl %}
+              <a class="govuk-link" href="{{ row.actionUrl }}" data-testid="{{ params.actionTestId or 'member-action' }}">{{ row.actionText }}<span class="govuk-visually-hidden"> {{ row.actionHidden }}</span></a>
+            {% endif %}
+          </td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>

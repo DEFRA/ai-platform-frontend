@@ -1,4 +1,5 @@
 const SESSION_USER_KEY = 'user'
+const PLATFORM_ADMIN_KEY = 'isPlatformAdmin'
 const PENDING_ACCESS_KEY = 'pendingAccess'
 const REQUESTED_DEPLOYMENTS_KEY = 'requestedDeployments'
 const PENDING_TEAM_KEY = 'pendingTeam'
@@ -48,6 +49,27 @@ export function getSessionUser(request) {
 
 export function setSessionUser(request, user) {
   request.yar.set(SESSION_USER_KEY, user)
+}
+
+// Whether the backend said, when the person signed in, that they are a
+// Platform Admin. It only decides whether the Admin link is shown: every
+// `/admin` page asks the backend again, and the backend is the control. Reading
+// is safe on a request with no session store, as for the signed-in user.
+export function isSessionPlatformAdmin(request) {
+  try {
+    return request.yar?.get(PLATFORM_ADMIN_KEY) === true
+  } catch {
+    return false
+  }
+}
+
+export function setSessionPlatformAdmin(request, value) {
+  request.yar.set(PLATFORM_ADMIN_KEY, value === true)
+}
+
+// The backend refused an admin page, so the link is no longer true.
+export function clearSessionPlatformAdmin(request) {
+  request.yar.clear(PLATFORM_ADMIN_KEY)
 }
 
 export function getPendingAccess(request) {

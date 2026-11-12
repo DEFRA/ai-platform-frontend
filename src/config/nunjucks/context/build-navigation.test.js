@@ -1,11 +1,15 @@
 import { buildNavigation } from './build-navigation.js'
 
-function mockRequest(options, { signedIn = false } = {}) {
+function mockRequest(
+  options,
+  { signedIn = false, platformAdmin = false } = {}
+) {
   return {
     ...options,
     yar: {
       get: (key) => {
         if (signedIn && key === 'user') return { displayName: 'Dev User' }
+        if (platformAdmin && key === 'isPlatformAdmin') return true
         return undefined
       }
     }
@@ -37,6 +41,45 @@ describe('#buildNavigation', () => {
       { text: 'Teams', href: '/teams', current: false },
       { text: 'Help', href: '/about', current: false }
     ])
+  })
+
+  test('Should show Admin after Teams, before Help, when a signed in person is a Platform Admin', () => {
+    expect(
+      buildNavigation(
+        mockRequest(
+          { path: '/non-existent-path' },
+          { signedIn: true, platformAdmin: true }
+        )
+      )
+    ).toEqual([
+      { text: 'Models', href: '/models', current: false },
+      { text: 'Your access', href: '/manage', current: false },
+      { text: 'Teams', href: '/teams', current: false },
+      { text: 'Admin', href: '/admin', current: false },
+      { text: 'Help', href: '/about', current: false }
+    ])
+  })
+
+  test.each([
+    ['/admin'],
+    ['/admin/teams'],
+    ['/admin/teams/team-1/members/add']
+  ])('Should highlight only Admin for %s', (path) => {
+    expect(
+      currentItems(
+        buildNavigation(
+          mockRequest({ path }, { signedIn: true, platformAdmin: true })
+        )
+      )
+    ).toEqual(['Admin'])
+  })
+
+  test('Should not show Admin to a signed out person, whatever the session holds', () => {
+    expect(
+      buildNavigation(
+        mockRequest({ path: '/admin' }, { platformAdmin: true })
+      ).map((item) => item.text)
+    ).toEqual(['Models', 'Help'])
   })
 
   test.each([

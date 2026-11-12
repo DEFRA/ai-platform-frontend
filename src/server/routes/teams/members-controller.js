@@ -7,11 +7,14 @@ import {
 import {
   errorOn,
   joiErrors,
+  lastAdminMessage,
   loadAdminTeam,
   memberNotFoundView,
   membersUrl,
   noErrors,
-  refusalView
+  refusalView,
+  REMOVE_CHANGE,
+  removeMemberView
 } from './member-pages.js'
 import { memberRoleSchema } from './members-schemas.js'
 import {
@@ -27,6 +30,8 @@ function roleText(role) {
 
 const CHANGE_ROLES = 'change roles'
 const REMOVE_PEOPLE = 'remove people'
+const TEAM_REMOVE_WARNING =
+  'Removing someone does not change the client secret. Rotate it if they had a copy.'
 
 // The member a page is about: `me` is the signed-in person.
 async function loadAdminMember(request, h, action) {
@@ -77,24 +82,15 @@ function roleView(h, request, { team, member, role, errors = noErrors() }) {
   })
 }
 
-function removeView(h, request, { team, member, errors = noErrors() }) {
-  const heading = `Remove ${member.displayName} from ${team.name}?`
-
-  return h.view('teams/remove-member', {
-    pageTitle: `${errors.errorSummary ? 'Error: ' : ''}${heading}`,
-    heading,
+function removeView(h, request, { team, member, errors }) {
+  return removeMemberView(h, {
     team,
+    member,
     backUrl: memberUrl(request, 'role'),
     cancelUrl: membersUrl(team),
-    buttonText: `Remove ${member.displayName}`,
-    ...errors
+    warningText: TEAM_REMOVE_WARNING,
+    errors
   })
-}
-
-function lastAdminMessage(member, change) {
-  return member.isYou
-    ? `You are the only admin. Add another admin before you ${change.you}.`
-    : `A team must keep at least one admin. Add another admin before you ${change.other(member.displayName)}.`
 }
 
 const ROLE_CHANGE = {
@@ -102,19 +98,17 @@ const ROLE_CHANGE = {
   other: (name) => `change ${name}’s role`
 }
 
-const REMOVE_CHANGE = {
-  you: 'remove yourself from this team',
-  other: (name) => `remove ${name} from this team`
-}
-
 function memberRow(member, { team, isAdmin }) {
   const memberSegment = member.isYou ? 'me' : encodeURIComponent(member._id)
+  const name = member.isYou ? `${member.displayName} (you)` : member.displayName
 
   return {
-    name: member.isYou ? `${member.displayName} (you)` : member.displayName,
+    name,
     email: member.email,
     role: roleText(member.role),
-    changeUrl: isAdmin ? `${membersUrl(team)}/${memberSegment}/role` : null
+    actionUrl: isAdmin ? `${membersUrl(team)}/${memberSegment}/role` : null,
+    actionText: 'Change',
+    actionHidden: `role of ${name}`
   }
 }
 

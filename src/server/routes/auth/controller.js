@@ -14,6 +14,7 @@ import {
   takeOidcLoginState,
   setSessionTokens,
   setSessionUser,
+  setSessionPlatformAdmin,
   resetSession
 } from '#/server/common/helpers/session.js'
 import { startSessionClock } from '#/server/common/helpers/session-lifetime.js'
@@ -177,8 +178,10 @@ export const authController = {
       setSessionTokens(request, tokensFromResponse(tokens))
 
       let user
+      let isPlatformAdmin
       try {
-        ;({ user } = await apiClient(request).put('/v1/users/me'))
+        ;({ user, isPlatformAdmin } =
+          await apiClient(request).put('/v1/users/me'))
       } catch (error) {
         // However it failed, nothing of this sign-in is kept.
         resetSession(request)
@@ -198,6 +201,9 @@ export const authController = {
         email: user.email,
         displayName: user.displayName
       })
+      // Only decides whether the Admin link shows; every /admin page asks the
+      // backend (plan D1, D2).
+      setSessionPlatformAdmin(request, isPlatformAdmin)
 
       const returnTo = safeReturnTo(pending.returnTo, '/')
 

@@ -1,0 +1,81 @@
+{#
+  The form that adds a person from the directory to a team, with a role
+  (screen 14). Without script, Search posts the text and the page comes back
+  with the matches in a select list. With script, people-search.js turns the
+  text field into a combobox and sends the person chosen in a hidden `oid`.
+  params.searchUrl: where the combobox searches (people-search.js)
+  params.crumb: the CSRF token, which a macro cannot read from the page
+  params.idempotencyKey: the key of this add, sent again with a retry
+  params.values: { search, query?, oid, role } as last sent
+  params.fieldErrors: { search?, oid?, role? } each { text }
+  params.personItems: the select list's items, when there are matches
+  params.personCount: how many matches there are
+  params.noMatches: true when a search found no one
+#}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "role-radios/macro.njk" import appRoleRadios %}
+
+<form method="post" novalidate data-people-search-url="{{ params.searchUrl }}">
+  <input type="hidden" name="crumb" value="{{ params.crumb }}">
+  {# The key of this add: sent again with a retry, so the backend adds once. #}
+  <input type="hidden" name="idempotencyKey" value="{{ params.idempotencyKey }}">
+
+  {{ govukInput({
+    id: "search",
+    name: "search",
+    value: params.values.search,
+    autocomplete: "off",
+    spellcheck: false,
+    classes: "govuk-!-width-full",
+    label: {
+      text: "Name or email address",
+      classes: "govuk-label--m"
+    },
+    hint: { text: "Enter at least 2 characters of their name or Defra email address" },
+    errorMessage: params.fieldErrors.search,
+    attributes: { "data-people-search": "", "data-people-query": params.values.query or "" }
+  }) }}
+
+  {{ govukButton({
+    text: "Search",
+    name: "action",
+    value: "search",
+    classes: "govuk-button--secondary",
+    preventDoubleClick: true,
+    attributes: { "data-testid": "search-people", "data-people-search-button": "" }
+  }) }}
+
+  {% if params.personItems %}
+    {{ govukSelect({
+      id: "oid",
+      name: "oid",
+      classes: "govuk-!-width-full",
+      label: {
+        text: "Person",
+        classes: "govuk-label--m"
+      },
+      hint: { text: params.personCount + (" person" if params.personCount == 1 else " people") + " found" },
+      items: params.personItems,
+      errorMessage: params.fieldErrors.oid
+    }) }}
+  {% elif params.noMatches %}
+    <div data-testid="no-people">
+      <h2 class="govuk-heading-m">No people found</h2>
+      <p class="govuk-body">No one found for ‘{{ params.values.search }}’. Try their full email address.</p>
+    </div>
+  {% endif %}
+
+  {{ appRoleRadios({ value: params.values.role, errorMessage: params.fieldErrors.role }) }}
+
+  {{ govukInsetText({ text: "They can use the team straight away" }) }}
+
+  {{ govukButton({
+    text: "Add",
+    name: "action",
+    value: "add",
+    attributes: { "data-testid": "add-member-submit" }
+  }) }}
+</form>

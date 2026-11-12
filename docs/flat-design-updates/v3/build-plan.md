@@ -272,6 +272,24 @@ role." Button "Save role". Link "Remove yourself from this team" or "Remove {nam
 `/teams/{slug}/members/{memberId}/remove`: H1 "Remove {name} from {team}?", warning "Removing someone does not change the
 client secret. Rotate it if they had a copy.", the same last-admin rule, warning button "Remove {name}", link "Cancel".
 
+### 9a. Platform Admin: Teams (design F5, B31)
+
+Admin link in the service navigation after Teams, shown when `PUT /v1/users/me` said `isPlatformAdmin` (a hint only: every
+page below asks the backend, which refuses anyone else with the 403 page "Only a Platform Admin can use this page").
+
+**`/admin` → `/admin/teams`**: caption "Admin", H1 "Teams", sub-navigation Teams. GET form: "Search by team name", "Status"
+(All statuses, Active, Disabled, Pending removal), button "Search", "Clear filters" when filtered. Table Team (link) |
+Status (tag) | Environments | Members, 25 to a page, pagination; "No teams match your search" with "Clear filters".
+
+**`/admin/teams/{id}`**: caption "Team", H1 team name. Summary list Status (tag), Service code, Environments (each file's
+status, and "Can be removed from {date}" when pending removal); H2 "Members", button "Add a member", the members table with
+"Remove". Read-only for the lifecycle: Disable, Enable, Delete and Restore are a later change.
+
+**`/admin/teams/{id}/members/add`** (and `/add/people`) and **`.../members/{memberId}/remove`**: the team's own add and
+remove pages over the admin routes. Adding yourself is refused ("You cannot add yourself to a team"). Warning on remove:
+"Removing someone does not change the team's credentials. Ask a team admin to rotate or revoke them if this person had a
+copy." Allowed for a team in any status. Built in [08 Platform admin](../../plans/implemented/08-platform-admin.md).
+
 ### 10. Details and create a team (16, 17, 18)
 
 **18 `/teams/{slug}/details`**: sub-navigation. Summary list: Team name; Team ID `{slug}`, hint "Part of your team's

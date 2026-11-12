@@ -47,8 +47,13 @@ export async function completeOidcLogin(server) {
 
 // Completes the full sign-in journey (Entra ID + PUT /v1/users/me) and
 // returns the authenticated session's cookie jar for use by subsequent
-// server.inject calls.
-export async function signInViaOidc(server, fetchMock) {
+// server.inject calls. `isPlatformAdmin` is what the backend answers the
+// sign-in with: left out unless given.
+export async function signInViaOidc(
+  server,
+  fetchMock,
+  { isPlatformAdmin } = {}
+) {
   fetchMock.mockResponseOnce(
     JSON.stringify({
       user: {
@@ -56,7 +61,8 @@ export async function signInViaOidc(server, fetchMock) {
         email: 'test.user@defra.gov.uk',
         displayName: 'Test User'
       },
-      team: null
+      team: null,
+      ...(isPlatformAdmin === undefined ? {} : { isPlatformAdmin })
     })
   )
 

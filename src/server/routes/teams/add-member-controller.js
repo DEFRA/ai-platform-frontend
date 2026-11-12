@@ -11,10 +11,8 @@ import {
 import {
   errorOn,
   joiErrors,
-  loadAdminTeam,
-  membersUrl,
   noErrors,
-  refusalView
+  teamMemberScope
 } from './member-pages.js'
 import { addMemberSchema, isGuid, selectPerson } from './members-schemas.js'
 import {
@@ -66,6 +64,7 @@ function placeErrors(errors, hasList) {
 // add-member-keys.js), carried in the form.
 function addMemberView(
   h,
+  scope,
   {
     team,
     values,
@@ -82,8 +81,8 @@ function addMemberView(
     pageTitle: `${placed.errorSummary ? 'Error: ' : ''}Add a member`,
     heading: 'Add a member',
     team,
-    backUrl: membersUrl(team),
-    searchUrl: `${membersUrl(team)}/add/people`,
+    backUrl: scope.listUrl(team),
+    searchUrl: scope.searchUrl(team),
     values,
     idempotencyKey,
     personItems: hasList ? personItems(people, values.oid) : null,
@@ -110,7 +109,7 @@ function submittedValues(payload) {
   }
 }
 
-async function findAgain(request, team, search) {
+async function findAgain(request, scope, team, search) {
   const query = search.trim()
 
   if (query.length < MIN_SEARCH_LENGTH || query.length > MAX_SEARCH_LENGTH) {
@@ -118,7 +117,7 @@ async function findAgain(request, team, search) {
   }
 
   try {
-    return await searchTeamPeople(request, team.slug, query)
+    return await searchTeamPeople(request, scope.ref(team), query, scope.pathOf)
   } catch (error) {
     if (error instanceof ApiError) {
       return null
@@ -136,10 +135,15 @@ async function findAgain(request, team, search) {
 // With script, the field holds the person's label and `query` what was typed,
 // which is what is searched for. If the matches do not hold the person chosen
 // (or there are none), the person is kept, as the label the field showed.
-async function matchesAgain(request, team, values) {
+async function matchesAgain(request, scope, team, values) {
   const { oid, search, query } = values
   const scripted = typeof query === 'string'
-  const people = await findAgain(request, team, scripted ? query : search)
+  const people = await findAgain(
+    request,
+    scope,
+    team,
+    scripted ? query : search
+  )
 
   if (
     !scripted ||
@@ -153,14 +157,23 @@ async function matchesAgain(request, team, values) {
   return [{ oid, label: search }, ...(people ?? [])]
 }
 
-async function searchPeople(request, h, team, values) {
+async function searchPeople(request, h, scope, team, values) {
   const shown = { ...values, oid: '' }
-  const idempotencyKey = carryAddKey(request, team.slug, values.idempotencyKey)
+  const idempotencyKey = carryAddKey(
+    request,
+    scope.ref(team),
+    values.idempotencyKey
+  )
 
   try {
-    const people = await searchTeamPeople(request, team.slug, values.search)
+    const people = await searchTeamPeople(
+      request,
+      scope.ref(team),
+      values.search,
+      scope.pathOf
+    )
 
-    return addMemberView(h, {
+    return addMemberView(h, scope, {
       team,
       values: shown,
       idempotencyKey,
@@ -171,10 +184,10 @@ async function searchPeople(request, h, team, values) {
     const problem = personProblem(error)
 
     if (!problem) {
-      return refusalView(h, team, error, ADD_PEOPLE)
+      return scope.refusalView(request, h, team, error, ADD_PEOPLE)
     }
 
-    return addMemberView(h, {
+    return addMemberView(h, scope, {
       team,
       values: shown,
       idempotencyKey,
@@ -183,23 +196,30 @@ async function searchPeople(request, h, team, values) {
   }
 }
 
-async function addPerson(request, h, team, values) {
+async function addPerson(request, h, scope, team, values) {
   const { oid, role } = values
+  const teamRef = scope.ref(team)
   const sentKey = keyForAdd(
     request,
-    team.slug,
+    teamRef,
     { oid, role },
     values.idempotencyKey
   )
   let member
 
   try {
-    member = await addTeamMember(request, team.slug, { oid, role }, sentKey)
+    member = await addTeamMember(
+      request,
+      teamRef,
+      { oid, role },
+      sentKey,
+      scope.pathOf
+    )
   } catch (error) {
     const problem = personProblem(error)
 
     if (!problem) {
-      return refusalView(h, team, error, ADD_PEOPLE)
+      return scope.refusalView(request, h, team, error, ADD_PEOPLE)
     }
 
     // The form comes back with its own key, not the one sent, so the key is
@@ -213,13 +233,13 @@ async function addPerson(request, h, team, values) {
       nextAddKeyGeneration(request)
     }
 
-    return addMemberView(h, {
+    return addMemberView(h, scope, {
       team,
       values,
       idempotencyKey: reused
-        ? issueAddKey(request, team.slug)
-        : carryAddKey(request, team.slug, values.idempotencyKey),
-      people: await matchesAgain(request, team, values),
+        ? issueAddKey(request, teamRef)
+        : carryAddKey(request, teamRef, values.idempotencyKey),
+      people: await matchesAgain(request, scope, team, values),
       errors: errorOn('oid', problem.text)
     }).code(problem.statusCode)
   }
@@ -235,74 +255,81 @@ async function addPerson(request, h, team, values) {
     message: 'They can use the team straight away.'
   })
 
-  return h.redirect(membersUrl(team)).code(statusCodes.seeOther)
+  return h.redirect(scope.listUrl(team)).code(statusCodes.seeOther)
 }
 
 /**
- * An admin adds a person from the directory, with a role (screen 14). The
- * page searches as the admin types when it has script; without script, the
- * Search button posts the text and the page comes back with the matches.
+ * The add-member page and its form posts, for the pages of `scope`: a team's
+ * own, for its admins (screen 14), or a Platform Admin's. The page searches as
+ * the person types when it has script; without script, the Search button
+ * posts the text and the page comes back with the matches.
+ * @param {import('./member-pages.js').MemberScope} scope
  */
-export const addMemberController = {
-  get: {
-    async handler(request, h) {
-      const { loaded, page } = await loadAdminTeam(request, h, ADD_PEOPLE)
+export function createAddMemberController(scope) {
+  return {
+    get: {
+      async handler(request, h) {
+        const { loaded, page } = await scope.load(request, h, ADD_PEOPLE)
 
-      return (
-        page ??
-        addMemberView(h, {
-          team: loaded.team,
-          values: submittedValues(),
-          idempotencyKey: issueAddKey(request, loaded.team.slug)
-        })
-      )
-    }
-  },
-  post: {
-    options: {
-      validate: {
-        payload: addMemberSchema,
-        async failAction(request, h, error) {
-          const { loaded, page } = await loadAdminTeam(request, h, ADD_PEOPLE)
-
-          if (page) {
-            return page.takeover()
-          }
-
-          const values = submittedValues(request.payload)
-          const people =
-            values.action === 'add'
-              ? await matchesAgain(request, loaded.team, values)
-              : null
-
-          return addMemberView(h, {
+        return (
+          page ??
+          addMemberView(h, scope, {
             team: loaded.team,
-            values,
-            idempotencyKey: carryAddKey(
-              request,
-              loaded.team.slug,
-              request.payload?.idempotencyKey
-            ),
-            people,
-            errors: joiErrors(error)
+            values: submittedValues(),
+            idempotencyKey: issueAddKey(request, scope.ref(loaded.team))
           })
-            .code(statusCodes.badRequest)
-            .takeover()
-        }
+        )
       }
     },
-    async handler(request, h) {
-      const { loaded, page } = await loadAdminTeam(request, h, ADD_PEOPLE)
+    post: {
+      options: {
+        validate: {
+          payload: addMemberSchema,
+          async failAction(request, h, error) {
+            const { loaded, page } = await scope.load(request, h, ADD_PEOPLE)
 
-      if (page) {
-        return page
+            if (page) {
+              return page.takeover()
+            }
+
+            const values = submittedValues(request.payload)
+            const people =
+              values.action === 'add'
+                ? await matchesAgain(request, scope, loaded.team, values)
+                : null
+
+            return addMemberView(h, scope, {
+              team: loaded.team,
+              values,
+              idempotencyKey: carryAddKey(
+                request,
+                scope.ref(loaded.team),
+                request.payload?.idempotencyKey
+              ),
+              people,
+              errors: joiErrors(error)
+            })
+              .code(statusCodes.badRequest)
+              .takeover()
+          }
+        }
+      },
+      async handler(request, h) {
+        const { loaded, page } = await scope.load(request, h, ADD_PEOPLE)
+
+        if (page) {
+          return page
+        }
+
+        const { action, ...values } = request.payload
+
+        return action === 'add'
+          ? addPerson(request, h, scope, loaded.team, values)
+          : searchPeople(request, h, scope, loaded.team, values)
       }
-
-      const { action, ...values } = request.payload
-
-      return action === 'add'
-        ? addPerson(request, h, loaded.team, values)
-        : searchPeople(request, h, loaded.team, values)
     }
   }
 }
+
+/** An admin of a team adds people to it, from the team's own pages. */
+export const addMemberController = createAddMemberController(teamMemberScope)

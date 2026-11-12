@@ -17,6 +17,7 @@ What is built, and what is left, in two places only.
 | [04-catalogue-and-gateway.md](implemented/04-catalogue-and-gateway.md)               | Catalogue and gateway        | Catalogue from `ai-platform-infra`, hosting and gateway shape, gateway authorisation layers (B23)               |
 | [05-platform-and-gitops-pipeline.md](implemented/05-platform-and-gitops-pipeline.md) | Platform infrastructure      | The repositories and the GitOps worker, how a change flows (B28), Infradev, CDP dev, operating notes            |
 | [06-shared-services-and-security.md](implemented/06-shared-services-and-security.md) | Shared services and security | Idempotency, audit, locks, backfills, security baseline, federated auth, portal sign-in (B27), session renewal  |
+| [08-platform-admin.md](implemented/08-platform-admin.md)                             | Platform admin               | The Admin area's Teams tab: list, team page, add and remove members (B31 in part)                               |
 
 ## Remaining
 

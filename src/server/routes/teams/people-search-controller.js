@@ -30,17 +30,17 @@ function json(h, statusCode, body) {
   return h.response(body).code(statusCode).header('cache-control', 'no-store')
 }
 
-function refusal(h, error) {
+function refusal(h, error, messages) {
   if (!(error instanceof ApiError)) {
     throw error
   }
 
   if (error.statusCode === statusCodes.forbidden) {
-    return json(h, statusCodes.forbidden, { message: MESSAGES.forbidden })
+    return json(h, statusCodes.forbidden, { message: messages.forbidden })
   }
 
   if (error.statusCode === statusCodes.notFound) {
-    return json(h, statusCodes.notFound, { message: MESSAGES.notFound })
+    return json(h, statusCodes.notFound, { message: messages.notFound })
   }
 
   // The directory is down, the backend cannot be reached, or it failed: the
@@ -56,40 +56,58 @@ function refusal(h, error) {
  * in an address, and nothing here logs it. The CSRF token comes in a header,
  * from the page's own form. Signed out is answered with a 401 the page can
  * act on, rather than the redirect to sign in that other pages get.
+ * @param {object} scope
+ * @param {(request: object) => string} scope.ref - The team, from the address.
+ * @param {((teamRef: string) => string) | undefined} [scope.pathOf] - The team's address on the backend.
+ * @param {{forbidden: string, notFound: string}} scope.messages - What the box says when refused.
  */
-export const peopleSearchController = {
-  options: {
-    app: { public: true },
-    plugins: { crumb: { restful: true } },
-    validate: {
-      payload: searchSchema,
-      failAction: (_request, h) =>
-        json(h, statusCodes.badRequest, {
-          message: MESSAGES.invalid
-        }).takeover()
-    }
-  },
-  async handler(request, h) {
-    if (!getSessionUser(request)) {
-      return json(h, statusCodes.unauthorized, { message: MESSAGES.signedOut })
-    }
+export function createPeopleSearchController({ ref, pathOf, messages }) {
+  return {
+    options: {
+      app: { public: true },
+      plugins: { crumb: { restful: true } },
+      validate: {
+        payload: searchSchema,
+        failAction: (_request, h) =>
+          json(h, statusCodes.badRequest, {
+            message: MESSAGES.invalid
+          }).takeover()
+      }
+    },
+    async handler(request, h) {
+      if (!getSessionUser(request)) {
+        return json(h, statusCodes.unauthorized, {
+          message: MESSAGES.signedOut
+        })
+      }
 
-    try {
-      const people = await searchTeamPeople(
-        request,
-        request.params.slug,
-        request.payload.search
-      )
+      try {
+        const people = await searchTeamPeople(
+          request,
+          ref(request),
+          request.payload.search,
+          pathOf
+        )
 
-      return json(h, statusCodes.ok, {
-        items: people.map(({ oid, displayName, email }) => ({
-          oid,
-          displayName,
-          email
-        }))
-      })
-    } catch (error) {
-      return refusal(h, error)
+        return json(h, statusCodes.ok, {
+          items: people.map(({ oid, displayName, email }) => ({
+            oid,
+            displayName,
+            email
+          }))
+        })
+      } catch (error) {
+        return refusal(h, error, messages)
+      }
     }
   }
 }
+
+/** The search for the admins of a team, on the team's own pages. */
+export const peopleSearchController = createPeopleSearchController({
+  ref: (request) => request.params.slug,
+  messages: {
+    forbidden: MESSAGES.forbidden,
+    notFound: MESSAGES.notFound
+  }
+})

@@ -3,6 +3,9 @@ import {
   getSessionTokens,
   setSessionTokens,
   setSessionUser,
+  isSessionPlatformAdmin,
+  setSessionPlatformAdmin,
+  clearSessionPlatformAdmin,
   getPendingAccess,
   setPendingAccess,
   clearPendingAccess,
@@ -73,6 +76,40 @@ describe('#session helpers', () => {
 
     setSessionUser(request, { id: 'user-1' })
     expect(getSessionUser(request)).toEqual({ id: 'user-1' })
+  })
+
+  test('keeps whether the person is a Platform Admin, false until the backend says so, and clears it', () => {
+    const request = mockRequest()
+
+    expect(isSessionPlatformAdmin(request)).toBe(false)
+
+    setSessionPlatformAdmin(request, true)
+    expect(isSessionPlatformAdmin(request)).toBe(true)
+
+    clearSessionPlatformAdmin(request)
+    expect(isSessionPlatformAdmin(request)).toBe(false)
+  })
+
+  test('keeps only an answer of true as a Platform Admin', () => {
+    const request = mockRequest()
+
+    for (const answer of [undefined, null, 'true', 1, false]) {
+      setSessionPlatformAdmin(request, answer)
+      expect(isSessionPlatformAdmin(request)).toBe(false)
+    }
+  })
+
+  test('reads whether the person is a Platform Admin safely on a request with no session store', () => {
+    expect(isSessionPlatformAdmin({})).toBe(false)
+    expect(
+      isSessionPlatformAdmin({
+        yar: {
+          get: () => {
+            throw new Error('no session store')
+          }
+        }
+      })
+    ).toBe(false)
   })
 
   test('sets, gets and clears pending access', () => {

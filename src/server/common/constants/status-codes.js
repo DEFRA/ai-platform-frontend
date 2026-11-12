@@ -13,5 +13,6 @@ export const statusCodes = {
   unprocessableEntity: 422,
   internalServerError: 500,
   notImplemented: 501,
+  badGateway: 502,
   serviceUnavailable: 503
 }
