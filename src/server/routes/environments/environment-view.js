@@ -115,8 +115,9 @@ function latestChangeText(operation, { modelNames, now }) {
 
   const { change, result } = buildOperationItem(operation, { modelNames })
   const when = formatWhen(operation.createdAt, now)
+  const whenText = when ? `, ${lowerFirst(when)}` : ''
 
-  return `${change}: ${result.text}${when ? `, ${lowerFirst(when)}` : ''}`
+  return `${change}: ${result.text}${whenText}`
 }
 
 function tokensText(limits) {

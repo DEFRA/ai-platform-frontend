@@ -91,10 +91,10 @@ function phrasesOf(operation, modelNames, form) {
 
   phrases.push(...modelPhrases(models, modelNames, form))
 
-  for (const change of changes) {
+  for (const change of changes.filter(({ kind }) => kind !== 'model')) {
     if (change.kind === 'limits') {
       phrases.push(limitsPhrase(change, verb))
-    } else if (change.kind !== 'model') {
+    } else {
       phrases.push(`${verb} applications`)
     }
   }
@@ -154,7 +154,10 @@ function askedBy(operation) {
   const who = operation.requestedBy?.name
   const time = timeOf(operation.createdAt)
 
-  return `Asked for${who ? ` by ${who}` : ''}${time ? ` at ${time}` : ''}`
+  const byWho = who ? ` by ${who}` : ''
+  const atTime = time ? ` at ${time}` : ''
+
+  return `Asked for${byWho}${atTime}`
 }
 
 function stepText(operation) {
