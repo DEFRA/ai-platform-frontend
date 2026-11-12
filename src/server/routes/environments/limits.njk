@@ -25,7 +25,7 @@
 
       <p class="govuk-body">A change within the platform’s bounds applies in a few minutes. For more, ask the AI Platform team.</p>
 
-      <form method="post" novalidate>
+      <form method="post" action="{{ formAction }}" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
 
         {{ govukInput({

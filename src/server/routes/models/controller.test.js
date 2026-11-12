@@ -200,7 +200,7 @@ describe('#modelsController', () => {
       const { statusCode, result } = await getModels()
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('>Models</h1>')
+      expect(result).toContain('>Model catalogue</h1>')
       expect(result).toContain(
         'Add a model to your team, or try one on your own first.'
       )

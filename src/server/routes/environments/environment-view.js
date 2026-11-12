@@ -284,6 +284,11 @@ function secretRow({ team, environment, isAdmin, credentials, deployments }) {
   }
 }
 
+// A limit the team file does not hold is null, which reads "Not set", not 0.
+function limitText(value) {
+  return typeof value === 'number' ? numberFormat.format(value) : 'Not set'
+}
+
 function limitsView({ team, environment, detail, isAdmin }) {
   if (!detail.setUp || !detail.limits) {
     return null
@@ -292,8 +297,8 @@ function limitsView({ team, environment, detail, isAdmin }) {
   const { pendingLimits } = detail
 
   return {
-    tokensPerMinute: numberFormat.format(detail.limits.tokensPerMinute),
-    requestsPerMinute: numberFormat.format(detail.limits.requestsPerMinute),
+    tokensPerMinute: limitText(detail.limits.tokensPerMinute),
+    requestsPerMinute: limitText(detail.limits.requestsPerMinute),
     pending: pendingLimits
       ? `Changing to ${numberFormat.format(pendingLimits.tokensPerMinute)} tokens and ${numberFormat.format(pendingLimits.requestsPerMinute)} requests a minute`
       : null,

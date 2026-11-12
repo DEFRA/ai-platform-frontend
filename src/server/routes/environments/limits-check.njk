@@ -11,12 +11,6 @@
 {% endblock %}
 
 {% block content %}
-  {{ appHeading({
-    text: heading,
-    caption: teamName,
-    captionAbove: true
-  }) }}
-
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}
@@ -25,13 +19,23 @@
           errorList: errorSummary
         }) }}
       {% endif %}
+    </div>
+  </div>
 
+  {{ appHeading({
+    text: heading,
+    caption: teamName,
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
       {% set summaryRows = [] %}
       {% for row in rows %}
         {% set summaryRows = (summaryRows.push({
           key: { text: row.key },
           value: { text: row.value },
-          actions: { items: [{ href: row.changeUrl, text: "Change", visuallyHiddenText: row.hidden }] } if row.changeUrl
+          actions: { items: [{ href: row.changeUrl, text: "Change", visuallyHiddenText: row.hidden, attributes: { id: row.changeId } }] } if row.changeUrl
         }), summaryRows) %}
       {% endfor %}
       {{ govukSummaryList({ rows: summaryRows }) }}

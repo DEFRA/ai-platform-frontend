@@ -227,7 +227,9 @@ describe('#environmentsController', () => {
       expect(text($, '[data-testid="app-heading-caption"]')).toBe(
         'Flood Risk Team'
       )
-      expect($('title').text()).toContain('Environments and deployments')
+      expect($('title').text()).toContain(
+        'Environments and deployments - Flood Risk Team'
+      )
 
       const infradev = $('[data-testid="environment-card-infradev"]')
 
@@ -928,6 +930,44 @@ describe('#environmentsController', () => {
     })
 
     describe('the progress of a change', () => {
+      test('is a fault, not a page, when the backend refuses for a reason the page cannot explain', async () => {
+        backend({
+          [`GET ${TEAM_PATH}/environments/infradev`]: reply(403, {
+            code: 'forbidden'
+          })
+        })
+
+        expect((await get(INFRADEV_URL)).statusCode).toBe(
+          statusCodes.internalServerError
+        )
+      })
+
+      test('still shows the overview, without Change team, when the list of the person’s teams cannot be read', async () => {
+        backend({
+          'GET /v1/teams': reply(502, { code: 'upstream-unavailable' })
+        })
+
+        const { statusCode, result } = await get(OVERVIEW_URL)
+
+        expect(statusCode).toBe(statusCodes.ok)
+        expect(pageOf(result)('a[data-testid="change-team"]')).toHaveLength(0)
+      })
+
+      test('says the changes could not be read on an environment’s page, and still shows its models', async () => {
+        backend({
+          [`GET ${TEAM_PATH}/operations`]: reply(502, {
+            code: 'upstream-unavailable'
+          })
+        })
+
+        const $ = pageOf((await get(INFRADEV_URL)).result)
+
+        expect($('[data-testid="changes-unavailable"]').text()).toContain(
+          'We could not read the changes just now'
+        )
+        expect($('[data-testid="model-row"]')).toHaveLength(2)
+      })
+
       test('shows a change that failed while still open as failed, with its reason and the run to follow', async () => {
         backend({
           [`GET ${TEAM_PATH}/operations`]: operationsAnswer({

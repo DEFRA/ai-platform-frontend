@@ -2,11 +2,9 @@ import { randomUUID } from 'node:crypto'
 import Joi from 'joi'
 
 import { statusCodes } from '#/server/common/constants/status-codes.js'
-import { ApiError } from '#/server/common/helpers/api-client.js'
 import {
   environmentFromAddress,
-  environmentPageUrl,
-  teamEnvironmentsUrl
+  environmentPageUrl
 } from '#/server/common/helpers/environment-names.js'
 import {
   clearPendingLimits,
@@ -16,8 +14,8 @@ import {
   setPendingLimits
 } from '#/server/common/helpers/session.js'
 import { isNotFound, loadTeamForView } from '#/server/routes/teams/team-view.js'
+import { environmentNotFound, teamNotFound } from './error-views.js'
 import {
-  isMissing,
   isUnavailable,
   putTeamLimits,
   readTeamEnvironment
@@ -25,6 +23,7 @@ import {
 import { parseLimits } from './limits-answers.js'
 
 const numberFormat = new Intl.NumberFormat('en-GB')
+const ENVIRONMENT_NOT_AVAILABLE = 'environment-not-available'
 
 const answersSchema = Joi.object({
   tokensPerMinute: Joi.string().allow('').default(''),
@@ -45,24 +44,6 @@ function errorPage(h, { status, heading, message, back }) {
       actionText: back.text
     })
     .code(status)
-}
-
-function teamNotFound(h) {
-  return errorPage(h, {
-    status: statusCodes.notFound,
-    heading: 'Team not found',
-    message: 'This team does not exist, or you are not a member.',
-    back: { href: '/environments', text: 'Go to your environments' }
-  })
-}
-
-function environmentNotFound(h, slug) {
-  return errorPage(h, {
-    status: statusCodes.notFound,
-    heading: 'Environment not found',
-    message: 'This environment does not exist or is not available yet.',
-    back: { href: teamEnvironmentsUrl(slug), text: 'Back to all environments' }
-  })
 }
 
 function adminRequired(h, { slug, environment }) {
@@ -124,10 +105,10 @@ async function load(request, h) {
     detail = await readTeamEnvironment(request, slug, environment.environment)
     loaded = await loadTeamForView(request, slug)
   } catch (error) {
-    if (isMissing(error) || isNotFound(error)) {
+    if (isNotFound(error)) {
       return {
         page:
-          error.code === 'environment-not-available'
+          error.code === ENVIRONMENT_NOT_AVAILABLE
             ? environmentNotFound(h, slug)
             : teamNotFound(h)
       }
@@ -168,28 +149,42 @@ function pendingFor(request, { team, environment }) {
 }
 
 function currentLimits(detail) {
-  return detail.pendingLimits ?? detail.limits
+  return detail.pendingLimits ?? detail.limits ?? {}
+}
+
+// A limit a team file does not hold is null: it is said, not shown as 0 or
+// "null".
+function limitText(value) {
+  return typeof value === 'number' ? numberFormat.format(value) : null
+}
+
+function inputValue(value) {
+  return typeof value === 'number' ? String(value) : ''
 }
 
 function hint(field, { bounds, detail }) {
   const { min, max } = bounds[field]
   const range = `Between ${numberFormat.format(min)} and ${numberFormat.format(max)}.`
+  const pending = limitText(detail.pendingLimits?.[field])
+  const held = limitText(detail.limits?.[field])
 
-  if (detail.pendingLimits) {
-    return `${range} Your team is changing to ${numberFormat.format(detail.pendingLimits[field])}.`
+  if (pending) {
+    return `${range} Your team is changing to ${pending}.`
   }
 
-  return `${range} Your team has ${numberFormat.format(detail.limits[field])} now.`
+  return held
+    ? `${range} Your team has ${held} now.`
+    : `${range} Your team has no limit set.`
 }
 
 function questionView(h, { team, environment, detail, pending, problems }) {
   const heading = `Change the limits in ${environment.registryName}`
   const current = currentLimits(detail)
   const values = problems?.values ?? {
-    tokensPerMinute: String(
+    tokensPerMinute: inputValue(
       pending?.tokensPerMinute ?? current.tokensPerMinute
     ),
-    requestsPerMinute: String(
+    requestsPerMinute: inputValue(
       pending?.requestsPerMinute ?? current.requestsPerMinute
     )
   }
@@ -200,6 +195,9 @@ function questionView(h, { team, environment, detail, pending, problems }) {
     heading,
     teamName: team.name,
     backLink: environmentPageUrl(team.slug, environment.environment),
+    // Always the question's own address, so answers corrected after the check
+    // page refused them go through the question (and get their own key).
+    formAction: limitsUrl(team.slug, environment.environment),
     values,
     hints: {
       tokensPerMinute: hint('tokensPerMinute', { bounds, detail }),
@@ -218,19 +216,23 @@ function checkView(h, { team, environment, pending, errorMessage }) {
     heading: 'Check your answers',
     teamName: team.name,
     backLink: url,
-    errorSummary: errorMessage ? [{ text: errorMessage }] : null,
+    errorSummary: errorMessage
+      ? [{ text: errorMessage, href: '#change-tokensPerMinute' }]
+      : null,
     rows: [
       { key: 'Environment', value: environment.registryName },
       {
         key: 'Tokens a minute',
         value: numberFormat.format(pending.tokensPerMinute),
         changeUrl: url,
+        changeId: 'change-tokensPerMinute',
         hidden: 'tokens a minute'
       },
       {
         key: 'Requests a minute',
         value: numberFormat.format(pending.requestsPerMinute),
         changeUrl: url,
+        changeId: 'change-requestsPerMinute',
         hidden: 'requests a minute'
       }
     ]
@@ -254,13 +256,14 @@ function refusal(h, error, context) {
   const slug = team.slug
 
   if (error.code === 'limits-out-of-bounds') {
-    const { problems } = parseLimits(
-      pending,
-      error.limitBounds ?? detail.limitBounds
-    )
+    // The bounds the backend checked against, which may have moved since the
+    // page was read, are the ones to state and to hint with.
+    const limitBounds = error.limitBounds ?? detail.limitBounds
+    const { problems } = parseLimits(pending, limitBounds)
 
     return questionView(h, {
       ...context,
+      detail: { ...detail, limitBounds },
       problems: problems ?? {
         values: {
           tokensPerMinute: String(pending.tokensPerMinute),
@@ -336,8 +339,22 @@ export const limitsController = {
       options: {
         validate: {
           payload: answersSchema,
-          failAction: (request, h) =>
-            h.response().code(statusCodes.badRequest).takeover()
+          // Answers that are not two text fields (a forged or repeated field)
+          // get the question again, asking for both, not a blank page.
+          async failAction(request, h) {
+            const result = await load(request, h)
+
+            if (result.page) {
+              return result.page.takeover()
+            }
+
+            return questionView(h, {
+              ...result,
+              problems: parseLimits({}, result.detail.limitBounds).problems
+            })
+              .code(statusCodes.badRequest)
+              .takeover()
+          }
         }
       },
       async handler(request, h) {
@@ -358,14 +375,20 @@ export const limitsController = {
           )
         }
 
-        // A new key for each set of answers: asking again with the same
-        // answers is the same request, different answers are a new one.
+        // The same answers given again are the same request, so they keep
+        // their key (a confirm that timed out may already have been made);
+        // different answers get a new one.
+        const known = pendingFor(request, result)
+        const same =
+          known?.tokensPerMinute === limits.tokensPerMinute &&
+          known?.requestsPerMinute === limits.requestsPerMinute
+
         setPendingLimits(request, {
           ...limits,
           userId: getSessionUser(request).id,
           teamSlug: result.team.slug,
           environment: result.environment.environment,
-          key: randomUUID()
+          key: same ? known.key : randomUUID()
         })
 
         return h
@@ -446,12 +469,10 @@ export const limitsController = {
 // person cannot act on. A key the backend has refused as reused is spent, so
 // the answers go with it.
 function failed(request, h, error, context) {
-  if (!(error instanceof ApiError)) {
-    throw error
-  }
-
-  if (isMissing(error)) {
-    return teamNotFound(h)
+  if (isNotFound(error)) {
+    return error.code === ENVIRONMENT_NOT_AVAILABLE
+      ? environmentNotFound(h, context.team.slug)
+      : teamNotFound(h)
   }
 
   if (isUnavailable(error)) {

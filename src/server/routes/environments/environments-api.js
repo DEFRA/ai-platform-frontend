@@ -39,15 +39,13 @@ export function readTeamEnvironment(request, teamRef, environment) {
  * A team's changes to its files, newest first.
  * @param {import('@hapi/hapi').Request} request
  * @param {string} teamRef
- * @param {{environment?: string, status?: 'open' | 'recent', limit?: number}} [filters]
+ * @param {{environment?: string, status?: 'open' | 'recent', limit?: number}} filters
  * @returns {Promise<{items: object[]}>}
  */
-export function readTeamOperations(request, teamRef, filters = {}) {
+export function readTeamOperations(request, teamRef, filters) {
   const query = new URLSearchParams(filters).toString()
 
-  return apiClient(request).get(
-    `${teamPath(teamRef)}/operations${query ? `?${query}` : ''}`
-  )
+  return apiClient(request).get(`${teamPath(teamRef)}/operations?${query}`)
 }
 
 /**
@@ -86,13 +84,4 @@ export function isUnavailable(error) {
     error instanceof ApiError &&
     error.statusCode >= statusCodes.internalServerError
   )
-}
-
-/**
- * Whether the backend has no such team or environment for this person.
- * @param {unknown} error
- * @returns {boolean}
- */
-export function isMissing(error) {
-  return error instanceof ApiError && error.statusCode === statusCodes.notFound
 }

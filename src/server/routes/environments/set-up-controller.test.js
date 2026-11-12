@@ -272,6 +272,14 @@ describe('#environmentSetUpController', () => {
 
       expect(statusCode).toBe(statusCodes.notFound)
     })
+
+    test('a backend fault reading the team is a fault, not a not found page', async () => {
+      backend({ [`GET ${TEAM_PATH}`]: reply(500, { code: 'internal-error' }) })
+
+      const { statusCode } = await get(TEST_URL)
+
+      expect(statusCode).toBe(statusCodes.internalServerError)
+    })
   })
 
   describe('signed out, with a valid CSRF token', () => {

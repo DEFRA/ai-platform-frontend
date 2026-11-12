@@ -39,7 +39,6 @@ describe('#buildOverviewTab', () => {
       code: 'infradev',
       name: 'Infradev',
       displayName: 'Development',
-      href: '/environments/flood-risk-team/infradev',
       text: '2 models, 3 applications'
     })
   })
@@ -59,7 +58,7 @@ describe('#buildOverviewTab', () => {
     expect(infradev.text).toBe('1 model, 1 application')
   })
 
-  test('says an environment that is not available yet is not, with no link, and keeps its slot', () => {
+  test('says an environment that is not available yet is not, and keeps its slot', () => {
     const { environments } = buildOverviewTab(team, [summary()], modelNames)
 
     expect(environments.slice(1)).toEqual([
@@ -67,21 +66,18 @@ describe('#buildOverviewTab', () => {
         code: 'qa',
         name: 'QA',
         displayName: 'Test',
-        href: null,
         text: 'Not available yet'
       },
       {
         code: 'preprod',
         name: 'PREPROD',
         displayName: 'Pre-production',
-        href: null,
         text: 'Not available yet'
       },
       {
         code: 'prod',
         name: 'PROD',
         displayName: 'Production',
-        href: null,
         text: 'Not available yet'
       }
     ])

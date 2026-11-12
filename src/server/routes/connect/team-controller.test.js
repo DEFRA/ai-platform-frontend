@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
@@ -558,7 +559,10 @@ describe('#teamConnectController', () => {
 
       expect(result).toMatch(/value="gpt-4o"[^>]*disabled/)
       expect(result).not.toMatch(/value="gpt-4o"[^>]*checked/)
-      expect(result).toContain('Already set up for this team')
+      expect(result).toContain('GPT-4o (already set up for this team)')
+      // In the label, which a disabled control exempts from contrast; a hint
+      // beside it would be read at the disabled control's low contrast (F21).
+      expect(load(result)('#modelSlugs-item-hint')).toHaveLength(0)
     })
 
     test('offers a model the team has only in another environment, but not one it has there', async () => {
@@ -1098,9 +1102,47 @@ describe('#teamConnectController', () => {
       expect(url).toContain('/v1/teams/flood-risk-team/deployments')
       expect(body).toEqual({
         modelSlugs: ['gpt-4o', 'gpt-4-1-nano'],
-        environment: 'infradev'
+        environment: 'infradev',
+        purpose: 'Journey test'
       })
       expect(init.headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/)
+    })
+
+    test('sends the purpose the person entered, so the mock orchestrator can read a marker in it (F12)', async () => {
+      const cookies = await reachDetails(server, await signIn(server))
+      const answered = mergeCookies(
+        cookies,
+        await post(server, cookies, '/connect/team/details', {
+          purpose: 'Flood alerts [mock:checks-failed]'
+        })
+      )
+
+      mockResponse({
+        deployments: [{ _id: 'deployment-1', status: 'requested' }]
+      })
+      await post(server, answered, '/connect/team/check', {})
+
+      expect(lastRequest().body.purpose).toBe(
+        'Flood alerts [mock:checks-failed]'
+      )
+    })
+
+    test('sends no purpose when none was given', async () => {
+      const cookies = await reachDetails(server, await signIn(server))
+      const answered = mergeCookies(
+        cookies,
+        await post(server, cookies, '/connect/team/details', { purpose: '' })
+      )
+
+      mockResponse({
+        deployments: [{ _id: 'deployment-1', status: 'requested' }]
+      })
+      await post(server, answered, '/connect/team/check', {})
+
+      expect(lastRequest().body).toEqual({
+        modelSlugs: ['gpt-4o'],
+        environment: 'infradev'
+      })
     })
 
     test('shows what the person left the purpose as when it was not given', async () => {

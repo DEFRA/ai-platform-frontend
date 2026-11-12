@@ -434,7 +434,8 @@ describe('#startController', () => {
       expect(confirmed.statusCode).toBe(statusCodes.seeOther)
       expect(lastRequest().body).toEqual({
         modelSlugs: ['gpt-4o'],
-        environment: 'infradev'
+        environment: 'infradev',
+        purpose: 'Flood alerts'
       })
     })
 

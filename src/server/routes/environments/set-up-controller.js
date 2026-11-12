@@ -105,7 +105,7 @@ function savedAnswers(request, team, target) {
     journey.teamSlug === team.slug &&
     journey.environment === target.environment &&
     journey.modelSlugs?.length
-    ? { modelSlugs: journey.modelSlugs, purpose: journey.purpose ?? '' }
+    ? { modelSlugs: journey.modelSlugs, purpose: journey.purpose }
     : undefined
 }
 // A new journey ticks every model offered; one come back to from the check

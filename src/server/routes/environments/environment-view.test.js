@@ -439,4 +439,78 @@ describe('environment-view', () => {
       ).toBeNull()
     })
   })
+
+  describe('what the cards and the page leave unsaid', () => {
+    test('says a latest change with no time without one', () => {
+      const [infradev] = buildCards({
+        team,
+        summaries: [
+          summary({ latestOperation: operation({ createdAt: undefined }) })
+        ],
+        modelNames,
+        now: NOW
+      })
+
+      expect(infradev.rows.at(-1).value).toBe('Deploy GPT-4o: Done')
+    })
+
+    test('offers to set up an environment that is not set up, unless it is the first, where a deploy is the way', () => {
+      config.set('teamEnvironments', ['infradev', 'qa'])
+
+      const notSetUp = (environment) =>
+        buildEnvironmentPage({
+          team,
+          isAdmin: true,
+          environment: {
+            environment,
+            registryName: environment.toUpperCase(),
+            name: environment
+          },
+          detail: {
+            ...summary({ environment, setUp: false, limits: null }),
+            models: [],
+            limitBounds: null,
+            pendingLimits: null
+          },
+          operations: { open: [], recent: [] },
+          modelNames,
+          credentials: [],
+          now: NOW
+        })
+
+      expect(notSetUp('qa').setUpUrl).toBe(
+        '/environments/flood-risk-team/qa/set-up'
+      )
+      expect(notSetUp('infradev').setUpUrl).toBeNull()
+    })
+
+    test('says a limit the team file does not hold is not set, rather than 0', () => {
+      const view = buildEnvironmentPage({
+        team,
+        isAdmin: true,
+        environment: {
+          environment: 'infradev',
+          registryName: 'Infradev',
+          name: 'Development'
+        },
+        detail: {
+          ...summary({
+            limits: { tokensPerMinute: null, requestsPerMinute: null }
+          }),
+          models: [],
+          limitBounds: null,
+          pendingLimits: null
+        },
+        operations: { open: [], recent: [] },
+        modelNames,
+        credentials: [],
+        now: NOW
+      })
+
+      expect(view.limits).toMatchObject({
+        tokensPerMinute: 'Not set',
+        requestsPerMinute: 'Not set'
+      })
+    })
+  })
 })

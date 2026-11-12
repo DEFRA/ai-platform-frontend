@@ -1,6 +1,5 @@
 import { apiClient } from '#/server/common/helpers/api-client.js'
 import {
-  environmentPageUrl,
   environmentRegistryName,
   teamEnvironmentList,
   teamEnvironmentsUrl
@@ -48,9 +47,6 @@ export function buildOverviewTab(team, summaries, modelNames) {
         code: slot.environment,
         name: environmentRegistryName(slot.environment),
         displayName: slot.name,
-        href: slot.available
-          ? environmentPageUrl(team.slug, slot.environment)
-          : null,
         text: environmentLine(slot, summary)
       }
     }),

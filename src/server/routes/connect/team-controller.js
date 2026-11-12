@@ -396,12 +396,15 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
-        const { teamSlug, modelSlugs, environment, requestKey } = pendingAccess
+        const { teamSlug, modelSlugs, environment, purpose, requestKey } =
+          pendingAccess
 
         try {
           const { deployments } = await apiClient(request).post(
             `/v1/teams/${encodeURIComponent(teamSlug)}/deployments`,
-            { modelSlugs, environment },
+            // The purpose is not stored: the backend only lets the mock
+            // orchestrator read a marker in it.
+            { modelSlugs, environment, ...(purpose && { purpose }) },
             { idempotencyKey: requestKey }
           )
 

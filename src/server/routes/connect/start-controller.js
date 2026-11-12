@@ -11,6 +11,10 @@ import {
   getSessionUser,
   setPendingAccess
 } from '#/server/common/helpers/session.js'
+import {
+  environmentNotFound,
+  teamNotFound
+} from '#/server/routes/environments/error-views.js'
 import { findTryableModel } from './research-models.js'
 import { findChosenTeam } from './team-loaders.js'
 import { MODEL_URL } from './team-views.js'
@@ -47,30 +51,6 @@ function notTryableView(h) {
       message: 'This model is not available to try on your own yet.',
       actionHref: '/models',
       actionText: 'Browse models'
-    })
-    .code(statusCodes.notFound)
-}
-
-function teamNotFoundView(h) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Team not found',
-      heading: 'Team not found',
-      message: 'This team does not exist, or you are not a member.',
-      actionHref: '/environments',
-      actionText: 'Go to your environments'
-    })
-    .code(statusCodes.notFound)
-}
-
-function environmentNotFoundView(h, teamRef) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Environment not found',
-      heading: 'Environment not found',
-      message: 'This environment does not exist or is not available yet.',
-      actionHref: teamEnvironmentsUrl(teamRef),
-      actionText: 'Back to all environments'
     })
     .code(statusCodes.notFound)
 }
@@ -127,13 +107,13 @@ export const startController = {
           : { environment: defaultTeamEnvironment() }
 
         if (!environment?.environment) {
-          return environmentNotFoundView(h, teamId)
+          return environmentNotFound(h, teamId)
         }
 
         const team = await findChosenTeam(request, teamId)
 
         if (!team) {
-          return teamNotFoundView(h)
+          return teamNotFound(h)
         }
 
         // The journey belongs to this person from here (teamJourneyOf), and

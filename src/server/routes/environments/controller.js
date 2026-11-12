@@ -12,9 +12,9 @@ import {
   statusFragmentUrl,
   wantsStatusFragment
 } from '#/server/common/helpers/status-fragment.js'
-import { loadTeamForView } from '#/server/routes/teams/team-view.js'
+import { loadTeamForView, isNotFound } from '#/server/routes/teams/team-view.js'
+import { environmentNotFound, teamNotFound } from './error-views.js'
 import {
-  isMissing,
   isUnavailable,
   readTeamEnvironment,
   readTeamEnvironments,
@@ -34,30 +34,6 @@ const ENVIRONMENT_STATUS = 'environments/partials/environment-status'
 // The most open changes one read returns (the backend's own limit).
 const MOST_OPEN_CHANGES = 50
 const RECENT_CHANGES = 10
-
-function teamNotFound(h) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Team not found',
-      heading: 'Team not found',
-      message: 'This team does not exist, or you are not a member.',
-      actionHref: '/environments',
-      actionText: 'Go to your environments'
-    })
-    .code(statusCodes.notFound)
-}
-
-function environmentNotFound(h, slug) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Environment not found',
-      heading: 'Environment not found',
-      message: 'This environment does not exist or is not available yet.',
-      actionHref: teamEnvironmentsUrl(slug),
-      actionText: 'Back to all environments'
-    })
-    .code(statusCodes.notFound)
-}
 
 function unavailable(h, { what, backHref }) {
   return h
@@ -115,7 +91,7 @@ function itemsOf(outcome) {
  * @param {{notFound: Function, what: string, backHref: string}} options
  */
 function refusal(error, request, h, { notFound, what, backHref }) {
-  if (isMissing(error)) {
+  if (isNotFound(error)) {
     return wantsStatusFragment(request)
       ? h.response().code(statusCodes.notFound)
       : notFound(h)
@@ -304,7 +280,7 @@ export const environmentsController = {
 
       return h.view('environments/overview', {
         ...context,
-        pageTitle: OVERVIEW_TITLE,
+        pageTitle: `${OVERVIEW_TITLE} - ${view.team.name}`,
         heading: OVERVIEW_TITLE,
         notification: takeAccountNotification(request),
         deployUrl: deployUrl(view.team),

@@ -14,9 +14,7 @@ const FIELDS = [
 // The text without the thousands separators and spaces people type, or null
 // when it is not a whole number.
 function wholeNumberOf(value) {
-  const digits = String(value ?? '')
-    .trim()
-    .replaceAll(',', '')
+  const digits = String(value).trim().replaceAll(',', '')
 
   return WHOLE_NUMBER.test(digits) ? Number(digits) : null
 }
