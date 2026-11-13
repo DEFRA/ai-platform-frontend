@@ -27,7 +27,7 @@
 
   <dl class="govuk-summary-list app-summary-list--table" data-testid="connection-details">
     {% for row in connection.rows %}
-      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="connection-row">
+      <div class="govuk-summary-list__row" data-testid="connection-row">
         <dt class="govuk-summary-list__key">{{ row.key }}{% if row.hint %} <span class="govuk-hint govuk-!-margin-bottom-0">{{ row.hint }}</span>{% endif %}</dt>
         <dd class="govuk-summary-list__value">{{ appCopyValue({ id: row.id, value: row.value, label: row.label }) }}</dd>
       </div>

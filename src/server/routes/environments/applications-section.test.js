@@ -353,6 +353,17 @@ describe('an environment’s applications and connection details', () => {
       ).toBe('Copy first test call')
     })
 
+    test('lets each value run to the right of its row so Copy sits at the row’s right edge', async () => {
+      backend({ environment: { connection: connectionDetails } })
+
+      const { $ } = await page()
+
+      // GOV.UK's --no-actions modifier reserves an empty actions column.
+      expect(
+        $('[data-testid="connection-row"].govuk-summary-list__row--no-actions')
+      ).toHaveLength(0)
+    })
+
     test('says the values are examples while the backend flags them a placeholder (AC22, AC25)', async () => {
       backend({ environment: { connection: connectionDetails } })
 

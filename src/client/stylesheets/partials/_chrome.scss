@@ -90,6 +90,12 @@
     font-weight: 700;
     border-bottom-color: #ffffff;
   }
+
+  // The mobile menu toggle is link blue by default, which fails contrast on
+  // the green bar; focus keeps GOV.UK's yellow style.
+  .govuk-service-navigation__toggle:not(:focus) {
+    color: #ffffff;
+  }
 }
 
 // Footer: 10px Defra green top border in place of the GOV.UK crown footer.
