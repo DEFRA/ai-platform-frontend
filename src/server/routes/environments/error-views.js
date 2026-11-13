@@ -2,6 +2,24 @@ import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { teamEnvironmentsUrl } from '#/server/common/helpers/environment-names.js'
 
 /**
+ * A page that says why something cannot be done and where to go instead.
+ * @param {import('@hapi/hapi').ResponseToolkit} h
+ * @param {{status: number, heading: string, message: string, back: {href: string, text: string}}} page
+ * @returns {import('@hapi/hapi').ResponseObject}
+ */
+export function errorPage(h, { status, heading, message, back }) {
+  return h
+    .view('error/index', {
+      pageTitle: heading,
+      heading,
+      message,
+      actionHref: back.href,
+      actionText: back.text
+    })
+    .code(status)
+}
+
+/**
  * The page for a team that does not exist or is not the person's to see: the
  * same 404 either way, with nothing about the team.
  * @param {import('@hapi/hapi').ResponseToolkit} h

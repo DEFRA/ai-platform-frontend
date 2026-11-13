@@ -24,6 +24,7 @@ import {
 } from '#/server/routes/teams/team-secret.js'
 import { teamUrl } from '#/server/routes/teams/team-view.js'
 import { buildOperationItem } from './operation-view.js'
+import { buildApplications, buildConnection } from './federation-view.js'
 
 const ACTIVE_STATUS = 'active'
 const START_URL = '/connect/team/start'
@@ -320,6 +321,7 @@ function limitsView({ team, environment, detail, isAdmin }) {
  * @param {object} params.detail - The backend's environment read.
  * @param {{open: object[], recent: object[]}} params.operations - This environment's changes.
  * @param {Record<string, string>} params.modelNames
+ * @param {Record<string, object>} [params.catalogue] - The catalogue's models by slug, for the call a model takes.
  * @param {object[] | null} params.credentials - The person's credentials, or null when they could not be read.
  * @param {Date} [params.now]
  * @returns {object}
@@ -331,6 +333,7 @@ export function buildEnvironmentPage({
   detail,
   operations,
   modelNames,
+  catalogue = {},
   credentials,
   now = new Date()
 }) {
@@ -369,6 +372,14 @@ export function buildEnvironmentPage({
           })
         : null,
     limits: limitsView({ team, environment, detail, isAdmin }),
+    applications: buildApplications({
+      team,
+      environment,
+      registryName,
+      detail,
+      isAdmin
+    }),
+    connection: buildConnection({ detail, catalogue }),
     inProgress:
       operations.open.length > 0 ||
       Boolean(detail.inProgress) ||

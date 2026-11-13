@@ -1,4 +1,4 @@
-@use "variables/colours" as *;
+@use 'variables/colours' as *;
 
 // Defra header: replaces the GOV.UK header, which branding does not allow
 // off a GOV.UK domain. See docs/flat-design-updates/v1/build-spec-v1.md.
@@ -86,9 +86,15 @@
   }
 
   .govuk-service-navigation__item--active .govuk-service-navigation__link,
-  .govuk-service-navigation__link[aria-current="page"] {
+  .govuk-service-navigation__link[aria-current='page'] {
     font-weight: 700;
     border-bottom-color: #ffffff;
+  }
+
+  // The mobile menu toggle is link blue by default, which fails contrast on
+  // the green bar; focus keeps GOV.UK's yellow style.
+  .govuk-service-navigation__toggle:not(:focus) {
+    color: #ffffff;
   }
 }
 
@@ -171,5 +177,3 @@
   border-radius: 50%;
   animation: app-spin 0.8s linear infinite;
 }
-
-

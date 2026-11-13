@@ -8,19 +8,20 @@ Last updated: 12 Nov 2026.
 
 ## What you can do
 
-| Journey                                                              | Status                                                                | Detail                                                                |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Home page, sign in with Defra Entra ID, flat Defra design            | Built (Sept 2026)                                                     | [01 Portal journeys](01-portal-journeys.md)                           |
-| Browse the model catalogue, including ineligible and retired models  | Built (Sept to Oct 2026)                                              | [04 Catalogue and gateway](04-catalogue-and-gateway.md)               |
-| Get a personal research key, renew, revoke, re-reveal with a reason  | Built, live in Infradev                                               | [02 Research tier](02-research-tier.md)                               |
-| Create a team, manage members and roles, set a service code          | Built (Sept to Oct 2026)                                              | [03 Team tier](03-team-tier.md)                                       |
-| Add a team member by searching the directory (mock until Graph)      | Built (4 Nov 2026), directory is a seeded mock                        | [03 Team tier](03-team-tier.md)                                       |
-| Request one or several dedicated models, follow the GitOps progress  | Built, live in Infradev                                               | [03 Team tier](03-team-tier.md)                                       |
-| Remove a model from a team (ready models only)                       | Built (18 Oct 2026, ready only 2 Nov 2026)                            | [03 Team tier](03-team-tier.md)                                       |
-| Rotate and revoke a team credential (Admin)                          | Built; the secret is a labelled placeholder until B18                 | [03 Team tier](03-team-tier.md)                                       |
-| Session ends after 30 minutes idle or 8 hours, with a warning        | Built (4 Nov 2026), part of B27                                       | [06 Shared services](06-shared-services-and-security.md)              |
-| See what is deployed in each environment, deploy, follow each change | Built (12 Nov 2026), B30 pages; in an open pull request, not deployed | [07 Environments and deployments](07-environments-and-deployments.md) |
-| Change a team's limits in an environment within the bounds (Admin)   | Built (12 Nov 2026), B30; in an open pull request, not deployed       | [07 Environments and deployments](07-environments-and-deployments.md) |
+| Journey                                                                                  | Status                                                                      | Detail                                                                |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Home page, sign in with Defra Entra ID, flat Defra design                                | Built (Sept 2026)                                                           | [01 Portal journeys](01-portal-journeys.md)                           |
+| Browse the model catalogue, including ineligible and retired models                      | Built (Sept to Oct 2026)                                                    | [04 Catalogue and gateway](04-catalogue-and-gateway.md)               |
+| Get a personal research key, renew, revoke, re-reveal with a reason                      | Built, live in Infradev                                                     | [02 Research tier](02-research-tier.md)                               |
+| Create a team, manage members and roles, set a service code                              | Built (Sept to Oct 2026)                                                    | [03 Team tier](03-team-tier.md)                                       |
+| Add a team member by searching the directory (mock until Graph)                          | Built (4 Nov 2026), directory is a seeded mock                              | [03 Team tier](03-team-tier.md)                                       |
+| Request one or several dedicated models, follow the GitOps progress                      | Built, live in Infradev                                                     | [03 Team tier](03-team-tier.md)                                       |
+| Remove a model from a team (ready models only)                                           | Built (18 Oct 2026, ready only 2 Nov 2026)                                  | [03 Team tier](03-team-tier.md)                                       |
+| Rotate and revoke a team credential (Admin)                                              | Built; the secret is a labelled placeholder until B18                       | [03 Team tier](03-team-tier.md)                                       |
+| Session ends after 30 minutes idle or 8 hours, with a warning                            | Built (4 Nov 2026), part of B27                                             | [06 Shared services](06-shared-services-and-security.md)              |
+| See what is deployed in each environment, deploy, follow each change                     | Built (12 Nov 2026), B30 pages; in an open pull request, not deployed       | [07 Environments and deployments](07-environments-and-deployments.md) |
+| Change a team's limits in an environment within the bounds (Admin)                       | Built (12 Nov 2026), B30; in an open pull request, not deployed             | [07 Environments and deployments](07-environments-and-deployments.md) |
+| Federate a CDP or Azure application, see connection details, change or remove it (Admin) | Built against mocks (12 Nov 2026), B18; in open pull requests, not deployed | [07 Environments and deployments](07-environments-and-deployments.md) |
 
 ## What it runs on
 
@@ -35,7 +36,7 @@ Last updated: 12 Nov 2026.
 
 ## Not built yet
 
-Team client secrets and federations (B18), the Graph switch-on for directory search, limits (B17), usage and
+Team client secrets (B18, with the real Entra apply), the Graph switch-on for directory search, limits (B17), usage and
 chargeback (B19), observability (B20 to B22), research-tier journey tests and the liveness reconcile, the
 delivery-quality work, and B28's journey tests and end-to-end check. See [remaining.md](../remaining.md).
 

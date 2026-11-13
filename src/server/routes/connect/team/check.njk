@@ -26,29 +26,36 @@
         }) }}
       {% endif %}
 
-      {{ govukSummaryList({
-        rows: [
-          {
-            key: { text: "Team" },
-            value: { text: teamName },
-            actions: { items: [{ href: teamChangeUrl, text: "Change", visuallyHiddenText: "team" }] } if teamChangeUrl
-          },
-          {
-            key: { text: "Models" if models.length > 1 else "Model" },
-            value: { text: modelNames },
-            actions: { items: [{ href: modelsChangeUrl, text: "Change", visuallyHiddenText: "models" }] }
-          },
-          {
-            key: { text: "What it is for" },
-            value: { text: purpose or "Not given" },
-            actions: { items: [{ href: purposeChangeUrl, text: "Change", visuallyHiddenText: "what it is for" }] }
-          },
-          {
-            key: { text: "Environment" },
-            value: { text: environmentName }
-          }
-        ]
-      }) }}
+      {% set summaryRows = [
+        {
+          key: { text: "Team" },
+          value: { text: teamName },
+          actions: { items: [{ href: teamChangeUrl, text: "Change", visuallyHiddenText: "team" }] } if teamChangeUrl
+        },
+        {
+          key: { text: "Models" if models.length > 1 else "Model" },
+          value: { text: modelNames },
+          actions: { items: [{ href: modelsChangeUrl, text: "Change", visuallyHiddenText: "models" }] }
+        },
+        {
+          key: { text: "What it is for" },
+          value: { text: purpose or "Not given" },
+          actions: { items: [{ href: purposeChangeUrl, text: "Change", visuallyHiddenText: "what it is for" }] }
+        },
+        {
+          key: { text: "Environment" },
+          value: { text: environmentName }
+        }
+      ] %}
+      {# Set up from another environment: the CDP services to federate there once the models are set up (choice B). #}
+      {% if federateServices %}
+        {% set summaryRows = (summaryRows.push({
+          key: { text: "CDP services to federate" },
+          value: { text: federateServices | join(", ") if federateServices.length else "None" },
+          actions: { items: [{ href: federateChangeUrl, text: "Change", visuallyHiddenText: "the CDP services to federate" }] }
+        }), summaryRows) %}
+      {% endif %}
+      {{ govukSummaryList({ rows: summaryRows }) }}
 
       <h2 class="govuk-heading-m">Now request access</h2>
       <p class="govuk-body">We will set up a deployment of {{ modelNames }} for your team. It usually takes about 2 minutes, and you can leave the page while it happens.</p>

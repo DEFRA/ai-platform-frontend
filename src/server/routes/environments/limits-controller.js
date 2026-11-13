@@ -14,7 +14,7 @@ import {
   setPendingLimits
 } from '#/server/common/helpers/session.js'
 import { isNotFound, loadTeamForView } from '#/server/routes/teams/team-view.js'
-import { environmentNotFound, teamNotFound } from './error-views.js'
+import { environmentNotFound, errorPage, teamNotFound } from './error-views.js'
 import {
   isUnavailable,
   putTeamLimits,
@@ -38,18 +38,6 @@ const confirmSchema = Joi.object({
 
 function limitsUrl(slug, environment) {
   return `${environmentPageUrl(slug, environment)}/limits`
-}
-
-function errorPage(h, { status, heading, message, back }) {
-  return h
-    .view('error/index', {
-      pageTitle: heading,
-      heading,
-      message,
-      actionHref: back.href,
-      actionText: back.text
-    })
-    .code(status)
 }
 
 function adminRequired(h, { slug, environment }) {

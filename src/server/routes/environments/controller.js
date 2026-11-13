@@ -27,6 +27,8 @@ import {
   deployUrl
 } from './environment-view.js'
 import { buildOperationItem } from './operation-view.js'
+import { environmentHasRoom } from './federation-view.js'
+import { federateUrl } from './federation-urls.js'
 
 const OVERVIEW_TITLE = 'Environments and deployments'
 const OVERVIEW_STATUS = 'environments/partials/overview-status'
@@ -74,6 +76,12 @@ function modelNamesOf(catalogue) {
       model.slug,
       model.displayName
     ])
+  )
+}
+
+function modelsBySlug(catalogue) {
+  return Object.fromEntries(
+    (catalogue.value?.items ?? []).map((model) => [model.slug, model])
   )
 }
 
@@ -147,6 +155,9 @@ async function loadOverview(request) {
   return {
     team,
     changeTeamUrl: (itemsOf(teams)?.length ?? 0) > 1 ? '/environments' : null,
+    federateUrl: environments.environments.some(environmentHasRoom)
+      ? federateUrl(team.slug)
+      : null,
     cards: buildCards({
       team,
       summaries: environments.environments,
@@ -211,6 +222,7 @@ async function loadEnvironment(request, environment) {
       detail,
       operations: { open: itemsOf(open) ?? [], recent: itemsOf(recent) ?? [] },
       modelNames: modelNamesOf(catalogue),
+      catalogue: modelsBySlug(catalogue),
       credentials: itemsOf(credentials)
     }),
     team,

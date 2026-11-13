@@ -9,6 +9,11 @@ import {
   getPendingLimits,
   setPendingLimits,
   clearPendingLimits,
+  getPendingFederation,
+  setPendingFederation,
+  clearPendingFederation,
+  getRequestedFederation,
+  addRequestedFederation,
   getRequestedDeployments,
   setRequestedDeployments,
   resetSession,
@@ -50,6 +55,39 @@ describe('#session helpers', () => {
 
     clearPendingLimits(request)
     expect(getPendingLimits(request)).toBeUndefined()
+  })
+
+  test('keeps the application a person is federating until it is cleared', () => {
+    const request = mockRequest()
+
+    expect(getPendingFederation(request)).toBeUndefined()
+
+    setPendingFederation(request, { key: 'k', host: 'cdp' })
+    expect(getPendingFederation(request)).toEqual({ key: 'k', host: 'cdp' })
+
+    clearPendingFederation(request)
+    expect(getPendingFederation(request)).toBeUndefined()
+  })
+
+  test('remembers each application just federated by its own id, for the page that follows it, and the latest few only', () => {
+    const request = mockRequest()
+
+    expect(getRequestedFederation(request, 'a')).toBeUndefined()
+
+    addRequestedFederation(request, 'a', { name: 'flood-api' })
+    addRequestedFederation(request, 'b', { name: 'flood-worker' })
+
+    expect(getRequestedFederation(request, 'a')).toEqual({ name: 'flood-api' })
+    expect(getRequestedFederation(request, 'b')).toEqual({
+      name: 'flood-worker'
+    })
+
+    for (const id of ['c', 'd', 'e', 'f']) {
+      addRequestedFederation(request, id, { name: id })
+    }
+
+    expect(getRequestedFederation(request, 'a')).toBeUndefined()
+    expect(getRequestedFederation(request, 'f')).toEqual({ name: 'f' })
   })
 
   test('keeps the tokens in the session, and reading them on a request with no session store is safe', () => {

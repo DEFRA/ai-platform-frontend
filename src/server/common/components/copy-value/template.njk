@@ -1,0 +1,11 @@
+{#
+  params.id: the id of the element holding the value
+  params.value: the text to show and to copy
+  params.label: what the value is, for the Copy button's accessible name
+  The value is always in the page. "Copy" is an enhancement: application.js
+  reveals the button (hidden by default) and copies the text it points at.
+#}
+<span class="app-copy-value">
+  <span class="app-copy-value__text" id="{{ params.id }}">{{ params.value }}</span>
+  <button type="button" class="govuk-link app-copy-value__button" data-copy-target="{{ params.id }}" hidden>Copy<span class="govuk-visually-hidden"> {{ params.label }}</span></button>
+</span>

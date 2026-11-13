@@ -2,14 +2,23 @@
 
 {% from "govuk/components/panel/macro.njk" import govukPanel %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 
 {% block content %}
+  {% include "partials/team-notification.njk" %}
+
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {{ govukPanel({
         titleText: heading,
         text: "for " + teamName + ", in " + environmentName,
         attributes: { "data-testid": "ready-panel" }
+      }) }}
+
+      {% set federateHtml %}Federate each CDP service that will call {{ modelNames }}, so it needs no stored secret. <a class="govuk-link" href="{{ federateUrl }}">Create Passwordless Credential</a>{% endset %}
+      {{ govukInsetText({
+        html: federateHtml,
+        attributes: { "data-testid": "federate-recommendation" }
       }) }}
 
       <h2 class="govuk-heading-m">Get your client secret</h2>

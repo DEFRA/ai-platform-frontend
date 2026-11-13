@@ -8,6 +8,7 @@ import {
   setPendingAccess,
   setRequestedDeployments
 } from '#/server/common/helpers/session.js'
+import { federateAfterRequest } from '#/server/routes/environments/federation-follow-up.js'
 import {
   buildErrorSummary,
   buildFieldErrors
@@ -38,8 +39,10 @@ import {
   detailsView,
   environmentUnavailableView,
   modelStepView,
+  redirectToServices,
   redirectToStart,
-  selectView
+  selectView,
+  servicesUnanswered
 } from './team-views.js'
 import {
   findChosenTeam,
@@ -378,6 +381,10 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        if (servicesUnanswered(pendingAccess)) {
+          return redirectToServices(h, pendingAccess)
+        }
+
         return checkAnswersView(request, h, pendingAccess)
       }
     },
@@ -396,6 +403,10 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        if (servicesUnanswered(pendingAccess)) {
+          return redirectToServices(h, pendingAccess)
+        }
+
         const { teamSlug, modelSlugs, environment, purpose, requestKey } =
           pendingAccess
 
@@ -407,13 +418,35 @@ export const teamConnectController = {
             { modelSlugs, environment, ...(purpose && { purpose }) },
             { idempotencyKey: requestKey }
           )
+          const ids = deployments.map(({ _id }) => _id)
 
           // Made: the journey is over, and its answers must not seed the next.
-          setRequestedDeployments(request, {
-            teamSlug,
-            ids: deployments.map(({ _id }) => _id)
-          })
-          clearPendingAccess(request)
+          setRequestedDeployments(request, { teamSlug, ids })
+
+          // The CDP services confirmed for the environment just requested
+          // (choice B) are asked for as that environment's own changes, after
+          // the request. A refusal is said on the page that follows; it never
+          // undoes the request. It goes with the request it belongs to, so
+          // only that request's page shows it, whether it is waiting, ready
+          // or failed.
+          const { notification: followUp, unresolved } =
+            await federateAfterRequest(request, {
+              teamSlug,
+              environment,
+              services: pendingAccess.federateServices ?? []
+            })
+
+          if (followUp) {
+            setRequestedDeployments(request, { teamSlug, ids, followUp })
+          }
+
+          // An add whose outcome is not known may be queued already: the
+          // answers and the keys stay, so asking again from the check page
+          // is the same request, replayed, not a second one. They go once
+          // every outcome is known, or when another journey starts.
+          if (!unresolved) {
+            clearPendingAccess(request)
+          }
 
           return h
             .redirect(

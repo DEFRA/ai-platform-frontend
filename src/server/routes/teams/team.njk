@@ -1,6 +1,7 @@
 {% extends 'layouts/page.njk' %}
 
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
+{% from "section-card/macro.njk" import appSectionCard %}
 
 {% block content %}
   {% include "partials/team-notification.njk" %}
@@ -15,7 +16,7 @@
     <div class="govuk-grid-column-full">
       {{ appSubNavigation({ items: tabs, label: "Team" }) }}
 
-      <h2 class="govuk-heading-m">Models your team uses</h2>
+      {% call appSectionCard({ title: "Models your team uses", attributes: { "data-testid": "section-team-models" } }) %}
       {% if unavailable %}
         <p class="govuk-body" data-testid="overview-unavailable">We could not read this team’s environments just now. <a class="govuk-link" href="{{ teamUrl }}">Try again</a>.</p>
       {% elif models.length %}
@@ -27,8 +28,9 @@
       {% else %}
         <p class="govuk-body" data-testid="team-models-none">No models yet.</p>
       {% endif %}
+      {% endcall %}
 
-      <h2 class="govuk-heading-m">Environments and deployments</h2>
+      {% call appSectionCard({ title: "Environments and deployments", attributes: { "data-testid": "section-team-environments" } }) %}
       {% if not unavailable %}
         <dl class="govuk-summary-list app-summary-list--table">
           {% for environment in environments %}
@@ -39,9 +41,10 @@
           {% endfor %}
         </dl>
       {% endif %}
-      <p class="govuk-body">
+      <p class="govuk-body govuk-!-margin-top-4">
         <a class="govuk-link" href="{{ environmentsUrl }}" data-testid="view-environments">View environments and deployments</a>
       </p>
+      {% endcall %}
     </div>
   </div>
 {% endblock %}

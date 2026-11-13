@@ -111,6 +111,34 @@ describe('describeChange', () => {
     })
   })
 
+  test('describes a federation change by its application, and falls back to applications when none is named', () => {
+    const describeFederation = (change, application) =>
+      describeChange(
+        operation({
+          kind: 'federation',
+          changes: [{ kind: 'federation', change, application }]
+        }),
+        modelNames
+      )
+    const application = { name: 'flood-api', host: 'cdp', service: 'flood-api' }
+
+    expect(describeFederation('add', application)).toEqual({
+      plain: 'Create a passwordless credential for flood-api',
+      progressive: 'Creating a passwordless credential for flood-api'
+    })
+    expect(describeFederation('change', application)).toEqual({
+      plain: 'Change flood-api',
+      progressive: 'Changing flood-api'
+    })
+    expect(describeFederation('remove', application)).toEqual({
+      plain: 'Remove flood-api',
+      progressive: 'Removing flood-api'
+    })
+    expect(describeFederation('remove', undefined).plain).toBe(
+      'Change applications'
+    )
+  })
+
   test('joins a mixed change and names an unknown kind plainly', () => {
     expect(
       describeChange(

@@ -323,13 +323,15 @@ expires on {date}. Go to Your access" or "You have no keys of your own." Remove 
 
 Design F `#environments`, figures F2 to F4; built in [../../plans/implemented/07-environments-and-deployments.md](../../plans/implemented/07-environments-and-deployments.md).
 
-| Step | Route                                      | Page                                                                                   | Next                                    |
-| ---- | ------------------------------------------ | -------------------------------------------------------------------------------------- | --------------------------------------- |
-| 1    | `/environments`                            | The person's own teams; one team redirects; none offers "Create a team"                | 2                                       |
-| 2    | `/environments/{team}`                     | "Deploy a model", a card per environment, Changes in progress, Recent changes          | 3, request journey                      |
-| 3    | `/environments/{team}/{env}`               | Strip with this environment current; changes, Models, Limits, Recent changes           | limits, request journey, remove, secret |
-| 4    | `.../limits`, `.../limits/check`           | Admin: tokens and requests a minute, check answers, one change; Member 403             | 3 with a banner and progress            |
-| 5    | `/connect/team/start?teamId=&environment=` | Request journey with the team and environment chosen (no team or environment question) | model, details, check, wait page        |
+| Step | Route                                           | Page                                                                                   | Next                                              |
+| ---- | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 1    | `/environments`                                 | The person's own teams; one team redirects; none offers "Create a team"                | 2                                                 |
+| 2    | `/environments/{team}`                          | "Deploy a model", a card per environment, Changes in progress, Recent changes          | 3, request journey                                |
+| 3    | `/environments/{team}/{env}`                    | Strip with this environment current; changes, Models, Limits, Applications, Recent     | limits, Federate, request journey, remove, secret |
+| 4    | `.../limits`, `.../limits/check`                | Admin: tokens and requests a minute, check answers, one change; Member 403             | 3 with a banner and progress                      |
+| 5    | `/connect/team/start?teamId=&environment=`      | Request journey with the team and environment chosen (no team or environment question) | model, details, check, wait page                  |
+| 6    | `/environments/{team}/federate/...`             | B18: where it runs, CDP service or Azure ID and name, environments, check, progress    | 3 (Ready: connection details)                     |
+| 7    | `.../{env}/applications/{id}/change`, `/remove` | B18, Admin: change asks the questions again; remove warns first                        | 3 with a banner                                   |
 
 The service navigation reads Model catalogue, Personal access, Teams, Environments and Help. The Teams page's tabs are
 Overview, Members and Details.

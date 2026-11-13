@@ -1,0 +1,55 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+
+  {{ appHeading({
+    text: heading,
+    caption: caption,
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {{ govukWarningText({
+        text: applicationName + " will stop getting new tokens in " + environmentName + ". Tokens it already has work until they expire, within 90 minutes.",
+        iconFallbackText: "Warning",
+        attributes: { "data-testid": "remove-warning" }
+      }) }}
+
+      <p class="govuk-body">Removing takes a few minutes. Your other environments are not changed, and your team’s client ID stays the same.</p>
+
+      <form method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Remove " + applicationName,
+            classes: "govuk-button--warning",
+            preventDoubleClick: true
+          }) }}
+          <a class="govuk-link" href="{{ cancelUrl }}" data-testid="cancel-remove">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

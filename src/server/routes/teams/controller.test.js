@@ -523,6 +523,33 @@ describe('#teamsController', () => {
       )
     })
 
+    test('puts the models and the environments each in a summary card under its heading', async () => {
+      backend()
+
+      const $ = load((await get(TEAM_URL)).result)
+
+      for (const [title, inside] of [
+        ['Models your team uses', '[data-testid="team-models"]'],
+        ['Environments and deployments', '[data-testid="overview-environment"]']
+      ]) {
+        const card = $('.govuk-summary-card.app-section-card').filter(
+          (_, element) =>
+            $(element)
+              .find('.govuk-summary-card__title-wrapper > h2')
+              .text()
+              .trim() === title
+        )
+
+        expect(card).toHaveLength(1)
+        expect(card.find(inside).length).toBeGreaterThan(0)
+      }
+
+      expect($('main h2.govuk-heading-m')).toHaveLength(0)
+      expect($('a[data-testid="view-environments"]').attr('href')).toBe(
+        `/environments/${sampleTeam.slug}`
+      )
+    })
+
     test('lists the models the team uses, by name, with what is happening to each', async () => {
       backend({
         [`GET ${ENVIRONMENTS_PATH}`]: environmentsRead([

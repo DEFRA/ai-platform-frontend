@@ -235,7 +235,12 @@ describe('#environmentsController', () => {
 
       expect(text(infradev, '.govuk-summary-card__title')).toContain('Infradev')
       expect(text(infradev, '[data-testid="card-tag"]')).toBe('Available')
-      expect(text(infradev, '.govuk-summary-list')).toContain('Models 2')
+      expect(
+        infradev.find('.app-environment-card__status [data-testid="card-tag"]')
+      ).toHaveLength(1)
+      expect(text(infradev, '.app-environment-card__subtitle')).toBe(
+        'Development'
+      )
       expect(text(infradev, '.govuk-summary-list')).toContain(
         'Applications 0 of 20'
       )
@@ -265,7 +270,7 @@ describe('#environmentsController', () => {
       }
     })
 
-    test('offers Deploy a model with the team already chosen, and no Create Passwordless Credential action yet', async () => {
+    test('offers Deploy a model with the team already chosen, and Create Passwordless Credential while an environment has room', async () => {
       backend()
 
       const $ = pageOf((await get(OVERVIEW_URL)).result)
@@ -275,7 +280,12 @@ describe('#environmentsController', () => {
       expect(deploy.attr('href')).toBe(
         `/connect/team/start?teamId=${sampleTeam.slug}`
       )
-      expect(text($, 'main')).not.toContain('Create Passwordless Credential')
+      expect($('a[data-testid="federate-an-application"]').attr('href')).toBe(
+        `${OVERVIEW_URL}/federate`
+      )
+      expect($('a[data-testid="federate-an-application"]').text().trim()).toBe(
+        'Create Passwordless Credential'
+      )
     })
 
     test('lays the environment cards side by side, and puts the changes in progress and the recent changes in cards of their own, across the full width', async () => {
@@ -321,6 +331,46 @@ describe('#environmentsController', () => {
       ).toHaveLength(0)
     })
 
+    test('makes Create Passwordless Credential green like Deploy a model', async () => {
+      backend()
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+      const federate = $('a[data-testid="federate-an-application"]')
+      const deploy = $('a[data-testid="deploy-a-model"]')
+
+      expect(federate.attr('class')).toBe(deploy.attr('class'))
+      expect(federate.hasClass('govuk-button--secondary')).toBe(false)
+    })
+
+    test('scrolls the recent changes in a named region, and gives the Change column secondary text', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/operations`]: operationsAnswer({
+          recent: [doneOperation(), failedOperation()]
+        })
+      })
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+      const region = $(
+        '[data-testid="section-recent"] .govuk-summary-card__content > .app-section-card__scroll'
+      )
+
+      expect(region.attr('tabindex')).toBe('0')
+      expect(region.attr('role')).toBe('region')
+      expect(region.attr('aria-label')).toBe('Recent changes')
+      expect(region.find('table[data-testid="recent-changes"]')).toHaveLength(1)
+
+      const rows = $('[data-testid="recent-change"]')
+
+      expect(rows.length).toBeGreaterThan(0)
+      rows.each((_, row) => {
+        const cells = $(row).children('td')
+
+        expect(cells.eq(1).hasClass('app-secondary-text')).toBe(true)
+        expect(cells.eq(0).hasClass('app-secondary-text')).toBe(false)
+        expect(cells.eq(2).hasClass('app-secondary-text')).toBe(false)
+      })
+    })
+
     test('right aligns the actions above the cards', async () => {
       backend({ 'GET /v1/teams': { items: [sampleTeam, coastal] } })
 
@@ -335,6 +385,32 @@ describe('#environmentsController', () => {
           .find('a[data-testid="deploy-a-model"]')
           .hasClass('govuk-!-margin-bottom-0')
       ).toBe(true)
+    })
+
+    test('keeps no Create Passwordless Credential action when every environment is full or not set up', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary({ applications: { used: 20, limit: 20 } })
+        ])
+      })
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+
+      expect($('a[data-testid="federate-an-application"]')).toHaveLength(0)
+    })
+
+    test('shows each environment’s applications out of 20 on its card', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary({ applications: { used: 3, limit: 20 } })
+        ])
+      })
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+
+      expect(text($, '[data-testid="environment-card-infradev"]')).toContain(
+        'Applications 3 of 20'
+      )
     })
 
     test('shows Change team only to a person with more than one team', async () => {
@@ -600,7 +676,13 @@ describe('#environmentsController', () => {
             text($(card), '.govuk-summary-card__title-wrapper > h2')
           )
           .get()
-      ).toEqual(['Changes in progress', 'Models', 'Limits', 'Recent changes'])
+      ).toEqual([
+        'Changes in progress',
+        'Models',
+        'Limits',
+        'Applications',
+        'Recent changes'
+      ])
       expect($('.govuk-heading-l')).toHaveLength(0)
       expect(status.closest('.govuk-grid-column-two-thirds')).toHaveLength(0)
       expect(

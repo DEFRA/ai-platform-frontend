@@ -1,0 +1,39 @@
+﻿@use 'govuk-frontend' as *;
+
+// A value a person copies into their own code, with "Copy" at the right of its
+// row. The value wraps anywhere, so a long address or ID fits at 320 px
+// (WCAG 1.4.10), and Copy drops under it when there is no room. Copy is a
+// button, so it takes the link colours itself: a button never gets GOV.UK's
+// `a:link` rules.
+.app-copy-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: govuk-spacing(1) govuk-spacing(3);
+}
+
+.app-copy-value__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-copy-value__button {
+  @include govuk-font($size: 19);
+
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: $govuk-link-colour;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover {
+    color: $govuk-link-hover-colour;
+  }
+
+  &:focus {
+    @include govuk-focused-text;
+  }
+}

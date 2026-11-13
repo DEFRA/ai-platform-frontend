@@ -1,0 +1,55 @@
+{#
+  Connection details: what an application needs to get a token and make a first
+  call, for every member of the team (choice D). Context: connection (rows,
+  placeholder, token), heading (the environment's name). Outside the page's
+  polite live region, so the Copy buttons application.js reveals stay wired.
+  Every value is in the page without script; Copy is an enhancement.
+#}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "copy-value/macro.njk" import appCopyValue %}
+{% from "section-card/macro.njk" import appSectionCard %}
+
+{% macro codeBlock(id, text, label) %}
+  <p class="app-code-examples__actions"><button type="button" class="govuk-link app-copy-value__button" data-copy-target="{{ id }}" hidden>Copy<span class="govuk-visually-hidden"> {{ label }}</span></button></p>
+  <pre class="govuk-body app-code-examples__pre" id="{{ id }}" tabindex="0" data-testid="{{ id }}"><code>{{ text }}</code></pre>
+{% endmacro %}
+
+{% if connection %}
+  {% call appSectionCard({ title: "Connection details", attributes: { id: "connection-details", "data-testid": "section-connection" } }) %}
+  {% if connection.placeholder %}
+    {{ govukInsetText({
+      html: "<strong>These are example values.</strong> They work once the platform’s Entra set-up is finished.",
+      attributes: { "data-testid": "connection-placeholder-notice" }
+    }) }}
+  {% endif %}
+  <p class="govuk-body">Everyone in your team can see these values. None of them is a secret.</p>
+
+  <dl class="govuk-summary-list app-summary-list--table" data-testid="connection-details">
+    {% for row in connection.rows %}
+      <div class="govuk-summary-list__row" data-testid="connection-row">
+        <dt class="govuk-summary-list__key">{{ row.key }}{% if row.hint %} <span class="govuk-hint govuk-!-margin-bottom-0">{{ row.hint }}</span>{% endif %}</dt>
+        <dd class="govuk-summary-list__value app-secondary-text">{{ appCopyValue({ id: row.id, value: row.value, label: row.label }) }}</dd>
+      </div>
+    {% endfor %}
+  </dl>
+
+  {% set tokenHtml %}
+    <p class="govuk-body">Your application asks Microsoft Entra for an access token, then sends it to the gateway with each call. Tokens expire, so ask for a new one when it does.</p>
+    <h3 class="govuk-heading-s">1. Ask for a token</h3>
+    <p class="govuk-body">Use the <a class="govuk-link" href="https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow">client credentials grant</a>. A CDP service proves who it is with a token from AWS (audience <code>{{ connection.token.audience }}</code>) in place of a secret.</p>
+    {{ codeBlock("connection-token-request", connection.token.request, "the token request") }}
+    <h3 class="govuk-heading-s">2. Make a first call</h3>
+    <p class="govuk-body">This call returns your client ID, your team, its access window and the models granted to you, without calling a model. If it works, your passwordless credential and the team’s access are in place.</p>
+    {{ codeBlock("connection-token-whoami", connection.token.whoami, "the first call") }}
+    <h3 class="govuk-heading-s">3. Call a model</h3>
+    <p class="govuk-body">Use the model’s name from the catalogue. The gateway needs the access token only: no key and no <code>api-version</code>.</p>
+    {{ codeBlock("connection-token-model", connection.token.model, "the model call") }}
+  {% endset %}
+  {{ govukDetails({
+    summaryText: "How to get a token",
+    html: tokenHtml,
+    attributes: { id: "how-to-get-a-token", "data-testid": "how-to-get-a-token" }
+  }) }}
+  {% endcall %}
+{% endif %}

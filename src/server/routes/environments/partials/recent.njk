@@ -8,7 +8,7 @@
 {% from "environments/partials/failure.njk" import failureDetail %}
 {% from "section-card/macro.njk" import appSectionCard %}
 
-{% call appSectionCard({ title: "Recent changes", attributes: { "data-testid": "section-recent" } }) %}
+{% call appSectionCard({ title: "Recent changes", scrollable: true, attributes: { "data-testid": "section-recent" } }) %}
 {% if changesUnavailable %}
   <p class="govuk-body">We could not read the changes just now.</p>
 {% elif recent.length %}
@@ -25,7 +25,7 @@
       {% for item in recent %}
         <tr class="govuk-table__row" data-testid="recent-change">
           <td class="govuk-table__cell">{{ item.when }}</td>
-          <td class="govuk-table__cell">{{ item.change }}{% if showEnvironment %} in {{ item.environmentName }}{% endif %}</td>
+          <td class="govuk-table__cell app-secondary-text">{{ item.change }}{% if showEnvironment %} in {{ item.environmentName }}{% endif %}</td>
           <td class="govuk-table__cell">
             <strong class="govuk-tag {{ item.result.tagClass }}">{{ item.result.text }}</strong>
             {{ failureDetail(item.failure) }}

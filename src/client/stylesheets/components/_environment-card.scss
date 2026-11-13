@@ -1,19 +1,79 @@
-@use "govuk-frontend" as *;
+@use 'govuk-frontend' as *;
 
 // An environment the team cannot use yet keeps its card, greyed with a dashed
 // border, so the layout does not change when it opens. The text stays dark
 // enough to read (dark grey on white is 7:1); only the card title and border
 // step back. The card's own classes are targeted, never GOV.UK's.
 .app-environment-card--unavailable {
-  border: 1px dashed govuk-colour("dark-grey");
+  border: 1px dashed govuk-colour('dark-grey');
 
   .app-environment-card__title-wrapper {
-    background-color: govuk-colour("light-grey");
+    background-color: govuk-colour('light-grey');
   }
 
   .app-environment-card__title,
   .app-environment-card__content {
-    color: govuk-colour("dark-grey");
+    color: govuk-colour('dark-grey');
+  }
+}
+
+// An environment card is narrow (four across), so its rows use the whole width
+// of the card, not GOV.UK's 30, 50 and 20 percent columns (the last an empty
+// cell on a row with no actions), which clamp the text into a sliver. Each row
+// is its name over its value, and both wrap.
+.app-environment-card__content {
+  .govuk-summary-list {
+    display: block;
+    width: 100%;
+  }
+
+  .govuk-summary-list__row {
+    display: block;
+    width: 100%;
+
+    &::after {
+      display: none;
+    }
+  }
+
+  .govuk-summary-list__key,
+  .govuk-summary-list__value {
+    display: block;
+    width: 100%;
+    padding-right: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .govuk-summary-list__key {
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .govuk-summary-list__value {
+    padding-top: 0;
+  }
+}
+
+// The display name (Development, Test...) sits on its own line under the
+// environment's name, smaller and in regular weight.
+.app-environment-card__subtitle {
+  @include govuk-font($size: 16, $weight: regular);
+
+  display: block;
+}
+
+// The availability label sits in a grey band under the title, across the
+// whole card. The label is 16px and stays on one line.
+.app-environment-card__status {
+  padding: govuk-spacing(2) govuk-spacing(4);
+  background-color: govuk-colour('light-grey');
+  border-top: 1px solid $govuk-border-colour;
+
+  .govuk-tag {
+    @include govuk-font($size: 16, $weight: bold);
+
+    padding: 1px govuk-spacing(1);
+    white-space: nowrap;
   }
 }
 
