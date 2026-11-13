@@ -289,6 +289,9 @@ status, and "Can be removed from {date}" when pending removal); H2 "Members", bu
 remove pages over the admin routes. Adding yourself is refused ("You cannot add yourself to a team"). Warning on remove:
 "Removing someone does not change the team's credentials. Ask a team admin to rotate or revoke them if this person had a
 copy." Allowed for a team in any status. Built in [08 Platform admin](../../plans/implemented/08-platform-admin.md).
+Since the Deployments tab (13 Nov 2026) the warning reads: "Removing someone does not change the team's credentials. If
+this person had a copy, revoke the team's credentials. A Platform Admin cannot rotate them." with the link "View the
+team's deployments" under it.
 
 ### 9a-2. Platform Admin: Audit log (design F7, B31)
 
@@ -300,7 +303,39 @@ affected and reason beneath) | Team | Environment | Outcome (tag Done, Failed or
 focusable scroll region with a hidden caption; "Showing x to y of z events. Events are kept for N days."; pagination keeps the
 filters. No match: "No events match", the days kept, "Clear filters". A wrong filter: error summary, inline errors, title
 "Error: ...". The team page links to it with "View audit log" (`/admin/audit?team={id}`). Credential events carry no team
-until B18 passes it (deferred, DF1).
+until B18 passes it (deferred, DF1). The labels cover `admin.credentials.disable`, `.enable` and `.revoke`.
+
+### 9a-3. Platform Admin: Deployments (design F6, B31)
+
+Third tab of the Admin area (Teams, Deployments, Audit log), built 13 Nov 2026 for non-federated credentials.
+
+**`/admin/deployments?environment=`**: caption "Admin", H1 "Deployments", environment nav of links (current marked
+`aria-current`). GET form "Filter the deployments in {environment}": "Team name" (hint "Enter at least 2 characters"),
+selects Model, Status (All statuses, Ready, Setting up, Waiting, Removing, Needs attention) and Credential (All
+credentials, Active, Disabled, Revoked, None), button "Apply filters", "Clear filters" when filtered. Table Team (link) |
+Models | Status (tag) | Credential (tag) | Last change (UK time), 25 to a page, in a focusable scroll region with a hidden
+caption; "Showing x to y of z deployments in {environment}"; pagination keeps the filters. No match: "No deployments
+match" with Clear filters. A wrong filter: error summary, inline errors, title "Error: ...".
+
+**`/admin/deployments/{teamId}/{environment}`**: caption environment, H1 team name, status tag. Summary list Credential
+(tag; "Disabled on {date}"), Members (count and View team), Team status. Buttons "Disable credentials" (secondary) or
+"Enable credentials", and "Revoke credentials" (red), only where offered; "View activity" to
+`/admin/audit?team={id}&environment={env}`. H2 "Deployment health": table Model | Status | Detail | Updated | Actions
+("Reconcile {model}", "Retry {model}" only when the backend says it can be retried; "The team must request this model
+again." for `checks-failed`, differing from F6 note 3). A success banner after Reconcile or Retry; a refused Retry shows
+the detail page with an error summary. "This team in each environment" links the other environments.
+
+**`.../credentials/disable`, `/revoke`, `/enable`**: H1 "Disable credentials", "Revoke credentials" or "Enable
+credentials"; "Which environments?" checkboxes (current ticked; the choice is in the address `?environments=`); none
+ticked: error summary "Choose at least one environment". Disable and Revoke continue to **`.../reason`**: H1 "{Action}
+in {environments}", the effect ("The team cannot create new credentials or view or rotate its secrets in these
+environments. The team is not told why." or "Revoking cannot be undone. The secrets are deleted. The team is not told
+why."), character count "Reason" (500; hint "This is saved in the audit log. The team cannot see it."), warning "Do not
+include names or contact details.", button "Disable credentials" (secondary) or "Revoke credentials" (red), "Cancel".
+Then **`.../disabled`** or **`.../revoked`**: panel "Credentials disabled" or "Credentials revoked". Enable acts at once
+and returns to the detail page with a banner. If one environment fails: H1 "We could not {disable or revoke} the
+credentials in {environments}", what did complete, "Try again". Design F's "within 60 seconds" copy returns with phase
+4's gateway effect.
 
 ### 10. Details and create a team (16, 17, 18)
 

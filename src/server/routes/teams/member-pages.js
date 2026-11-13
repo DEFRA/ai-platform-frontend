@@ -77,12 +77,21 @@ export function noErrors() {
  * @param {string} page.backUrl - Where Back goes.
  * @param {string} page.cancelUrl - Where Cancel goes.
  * @param {string} page.warningText - What removing them leaves undone.
+ * @param {{text: string, href: string}} [page.warningLink] - A link under the warning.
  * @param {{errorSummary: object[] | null, fieldErrors: object}} [page.errors]
  * @returns {import('@hapi/hapi').ResponseObject}
  */
 export function removeMemberView(
   h,
-  { team, member, backUrl, cancelUrl, warningText, errors = noErrors() }
+  {
+    team,
+    member,
+    backUrl,
+    cancelUrl,
+    warningText,
+    warningLink,
+    errors = noErrors()
+  }
 ) {
   const heading = `Remove ${member.displayName} from ${team.name}?`
 
@@ -93,6 +102,7 @@ export function removeMemberView(
     backUrl,
     cancelUrl,
     warningText,
+    warningLink,
     buttonText: `Remove ${member.displayName}`,
     ...errors
   })

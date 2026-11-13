@@ -2,6 +2,7 @@
   The warning and the buttons of the page that removes a person from a team
   (screen 15). The warning's box is where an error on this page points to.
   params.warningText: what removing the person leaves undone
+  params.warningLink: optional { text, href }, a link under the warning
   params.buttonText: the red button, "Remove <name>"
   params.cancelUrl: where Cancel goes
   params.crumb: the CSRF token, which a macro cannot read from the page
@@ -14,6 +15,11 @@
     text: params.warningText,
     iconFallbackText: "Warning"
   }) }}
+  {% if params.warningLink %}
+    <p class="govuk-body">
+      <a class="govuk-link" href="{{ params.warningLink.href }}" data-testid="remove-member-warning-link">{{ params.warningLink.text }}</a>
+    </p>
+  {% endif %}
 </div>
 
 <form method="post" novalidate>

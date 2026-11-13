@@ -1,0 +1,154 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "sub-navigation/macro.njk" import appSubNavigation %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+
+  {{ appHeading({
+    text: heading,
+    caption: "Admin",
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+      {{ appSubNavigation({ items: environmentTabs, label: "Environment" }) }}
+
+      {# A GET form, so a filter is an address that can be shared and works without script. The environment is kept with a hidden field. #}
+      <form method="get" action="/admin/deployments" aria-labelledby="filter-heading" novalidate>
+        <h2 class="govuk-heading-m" id="filter-heading" tabindex="-1">Filter the deployments{% if environmentLabel %} in {{ environmentLabel }}{% endif %}</h2>
+        {% if environment %}
+          <input type="hidden" name="environment" value="{{ environment }}">
+        {% endif %}
+
+        {{ govukInput({
+          id: "search",
+          name: "search",
+          value: values.search,
+          autocomplete: "off",
+          spellcheck: false,
+          classes: "govuk-!-width-two-thirds",
+          label: { text: "Team name", classes: "govuk-label--s" },
+          hint: { text: "Enter at least 2 characters" },
+          errorMessage: fieldErrors.search
+        }) }}
+
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-third">
+            {{ govukSelect({
+              id: "model",
+              name: "model",
+              label: { text: "Model", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              items: modelItems,
+              errorMessage: fieldErrors.model
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-third">
+            {{ govukSelect({
+              id: "status",
+              name: "status",
+              label: { text: "Status", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              items: statusItems,
+              errorMessage: fieldErrors.status
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-third">
+            {{ govukSelect({
+              id: "credential",
+              name: "credential",
+              label: { text: "Credential", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              items: credentialItems,
+              errorMessage: fieldErrors.credential
+            }) }}
+          </div>
+        </div>
+
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Apply filters",
+            preventDoubleClick: true,
+            attributes: { "data-testid": "deployments-apply" }
+          }) }}
+          {% if filtered %}
+            <a class="govuk-link" href="{{ clearUrl }}" data-testid="deployments-clear">Clear filters</a>
+          {% endif %}
+        </div>
+      </form>
+
+      {% if searched %}
+        {% if total == 0 %}
+          <div data-testid="deployments-empty">
+            {% if filtered %}
+              <h2 class="govuk-heading-m">No deployments match</h2>
+              <p class="govuk-body"><a class="govuk-link" href="{{ clearUrl }}">Clear filters</a> to see every deployment in {{ environmentLabel }}.</p>
+            {% else %}
+              <h2 class="govuk-heading-m">There are no deployments in {{ environmentLabel }} yet</h2>
+            {% endif %}
+          </div>
+        {% elif pastEnd %}
+          <div data-testid="deployments-past-end">
+            <h2 class="govuk-heading-m">There is no page {{ pastEnd.page }}</h2>
+            <p class="govuk-body">{{ pastEnd.summary }}</p>
+            <ul class="govuk-list">
+              {% for link in pastEnd.links %}
+                <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <p class="govuk-body" data-testid="deployments-count">Showing {{ first }} to {{ last }} of {{ total }} {{ "deployment" if total == 1 else "deployments" }} in {{ environmentLabel }}</p>
+
+          <div class="app-table-scroll" role="region" tabindex="0" aria-label="Deployments in {{ environmentLabel }}">
+          <table class="govuk-table" data-testid="deployments-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Deployments in {{ environmentLabel }}</caption>
+            <thead class="govuk-table__head">
+              <tr class="govuk-table__row">
+                <th class="govuk-table__header" scope="col">Team</th>
+                <th class="govuk-table__header" scope="col">Models</th>
+                <th class="govuk-table__header" scope="col">Status</th>
+                <th class="govuk-table__header" scope="col">Credential</th>
+                <th class="govuk-table__header" scope="col">Last change</th>
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for row in rows %}
+                <tr class="govuk-table__row" data-testid="deployment-row">
+                  <td class="govuk-table__cell"><a class="govuk-link" href="{{ row.team.href }}">{{ row.team.name }}</a></td>
+                  <td class="govuk-table__cell">{{ row.models }}</td>
+                  <td class="govuk-table__cell">{{ govukTag({ text: row.status.text, classes: row.status.classes }) }}</td>
+                  <td class="govuk-table__cell">{{ govukTag({ text: row.credential.text, classes: row.credential.classes }) }}</td>
+                  <td class="govuk-table__cell"><time datetime="{{ row.at }}">{{ row.when }}</time></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+
+          {% if pagination %}
+            {{ govukPagination(pagination) }}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

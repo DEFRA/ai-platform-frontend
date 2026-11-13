@@ -11,17 +11,39 @@ import {
 } from '../teams/member-pages.js'
 import { createPeopleSearchController } from '../teams/people-search-controller.js'
 import { adminTeamPath } from '../teams/team-people.js'
-import { adminRefusalView, adminTeamUrl, loadAdminTeam } from './admin-page.js'
+import {
+  adminDeploymentUrl,
+  adminRefusalView,
+  adminTeamUrl,
+  loadAdminTeam
+} from './admin-page.js'
 
 // What the Platform Admin's member pages are, beside a team's own: the same
 // pages and controllers, run over the admin routes by the team's id. Nothing
 // here asks whether the person may: the backend does, on every call, and says
 // so with a refusal (plan D3).
 
-// Names the credentials without naming how they are held, so it stays true as
-// that changes (plan D9).
+// Says what is true now (plan D13): the credentials stay as they are, and a
+// Platform Admin cannot rotate a team's secrets, so revoking them is the way
+// to stop a copy being used. The deployments are where to revoke.
 const REMOVE_WARNING =
-  'Removing someone does not change the team’s credentials. Ask a team admin to rotate or revoke them if this person had a copy.'
+  'Removing someone does not change the team’s credentials. If this person had a copy, revoke the team’s credentials. A Platform Admin cannot rotate them.'
+
+// A link to where the team's credentials are revoked: its deployment in the
+// first environment it is still in. A team in none has no credentials to
+// revoke, so there is no link.
+function deploymentsLink(team) {
+  const environment = team.environments?.find(
+    ({ fileStatus }) => fileStatus !== 'removed'
+  )?.environment
+
+  return environment
+    ? {
+        text: 'View the team’s deployments',
+        href: adminDeploymentUrl(team.id, environment)
+      }
+    : undefined
+}
 
 // The team for a page, or the page to show instead.
 async function loadTeam(request, h) {
@@ -84,6 +106,7 @@ function removeView(h, { team, member, errors }) {
     backUrl: adminTeamUrl(team),
     cancelUrl: adminTeamUrl(team),
     warningText: REMOVE_WARNING,
+    warningLink: deploymentsLink(team),
     errors
   })
 }

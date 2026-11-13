@@ -25,6 +25,9 @@ const ACTION_LABELS = {
   'credential.revoke': 'Revoked a credential',
   'credential.reveal': 'Revealed a credential',
   'credential.expire': 'Expired a credential',
+  'admin.credentials.disable': 'Disabled a team’s credentials',
+  'admin.credentials.enable': 'Enabled a team’s credentials',
+  'admin.credentials.revoke': 'Revoked a team’s credentials',
   'access.denied': 'Access refused'
 }
 

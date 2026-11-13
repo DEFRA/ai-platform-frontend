@@ -8,22 +8,23 @@ Last updated: 12 Nov 2026.
 
 ## What you can do
 
-| Journey                                                                                  | Status                                                                  | Detail                                                                |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Home page, sign in with Defra Entra ID, flat Defra design                                | Built (Sept 2026)                                                       | [01 Portal journeys](01-portal-journeys.md)                           |
-| Browse the model catalogue, including ineligible and retired models                      | Built (Sept to Oct 2026)                                                | [04 Catalogue and gateway](04-catalogue-and-gateway.md)               |
-| Get a personal research key, renew, revoke, re-reveal with a reason                      | Built, live in Infradev                                                 | [02 Research tier](02-research-tier.md)                               |
-| Create a team, manage members and roles, set a service code                              | Built (Sept to Oct 2026)                                                | [03 Team tier](03-team-tier.md)                                       |
-| Add a team member by searching the directory (mock until Graph)                          | Built (4 Nov 2026), directory is a seeded mock                          | [03 Team tier](03-team-tier.md)                                       |
-| Request one or several dedicated models, follow the GitOps progress                      | Built, live in Infradev                                                 | [03 Team tier](03-team-tier.md)                                       |
-| Remove a model from a team (ready models only)                                           | Built (18 Oct 2026, ready only 2 Nov 2026)                              | [03 Team tier](03-team-tier.md)                                       |
-| Rotate and revoke a team credential (Admin)                                              | Built; the secret is a labelled placeholder until B18                   | [03 Team tier](03-team-tier.md)                                       |
-| Session ends after 30 minutes idle or 8 hours, with a warning                            | Built (4 Nov 2026), part of B27                                         | [06 Shared services](06-shared-services-and-security.md)              |
-| See what is deployed in each environment, deploy, follow each change                     | Built and merged (13 Nov 2026), B30 pages; not yet deployed to Infradev | [07 Environments and deployments](07-environments-and-deployments.md) |
-| Change a team's limits in an environment within the bounds (Admin)                       | Built and merged (13 Nov 2026), B30; not yet deployed to Infradev       | [07 Environments and deployments](07-environments-and-deployments.md) |
-| Federate a CDP or Azure application, see connection details, change or remove it (Admin) | Built and merged against mocks (13 Nov 2026), B18; not yet deployed     | [07 Environments and deployments](07-environments-and-deployments.md) |
-| Platform Admin: list every team, open one, add and remove members                        | Built (12 Nov 2026), Teams tab only (B31 in part)                       | [08 Platform admin](08-platform-admin.md)                             |
-| Platform Admin: Audit log of every event, with filters                                   | Built (13 Nov 2026); credential events' team pending                    | [08 Platform admin](08-platform-admin.md#audit-log-tab)               |
+| Journey                                                                                   | Status                                                                  | Detail                                                                |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Home page, sign in with Defra Entra ID, flat Defra design                                 | Built (Sept 2026)                                                       | [01 Portal journeys](01-portal-journeys.md)                           |
+| Browse the model catalogue, including ineligible and retired models                       | Built (Sept to Oct 2026)                                                | [04 Catalogue and gateway](04-catalogue-and-gateway.md)               |
+| Get a personal research key, renew, revoke, re-reveal with a reason                       | Built, live in Infradev                                                 | [02 Research tier](02-research-tier.md)                               |
+| Create a team, manage members and roles, set a service code                               | Built (Sept to Oct 2026)                                                | [03 Team tier](03-team-tier.md)                                       |
+| Add a team member by searching the directory (mock until Graph)                           | Built (4 Nov 2026), directory is a seeded mock                          | [03 Team tier](03-team-tier.md)                                       |
+| Request one or several dedicated models, follow the GitOps progress                       | Built, live in Infradev                                                 | [03 Team tier](03-team-tier.md)                                       |
+| Remove a model from a team (ready models only)                                            | Built (18 Oct 2026, ready only 2 Nov 2026)                              | [03 Team tier](03-team-tier.md)                                       |
+| Rotate and revoke a team credential (Admin)                                               | Built; the secret is a labelled placeholder until B18                   | [03 Team tier](03-team-tier.md)                                       |
+| Session ends after 30 minutes idle or 8 hours, with a warning                             | Built (4 Nov 2026), part of B27                                         | [06 Shared services](06-shared-services-and-security.md)              |
+| See what is deployed in each environment, deploy, follow each change                      | Built and merged (13 Nov 2026), B30 pages; not yet deployed to Infradev | [07 Environments and deployments](07-environments-and-deployments.md) |
+| Change a team's limits in an environment within the bounds (Admin)                        | Built and merged (13 Nov 2026), B30; not yet deployed to Infradev       | [07 Environments and deployments](07-environments-and-deployments.md) |
+| Federate a CDP or Azure application, see connection details, change or remove it (Admin)  | Built and merged against mocks (13 Nov 2026), B18; not yet deployed     | [07 Environments and deployments](07-environments-and-deployments.md) |
+| Platform Admin: list every team, open one, add and remove members                         | Built (12 Nov 2026), Teams tab only (B31 in part)                       | [08 Platform admin](08-platform-admin.md)                             |
+| Platform Admin: Audit log of every event, with filters                                    | Built (13 Nov 2026); credential events' team pending                    | [08 Platform admin](08-platform-admin.md#audit-log-tab)               |
+| Platform Admin: Deployments tab, Reconcile, Retry, disable, enable and revoke credentials | Built (13 Nov 2026), non-federated credentials only                     | [08 Platform admin](08-platform-admin.md#deployments-tab)             |
 
 ## What it runs on
 
@@ -39,8 +40,8 @@ Last updated: 12 Nov 2026.
 ## Not built yet
 
 Team client secrets (B18, with the real Entra apply), the Graph switch-on for directory search, limits (B17), usage and
-chargeback (B19), observability (B20 to B22), the rest of the Platform Admin area (B31: team lifecycle and the
-Deployments tab), research-tier journey tests and the liveness reconcile, the
+chargeback (B19), observability (B20 to B22), the rest of the Platform Admin area (B31: team lifecycle, federated
+credentials), research-tier journey tests and the liveness reconcile, the
 delivery-quality work, and B28's journey tests and end-to-end check. See [remaining.md](../remaining.md).
 
 ## Where to go next

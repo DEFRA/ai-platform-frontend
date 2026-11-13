@@ -36,10 +36,30 @@ describe('#actionLabel', () => {
     )
   })
 
-  test('Should show the action as it is when it has no label yet', () => {
+  test.each([
+    ['admin.credentials.disable', 'Disabled a team’s credentials'],
+    ['admin.credentials.enable', 'Enabled a team’s credentials'],
+    ['admin.credentials.revoke', 'Revoked a team’s credentials']
+  ])('Should say %s as "%s"', (action, label) => {
+    expect(actionLabel({ action, code: null })).toBe(label)
+  })
+
+  test('Should offer the three credential actions to the Action filter, by their labels', () => {
     expect(
-      actionLabel({ action: 'admin.credentials.disable', code: null })
-    ).toBe('admin.credentials.disable')
+      ACTION_OPTIONS.filter(({ value }) =>
+        value.startsWith('admin.credentials.')
+      ).map(({ text }) => text)
+    ).toEqual([
+      'Disabled a team’s credentials',
+      'Enabled a team’s credentials',
+      'Revoked a team’s credentials'
+    ])
+  })
+
+  test('Should show the action as it is when it has no label yet', () => {
+    expect(actionLabel({ action: 'admin.team.archive', code: null })).toBe(
+      'admin.team.archive'
+    )
   })
 })
 

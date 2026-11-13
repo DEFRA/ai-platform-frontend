@@ -17,6 +17,23 @@ describe('Remove member form component', () => {
     expect($('#remove-member .govuk-visually-hidden').text()).toBe('Warning')
   })
 
+  test('Should show no link under the warning unless one is given', () => {
+    const $ = renderComponent('remove-member-form', params)
+
+    expect($('[data-testid="remove-member-warning-link"]')).toHaveLength(0)
+  })
+
+  test('Should show the link given under the warning, inside its box', () => {
+    const $ = renderComponent('remove-member-form', {
+      ...params,
+      warningLink: { text: 'View the team’s deployments', href: '/admin/x' }
+    })
+    const $link = $('#remove-member [data-testid="remove-member-warning-link"]')
+
+    expect($link.text()).toBe('View the team’s deployments')
+    expect($link.attr('href')).toBe('/admin/x')
+  })
+
   test('Should post with the CSRF token', () => {
     const $ = renderComponent('remove-member-form', params)
 

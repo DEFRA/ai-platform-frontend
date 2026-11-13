@@ -22,6 +22,8 @@ import {
   FORM_ANCHOR,
   readAuditQuery
 } from './audit-query.js'
+import { pastEnd } from './past-end.js'
+import { selectItems } from './select-items.js'
 
 const AUDIT_API = '/v1/admin/audit'
 
@@ -34,49 +36,6 @@ const BACKEND_REFUSED = {
   ],
   fieldErrors: {},
   dateErrors: {}
-}
-
-function plural(count, one, many) {
-  return `${count} ${count === 1 ? one : many}`
-}
-
-// What to say when the page asked for is past the last: the backend answers
-// it with no events and the real total, so there is no count to show over an
-// empty table, only where the pages are.
-function pastEnd(filters, { events, page, pageSize, total }) {
-  if (events.length > 0 || total === 0) {
-    return null
-  }
-
-  const pages = Math.ceil(total / pageSize)
-  const links = [{ text: 'Go to page 1', href: auditUrl(filters, 1) }]
-
-  if (pages > 1) {
-    links.push({
-      text: `Go to page ${pages} (the last page)`,
-      href: auditUrl(filters, pages)
-    })
-  }
-
-  return {
-    page,
-    summary: `There ${total === 1 ? 'is' : 'are'} ${plural(total, 'event', 'events')} on ${plural(pages, 'page', 'pages')}.`,
-    links
-  }
-}
-
-// A select's items: the first says "all", then the choices, and a value that
-// is asked for but not on the list still shows, so the form says what was
-// asked.
-function selectItems({ all, choices, selected, unknownText }) {
-  const known = choices.some(({ value }) => value === selected)
-  const extra =
-    selected && !known ? [{ value: selected, text: unknownText(selected) }] : []
-
-  return [{ value: '', text: all }, ...choices, ...extra].map((item) => ({
-    ...item,
-    selected: item.value === selected
-  }))
 }
 
 function filterItems(filters, options) {
@@ -176,7 +135,14 @@ function auditView(h, { filters, options, result, errors }) {
     clearUrl: ADMIN_AUDIT_URL,
     searched: result !== undefined,
     pastEnd: result
-      ? pastEnd(filters, { events, page, pageSize, total })
+      ? pastEnd({
+          shown: events.length,
+          page,
+          pageSize,
+          total,
+          nouns: ['event', 'events'],
+          href: (number) => auditUrl(filters, number)
+        })
       : null,
     rows: events.map(buildAuditRow),
     total,
