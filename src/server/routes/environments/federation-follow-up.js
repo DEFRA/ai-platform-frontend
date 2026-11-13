@@ -1,4 +1,5 @@
 import { ApiError } from '#/server/common/helpers/api-client.js'
+import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { environmentRegistryName } from '#/server/common/helpers/environment-names.js'
 import { HOSTS, refusalText } from './federation-answers.js'
 import { postTeamFederations, readTeamEnvironment } from './environments-api.js'
@@ -66,6 +67,14 @@ function reasonOf(error) {
   return error.environments?.[0]?.code ?? error.code
 }
 
+// A timeout, a dropped connection or a failure of the backend (the client
+// reports the first two as a 502) says nothing about whether the request was
+// queued: it may have been, with only the answer lost. Only a 4xx is the
+// backend's own word that it was refused.
+function outcomeUnknown(error) {
+  return error.statusCode >= statusCodes.internalServerError
+}
+
 async function federateOne(request, { teamSlug, environment, entry }) {
   try {
     await postTeamFederations(
@@ -79,6 +88,15 @@ async function federateOne(request, { teamSlug, environment, entry }) {
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error
+    }
+
+    if (outcomeUnknown(error)) {
+      request.logger.warn(
+        { err: error },
+        'Could not confirm whether the CDP service was added'
+      )
+
+      return { service: entry.service, unknown: true }
     }
 
     return { service: entry.service, code: reasonOf(error) }
@@ -101,23 +119,34 @@ function refusalSentence({ service, code }, environmentName) {
   return `${reason}.`
 }
 
+function unknownSentence(unknown, environmentName) {
+  const services = unknown.map(({ service }) => service)
+  const verb = services.length > 1 ? 'were' : 'was'
+
+  return `We could not confirm whether ${joinServices(services)} ${verb} added to ${environmentName}: they may already be queued. Check Changes in progress, or select Request access again on the Check your answers page to ask again: repeating the request is safe.`
+}
+
 /**
  * The banner for the services a team confirmed with its request: that they
- * will be federated, or why one could not be added yet.
- * @param {Array<{service: string, queued?: boolean, code?: string}>} outcomes
+ * will be federated, why one could not be added yet, or that the outcome of
+ * one is not known (which is not a refusal).
+ * @param {Array<{service: string, queued?: boolean, unknown?: boolean, code?: string}>} outcomes
  * @param {string} environment - The environment code.
  * @returns {{type: string, heading: string, message: string} | null}
  */
 export function followUpNotification(outcomes, environment) {
   const name = environmentRegistryName(environment)
   const queued = outcomes.filter(({ queued: done }) => done)
-  const refused = outcomes.filter(({ queued: done }) => !done)
+  const unknown = outcomes.filter(({ unknown: lost }) => lost)
+  const refused = outcomes.filter(
+    ({ queued: done, unknown: lost }) => !done && !lost
+  )
 
   if (outcomes.length === 0) {
     return null
   }
 
-  if (refused.length === 0) {
+  if (refused.length === 0 && unknown.length === 0) {
     return {
       type: 'success',
       heading: `${joinServices(queued.map(({ service }) => service))} will be federated in ${name}`,
@@ -129,7 +158,10 @@ export function followUpNotification(outcomes, environment) {
   return {
     type: 'warning',
     heading: `We could not add every CDP service to ${name}`,
-    message: refused.map((outcome) => refusalSentence(outcome, name)).join(' ')
+    message: [
+      ...refused.map((outcome) => refusalSentence(outcome, name)),
+      ...(unknown.length > 0 ? [unknownSentence(unknown, name)] : [])
+    ].join(' ')
   }
 }
 
@@ -137,9 +169,12 @@ export function followUpNotification(outcomes, environment) {
  * Asks for each confirmed CDP service to be federated in the environment just
  * requested, one request each, in order: they are changes to one team file.
  * Never fails the request already made: a service refused is said, not thrown.
+ * `unresolved` is true while any outcome is not known, so the caller keeps the
+ * answers and the keys of the requests: asking again with the same keys is
+ * replayed by the backend, never made twice.
  * @param {import('@hapi/hapi').Request} request
  * @param {{teamSlug: string, environment: string, services: Array<{service: string, key: string}>}} params
- * @returns {Promise<ReturnType<typeof followUpNotification>>}
+ * @returns {Promise<{notification: ReturnType<typeof followUpNotification>, unresolved: boolean}>}
  */
 export async function federateAfterRequest(
   request,
@@ -154,5 +189,8 @@ export async function federateAfterRequest(
     )
   }
 
-  return followUpNotification(outcomes, environment)
+  return {
+    notification: followUpNotification(outcomes, environment),
+    unresolved: outcomes.some(({ unknown }) => unknown)
+  }
 }

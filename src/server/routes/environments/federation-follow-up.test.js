@@ -73,6 +73,93 @@ describe('an error that is not the backend’s', () => {
   })
 })
 
+describe('#federateAfterRequest when the outcome of an add is not known', () => {
+  const request = { logger: { warn: vi.fn() } }
+  const params = {
+    teamSlug: 'flood-risk-team',
+    environment: 'qa',
+    services: [{ service: 'flood-api', key: 'key-1' }]
+  }
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  test.each([
+    ['a dropped connection or timeout', 502, 'upstream-unavailable'],
+    ['a failure of the backend', 500, 'error'],
+    ['a gateway timeout', 504, 'error']
+  ])(
+    'keeps the answers for %s, which may have been queued, and does not call it a refusal',
+    async (_, statusCode, code) => {
+      postTeamFederations.mockRejectedValue(
+        new ApiError({ statusCode, code, message: 'lost' })
+      )
+
+      const result = await federateAfterRequest(request, params)
+
+      expect(result.unresolved).toBe(true)
+      expect(result.notification.type).toBe('warning')
+      expect(result.notification.message).toContain(
+        'We could not confirm whether flood-api was added to QA'
+      )
+      expect(result.notification.message).not.toContain('cannot')
+    }
+  )
+
+  test('is resolved by a refusal, which is a definite answer', async () => {
+    postTeamFederations.mockRejectedValue(
+      new ApiError({
+        statusCode: 409,
+        code: 'federation-refused',
+        message: 'Refused',
+        environments: [{ environment: 'qa', code: 'federation-exists' }]
+      })
+    )
+
+    const result = await federateAfterRequest(request, params)
+
+    expect(result.unresolved).toBe(false)
+    expect(result.notification.message).toContain('already has a passwordless')
+  })
+
+  test('is resolved when every add was queued', async () => {
+    postTeamFederations.mockResolvedValue({})
+
+    const result = await federateAfterRequest(request, params)
+
+    expect(result.unresolved).toBe(false)
+    expect(result.notification.type).toBe('success')
+  })
+
+  test('is resolved when nothing was confirmed', async () => {
+    await expect(
+      federateAfterRequest(request, { ...params, services: [] })
+    ).resolves.toEqual({ notification: null, unresolved: false })
+  })
+
+  test('still asks for the services after the one whose outcome is not known, and says each', async () => {
+    postTeamFederations
+      .mockRejectedValueOnce(
+        new ApiError({ statusCode: 502, code: 'upstream-unavailable' })
+      )
+      .mockResolvedValueOnce({})
+
+    const result = await federateAfterRequest(request, {
+      ...params,
+      services: [
+        { service: 'flood-api', key: 'key-1' },
+        { service: 'flood-worker', key: 'key-2' }
+      ]
+    })
+
+    expect(postTeamFederations).toHaveBeenCalledTimes(2)
+    expect(result.unresolved).toBe(true)
+    expect(result.notification.message).toContain('flood-api')
+    expect(result.notification.message).not.toContain('flood-worker')
+  })
+})
+
 describe('#loadFederableServices when the target environment has nothing to read', () => {
   const request = { logger: { warn: vi.fn() } }
 
@@ -147,6 +234,22 @@ describe('#followUpNotification', () => {
     )
     expect(notification.message).toBe(
       'QA: your team already has a passwordless credential for flood-worker there. flood-jobs cannot be added until QA is set up. Federate it from the QA page once your models are ready.'
+    )
+  })
+
+  test('says an unknown outcome is not a refusal, and how to settle it, alongside a refusal', () => {
+    const notification = followUpNotification(
+      [
+        { service: 'flood-api', unknown: true },
+        { service: 'flood-worker', unknown: true },
+        { service: 'flood-jobs', code: 'federation-exists' }
+      ],
+      'qa'
+    )
+
+    expect(notification.type).toBe('warning')
+    expect(notification.message).toBe(
+      'QA: your team already has a passwordless credential for flood-jobs there. We could not confirm whether flood-api and flood-worker were added to QA: they may already be queued. Check Changes in progress, or select Request access again on the Check your answers page to ask again: repeating the request is safe.'
     )
   })
 })

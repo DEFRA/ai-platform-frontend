@@ -429,17 +429,24 @@ export const teamConnectController = {
           // undoes the request. It goes with the request it belongs to, so
           // only that request's page shows it, whether it is waiting, ready
           // or failed.
-          const followUp = await federateAfterRequest(request, {
-            teamSlug,
-            environment,
-            services: pendingAccess.federateServices ?? []
-          })
+          const { notification: followUp, unresolved } =
+            await federateAfterRequest(request, {
+              teamSlug,
+              environment,
+              services: pendingAccess.federateServices ?? []
+            })
 
           if (followUp) {
             setRequestedDeployments(request, { teamSlug, ids, followUp })
           }
 
-          clearPendingAccess(request)
+          // An add whose outcome is not known may be queued already: the
+          // answers and the keys stay, so asking again from the check page
+          // is the same request, replayed, not a second one. They go once
+          // every outcome is known, or when another journey starts.
+          if (!unresolved) {
+            clearPendingAccess(request)
+          }
 
           return h
             .redirect(

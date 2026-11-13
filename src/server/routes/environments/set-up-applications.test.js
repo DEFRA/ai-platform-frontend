@@ -716,5 +716,91 @@ describe('the CDP services offered when another environment is set up (choice B)
         'We could not add every CDP service to QA'
       )
     })
+
+    describe('when the backend accepted an add but its answer was lost', () => {
+      let attempts
+
+      function lostThenQueued() {
+        attempts = 0
+
+        return {
+          [`POST ${FEDERATIONS_PATH}`]: () => {
+            attempts += 1
+
+            if (attempts === 1) {
+              // Queued by the backend, but the connection dropped.
+              throw new TypeError('fetch failed')
+            }
+
+            return queued()
+          }
+        }
+      }
+
+      const keyOf = ([, init]) => init.headers['idempotency-key']
+
+      test('says the outcome is not known, not that the service was refused', async () => {
+        const { confirm, page } = await confirmed(
+          ['flood-api'],
+          lostThenQueued()
+        )
+        const notification = text(page.$, '[data-testid="team-notification"]')
+
+        expect(confirm.response.headers.location).toBe(REQUEST_URL)
+        expect(notification).toContain(
+          'We could not confirm whether flood-api was added to QA'
+        )
+        expect(notification).not.toContain('cannot be added')
+        expect(notification).not.toContain('will be federated')
+      })
+
+      test('keeps the answers, so the same request can be made again from the check page', async () => {
+        await confirmed(['flood-api'], lostThenQueued())
+
+        const check = await send('GET', CHECK_URL)
+
+        expect(check.response.statusCode).toBe(statusCodes.ok)
+        expect(text(check.$, '.govuk-summary-list')).toContain('flood-api')
+      })
+
+      test('repeats the request with the same keys, which the backend replays, and then says it will be federated', async () => {
+        await confirmed(['flood-api'], lostThenQueued())
+        await send('POST', CHECK_URL, {})
+        const page = await send('GET', REQUEST_URL)
+        const federations = calls('POST', FEDERATIONS_PATH)
+        const deployments = calls('POST', `${TEAM_PATH}/deployments`)
+
+        expect(federations).toHaveLength(2)
+        expect(keyOf(federations[1])).toBe(keyOf(federations[0]))
+        expect(deployments).toHaveLength(2)
+        expect(keyOf(deployments[1])).toBe(keyOf(deployments[0]))
+        expect(text(page.$, '[data-testid="team-notification"]')).toContain(
+          'flood-api will be federated in QA'
+        )
+      })
+
+      test('clears the answers once the repeat has an answer', async () => {
+        await confirmed(['flood-api'], lostThenQueued())
+        await send('POST', CHECK_URL, {})
+
+        const check = await send('GET', CHECK_URL)
+
+        expect(check.response.statusCode).toBe(302)
+      })
+
+      test('clears the answers after a refusal, which is a definite answer', async () => {
+        await confirmed(['flood-api'], {
+          [`POST ${FEDERATIONS_PATH}`]: reply(409, {
+            code: 'federation-refused',
+            message: 'Refused',
+            environments: [{ environment: 'qa', code: 'federation-exists' }]
+          })
+        })
+
+        const check = await send('GET', CHECK_URL)
+
+        expect(check.response.statusCode).toBe(302)
+      })
+    })
   })
 })
