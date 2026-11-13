@@ -286,6 +286,7 @@ describe('#environmentsController', () => {
 
       expect(grid.hasClass('app-card-grid')).toBe(true)
       expect(grid.children('.govuk-summary-card')).toHaveLength(4)
+      expect(grid.children('.app-environment-card')).toHaveLength(4)
       expect($('[data-testid="environments-status"] > h2').text().trim()).toBe(
         'Your environments'
       )
@@ -329,6 +330,11 @@ describe('#environmentsController', () => {
       expect(actions.hasClass('app-actions--end')).toBe(true)
       expect(actions.find('a[data-testid="deploy-a-model"]')).toHaveLength(1)
       expect(actions.find('a[data-testid="change-team"]')).toHaveLength(1)
+      expect(
+        actions
+          .find('a[data-testid="deploy-a-model"]')
+          .hasClass('govuk-!-margin-bottom-0')
+      ).toBe(true)
     })
 
     test('shows Change team only to a person with more than one team', async () => {
@@ -610,6 +616,11 @@ describe('#environmentsController', () => {
           '.app-section-card__actions a.govuk-button[data-testid="deploy-a-model"]'
         )
       ).toHaveLength(1)
+      expect(
+        models
+          .find('a[data-testid="deploy-a-model"]')
+          .hasClass('govuk-!-margin-bottom-0')
+      ).toBe(true)
       expect(
         $('[data-testid="section-limits"]').find(
           'a[data-testid="change-limits"]'
