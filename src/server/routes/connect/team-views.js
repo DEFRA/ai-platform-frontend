@@ -29,6 +29,29 @@ export function redirectToStart(h) {
   return h.redirect('/models').takeover()
 }
 
+/**
+ * Whether the question about CDP services was asked and not yet answered:
+ * none ticked is an answer (an empty list), no answer at all is not.
+ * @param {object} pendingAccess
+ * @returns {boolean}
+ */
+export function servicesUnanswered(pendingAccess) {
+  return Boolean(
+    pendingAccess.federationsOffered &&
+    !Array.isArray(pendingAccess.federateServices)
+  )
+}
+
+// Back to the question about CDP services, which the check page cannot be
+// reached without.
+export function redirectToServices(h, pendingAccess) {
+  return h
+    .redirect(
+      setUpApplicationsUrl(pendingAccess.teamSlug, pendingAccess.environment)
+    )
+    .code(statusCodes.seeOther)
+}
+
 // No environment is configured for teams to deploy to, so there is nothing
 // to state or save on the details step: say so rather than lose the journey.
 export function environmentUnavailableView(h) {

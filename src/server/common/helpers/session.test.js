@@ -12,8 +12,8 @@ import {
   getPendingFederation,
   setPendingFederation,
   clearPendingFederation,
-  getRequestedFederations,
-  setRequestedFederations,
+  getRequestedFederation,
+  addRequestedFederation,
   getRequestedDeployments,
   setRequestedDeployments,
   resetSession,
@@ -69,13 +69,25 @@ describe('#session helpers', () => {
     expect(getPendingFederation(request)).toBeUndefined()
   })
 
-  test('remembers the applications just federated, for the page that follows them', () => {
+  test('remembers each application just federated by its own id, for the page that follows it, and the latest few only', () => {
     const request = mockRequest()
 
-    expect(getRequestedFederations(request)).toBeUndefined()
+    expect(getRequestedFederation(request, 'a')).toBeUndefined()
 
-    setRequestedFederations(request, { name: 'flood-api' })
-    expect(getRequestedFederations(request)).toEqual({ name: 'flood-api' })
+    addRequestedFederation(request, 'a', { name: 'flood-api' })
+    addRequestedFederation(request, 'b', { name: 'flood-worker' })
+
+    expect(getRequestedFederation(request, 'a')).toEqual({ name: 'flood-api' })
+    expect(getRequestedFederation(request, 'b')).toEqual({
+      name: 'flood-worker'
+    })
+
+    for (const id of ['c', 'd', 'e', 'f']) {
+      addRequestedFederation(request, id, { name: id })
+    }
+
+    expect(getRequestedFederation(request, 'a')).toBeUndefined()
+    expect(getRequestedFederation(request, 'f')).toEqual({ name: 'f' })
   })
 
   test('keeps the tokens in the session, and reading them on a request with no session store is safe', () => {

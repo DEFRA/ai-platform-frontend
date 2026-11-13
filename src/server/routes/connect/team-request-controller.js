@@ -3,6 +3,7 @@ import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import {
   getRequestedDeployments,
   getSessionUser,
+  setRequestedDeployments,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
 import {
@@ -72,6 +73,26 @@ function requestedIds(request, team, id) {
     : [id]
 }
 
+// What the request's own follow-up said (the CDP services asked for with it),
+// shown once, and only on the page of the request it belongs to.
+function takeFollowUp(request, team, id) {
+  const requested = getRequestedDeployments(request)
+
+  if (
+    !requested?.followUp ||
+    requested.teamSlug !== team ||
+    !requested.ids.includes(id)
+  ) {
+    return undefined
+  }
+
+  const { followUp, ...rest } = requested
+
+  setRequestedDeployments(request, rest)
+
+  return followUp
+}
+
 // The team and its deployments, or null when the team is not the person's to
 // see (a team they do not belong to is the same answer as one that does not
 // exist).
@@ -126,7 +147,7 @@ function statusView(request, { live, catalogue, finished }) {
   }
 }
 
-function waitView(request, h, { team, live, catalogue }) {
+function waitView(request, h, { team, live, catalogue, followUp }) {
   const queued = live.every(({ status }) => status === QUEUED_STATUS)
   const names = live.map((deployment) => modelName(catalogue, deployment))
   const { environment } = live[0]
@@ -145,7 +166,7 @@ function waitView(request, h, { team, live, catalogue }) {
     pageTitle: heading,
     heading,
     teamName: team.name,
-    notification: takeAccountNotification(request),
+    notification: followUp ?? takeAccountNotification(request),
     environmentUrl: environmentPageUrl(team.slug, environment),
     environmentLabel: environmentRegistryName(environment),
     lead: queued
@@ -186,7 +207,7 @@ function testSetUp(team, environment) {
 async function readyView(
   request,
   h,
-  { team, isAdmin, ready, allDeployments, catalogue }
+  { team, isAdmin, ready, allDeployments, catalogue, followUp }
 ) {
   const names = ready.map((deployment) => modelName(catalogue, deployment))
   const { environment } = ready[0]
@@ -199,7 +220,7 @@ async function readyView(
     pageTitle: heading,
     heading,
     teamName: team.name,
-    notification: takeAccountNotification(request),
+    notification: followUp ?? takeAccountNotification(request),
     federateUrl: federateUrl(team.slug, '', { environment }),
     environmentUrl: environmentPageUrl(team.slug, environment),
     environmentLabel: environmentRegistryName(environment),
@@ -252,7 +273,11 @@ function unaffectedNames(allDeployments, failed, catalogue) {
   return slugs.map((slug) => catalogue[slug]?.displayName ?? slug)
 }
 
-function failedView(request, h, { team, failed, allDeployments, catalogue }) {
+function failedView(
+  request,
+  h,
+  { team, failed, allDeployments, catalogue, followUp }
+) {
   const names = failed.map((deployment) => modelName(catalogue, deployment))
   const others = unaffectedNames(allDeployments, failed, catalogue)
   const heading = `We could not set up ${joinNames(names)}`
@@ -286,6 +311,7 @@ function failedView(request, h, { team, failed, allDeployments, catalogue }) {
     pageTitle: heading,
     heading,
     teamName: team.name,
+    notification: followUp,
     reason: `${reasons.join(' ')}${notAffected}`,
     references: references.filter(Boolean).join(', '),
     technical: failed.map((deployment, index) => ({
@@ -363,8 +389,10 @@ export const teamRequestController = {
 
         // Anything still on its way (and any state this page does not know)
         // keeps the page waiting, and checking again.
+        const followUp = takeFollowUp(request, team.slug, id)
+
         if (!finished) {
-          return waitView(request, h, { team, live, catalogue })
+          return waitView(request, h, { team, live, catalogue, followUp })
         }
 
         if (failed.length > 0) {
@@ -372,7 +400,8 @@ export const teamRequestController = {
             team,
             failed,
             allDeployments: deployments,
-            catalogue
+            catalogue,
+            followUp
           })
         }
 
@@ -381,7 +410,8 @@ export const teamRequestController = {
           isAdmin,
           ready,
           allDeployments: deployments,
-          catalogue
+          catalogue,
+          followUp
         })
       }
     }

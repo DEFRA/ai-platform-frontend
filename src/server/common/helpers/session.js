@@ -12,6 +12,7 @@ const ADD_MEMBER_GENERATION = 'addMemberGeneration'
 const PENDING_LIMITS_KEY = 'pendingLimits'
 const PENDING_FEDERATION_KEY = 'pendingFederation'
 const REQUESTED_FEDERATIONS_KEY = 'requestedFederations'
+const MAX_REQUESTED_FEDERATIONS = 5
 
 // When the person signed in and when they last made a request: the two
 // times the idle and overall session limits are measured from.
@@ -182,15 +183,24 @@ export function clearPendingFederation(request) {
   request.yar.clear(PENDING_FEDERATION_KEY)
 }
 
-// The application just federated and the operation each environment made for
-// it (`{ userId, teamSlug, name, items: [{ environment, operationId }] }`), so
-// the page that follows it can show each environment's progress.
-export function getRequestedFederations(request) {
-  return request.yar.get(REQUESTED_FEDERATIONS_KEY)
+// The applications just federated, each by an id of its own, with the operation
+// each environment made for it (`{ userId, teamSlug, name, items: [{
+// environment, operationId }] }`), so the page that follows one shows its
+// progress and not another's. Only the latest few are kept: they are for the
+// page that follows, not a history.
+export function getRequestedFederation(request, id) {
+  return request.yar.get(REQUESTED_FEDERATIONS_KEY)?.[id]
 }
 
-export function setRequestedFederations(request, value) {
-  request.yar.set(REQUESTED_FEDERATIONS_KEY, value)
+export function addRequestedFederation(request, id, value) {
+  const held = Object.entries(request.yar.get(REQUESTED_FEDERATIONS_KEY) ?? {})
+    .filter(([key]) => key !== id)
+    .slice(1 - MAX_REQUESTED_FEDERATIONS)
+
+  request.yar.set(
+    REQUESTED_FEDERATIONS_KEY,
+    Object.fromEntries([...held, [id, value]])
+  )
 }
 
 export function setAccountNotification(request, value) {

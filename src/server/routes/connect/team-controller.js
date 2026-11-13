@@ -5,7 +5,6 @@ import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import {
   clearPendingAccess,
   getSessionUser,
-  setAccountNotification,
   setPendingAccess,
   setRequestedDeployments
 } from '#/server/common/helpers/session.js'
@@ -40,8 +39,10 @@ import {
   detailsView,
   environmentUnavailableView,
   modelStepView,
+  redirectToServices,
   redirectToStart,
-  selectView
+  selectView,
+  servicesUnanswered
 } from './team-views.js'
 import {
   findChosenTeam,
@@ -380,6 +381,10 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        if (servicesUnanswered(pendingAccess)) {
+          return redirectToServices(h, pendingAccess)
+        }
+
         return checkAnswersView(request, h, pendingAccess)
       }
     },
@@ -398,6 +403,10 @@ export const teamConnectController = {
           return redirectToStart(h)
         }
 
+        if (servicesUnanswered(pendingAccess)) {
+          return redirectToServices(h, pendingAccess)
+        }
+
         const { teamSlug, modelSlugs, environment, purpose, requestKey } =
           pendingAccess
 
@@ -409,17 +418,17 @@ export const teamConnectController = {
             { modelSlugs, environment, ...(purpose && { purpose }) },
             { idempotencyKey: requestKey }
           )
+          const ids = deployments.map(({ _id }) => _id)
 
           // Made: the journey is over, and its answers must not seed the next.
-          setRequestedDeployments(request, {
-            teamSlug,
-            ids: deployments.map(({ _id }) => _id)
-          })
+          setRequestedDeployments(request, { teamSlug, ids })
 
           // The CDP services confirmed for the environment just requested
           // (choice B) are asked for as that environment's own changes, after
           // the request. A refusal is said on the page that follows; it never
-          // undoes the request.
+          // undoes the request. It goes with the request it belongs to, so
+          // only that request's page shows it, whether it is waiting, ready
+          // or failed.
           const followUp = await federateAfterRequest(request, {
             teamSlug,
             environment,
@@ -427,7 +436,7 @@ export const teamConnectController = {
           })
 
           if (followUp) {
-            setAccountNotification(request, followUp)
+            setRequestedDeployments(request, { teamSlug, ids, followUp })
           }
 
           clearPendingAccess(request)
