@@ -17,9 +17,10 @@ const formatters = {
   'pino-pretty': { transport: { target: 'pino-pretty' } }
 }
 
-// What a person types to search (the admin Teams list, the people search) can
-// name a person, so it is never logged, whatever LOG_REDACT holds (AC18).
-const alwaysRedacted = ['req.query.search']
+// What a person types to search or filter (the admin Teams list, the people
+// search, the audit log's Person) can name a person, so it is never logged,
+// whatever LOG_REDACT holds (AC18; audit AC10).
+const alwaysRedacted = ['req.query.search', 'req.query.person']
 
 export const loggerOptions = {
   enabled: logConfig.enabled,

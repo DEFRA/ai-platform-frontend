@@ -23,6 +23,7 @@ Last updated: 12 Nov 2026.
 | Change a team's limits in an environment within the bounds (Admin)                       | Built and merged (13 Nov 2026), B30; not yet deployed to Infradev       | [07 Environments and deployments](07-environments-and-deployments.md) |
 | Federate a CDP or Azure application, see connection details, change or remove it (Admin) | Built and merged against mocks (13 Nov 2026), B18; not yet deployed     | [07 Environments and deployments](07-environments-and-deployments.md) |
 | Platform Admin: list every team, open one, add and remove members                        | Built (12 Nov 2026), Teams tab only (B31 in part)                       | [08 Platform admin](08-platform-admin.md)                             |
+| Platform Admin: Audit log of every event, with filters                                   | Built (13 Nov 2026); credential events' team pending                    | [08 Platform admin](08-platform-admin.md#audit-log-tab)               |
 
 ## What it runs on
 
@@ -38,8 +39,8 @@ Last updated: 12 Nov 2026.
 ## Not built yet
 
 Team client secrets (B18, with the real Entra apply), the Graph switch-on for directory search, limits (B17), usage and
-chargeback (B19), observability (B20 to B22), the rest of the Platform Admin area (B31: team lifecycle, Deployments and
-Audit log tabs), research-tier journey tests and the liveness reconcile, the
+chargeback (B19), observability (B20 to B22), the rest of the Platform Admin area (B31: team lifecycle and the
+Deployments tab), research-tier journey tests and the liveness reconcile, the
 delivery-quality work, and B28's journey tests and end-to-end check. See [remaining.md](../remaining.md).
 
 ## Where to go next

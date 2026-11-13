@@ -599,6 +599,23 @@ describe('#admin teams', () => {
       )
     })
 
+    test('links to the audit log of the team, with the team set, and has the Audit log tab', async () => {
+      mockApi(fetchMock, {
+        'GET /v1/admin/teams/team%201': detail({ id: 'team 1' })
+      })
+
+      const $ = load((await get('/admin/teams/team%201')).result)
+
+      expect($('[data-testid="view-audit-log"]').text()).toBe('View audit log')
+      expect($('[data-testid="view-audit-log"]').attr('href')).toBe(
+        '/admin/audit?team=team%201'
+      )
+      expect(
+        $('[data-testid="sub-navigation"] a')
+          .map((_, link) => $(link).text().trim())
+          .get()
+      ).toEqual(['Teams', 'Audit log'])
+    })
     test.each([
       ['disabled', 'Disabled', 'govuk-tag--grey'],
       ['pending-removal', 'Pending removal', 'govuk-tag--orange'],

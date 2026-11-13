@@ -11,6 +11,7 @@ import {
 // backend, and the backend answers (plan D2).
 
 export const ADMIN_TEAMS_URL = '/admin/teams'
+export const ADMIN_AUDIT_URL = '/admin/audit'
 
 /**
  * Where a team's admin page is.
@@ -22,15 +23,16 @@ export function adminTeamUrl(team) {
 }
 
 /**
- * The Admin area's sub navigation. Teams is the only tab so far, so there is
- * no link to a page that does nothing (plan D6).
- * @param {'teams'} current
+ * The Admin area's sub navigation: Teams and Audit log, with the current one
+ * marked.
+ * @param {'teams'|'audit'} current
  * @returns {Array<{text: string, href: string, current: boolean}>}
  */
 export function adminTabs(current) {
-  return [{ key: 'teams', text: 'Teams', href: ADMIN_TEAMS_URL }].map(
-    ({ key, text, href }) => ({ text, href, current: key === current })
-  )
+  return [
+    { key: 'teams', text: 'Teams', href: ADMIN_TEAMS_URL },
+    { key: 'audit', text: 'Audit log', href: ADMIN_AUDIT_URL }
+  ].map(({ key, text, href }) => ({ text, href, current: key === current }))
 }
 
 /**

@@ -40,6 +40,22 @@ describe('#loggerOptions redaction', () => {
     expect(log).not.toContain('amelia')
   })
 
+  test('Should not log the person text of an audit log filter', async () => {
+    const log = await requestLog(
+      '/admin/audit?person=jo&environment=infradev&team=team-1'
+    )
+
+    expect(log).toContain('/admin/audit')
+    expect(log).not.toContain('"person"')
+    expect(log).not.toContain('"jo"')
+  })
+
+  test('Should still log the other filters of the audit log', async () => {
+    const log = await requestLog('/admin/audit?person=jo&environment=infradev')
+
+    expect(log).toContain('infradev')
+  })
+
   test('Should still log the other parts of the query', async () => {
     const log = await requestLog('/admin/teams?search=zzzz&status=active')
 
