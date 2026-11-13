@@ -94,6 +94,7 @@
       {{ govukButton({
         html: 'Create Passwordless Credential<span class="govuk-visually-hidden"> in ' + (heading | escape) + '</span>',
         href: applications.federateUrl,
+        classes: "govuk-!-margin-bottom-0",
         attributes: { "data-testid": "federate-an-application" }
       }) }}
     {% endset %}

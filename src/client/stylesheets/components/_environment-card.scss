@@ -1,19 +1,19 @@
-@use "govuk-frontend" as *;
+@use 'govuk-frontend' as *;
 
 // An environment the team cannot use yet keeps its card, greyed with a dashed
 // border, so the layout does not change when it opens. The text stays dark
 // enough to read (dark grey on white is 7:1); only the card title and border
 // step back. The card's own classes are targeted, never GOV.UK's.
 .app-environment-card--unavailable {
-  border: 1px dashed govuk-colour("dark-grey");
+  border: 1px dashed govuk-colour('dark-grey');
 
   .app-environment-card__title-wrapper {
-    background-color: govuk-colour("light-grey");
+    background-color: govuk-colour('light-grey');
   }
 
   .app-environment-card__title,
   .app-environment-card__content {
-    color: govuk-colour("dark-grey");
+    color: govuk-colour('dark-grey');
   }
 }
 
@@ -54,17 +54,24 @@
   }
 }
 
-// The title and its label share a line when there is room and wrap when there
-// is not. The label is smaller than it was (16px, not 19px) and stays on
-// one line, so "Not available yet" fits at the side of a short title.
-.app-environment-card__title-wrapper {
-  flex-wrap: wrap;
-  gap: govuk-spacing(2);
+// The display name (Development, Test...) sits on its own line under the
+// environment's name, smaller and in regular weight.
+.app-environment-card__subtitle {
+  @include govuk-font($size: 16, $weight: regular);
+
+  display: block;
+}
+
+// The availability label sits in a grey band under the title, across the
+// whole card. The label is 16px and stays on one line.
+.app-environment-card__status {
+  padding: govuk-spacing(2) govuk-spacing(4);
+  background-color: govuk-colour('light-grey');
+  border-top: 1px solid $govuk-border-colour;
 
   .govuk-tag {
     @include govuk-font($size: 16, $weight: bold);
 
-    align-self: center;
     padding: 1px govuk-spacing(1);
     white-space: nowrap;
   }

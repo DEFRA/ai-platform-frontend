@@ -15,7 +15,9 @@
   {% for card in cards %}
     <div class="govuk-summary-card app-environment-card{{ ' app-environment-card--unavailable' if not card.available }}" data-testid="environment-card-{{ card.code }}">
       <div class="govuk-summary-card__title-wrapper app-environment-card__title-wrapper">
-        <h3 class="govuk-summary-card__title app-environment-card__title">{{ card.name }} <span class="govuk-!-font-weight-regular">{{ card.displayName }}</span></h3>
+        <h3 class="govuk-summary-card__title app-environment-card__title">{{ card.name }} <span class="app-environment-card__subtitle">{{ card.displayName }}</span></h3>
+      </div>
+      <div class="app-environment-card__status">
         {{ govukTag({ text: card.tag.text, classes: card.tag.tagClass, attributes: { "data-testid": "card-tag" } }) }}
       </div>
       <div class="govuk-summary-card__content app-environment-card__content">

@@ -88,14 +88,19 @@ describe('Application stylesheet', () => {
     expect(cells).toMatch(/width:\s*100%/)
   })
 
-  test('Should make the Available and Not available yet labels smaller than the 19px they were, on one line', () => {
-    const tag = declarationsOf(
-      css,
-      '.app-environment-card__title-wrapper .govuk-tag'
-    )
+  test('Should keep the Available and Not available yet labels at 16px on one line, in a grey band under the title', () => {
+    const tag = declarationsOf(css, '.app-environment-card__status .govuk-tag')
+    const band = declarationsOf(css, '.app-environment-card__status')
 
     expect(tag).toMatch(/font-size:\s*1rem/)
     expect(tag).toMatch(/white-space:\s*nowrap/)
-    expect(tag).toMatch(/align-self:\s*center/)
+    expect(band).toMatch(/background-color/)
+  })
+
+  test('Should put the display name on its own smaller line under the environment name', () => {
+    const subtitle = declarationsOf(css, '.app-environment-card__subtitle')
+
+    expect(subtitle).toMatch(/display:\s*block/)
+    expect(subtitle).toMatch(/font-size:\s*1rem/)
   })
 })

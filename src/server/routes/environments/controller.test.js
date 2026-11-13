@@ -235,7 +235,12 @@ describe('#environmentsController', () => {
 
       expect(text(infradev, '.govuk-summary-card__title')).toContain('Infradev')
       expect(text(infradev, '[data-testid="card-tag"]')).toBe('Available')
-      expect(text(infradev, '.govuk-summary-list')).toContain('Models 2')
+      expect(
+        infradev.find('.app-environment-card__status [data-testid="card-tag"]')
+      ).toHaveLength(1)
+      expect(text(infradev, '.app-environment-card__subtitle')).toBe(
+        'Development'
+      )
       expect(text(infradev, '.govuk-summary-list')).toContain(
         'Applications 0 of 20'
       )
