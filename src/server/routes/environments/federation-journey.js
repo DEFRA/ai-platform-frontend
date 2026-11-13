@@ -24,8 +24,7 @@ export const STEP = {
   principalId: 'principal-id',
   name: 'name',
   environments: 'environments',
-  check: 'check',
-  progress: 'progress'
+  check: 'check'
 }
 
 export const KIND = { add: 'add', change: 'change' }

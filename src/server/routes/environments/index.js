@@ -108,7 +108,7 @@ const routes = [
   },
   {
     method: 'GET',
-    path: `${federate}/progress`,
+    path: `${federate}/progress/{id}`,
     handler: federateProgress.get.handler
   },
   {

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   environmentPageUrl,
@@ -5,10 +7,10 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { cdpTrustText } from '#/server/common/helpers/cdp-environments.js'
 import {
+  addRequestedFederation,
   clearPendingFederation,
   getSessionUser,
-  setAccountNotification,
-  setRequestedFederations
+  setAccountNotification
 } from '#/server/common/helpers/session.js'
 import { isNotFound } from '#/server/routes/teams/team-view.js'
 import {
@@ -29,7 +31,7 @@ import {
   isAnswered,
   pendingFor
 } from './federation-journey.js'
-import { federateUrl } from './federation-urls.js'
+import { federateUrl, federateProgressUrl } from './federation-urls.js'
 import { environmentNotFound, errorPage, teamNotFound } from './error-views.js'
 import {
   isUnavailable,
@@ -214,7 +216,9 @@ function succeeded(request, h, { team, pending, answer }) {
     )
   }
 
-  setRequestedFederations(request, {
+  const id = randomUUID()
+
+  addRequestedFederation(request, id, {
     userId: getSessionUser(request).id,
     teamSlug: team.slug,
     name: applicationNameOf(pending),
@@ -224,7 +228,7 @@ function succeeded(request, h, { team, pending, answer }) {
     }))
   })
 
-  return redirectTo(h, federateUrl(team.slug, STEP.progress))
+  return redirectTo(h, federateProgressUrl(team.slug, id))
 }
 
 function environmentBack(team, pending) {

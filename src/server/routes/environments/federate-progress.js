@@ -5,7 +5,7 @@ import {
   teamEnvironmentsUrl
 } from '#/server/common/helpers/environment-names.js'
 import {
-  getRequestedFederations,
+  getRequestedFederation,
   getSessionUser
 } from '#/server/common/helpers/session.js'
 import {
@@ -16,19 +16,18 @@ import {
 } from '#/server/common/helpers/status-fragment.js'
 import { isNotFound } from '#/server/routes/teams/team-view.js'
 import { loadTeamContext, unavailablePage } from './federation-context.js'
-import { STEP } from './federation-journey.js'
-import { federateUrl } from './federation-urls.js'
+import { federateProgressUrl } from './federation-urls.js'
 import { teamNotFound } from './error-views.js'
 import { isUnavailable, readTeamOperation } from './environments-api.js'
 import { buildOperationItem } from './operation-view.js'
 
 const STATUS_PARTIAL = 'environments/partials/federate-status'
 
-// What this person asked for just now for this team, or undefined: the
-// session remembers it for the page that follows, and another person's, or
-// another team's, is not theirs to follow.
-function requestedFor(request, teamSlug) {
-  const requested = getRequestedFederations(request)
+// What this person asked for just now for this team, by the id of its page, or
+// undefined: the session remembers it for the page that follows, and another
+// person's, or another team's, is not theirs to follow.
+function requestedFor(request, teamSlug, id) {
+  const requested = getRequestedFederation(request, id)
 
   return requested?.userId === getSessionUser(request)?.id &&
     requested?.teamSlug === teamSlug
@@ -96,7 +95,7 @@ function refusal(error, request, h, team) {
       : unavailablePage(h, {
           what: 'read how this is going',
           back: {
-            href: federateUrl(team.slug, STEP.progress),
+            href: federateProgressUrl(team.slug, request.params.id),
             text: 'Try again'
           }
         })
@@ -122,7 +121,7 @@ export const federateProgress = {
       }
 
       const { team } = context
-      const requested = requestedFor(request, team.slug)
+      const requested = requestedFor(request, team.slug, request.params.id)
 
       if (!requested) {
         return h
@@ -143,7 +142,7 @@ export const federateProgress = {
       )
       const inProgress = environments.some(({ open }) => open)
       const allReady = environments.every(({ ready }) => ready)
-      const pageUrl = federateUrl(team.slug, STEP.progress)
+      const pageUrl = federateProgressUrl(team.slug, request.params.id)
       const status = { environments, inProgress, pageUrl }
 
       if (wantsStatusFragment(request)) {

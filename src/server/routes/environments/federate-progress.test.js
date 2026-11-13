@@ -64,7 +64,7 @@ vi.mock('openid-client', () => ({
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
-const PROGRESS_URL = `${FEDERATE_URL}/progress`
+const UNKNOWN_PROGRESS_URL = `${FEDERATE_URL}/progress/not-a-journey`
 const CHECK_PATH = `${FEDERATIONS_PATH}/check`
 const FEDERATION_CHANGE = {
   kind: 'federation',
@@ -104,6 +104,8 @@ function text($, selector) {
 describe('the page that follows a federation', () => {
   let server
   let cookies
+  // Where the last federation made leads: each one has its own page.
+  let progressUrl
   const configured = config.get('teamEnvironments')
 
   beforeAll(async () => {
@@ -151,16 +153,22 @@ describe('the page that follows a federation', () => {
   }
 
   // Federates flood-api in the environments, as a person would.
-  async function federated(environments = ['infradev', 'qa']) {
+  async function federated(
+    environments = ['infradev', 'qa'],
+    service = 'flood-api'
+  ) {
     await send('POST', FEDERATE_URL, { host: 'cdp' })
-    await send('POST', `${FEDERATE_URL}/service`, { service: 'flood-api' })
+    await send('POST', `${FEDERATE_URL}/service`, { service })
     await send('POST', `${FEDERATE_URL}/environments`, { environments })
 
     const { $ } = await send('GET', `${FEDERATE_URL}/check`)
-
-    return send('POST', `${FEDERATE_URL}/check`, {
+    const confirmed = await send('POST', `${FEDERATE_URL}/check`, {
       key: $('input[name="key"]').attr('value')
     })
+
+    progressUrl = confirmed.response.headers.location
+
+    return confirmed
   }
 
   function operationRoutes(operations) {
@@ -175,10 +183,66 @@ describe('the page that follows a federation', () => {
   test('sends a person who has not just federated anything to the overview', async () => {
     backend()
 
-    const { response } = await send('GET', PROGRESS_URL)
+    const { response } = await send('GET', UNKNOWN_PROGRESS_URL)
 
     expect(response.statusCode).toBe(statusCodes.seeOther)
     expect(response.headers.location).toBe(OVERVIEW_URL)
+  })
+
+  test('gives each federation its own page, so two made in one session each follow their own operations', async () => {
+    const done = ['done', 'done', 'done', 'done', 'done']
+    const open = ['done', 'current', 'todo', 'todo', 'todo']
+
+    const operations = operationRoutes([
+      federationOperation('infradev', open),
+      federationOperation('qa', open),
+      federationOperation('infradev', done, {
+        id: 'op-infradev-2',
+        open: false,
+        state: 'active'
+      }),
+      federationOperation('qa', done, {
+        id: 'op-qa-2',
+        open: false,
+        state: 'active'
+      })
+    ])
+
+    backend(operations)
+    await federated(['infradev', 'qa'], 'flood-api')
+
+    const first = progressUrl
+
+    backend({
+      ...operations,
+      [`POST ${FEDERATIONS_PATH}`]: queued({
+        infradev: 'op-infradev-2',
+        qa: 'op-qa-2'
+      })
+    })
+    await federated(['infradev', 'qa'], 'flood-worker')
+
+    const second = progressUrl
+    fetchMock.mockClear()
+
+    const firstPage = await send('GET', first)
+    const firstRead = fetchMock.mock.calls
+      .map(([url]) => new URL(url).pathname)
+      .filter((path) => path.includes('/operations/'))
+      .sort()
+    const secondPage = await send('GET', second)
+
+    expect(second).not.toBe(first)
+    expect(text(firstPage.$, 'h1')).toBe(
+      'Creating a passwordless credential for flood-api'
+    )
+    expect(firstRead).toEqual([
+      `${TEAM_PATH}/operations/op-infradev`,
+      `${TEAM_PATH}/operations/op-qa`
+    ])
+    expect(text(secondPage.$, 'h1')).toBe(
+      'flood-worker has a passwordless credential'
+    )
   })
 
   test('shows a step list for each environment asked for, in a polite live region, with Check progress (AC14)', async () => {
@@ -196,7 +260,7 @@ describe('the page that follows a federation', () => {
     )
     await federated()
 
-    const { response, $ } = await send('GET', PROGRESS_URL)
+    const { response, $ } = await send('GET', progressUrl)
 
     expect(response.statusCode).toBe(statusCodes.ok)
     expect(text($, 'h1')).toBe(
@@ -209,7 +273,7 @@ describe('the page that follows a federation', () => {
       $('[aria-live="polite"][data-progress-refresh]').attr(
         'data-progress-refresh'
       )
-    ).toBe(`${PROGRESS_URL}?fragment=status`)
+    ).toBe(`${progressUrl}?fragment=status`)
     expect($('[data-in-progress]').attr('data-in-progress')).toBe('true')
     expect(
       $('[data-testid="federate-environment"] h2')
@@ -233,7 +297,7 @@ describe('the page that follows a federation', () => {
       'Not started: Ready to use'
     ])
     expect(text($, '[data-testid="check-progress"]')).toBe('Check progress')
-    expect($('[data-testid="check-progress"]').attr('href')).toBe(PROGRESS_URL)
+    expect($('[data-testid="check-progress"]').attr('href')).toBe(progressUrl)
   })
 
   test('reads each environment’s own operation, only that team’s', async () => {
@@ -252,7 +316,7 @@ describe('the page that follows a federation', () => {
     await federated()
     fetchMock.mockClear()
 
-    await send('GET', PROGRESS_URL)
+    await send('GET', progressUrl)
 
     const paths = fetchMock.mock.calls
       .map(([url]) => new URL(url).pathname)
@@ -281,7 +345,7 @@ describe('the page that follows a federation', () => {
     )
     await federated()
 
-    const { response, $ } = await send('GET', `${PROGRESS_URL}?fragment=status`)
+    const { response, $ } = await send('GET', `${progressUrl}?fragment=status`)
 
     expect(response.statusCode).toBe(statusCodes.ok)
     expect(response.headers['cache-control']).toBe('no-store')
@@ -301,7 +365,7 @@ describe('the page that follows a federation', () => {
     )
     await federated()
 
-    const { $ } = await send('GET', PROGRESS_URL)
+    const { $ } = await send('GET', progressUrl)
 
     expect(text($, '[data-testid="federated-panel"]')).toBe(
       'flood-api has a passwordless credential in Infradev and QA'
@@ -348,7 +412,7 @@ describe('the page that follows a federation', () => {
     )
     await federated()
 
-    const { $ } = await send('GET', PROGRESS_URL)
+    const { $ } = await send('GET', progressUrl)
 
     expect(text($, 'h1')).toBe(
       'We could not create a passwordless credential for flood-api everywhere'
@@ -380,7 +444,7 @@ describe('the page that follows a federation', () => {
     })
     await federated()
 
-    const fragment = await send('GET', `${PROGRESS_URL}?fragment=status`)
+    const fragment = await send('GET', `${progressUrl}?fragment=status`)
 
     expect(fragment.response.statusCode).toBe(statusCodes.notFound)
 
@@ -393,7 +457,7 @@ describe('the page that follows a federation', () => {
       })
     })
 
-    const unknown = await send('GET', PROGRESS_URL)
+    const unknown = await send('GET', progressUrl)
 
     expect(unknown.response.statusCode).toBe(statusCodes.internalServerError)
   })
@@ -413,7 +477,7 @@ describe('the page that follows a federation', () => {
     })
     await federated()
 
-    const { response } = await send('GET', PROGRESS_URL)
+    const { response } = await send('GET', progressUrl)
 
     expect(response.statusCode).toBe(statusCodes.notFound)
   })
@@ -429,8 +493,8 @@ describe('the page that follows a federation', () => {
     })
     await federated()
 
-    const page = await send('GET', PROGRESS_URL)
-    const fragment = await send('GET', `${PROGRESS_URL}?fragment=status`)
+    const page = await send('GET', progressUrl)
+    const fragment = await send('GET', `${progressUrl}?fragment=status`)
 
     expect(page.response.statusCode).toBe(statusCodes.serviceUnavailable)
     expect(text(page.$, 'h1')).toBe('Applications are not available just now')
@@ -461,7 +525,7 @@ describe('the page that follows a federation', () => {
 
     const { response } = await send(
       'GET',
-      '/environments/coastal-team/federate/progress'
+      progressUrl.replace(sampleTeam.slug, 'coastal-team')
     )
 
     expect(response.headers.location).toBe('/environments/coastal-team')

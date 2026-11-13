@@ -29,6 +29,17 @@ export function federateUrl(teamSlug, step = '', options = {}) {
 }
 
 /**
+ * The address of the page that follows one federation just made: each one has
+ * its own, so two made in one session do not show each other's operations.
+ * @param {string} teamSlug
+ * @param {string} id - The id the federation was given when it was made.
+ * @returns {string}
+ */
+export function federateProgressUrl(teamSlug, id) {
+  return federateUrl(teamSlug, `progress/${encodeURIComponent(id)}`)
+}
+
+/**
  * The address of an action on one environment's application (change or
  * remove), which only an admin takes.
  * @param {string} teamSlug

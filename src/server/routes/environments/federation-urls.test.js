@@ -1,5 +1,6 @@
 import {
   applicationUrl,
+  federateProgressUrl,
   federateUrl
 } from '#/server/routes/environments/federation-urls.js'
 
@@ -29,6 +30,14 @@ describe('#federateUrl', () => {
 
   test('encodes the team', () => {
     expect(federateUrl('a b')).toBe('/environments/a%20b/federate')
+  })
+})
+
+describe('#federateProgressUrl', () => {
+  test('is the address of the page that follows one federation, by its id', () => {
+    expect(federateProgressUrl('flood-risk-team', 'a b')).toBe(
+      '/environments/flood-risk-team/federate/progress/a%20b'
+    )
   })
 })
 

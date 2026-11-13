@@ -68,7 +68,9 @@ const PRINCIPAL_URL = `${FEDERATE_URL}/principal-id`
 const NAME_URL = `${FEDERATE_URL}/name`
 const ENVIRONMENTS_URL = `${FEDERATE_URL}/environments`
 const CHECK_URL = `${FEDERATE_URL}/check`
-const PROGRESS_URL = `${FEDERATE_URL}/progress`
+const PROGRESS_URL = `${FEDERATE_URL}/progress/a-journey`
+// Where a federation just made leads: its own page, by an id of its own.
+const PROGRESS_PAGE = new RegExp(`^${FEDERATE_URL}/progress/[0-9a-f-]{36}$`)
 const CHECK_PATH = `${FEDERATIONS_PATH}/check`
 
 function text($, selector) {
@@ -784,7 +786,7 @@ describe('the Federate journey', () => {
       const [call] = calls('POST', FEDERATIONS_PATH)
 
       expect(response.statusCode).toBe(statusCodes.seeOther)
-      expect(response.headers.location).toBe(PROGRESS_URL)
+      expect(response.headers.location).toMatch(PROGRESS_PAGE)
       expect(calls('POST', FEDERATIONS_PATH)).toHaveLength(1)
       expect(bodyOf(call)).toEqual({
         host: 'cdp',
@@ -921,7 +923,7 @@ describe('the Federate journey', () => {
         key: $('input[name="key"]').attr('value')
       })
 
-      expect(response.headers.location).toBe(PROGRESS_URL)
+      expect(response.headers.location).toMatch(PROGRESS_PAGE)
     })
   })
 
