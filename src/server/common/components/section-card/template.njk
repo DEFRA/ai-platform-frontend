@@ -1,0 +1,17 @@
+{#
+  params.title, params.headingLevel (default 2), params.classes, params.attributes,
+  params.actionsHtml (links or buttons shown at the right of the title).
+  A page section as a GOV.UK summary card: the macro's call block is its content.
+#}
+{% set level = params.headingLevel or 2 %}
+<div class="govuk-summary-card app-section-card{{ ' ' + params.classes if params.classes }}"{% for name, value in params.attributes %} {{ name }}="{{ value }}"{% endfor %}>
+  <div class="govuk-summary-card__title-wrapper app-section-card__title-wrapper">
+    <h{{ level }} class="govuk-summary-card__title">{{ params.title }}</h{{ level }}>
+    {% if params.actionsHtml %}
+      <div class="app-section-card__actions">{{ params.actionsHtml | safe }}</div>
+    {% endif %}
+  </div>
+  <div class="govuk-summary-card__content">
+    {{ caller() if caller }}
+  </div>
+</div>

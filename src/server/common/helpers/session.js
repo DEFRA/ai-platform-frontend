@@ -9,6 +9,7 @@ const SESSION_CLOCK_KEY = 'sessionClock'
 const TOKENS_KEY = 'tokens'
 const ADD_MEMBER_KEYS = 'addMemberKeys'
 const ADD_MEMBER_GENERATION = 'addMemberGeneration'
+const PENDING_LIMITS_KEY = 'pendingLimits'
 
 // When the person signed in and when they last made a request: the two
 // times the idle and overall session limits are measured from.
@@ -147,6 +148,21 @@ export function getAddMemberGeneration(request) {
 
 export function setAddMemberGeneration(request, value) {
   request.yar.set(ADD_MEMBER_GENERATION, value)
+}
+
+// The limits a person has asked for and not yet confirmed, with the key that
+// makes confirming them the same request however many times it is sent
+// (`{ userId, teamSlug, environment, tokensPerMinute, requestsPerMinute, key }`).
+export function getPendingLimits(request) {
+  return request.yar.get(PENDING_LIMITS_KEY)
+}
+
+export function setPendingLimits(request, value) {
+  request.yar.set(PENDING_LIMITS_KEY, value)
+}
+
+export function clearPendingLimits(request) {
+  request.yar.clear(PENDING_LIMITS_KEY)
 }
 
 export function setAccountNotification(request, value) {

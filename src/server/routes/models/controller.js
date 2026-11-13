@@ -119,8 +119,8 @@ export const modelsController = {
         const { available, notAvailable } = groupModels(items)
 
         return h.view('models/index', {
-          pageTitle: 'Models',
-          heading: 'Models',
+          pageTitle: 'Model catalogue',
+          heading: 'Model catalogue',
           researchDays: RESEARCH_CREDENTIAL_DAYS,
           showItems: buildShowItems(show),
           models: filterByShow(available, show).map(buildModelRow),

@@ -1,0 +1,41 @@
+@use "govuk-frontend" as *;
+
+// An environment the team cannot use yet keeps its card, greyed with a dashed
+// border, so the layout does not change when it opens. The text stays dark
+// enough to read (dark grey on white is 7:1); only the card title and border
+// step back. The card's own classes are targeted, never GOV.UK's.
+.app-environment-card--unavailable {
+  border: 1px dashed govuk-colour("dark-grey");
+
+  .app-environment-card__title-wrapper {
+    background-color: govuk-colour("light-grey");
+  }
+
+  .app-environment-card__title,
+  .app-environment-card__content {
+    color: govuk-colour("dark-grey");
+  }
+}
+
+// Cards side by side across the page, wrapping to fewer columns when there is
+// no room and to one at 320 px (WCAG 1.4.10).
+.app-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: govuk-spacing(4);
+  margin-bottom: govuk-spacing(6);
+
+  > .app-environment-card {
+    margin-bottom: 0;
+  }
+}
+
+// Page-level actions, kept to the right of the page.
+.app-actions--end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: govuk-spacing(3);
+  margin-bottom: govuk-spacing(4);
+}

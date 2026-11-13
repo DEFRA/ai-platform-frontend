@@ -1,0 +1,28 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if teams.length == 0 %}
+        <p class="govuk-body" data-testid="teams-empty">You are not a member of a team yet. Create a team to set up its environments.</p>
+        {{ govukButton({
+          text: "Create a team",
+          href: "/teams/new"
+        }) }}
+      {% else %}
+        <p class="govuk-body-l">Choose a team to see where its models are deployed.</p>
+        <ul class="govuk-list govuk-list--spaced">
+          {% for team in teams %}
+            <li><a class="govuk-link" href="{{ team.href }}" data-testid="team-link">{{ team.name }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

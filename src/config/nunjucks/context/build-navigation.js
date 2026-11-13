@@ -10,18 +10,20 @@ function navigationItem(request, text, href) {
 
 /**
  * The service navigation. There is no Home item, as the service name links to
- * `/`. Signed in people also see "Your access" and "Teams"; "Signed in as",
- * "Sign out" and "Sign in" are added by the page layout.
+ * `/`. Signed in people also see "Personal access", "Teams" and
+ * "Environments"; "Signed in as", "Sign out" and "Sign in" are added by the
+ * page layout.
  * @param {object} request the Hapi request
  * @returns {Array<{text: string, href: string, current: boolean}>}
  */
 export function buildNavigation(request) {
-  const navigation = [navigationItem(request, 'Models', '/models')]
+  const navigation = [navigationItem(request, 'Model catalogue', '/models')]
 
   if (getSessionUser(request)) {
     navigation.push(
-      navigationItem(request, 'Your access', '/manage'),
-      navigationItem(request, 'Teams', '/teams')
+      navigationItem(request, 'Personal access', '/manage'),
+      navigationItem(request, 'Teams', '/teams'),
+      navigationItem(request, 'Environments', '/environments')
     )
   }
 

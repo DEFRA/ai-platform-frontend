@@ -1,0 +1,1105 @@
+import { load } from 'cheerio'
+import createFetchMock from 'vitest-fetch-mock'
+
+import { createServer } from '#/server/server.js'
+import { config } from '#/config/config.js'
+import { statusCodes } from '#/server/common/constants/status-codes.js'
+import { mockApi, reply } from '#/test-helpers/api-mock.js'
+import {
+  INFRADEV_URL,
+  TEAM_PATH,
+  detail,
+  openOperation,
+  operationsAnswer
+} from '#/test-helpers/environments-helpers.js'
+import {
+  signInViaOidc,
+  mergeCookies,
+  cookieHeader
+} from '#/test-helpers/oidc-session-helpers.js'
+import {
+  sampleModel,
+  sampleTeam,
+  teamWithMembers
+} from '#/test-helpers/team-connect-helpers.js'
+
+vi.mock('#/server/common/helpers/oidc-client.js', () => ({
+  getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
+}))
+
+vi.mock('openid-client', () => ({
+  randomPKCECodeVerifier: vi.fn(() => 'verifier'),
+  calculatePKCECodeChallenge: vi.fn(async () => 'challenge'),
+  randomState: vi.fn(() => 'state-123'),
+  randomNonce: vi.fn(() => 'nonce-123'),
+  buildAuthorizationUrl: vi.fn(
+    () =>
+      new URL(
+        'https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize?state=state-123'
+      )
+  ),
+  authorizationCodeGrant: vi.fn(async () => ({
+    access_token: 'user-access-token',
+    refresh_token: 'user-refresh-token',
+    expires_in: 3600,
+    claims: () => ({
+      preferred_username: 'test.user@defra.gov.uk',
+      email: 'test.user@defra.gov.uk',
+      name: 'Test User'
+    })
+  }))
+}))
+
+const fetchMock = createFetchMock(vi)
+fetchMock.enableMocks()
+
+const LIMITS_URL = `${INFRADEV_URL}/limits`
+const CHECK_URL = `${LIMITS_URL}/check`
+const LIMITS_PATH = `${TEAM_PATH}/environments/infradev/limits`
+const NOT_MEMBER = reply(404, { code: 'not-a-member', message: 'Not found' })
+const BOUNDS = {
+  tokensPerMinute: { min: 1, max: 5000 },
+  requestsPerMinute: { min: 1, max: 300 }
+}
+
+function text($, selector) {
+  return $(selector).text().replace(/\s+/g, ' ').trim()
+}
+
+describe('#limitsController', () => {
+  let server
+  let cookies
+  const configured = config.get('teamEnvironments')
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  afterAll(async () => {
+    config.set('teamEnvironments', configured)
+    await server.stop({ timeout: 0 })
+  })
+
+  beforeEach(async () => {
+    fetchMock.resetMocks()
+    cookies = await signInViaOidc(server, fetchMock)
+  })
+
+  function backend({ role = 'admin', ...routes } = {}) {
+    mockApi(fetchMock, {
+      [`GET ${TEAM_PATH}`]: teamWithMembers(role),
+      [`GET ${TEAM_PATH}/environments/infradev`]: detail(),
+      [`GET ${TEAM_PATH}/operations`]: operationsAnswer(),
+      'GET /v1/models': { items: [sampleModel] },
+      'GET /v1/credentials': { items: [] },
+      ...routes
+    })
+  }
+
+  function get(url, jar = cookies) {
+    return server.inject({
+      method: 'GET',
+      url,
+      headers: { cookie: cookieHeader(jar) }
+    })
+  }
+
+  // A form posts what its page showed. The check page shows a key for its
+  // answers, so a post to it carries that key (read as a person's browser
+  // would) unless a test gives one, or none, itself.
+  async function post(url, payload = {}, jar = cookies) {
+    const body = { crumb: jar.crumb, ...payload }
+
+    if (url === CHECK_URL && !('key' in payload)) {
+      body.key = shownKey(load((await get(CHECK_URL, jar)).result))
+    }
+
+    return server.inject({
+      method: 'POST',
+      url,
+      headers: { cookie: cookieHeader(jar) },
+      payload: body
+    })
+  }
+
+  function shownKey($) {
+    return $('input[name="key"]').attr('value') ?? ''
+  }
+
+  // The questions answered, ready for the check page.
+  async function answered(payload = {}) {
+    backend()
+
+    const response = await post(LIMITS_URL, {
+      tokensPerMinute: '2000',
+      requestsPerMinute: '120',
+      ...payload
+    })
+
+    return mergeCookies(cookies, response)
+  }
+
+  // The limits changes asked for (the sign-in's own PUT is not one).
+  function putCalls() {
+    return fetchMock.mock.calls.filter(
+      ([url, init]) => init?.method === 'PUT' && url.includes('/limits')
+    )
+  }
+
+  describe('the question page', () => {
+    test('asks for tokens and requests a minute, with the bounds in the hints and the current limits filled in', async () => {
+      backend()
+
+      const { statusCode, result } = await get(LIMITS_URL)
+      const $ = load(result)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(text($, '[data-testid="app-heading-caption"]')).toBe(
+        'Flood Risk Team'
+      )
+      expect(text($, 'h1')).toBe('Change the limits in Infradev')
+      expect($('title').text()).toContain('Change the limits in Infradev')
+      expect($('label[for="tokensPerMinute"]').text().trim()).toBe(
+        'Tokens a minute'
+      )
+      expect($('label[for="requestsPerMinute"]').text().trim()).toBe(
+        'Requests a minute'
+      )
+      expect(text($, '#tokensPerMinute-hint')).toBe(
+        'Between 1 and 5,000. Your team has 1,000 now.'
+      )
+      expect(text($, '#requestsPerMinute-hint')).toBe(
+        'Between 1 and 300. Your team has 60 now.'
+      )
+      expect($('#tokensPerMinute').attr('value')).toBe('1000')
+      expect($('#requestsPerMinute').attr('value')).toBe('60')
+      expect($('#tokensPerMinute').attr('inputmode')).toBe('numeric')
+      expect($('a.govuk-back-link').attr('href')).toBe(INFRADEV_URL)
+      expect($('main form input[name="crumb"]')).toHaveLength(1)
+    })
+
+    test('shows what a change in progress will set, rather than what the file holds', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+          pendingLimits: { tokensPerMinute: 3000, requestsPerMinute: 150 }
+        })
+      })
+
+      const $ = load((await get(LIMITS_URL)).result)
+
+      expect($('#tokensPerMinute').attr('value')).toBe('3000')
+      expect(text($, '#tokensPerMinute-hint')).toContain(
+        'Your team is changing to 3,000.'
+      )
+    })
+
+    test('keeps what was typed when asked again from the check page', async () => {
+      const jar = await answered({ tokensPerMinute: '2500' })
+
+      backend()
+      const $ = load((await get(LIMITS_URL, jar)).result)
+
+      expect($('#tokensPerMinute').attr('value')).toBe('2500')
+    })
+
+    test('is 403 for a member, who is offered no change, and asks the backend for nothing more', async () => {
+      backend({ role: 'user' })
+
+      const { statusCode, result } = await get(LIMITS_URL)
+      const $ = load(result)
+
+      expect(statusCode).toBe(statusCodes.forbidden)
+      expect(text($, 'h1')).toBe('You cannot change the limits')
+      expect(text($, 'main')).toContain(
+        'Only a team admin can change the limits in Infradev.'
+      )
+      expect($('main form')).toHaveLength(0)
+      expect(
+        $('a[href="/environments/flood-risk-team/infradev"]')
+      ).not.toHaveLength(0)
+    })
+
+    test('is 404 for a person who is not a member, with nothing about the team', async () => {
+      backend({ [`GET ${TEAM_PATH}/environments/infradev`]: NOT_MEMBER })
+
+      const { statusCode, result } = await get(LIMITS_URL)
+
+      expect(statusCode).toBe(statusCodes.notFound)
+      expect(text(load(result), 'main')).not.toContain('Flood Risk Team')
+    })
+
+    test.each(['qa', 'nowhere'])(
+      'is 404 for %s, which is not an available environment',
+      async (code) => {
+        backend()
+
+        const { statusCode } = await get(
+          `/environments/${sampleTeam.slug}/${code}/limits`
+        )
+
+        expect(statusCode).toBe(statusCodes.notFound)
+      }
+    )
+
+    test('says the environment is not set up when there is nothing to change the limits of', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+          setUp: false,
+          limits: null,
+          limitBounds: null,
+          models: []
+        })
+      })
+
+      const { statusCode, result } = await get(LIMITS_URL)
+
+      expect(statusCode).toBe(statusCodes.conflict)
+      expect(text(load(result), 'main')).toContain(
+        'Infradev is not set up yet, so it has no limits to change.'
+      )
+    })
+
+    test('says it could not read the environment when the backend is unavailable', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+
+      const { statusCode, result } = await get(LIMITS_URL)
+
+      expect(statusCode).toBe(statusCodes.serviceUnavailable)
+      expect(text(load(result), 'main')).toContain('We could not read')
+    })
+
+    test('redirects to sign in when signed out', async () => {
+      const { statusCode } = await server.inject({
+        method: 'GET',
+        url: LIMITS_URL
+      })
+
+      expect(statusCode).toBe(statusCodes.found)
+    })
+  })
+
+  describe('answering', () => {
+    test('goes to the check page with valid answers, sending nothing to the backend yet', async () => {
+      backend()
+
+      const response = await post(LIMITS_URL, {
+        tokensPerMinute: '2000',
+        requestsPerMinute: '120'
+      })
+
+      expect(response.statusCode).toBe(statusCodes.seeOther)
+      expect(response.headers.location).toBe(CHECK_URL)
+      expect(putCalls()).toHaveLength(0)
+    })
+
+    test.each([
+      ['2,000', '120'],
+      [' 2000 ', ' 120 '],
+      ['5000', '300'],
+      ['1', '1']
+    ])(
+      'accepts %j and %j, with commas or spaces, and the bounds themselves',
+      async (tokensPerMinute, requestsPerMinute) => {
+        backend()
+
+        const response = await post(LIMITS_URL, {
+          tokensPerMinute,
+          requestsPerMinute
+        })
+
+        expect(response.statusCode).toBe(statusCodes.seeOther)
+      }
+    )
+
+    test('asks for both, with an error summary and a message by each field, keeping what was typed', async () => {
+      backend()
+
+      const { statusCode, result } = await post(LIMITS_URL, {
+        tokensPerMinute: '',
+        requestsPerMinute: '   '
+      })
+      const $ = load(result)
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect($('title').text()).toContain(
+        'Error: Change the limits in Infradev'
+      )
+      expect(text($, '.govuk-error-summary')).toContain('There is a problem')
+      expect(
+        $('.govuk-error-summary__list a')
+          .map((_, link) => [[$(link).text().trim(), $(link).attr('href')]])
+          .get()
+      ).toEqual([
+        ['Enter the tokens a minute', '#tokensPerMinute'],
+        ['Enter the requests a minute', '#requestsPerMinute']
+      ])
+      expect(text($, '#tokensPerMinute-error')).toContain(
+        'Enter the tokens a minute'
+      )
+      expect($('#tokensPerMinute').hasClass('govuk-input--error')).toBe(true)
+    })
+
+    test.each([
+      ['12.5', 'must be a whole number'],
+      ['abc', 'must be a whole number'],
+      ['-5', 'must be a whole number'],
+      ['1e3', 'must be a whole number']
+    ])('refuses %j: tokens a minute %s', async (value, message) => {
+      backend()
+
+      const { statusCode, result } = await post(LIMITS_URL, {
+        tokensPerMinute: value,
+        requestsPerMinute: '60'
+      })
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+      expect(text(load(result), '#tokensPerMinute-error')).toContain(message)
+      expect(load(result)('#tokensPerMinute').attr('value')).toBe(value)
+      expect(load(result)('#requestsPerMinute').attr('value')).toBe('60')
+    })
+
+    test.each([
+      ['0', 'Tokens a minute must be between 1 and 5,000', 'tokensPerMinute'],
+      ['5001', 'Tokens a minute must be between 1 and 5,000', 'tokensPerMinute']
+    ])(
+      'states the bounds and queues nothing for %j',
+      async (value, message, field) => {
+        backend()
+
+        const { statusCode, result } = await post(LIMITS_URL, {
+          tokensPerMinute: value,
+          requestsPerMinute: '60'
+        })
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.badRequest)
+        expect(text($, `#${field}-error`)).toContain(message)
+        expect(text($, '.govuk-error-summary')).toContain(message)
+        expect(putCalls()).toHaveLength(0)
+      }
+    )
+
+    test('states the bounds for requests a minute too', async () => {
+      backend()
+
+      const { result } = await post(LIMITS_URL, {
+        tokensPerMinute: '1000',
+        requestsPerMinute: '301'
+      })
+
+      expect(text(load(result), '#requestsPerMinute-error')).toContain(
+        'Requests a minute must be between 1 and 300'
+      )
+    })
+
+    test('is 403 for a member who posts anyway, and keeps nothing', async () => {
+      backend({ role: 'user' })
+
+      const response = await post(LIMITS_URL, {
+        tokensPerMinute: '2000',
+        requestsPerMinute: '120'
+      })
+
+      expect(response.statusCode).toBe(statusCodes.forbidden)
+
+      backend({ role: 'user' })
+      const check = await get(CHECK_URL, mergeCookies(cookies, response))
+
+      expect(check.statusCode).toBe(statusCodes.forbidden)
+    })
+
+    test('has no CSRF bypass: a post without the token is refused', async () => {
+      backend()
+
+      const response = await server.inject({
+        method: 'POST',
+        url: LIMITS_URL,
+        headers: { cookie: cookieHeader(cookies) },
+        payload: { tokensPerMinute: '2000', requestsPerMinute: '120' }
+      })
+
+      expect(response.statusCode).toBe(statusCodes.forbidden)
+    })
+  })
+
+  describe('the check page', () => {
+    test('shows the new limits and the environment, each answer with a Change link, and a button to confirm', async () => {
+      const jar = await answered()
+
+      backend()
+      const { statusCode, result } = await get(CHECK_URL, jar)
+      const $ = load(result)
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(text($, 'h1')).toBe('Check your answers')
+      expect(text($, '[data-testid="app-heading-caption"]')).toBe(
+        'Flood Risk Team'
+      )
+      expect(
+        $('.govuk-summary-list__row')
+          .map((_, row) => [
+            [
+              $(row).find('dt').text().trim(),
+              $(row).find('dd').first().text().trim()
+            ]
+          ])
+          .get()
+      ).toEqual([
+        ['Environment', 'Infradev'],
+        ['Tokens a minute', '2,000'],
+        ['Requests a minute', '120']
+      ])
+      expect(
+        $('.govuk-summary-list__actions a')
+          .map((_, link) => $(link).attr('href'))
+          .get()
+      ).toEqual([LIMITS_URL, LIMITS_URL])
+      expect($('button').text()).toContain('Change limits')
+      expect($('a.govuk-back-link').attr('href')).toBe(LIMITS_URL)
+    })
+
+    test('goes back to the question when there is nothing to check', async () => {
+      backend()
+
+      const response = await get(CHECK_URL)
+
+      expect(response.statusCode).toBe(statusCodes.seeOther)
+      expect(response.headers.location).toBe(LIMITS_URL)
+    })
+
+    test('does not offer another environment’s or another team’s answers', async () => {
+      const jar = await answered()
+
+      config.set('teamEnvironments', ['infradev', 'qa'])
+      backend({
+        [`GET ${TEAM_PATH}/environments/qa`]: detail({ environment: 'qa' })
+      })
+      const response = await get(
+        `${INFRADEV_URL.replace('infradev', 'qa')}/limits/check`,
+        jar
+      )
+
+      config.set('teamEnvironments', configured)
+
+      expect(response.statusCode).toBe(statusCodes.seeOther)
+      expect(response.headers.location).toBe(
+        `${INFRADEV_URL.replace('infradev', 'qa')}/limits`
+      )
+    })
+  })
+
+  describe('confirming', () => {
+    test('asks the backend for one change with an Idempotency-Key, then shows on the environment page that the limits are changing', async () => {
+      const jar = await answered()
+      let key
+      let body
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: async (request) => {
+          key = request.headers.get('idempotency-key')
+          body = await request.json()
+
+          return reply(202, {
+            operation: openOperation({
+              id: 'op-limits-1',
+              kind: 'limits',
+              changes: [{ kind: 'limits', change: 'set', limits: body }]
+            })
+          })
+        }
+      })
+
+      const confirmed = await post(CHECK_URL, {}, jar)
+
+      expect(confirmed.statusCode).toBe(statusCodes.seeOther)
+      expect(confirmed.headers.location).toBe(INFRADEV_URL)
+      expect(body).toEqual({ tokensPerMinute: 2000, requestsPerMinute: 120 })
+      expect(key).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      )
+      expect(putCalls()).toHaveLength(1)
+
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+          pendingLimits: { tokensPerMinute: 2000, requestsPerMinute: 120 }
+        })
+      })
+      const page = await get(INFRADEV_URL, mergeCookies(jar, confirmed))
+      const $ = load(page.result)
+
+      expect($('[data-testid="team-notification"]').text()).toContain(
+        'The limits in Infradev are being changed'
+      )
+      expect($('[data-testid="limits-pending"]').text().trim()).toBe(
+        'Changing to 2,000 tokens and 120 requests a minute'
+      )
+    })
+
+    test('treats a replayed key (200) as the same request, not a second one', async () => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(200, {
+          operation: openOperation({ id: 'op-limits-1' })
+        })
+      })
+
+      const confirmed = await post(CHECK_URL, {}, jar)
+
+      expect(confirmed.statusCode).toBe(statusCodes.seeOther)
+      expect(confirmed.headers.location).toBe(INFRADEV_URL)
+    })
+
+    test('sends the same key again when asked again after a failure, so the backend makes one change', async () => {
+      const jar = await answered()
+      const keys = []
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: (request) => {
+          keys.push(request.headers.get('idempotency-key'))
+
+          return keys.length === 1
+            ? reply(502, { code: 'upstream-unavailable' })
+            : reply(200, { operation: openOperation() })
+        }
+      })
+
+      const first = await post(CHECK_URL, {}, jar)
+
+      expect(first.statusCode).toBe(statusCodes.serviceUnavailable)
+      expect(text(load(first.result), '.govuk-error-summary')).toContain(
+        'We could not change the limits just now'
+      )
+
+      const retried = await post(CHECK_URL, {}, mergeCookies(jar, first))
+
+      expect(retried.statusCode).toBe(statusCodes.seeOther)
+      expect(keys).toHaveLength(2)
+      expect(keys[1]).toBe(keys[0])
+    })
+
+    test('uses a new key when the answers change', async () => {
+      const first = await answered({ tokensPerMinute: '2000' })
+      const keys = []
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: (request) => {
+          keys.push(request.headers.get('idempotency-key'))
+
+          return reply(202, { operation: openOperation() })
+        }
+      })
+
+      await post(CHECK_URL, {}, first)
+
+      const second = mergeCookies(
+        first,
+        await post(
+          LIMITS_URL,
+          {
+            tokensPerMinute: '2500',
+            requestsPerMinute: '120'
+          },
+          first
+        )
+      )
+
+      await post(CHECK_URL, {}, second)
+
+      expect(keys).toHaveLength(2)
+      expect(keys[1]).not.toBe(keys[0])
+    })
+
+    test('does not ask the backend a second time once it has been confirmed and shown', async () => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(202, { operation: openOperation() })
+      })
+
+      const confirmed = await post(CHECK_URL, {}, jar)
+      const again = await post(CHECK_URL, {}, mergeCookies(jar, confirmed))
+
+      expect(again.statusCode).toBe(statusCodes.seeOther)
+      expect(again.headers.location).toBe(LIMITS_URL)
+      expect(putCalls()).toHaveLength(1)
+    })
+
+    test('sends the person back to the question, with the bounds, when the backend says they are outside', async () => {
+      const jar = await answered({ tokensPerMinute: '4000' })
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(400, {
+          code: 'limits-out-of-bounds',
+          message: 'No',
+          limitBounds: {
+            tokensPerMinute: { min: 1, max: 3000 },
+            requestsPerMinute: BOUNDS.requestsPerMinute
+          }
+        })
+      })
+
+      const response = await post(CHECK_URL, {}, jar)
+      const $ = load(response.result)
+
+      expect(response.statusCode).toBe(statusCodes.badRequest)
+      expect(text($, '.govuk-error-summary')).toContain(
+        'Tokens a minute must be between 1 and 3,000'
+      )
+      expect($('#tokensPerMinute').attr('value')).toBe('4000')
+    })
+
+    test('says the team already has these limits, keeping the answers, when the backend says so', async () => {
+      const jar = await answered({
+        tokensPerMinute: '1000',
+        requestsPerMinute: '60'
+      })
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(409, {
+          code: 'limits-unchanged',
+          message: 'No'
+        })
+      })
+
+      const response = await post(CHECK_URL, {}, jar)
+      const $ = load(response.result)
+
+      expect(response.statusCode).toBe(statusCodes.conflict)
+      expect(text($, '.govuk-error-summary')).toContain(
+        'Your team already has these limits in Infradev'
+      )
+    })
+
+    test.each([
+      [
+        'environment-not-set-up',
+        409,
+        'Infradev is not set up yet, so it has no limits to change.'
+      ],
+      [
+        'admin-required',
+        403,
+        'Only a team admin can change the limits in Infradev.'
+      ],
+      [
+        'idempotency-key-reused',
+        409,
+        'Something changed since you checked these limits. Check your answers again.'
+      ]
+    ])('explains %s in words', async (code, status, message) => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(status, { code, message: 'No' })
+      })
+
+      const response = await post(CHECK_URL, {}, jar)
+
+      expect(response.statusCode).toBe(status)
+      expect(text(load(response.result), 'main')).toContain(message)
+    })
+
+    test('is 404 for a person who is no longer a member', async () => {
+      const jar = await answered()
+
+      backend({ [`PUT ${LIMITS_PATH}`]: NOT_MEMBER })
+
+      const response = await post(CHECK_URL, {}, jar)
+
+      expect(response.statusCode).toBe(statusCodes.notFound)
+    })
+
+    test('says it could not make the change, keeping the answers for a retry, when the backend fails', async () => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(500, { code: 'internal-error' })
+      })
+
+      const response = await post(CHECK_URL, {}, jar)
+
+      expect(response.statusCode).toBe(statusCodes.serviceUnavailable)
+      expect(text(load(response.result), 'main')).toContain('2,000')
+    })
+
+    test('is 403 for a member, and asks the backend for nothing', async () => {
+      const jar = await answered()
+
+      backend({ role: 'user' })
+
+      const response = await post(CHECK_URL, {}, jar)
+
+      expect(response.statusCode).toBe(statusCodes.forbidden)
+      expect(putCalls()).toHaveLength(0)
+    })
+  })
+
+  describe('review round 1 fixes', () => {
+    const tight = {
+      tokensPerMinute: { min: 1, max: 3000 },
+      requestsPerMinute: BOUNDS.requestsPerMinute
+    }
+
+    // The key and body of each limits change the backend was asked for.
+    function recordingPut(answers) {
+      const calls = []
+
+      return {
+        calls,
+        route: async (request) => {
+          calls.push({
+            key: request.headers.get('idempotency-key'),
+            body: await request.json()
+          })
+
+          return answers(calls.length)
+        }
+      }
+    }
+
+    test('F11: limits refused as outside the bounds can be corrected: the form posts to the question, with the backend’s bounds and a new key', async () => {
+      const jar = await answered({ tokensPerMinute: '4000' })
+      const put = recordingPut((count) =>
+        count === 1
+          ? reply(400, {
+              code: 'limits-out-of-bounds',
+              message: 'No',
+              limitBounds: tight
+            })
+          : reply(202, { operation: openOperation() })
+      )
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: put.route,
+        [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+          limitBounds: tight
+        })
+      })
+
+      const refused = await post(CHECK_URL, {}, jar)
+      const $ = load(refused.result)
+
+      expect(refused.statusCode).toBe(statusCodes.badRequest)
+      expect($('main form').attr('action')).toBe(LIMITS_URL)
+      expect(text($, '#tokensPerMinute-hint')).toContain('Between 1 and 3,000')
+
+      const corrected = mergeCookies(jar, refused)
+      const answeredAgain = await post(
+        LIMITS_URL,
+        { tokensPerMinute: '1500', requestsPerMinute: '120' },
+        corrected
+      )
+
+      expect(answeredAgain.statusCode).toBe(statusCodes.seeOther)
+      expect(answeredAgain.headers.location).toBe(CHECK_URL)
+
+      const confirmed = await post(
+        CHECK_URL,
+        {},
+        mergeCookies(corrected, answeredAgain)
+      )
+
+      expect(confirmed.statusCode).toBe(statusCodes.seeOther)
+      expect(put.calls).toHaveLength(2)
+      expect(put.calls[1].body).toEqual({
+        tokensPerMinute: 1500,
+        requestsPerMinute: 120
+      })
+      expect(put.calls[1].key).not.toBe(put.calls[0].key)
+    })
+
+    test('F15: a 404 from the change that says the environment is not available is that, not a missing team', async () => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(404, {
+          code: 'environment-not-available'
+        })
+      })
+
+      const response = await post(CHECK_URL, {}, jar)
+
+      expect(response.statusCode).toBe(statusCodes.notFound)
+      expect(text(load(response.result), 'h1')).toBe('Environment not found')
+    })
+
+    test('F16: a team file with no limits says so rather than 0 or null', async () => {
+      const noLimits = {
+        tokensPerMinute: null,
+        requestsPerMinute: null
+      }
+
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+          limits: noLimits
+        })
+      })
+
+      const question = load((await get(LIMITS_URL)).result)
+
+      expect(question('#tokensPerMinute').attr('value')).toBe('')
+      expect(question('#requestsPerMinute').attr('value')).toBe('')
+      expect(text(question, '#tokensPerMinute-hint')).toBe(
+        'Between 1 and 5,000. Your team has no limit set.'
+      )
+
+      const page = load((await get(INFRADEV_URL)).result)
+
+      expect(text(page, '[data-testid="limits-row-tokens"]')).toContain(
+        'Not set'
+      )
+    })
+
+    test('F17: the same answers given again are the same request, with the same key', async () => {
+      const put = recordingPut(() =>
+        reply(502, { code: 'upstream-unavailable' })
+      )
+      const first = await answered()
+
+      backend({ [`PUT ${LIMITS_PATH}`]: put.route })
+      const failedOnce = await post(CHECK_URL, {}, first)
+      const again = await post(
+        LIMITS_URL,
+        { tokensPerMinute: '2000', requestsPerMinute: '120' },
+        mergeCookies(first, failedOnce)
+      )
+
+      await post(CHECK_URL, {}, mergeCookies(first, again))
+
+      expect(put.calls).toHaveLength(2)
+      expect(put.calls[1].key).toBe(put.calls[0].key)
+    })
+
+    test('F18: answers that fail validation show the question with an error summary, not a blank page', async () => {
+      backend()
+
+      const response = await post(LIMITS_URL, {
+        tokensPerMinute: ['1', '2'],
+        requestsPerMinute: '60'
+      })
+      const $ = load(response.result)
+
+      expect(response.statusCode).toBe(statusCodes.badRequest)
+      expect(text($, '.govuk-error-summary')).toContain(
+        'Enter the tokens a minute'
+      )
+      expect($('#requestsPerMinute').attr('value')).toBe('')
+    })
+
+    test('F18: such answers from a member or for an unknown environment get that page', async () => {
+      backend({ role: 'user' })
+
+      const response = await post(LIMITS_URL, { tokensPerMinute: ['1'] })
+
+      expect(response.statusCode).toBe(statusCodes.forbidden)
+    })
+
+    test('F19: the error summary on the check page comes first and links to the Change link', async () => {
+      const jar = await answered({
+        tokensPerMinute: '1000',
+        requestsPerMinute: '60'
+      })
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(409, { code: 'limits-unchanged' })
+      })
+
+      const { result } = await post(CHECK_URL, {}, jar)
+      const $ = load(result)
+      const href = $('.govuk-error-summary__list a').attr('href')
+
+      expect(result.indexOf('govuk-error-summary')).toBeLessThan(
+        result.indexOf('<h1')
+      )
+      expect(href).toBe('#change-tokensPerMinute')
+      expect($(href)).toHaveLength(1)
+    })
+
+    test('does not turn a refusal it does not know into a page: the backend’s fault is shown as a fault', async () => {
+      backend({ [`GET ${TEAM_PATH}/environments/infradev`]: reply(403, {}) })
+
+      expect((await get(LIMITS_URL)).statusCode).toBe(
+        statusCodes.internalServerError
+      )
+
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(409, { code: 'something-new' })
+      })
+
+      expect((await post(CHECK_URL, {}, jar)).statusCode).toBe(
+        statusCodes.internalServerError
+      )
+    })
+
+    test('an environment the backend does not offer is that, whichever read says so; an unreadable team is unavailable', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: reply(404, {
+          code: 'environment-not-available'
+        })
+      })
+
+      const missing = await get(LIMITS_URL)
+
+      expect(missing.statusCode).toBe(statusCodes.notFound)
+      expect(text(load(missing.result), 'h1')).toBe('Environment not found')
+
+      backend({
+        [`GET ${TEAM_PATH}`]: reply(502, { code: 'upstream-unavailable' })
+      })
+
+      expect((await get(LIMITS_URL)).statusCode).toBe(
+        statusCodes.serviceUnavailable
+      )
+    })
+
+    test('asks for limits when the team file holds none and nothing is in progress', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments/infradev`]: detail({ limits: null })
+      })
+
+      const $ = load((await get(LIMITS_URL)).result)
+
+      expect($('#tokensPerMinute').attr('value')).toBe('')
+      expect(text($, '#requestsPerMinute-hint')).toContain('no limit set')
+    })
+
+    test('says the limits are outside the bounds even when the backend sends none and the page’s own bounds allow them', async () => {
+      const jar = await answered({ tokensPerMinute: '4000' })
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(400, { code: 'limits-out-of-bounds' })
+      })
+
+      const response = await post(CHECK_URL, {}, jar)
+
+      expect(response.statusCode).toBe(statusCodes.badRequest)
+      expect(text(load(response.result), '.govuk-error-summary')).toContain(
+        'The limits are outside the bounds for this environment'
+      )
+    })
+
+    test('a key the backend refused as reused is spent, so the answers are asked for again', async () => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(409, { code: 'idempotency-key-reused' })
+      })
+
+      const refused = await post(CHECK_URL, {}, jar)
+
+      backend()
+      const check = await get(CHECK_URL, mergeCookies(jar, refused))
+
+      expect(check.statusCode).toBe(statusCodes.seeOther)
+      expect(check.headers.location).toBe(LIMITS_URL)
+    })
+  })
+
+  describe('answers changed in another window (Copilot review 1)', () => {
+    test('shows the key of the answers on the check page, for the form to post back', async () => {
+      const jar = await answered()
+
+      const $ = load((await get(CHECK_URL, jar)).result)
+
+      expect(shownKey($)).toMatch(/^[0-9a-f-]{36}$/)
+    })
+
+    test('does not confirm answers a second window has since changed, and shows the new ones to check', async () => {
+      const jar = await answered({ tokensPerMinute: '2000' })
+      const staleKey = shownKey(load((await get(CHECK_URL, jar)).result))
+
+      // A second window, in the same session, answers differently.
+      await post(
+        LIMITS_URL,
+        { tokensPerMinute: '2500', requestsPerMinute: '120' },
+        jar
+      )
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(202, { operation: openOperation() })
+      })
+      const stale = await post(CHECK_URL, { key: staleKey }, jar)
+      const $ = load(stale.result)
+
+      expect(stale.statusCode).toBe(statusCodes.conflict)
+      expect(putCalls()).toHaveLength(0)
+      expect(text($, '.govuk-error-summary')).toContain(
+        'Your answers changed in another window'
+      )
+      expect(text($, '.govuk-summary-list')).toContain('2,500')
+      expect(shownKey($)).not.toBe(staleKey)
+
+      // Confirming what the page now shows is the one change, for those answers.
+      const confirmed = await post(CHECK_URL, { key: shownKey($) }, jar)
+
+      expect(confirmed.statusCode).toBe(statusCodes.seeOther)
+      expect(putCalls()).toHaveLength(1)
+      expect(JSON.parse(putCalls()[0][1].body)).toEqual({
+        tokensPerMinute: 2500,
+        requestsPerMinute: 120
+      })
+    })
+
+    test.each([
+      ['a repeated key field', { key: ['a', 'b'] }],
+      ['a key that is not text', { key: { nested: 'x' } }]
+    ])(
+      'refuses %s as an answer it could not read, without a change',
+      async (_name, payload) => {
+        const jar = await answered()
+
+        backend({
+          [`PUT ${LIMITS_PATH}`]: reply(202, { operation: openOperation() })
+        })
+        const response = await post(CHECK_URL, payload, jar)
+
+        expect(response.statusCode).toBe(statusCodes.badRequest)
+        expect(putCalls()).toHaveLength(0)
+        expect(text(load(response.result), '.govuk-error-summary')).toContain(
+          'We could not read your answers'
+        )
+        expect(shownKey(load(response.result))).not.toBe('')
+      }
+    )
+
+    test('sends a malformed confirmation with no answers held back to the question', async () => {
+      backend()
+      const response = await post(CHECK_URL, { key: ['a', 'b'] })
+
+      expect(response.statusCode).toBe(statusCodes.seeOther)
+      expect(response.headers.location).toBe(LIMITS_URL)
+    })
+
+    test('tells a Member they cannot change the limits, for a malformed confirmation too', async () => {
+      backend({ role: 'user' })
+      const response = await post(CHECK_URL, { key: ['a', 'b'] })
+
+      expect(response.statusCode).toBe(statusCodes.forbidden)
+      expect(putCalls()).toHaveLength(0)
+    })
+
+    test.each([
+      ['no key', { key: undefined }],
+      ['an empty key', { key: '' }],
+      ['a key that was never shown', { key: 'not-the-key' }]
+    ])('does not confirm with %s', async (_name, payload) => {
+      const jar = await answered()
+
+      backend({
+        [`PUT ${LIMITS_PATH}`]: reply(202, { operation: openOperation() })
+      })
+      const response = await post(CHECK_URL, payload, jar)
+
+      expect(response.statusCode).toBe(statusCodes.conflict)
+      expect(putCalls()).toHaveLength(0)
+    })
+  })
+})

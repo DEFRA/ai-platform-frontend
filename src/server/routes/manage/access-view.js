@@ -2,7 +2,7 @@ import { differenceInCalendarDays } from 'date-fns'
 
 import { formatDate } from '#/config/nunjucks/filters/format-date.js'
 
-// How the Your access page shapes what a person holds: the keys they can use
+// How the Personal access page shapes what a person holds: the keys they can use
 // on their own. A team's models and client secret are on the team's page.
 
 const TEAM_TIER = 'team'
@@ -80,7 +80,7 @@ function keyRow(credential, modelNames) {
 }
 
 /**
- * The "Your access" rows: the person's own research keys, in the order the
+ * The "Personal access" rows: the person's own research keys, in the order the
  * API gives them. A team's client secret is on the team's page, not here.
  * @param {object[]} credentials
  * @param {Record<string, string>} modelNames

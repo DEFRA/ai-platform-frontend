@@ -1,5 +1,5 @@
 // The status of a page that follows a change, on its own. A page whose status
-// moves (a team's Models tab, the page that follows a request) can be asked
+// moves (an environment's page, the page that follows a request) can be asked
 // for just that part with `?fragment=status`; `progress-refresh.js` does so
 // every few seconds while the part says it is `data-in-progress`.
 import { createHash } from 'node:crypto'

@@ -6,6 +6,10 @@ import { config } from '#/config/config.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { mockApi, reply } from '#/test-helpers/api-mock.js'
 import {
+  environmentsRead,
+  summary
+} from '#/test-helpers/environments-helpers.js'
+import {
   signInViaOidc,
   mergeCookies,
   cookieHeader
@@ -48,6 +52,7 @@ const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
 const TEAM_PATH = `/v1/teams/${sampleTeam.slug}`
+const ENVIRONMENTS_PATH = `${TEAM_PATH}/environments`
 const TEAM_URL = `/teams/${sampleTeam.slug}`
 const NOT_FOUND = reply(404, { code: 'not-found', message: 'Not Found' })
 
@@ -62,16 +67,6 @@ function deployment(overrides = {}) {
     status: 'active',
     ...overrides
   }
-}
-
-const teamCredential = {
-  _id: 'cred-1',
-  tier: 'team',
-  teamId: 'team-1',
-  environment: 'infradev',
-  status: 'active',
-  expiresAt: '2027-10-19T00:00:00.000Z',
-  createdAt: '2026-10-21T10:45:00.000Z'
 }
 
 describe('#teamsController', () => {
@@ -454,24 +449,16 @@ describe('#teamsController', () => {
     })
   })
 
-  describe('the Models tab', () => {
+  describe('the Overview tab', () => {
     function backend({
       role = 'admin',
-      deployments = [deployment()],
-      credentials = [teamCredential],
-      environments = [
-        {
-          environment: 'infradev',
-          limits: { requestsPerMinute: 60, tokensPerMinute: 1000 }
-        }
-      ],
+      environments = environmentsRead(),
       ...routes
     } = {}) {
       mockApi(fetchMock, {
-        [`GET ${TEAM_PATH}`]: { ...teamWithMembers(role), environments },
-        [`GET ${TEAM_PATH}/deployments`]: { items: deployments },
+        [`GET ${TEAM_PATH}`]: teamWithMembers(role),
+        [`GET ${ENVIRONMENTS_PATH}`]: environments,
         'GET /v1/models': { items: catalogue },
-        'GET /v1/credentials': { items: credentials },
         ...routes
       })
     }
@@ -494,7 +481,7 @@ describe('#teamsController', () => {
       )
     })
 
-    test('names the team, with the tabs and Models current', async () => {
+    test('names the team, with the tabs and Overview current', async () => {
       backend()
 
       const { statusCode, result } = await get(TEAM_URL)
@@ -503,7 +490,8 @@ describe('#teamsController', () => {
       expect(result).toMatch(
         /govuk-caption-xl[^>]*>Team<\/span>\s*<h1[^>]*>Flood Risk Team<\/h1>/
       )
-      expect(result).toContain('aria-current="page">Models</a>')
+      expect(result).toContain('aria-current="page">Overview</a>')
+      expect(result).not.toContain('>Models</a>')
       expect(result).toContain(`href="${TEAM_URL}/members">Members</a>`)
       expect(result).toContain(`href="${TEAM_URL}/details">Details</a>`)
       // The tab replaces the stacked summary, resource rows and forms.
@@ -511,82 +499,95 @@ describe('#teamsController', () => {
       expect(result).not.toContain('What was set up for')
     })
 
-    test('shows an admin a card for the environment with its models, client secret and limits', async () => {
+    test('counts what is deployed and federated in each environment, says which are not available yet, and links to the section', async () => {
+      backend()
+
+      const { result } = await get(TEAM_URL)
+      const $ = load(result)
+
+      expect(
+        $('[data-testid="overview-environment"]')
+          .map((_, row) => $(row).text().replace(/\s+/g, ' ').trim())
+          .get()
+      ).toEqual([
+        'Infradev Development 2 models, 0 applications',
+        'QA Test Not available yet',
+        'PREPROD Pre-production Not available yet',
+        'PROD Production Not available yet'
+      ])
+      expect($('a[data-testid="view-environments"]').text().trim()).toBe(
+        'View environments and deployments'
+      )
+      expect($('a[data-testid="view-environments"]').attr('href')).toBe(
+        `/environments/${sampleTeam.slug}`
+      )
+    })
+
+    test('lists the models the team uses, by name, with what is happening to each', async () => {
       backend({
-        deployments: [
-          deployment(),
-          deployment({
-            _id: 'deployment-2',
-            modelSlug: 'gpt-4-1-nano',
-            status: 'checks-failed'
+        [`GET ${ENVIRONMENTS_PATH}`]: environmentsRead([
+          summary({
+            models: {
+              count: 1,
+              items: [
+                { id: 'd-1', modelSlug: 'gpt-4o', status: 'active' },
+                { id: 'd-2', modelSlug: 'gpt-4-1-nano', status: 'deploying' },
+                { id: 'd-3', modelSlug: 'gpt-5-mini', status: 'removed' }
+              ]
+            }
           })
-        ]
+        ])
+      })
+
+      const { result } = await get(TEAM_URL)
+      const $ = load(result)
+
+      expect(
+        $('[data-testid="team-models"] li')
+          .map((_, item) => $(item).text().replace(/\s+/g, ' ').trim())
+          .get()
+      ).toEqual(['GPT-4.1 nano, setting up', 'GPT-4o'])
+    })
+
+    test('says there are no models yet when the team has none', async () => {
+      backend({
+        [`GET ${ENVIRONMENTS_PATH}`]: environmentsRead([
+          summary({ models: { count: 0, items: [] } })
+        ])
       })
 
       const { result } = await get(TEAM_URL)
 
-      expect(result).toContain('data-testid="environment-card"')
-      expect(result).toContain('>Development</h2>')
-      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
-      expect(result).toContain('Ready to use')
-      expect(result).toContain('govuk-tag--green')
-      expect(result).toContain('Setup failed')
-      expect(result).toContain('govuk-tag--red')
-      expect(result).toContain(
-        'href="/connect/team/request/flood-risk-team/deployment-2"'
-      )
-      expect(result).toContain('See what happened')
-      // Remove is for a ready model only.
-      expect(result).toContain(`href="${TEAM_URL}/models/deployment-1/remove"`)
-      expect(result).not.toContain(`/models/deployment-2/remove`)
-      expect(result).toContain('Expires 19 October 2027')
-      expect(result).toContain(`href="${TEAM_URL}/client-secrets/cred-1/view"`)
-      expect(result).toContain(
-        `href="${TEAM_URL}/client-secrets/cred-1/rotate"`
-      )
-      expect(result).toContain(
-        `href="${TEAM_URL}/client-secrets/cred-1/revoke"`
-      )
-      expect(result).not.toContain('Ask an admin for it')
-      // View, Rotate and Revoke share one non-wrapping row, in the full-width tab.
-      const $ = load(result)
-      expect(
-        $('.govuk-grid-column-full .app-summary-list--table')
-      ).toHaveLength(1)
-      expect(
-        $(
-          '[data-testid="secret-row"] .app-summary-list__actions--inline .app-button-group a'
-        )
-          .map((_, link) => $(link).text().trim())
-          .get()
-      ).toEqual([
-        'View the Development client secret',
-        'Rotate the Development client secret',
-        'Revoke the Development client secret'
-      ])
-      expect(result).toContain('60 requests and 1,000 tokens a minute')
-      expect(result).toContain(
-        'Test, Pre-production and Production are not available yet.'
-      )
-      expect(result).toContain(
-        'To change your limits, <a class="govuk-link" href="mailto:AICapabilityAndEnablement@defra.gov.uk">contact the AI Platform team</a>.'
+      expect(load(result)('[data-testid="team-models-none"]').text()).toContain(
+        'No models yet'
       )
     })
 
-    test('shows a member the same models, with no change actions, and tells them to ask an admin for the secret', async () => {
+    test('shows a member the same overview', async () => {
       backend({ role: 'user' })
 
       const { statusCode, result } = await get(TEAM_URL)
 
       expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('GPT-4o')
-      expect(result).toContain('Ready to use')
-      expect(result).toContain('Expires 19 October 2027')
-      expect(result).toContain('Ask an admin for it')
-      expect(result).toContain('60 requests and 1,000 tokens a minute')
-      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
-      expect(result).not.toContain('/models/deployment-1/remove')
-      expect(result).not.toContain('/client-secrets/')
+      expect(result).toContain('2 models, 0 applications')
+    })
+
+    test('reads the team and its environments, and nothing else of any other team', async () => {
+      backend()
+
+      await get(TEAM_URL)
+
+      const paths = fetchMock.mock.calls
+        .map(([url]) => new URL(url).pathname)
+        .filter((path) => path.startsWith('/v1/') && path !== '/v1/users/me')
+
+      for (const path of paths) {
+        expect(
+          path === '/v1/models' ||
+            path === TEAM_PATH ||
+            path.startsWith(`${TEAM_PATH}/`)
+        ).toBe(true)
+      }
     })
 
     test('is not found for a person who is not on the team, such as one with only their own keys', async () => {
@@ -598,7 +599,7 @@ describe('#teamsController', () => {
       expect(result).toContain('Team not found')
       expect(result).not.toContain('Flood Risk Team')
       expect(
-        fetchMock.mock.calls.filter(([url]) => url.includes('/deployments'))
+        fetchMock.mock.calls.filter(([url]) => url.includes('/environments'))
       ).toHaveLength(0)
     })
 
@@ -612,170 +613,24 @@ describe('#teamsController', () => {
       expect(statusCode).toBe(statusCodes.internalServerError)
     })
 
-    test('says what each state of a model is, and checks again by itself while one is changing', async () => {
+    test('says so, with a link to the section, when the environments cannot be read, and still shows the team', async () => {
       backend({
-        deployments: [
-          deployment({ _id: 'd-1', status: 'deploying' }),
-          deployment({
-            _id: 'd-2',
-            modelSlug: 'gpt-4-1-nano',
-            status: 'queued'
-          }),
-          deployment({
-            _id: 'd-3',
-            modelSlug: 'gpt-5-mini',
-            status: 'removing'
-          })
-        ]
+        [`GET ${ENVIRONMENTS_PATH}`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
       })
 
-      const { result } = await get(TEAM_URL)
-      const $ = load(result)
-      const status = $('[data-progress-refresh]')
-
-      expect(result).not.toContain('http-equiv="refresh"')
-      expect(status.attr('aria-live')).toBe('polite')
-      expect(status.attr('data-progress-refresh')).toBe(
-        `${TEAM_URL}?fragment=status`
-      )
-      expect(status.find('[data-in-progress]').attr('data-in-progress')).toBe(
-        'true'
-      )
-      expect(result).toContain('Setting up')
-      expect(status.text()).toMatch(/Waiting\s/)
-      expect(result).not.toContain('Waiting for another change')
-      expect(result).toContain('Removing')
-      expect(result).toContain('govuk-tag--yellow')
-      // Something still being set up has its progress to see; a removal has
-      // no actions at all.
-      expect(result).toContain(
-        'href="/connect/team/request/flood-risk-team/d-1"'
-      )
-      expect(result).not.toContain('/models/d-1/remove')
-      expect(result).not.toContain('/models/d-3/remove')
-      expect(result).not.toContain('/request/flood-risk-team/d-3')
-    })
-
-    test('gives a person without script a Check progress link back to the page while a model is changing', async () => {
-      backend({ deployments: [deployment({ status: 'deploying' })] })
-
-      const { result } = await get(TEAM_URL)
-      const link = load(result)('[data-testid="check-progress"]')
-
-      expect(link.text()).toBe('Check progress')
-      expect(link.attr('href')).toBe(TEAM_URL)
-    })
-
-    test('says nothing is changing, and offers no Check progress link, when nothing is', async () => {
-      backend()
-
-      const { result } = await get(TEAM_URL)
+      const { statusCode, result } = await get(TEAM_URL)
       const $ = load(result)
 
-      expect(result).not.toContain('http-equiv="refresh"')
-      expect($('[data-in-progress]').attr('data-in-progress')).toBe('false')
-      expect($('[data-testid="check-progress"]')).toHaveLength(0)
-    })
-
-    describe('as a fragment', () => {
-      const FRAGMENT_URL = `${TEAM_URL}?fragment=status`
-
-      test('is only the status, not the page, with an ETag and no-store', async () => {
-        backend({ deployments: [deployment({ status: 'deploying' })] })
-
-        const { statusCode, result, headers } = await get(FRAGMENT_URL)
-        const $ = load(result)
-
-        expect(statusCode).toBe(statusCodes.ok)
-        expect(headers['content-type']).toContain('text/html')
-        expect(headers['cache-control']).toBe('no-store')
-        expect(headers.etag).toMatch(/^"[^"]+"$/)
-        expect($('[data-in-progress]').attr('data-in-progress')).toBe('true')
-        expect($('[data-testid="environment-card"]')).toHaveLength(1)
-        expect(result).toContain('Setting up')
-        expect(result).not.toContain('<html')
-        expect(result).not.toContain('govuk-service-navigation')
-      })
-
-      test('answers 304, with no-store, when the person already has this version', async () => {
-        backend({ deployments: [deployment({ status: 'deploying' })] })
-        const first = await get(FRAGMENT_URL)
-
-        const second = await get(FRAGMENT_URL, {
-          'if-none-match': first.headers.etag
-        })
-
-        expect(second.statusCode).toBe(statusCodes.notModified)
-        expect(second.result).toBeNull()
-        expect(second.headers['cache-control']).toBe('no-store')
-      })
-
-      test('answers 200 with a new ETag when a model has moved on', async () => {
-        backend({ deployments: [deployment({ status: 'deploying' })] })
-        const first = await get(FRAGMENT_URL)
-
-        backend({ deployments: [deployment({ status: 'active' })] })
-        const second = await get(FRAGMENT_URL, {
-          'if-none-match': first.headers.etag
-        })
-
-        expect(second.statusCode).toBe(statusCodes.ok)
-        expect(second.headers.etag).not.toBe(first.headers.etag)
-        expect(
-          load(second.result)('[data-in-progress]').attr('data-in-progress')
-        ).toBe('false')
-      })
-
-      test('gives the same ETag for the same status, whenever it is asked for', async () => {
-        backend({ deployments: [deployment({ status: 'deploying' })] })
-
-        const first = await get(FRAGMENT_URL)
-        const second = await get(FRAGMENT_URL)
-
-        expect(second.headers.etag).toBe(first.headers.etag)
-      })
-
-      test('is not available when the deployments could not be read, so the page keeps what it has', async () => {
-        backend({
-          [`GET ${TEAM_PATH}/deployments`]: reply(502, {
-            code: 'upstream-unavailable'
-          })
-        })
-
-        const { statusCode, headers } = await get(FRAGMENT_URL)
-
-        expect(statusCode).toBe(statusCodes.serviceUnavailable)
-        expect(headers['cache-control']).toBe('no-store')
-      })
-
-      test('is the whole page for any other value of fragment', async () => {
-        backend()
-
-        const { result, headers } = await get(`${TEAM_URL}?fragment=other`)
-
-        expect(result).toContain('<html')
-        expect(headers.etag).toBeUndefined()
-      })
-
-      test('redirects to /sign-in when signed out', async () => {
-        const { statusCode } = await server.inject({
-          method: 'GET',
-          url: FRAGMENT_URL
-        })
-
-        expect(statusCode).toBe(302)
-      })
-    })
-
-    test('a removal that failed returns the model as ready, with the reason', async () => {
-      backend({
-        deployments: [deployment({ failureReason: 'The change was rejected.' })]
-      })
-
-      const { result } = await get(TEAM_URL)
-
-      expect(result).toContain('Ready to use')
-      expect(result).toContain('The change was rejected.')
+      expect(statusCode).toBe(statusCodes.ok)
+      expect($('h1').text()).toBe('Flood Risk Team')
+      expect($('[data-testid="overview-unavailable"]').text()).toContain(
+        'We could not read this team’s environments just now'
+      )
+      expect($('a[data-testid="view-environments"]').attr('href')).toBe(
+        `/environments/${sampleTeam.slug}`
+      )
     })
 
     test('names a model by its slug when the catalogue cannot be read', async () => {
@@ -789,163 +644,38 @@ describe('#teamsController', () => {
       expect(result).toContain('gpt-4o')
     })
 
-    test('shows no date for a client secret that does not say when it expires', async () => {
-      backend({ credentials: [{ ...teamCredential, expiresAt: null }] })
-
-      const { result } = await get(TEAM_URL)
-
-      expect(result).not.toContain('Expires')
-      expect(result).toContain(`href="${TEAM_URL}/client-secrets/cred-1/view"`)
-    })
-
-    test.each([
-      [
-        'one not in the vault yet',
-        [{ ...teamCredential, vaultState: 'unwritten' }],
-        'Being prepared'
-      ],
-      [
-        'one revoked after the model turned active',
-        [
-          {
-            ...teamCredential,
-            status: 'revoked',
-            revokedAt: '2026-10-22T09:00:00.000Z'
-          }
-        ],
-        'Revoked'
-      ],
-      ['none yet', [], 'Ready once a model has been set up.']
-    ])(
-      'says where the client secret is with %s, and offers nothing to do with it',
-      async (_name, credentials, text) => {
-        backend({
-          credentials,
-          deployments: [deployment({ activatedAt: '2026-10-21T10:45:00.000Z' })]
-        })
-
-        const { result } = await get(TEAM_URL)
-
-        expect(result).toContain(text)
-        expect(result).not.toContain('/client-secrets/')
-      }
-    )
-
-    test('says the client secret could not be checked when the credentials cannot be read', async () => {
-      backend({
-        'GET /v1/credentials': reply(502, { code: 'upstream-unavailable' })
-      })
-
-      const { statusCode, result } = await get(TEAM_URL)
-
-      expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('We could not check this just now.')
-    })
-
-    test('reads the credentials only after the deployments, which is what grants a model that just turned active its team secret', async () => {
-      let granted = false
-
-      backend({
-        [`GET ${TEAM_PATH}/deployments`]: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 20))
-          granted = true
-
-          return { items: [deployment()] }
-        },
-        'GET /v1/credentials': () => ({
-          items: granted ? [teamCredential] : []
-        })
-      })
-
-      const { result } = await get(TEAM_URL)
-
-      expect(result).toContain('Expires 19 October 2027')
-      expect(result).not.toContain('Ready once a model has been set up.')
-    })
-
-    test('does not read the credentials when the models could not be listed', async () => {
-      backend({
-        [`GET ${TEAM_PATH}/deployments`]: reply(502, {
-          code: 'upstream-unavailable'
-        })
-      })
-
-      await get(TEAM_URL)
-
-      expect(
-        fetchMock.mock.calls.some(([url]) => url.includes('/v1/credentials'))
-      ).toBe(false)
-    })
-
-    test('says so, rather than showing an empty team, when the models cannot be listed', async () => {
-      backend({
-        [`GET ${TEAM_PATH}/deployments`]: reply(502, {
-          code: 'upstream-unavailable'
-        })
-      })
-
-      const { statusCode, result } = await get(TEAM_URL)
-
-      expect(statusCode).toBe(statusCodes.ok)
-      expect(result).toContain('data-testid="team-models-unavailable"')
-      expect(result).not.toContain('data-testid="environment-card"')
-    })
-
-    test('hides the client secret and limits of an environment with no models, and offers to set up one never set up', async () => {
-      config.set('teamEnvironments', ['infradev', 'qa'])
-      backend({ deployments: [deployment()] })
-
-      const { result } = await get(TEAM_URL)
-
-      expect(result).toContain('>Test</h2>')
-      expect(result).toContain(
-        'Not set up. Test gets its own deployments, client secret and limits.'
-      )
-      expect(result).toContain(
-        `<a class="govuk-link" href="${TEAM_URL}/test" data-testid="set-up-environment">Set up Test</a>`
-      )
-      expect(result).toContain(
-        'Pre-production and Production are not available yet.'
-      )
-      // Only the Development card has a client secret.
-      expect(result.split('data-testid="secret-row"')).toHaveLength(2)
-    })
-
-    test('adds a model to another environment from its own page', async () => {
-      config.set('teamEnvironments', ['infradev', 'qa'])
-      backend({
-        deployments: [
-          deployment(),
-          deployment({ _id: 'd-9', environment: 'qa' })
-        ]
-      })
-
-      const { result } = await get(TEAM_URL)
-
-      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
-      expect(result).toMatch(
-        /href="\/teams\/flood-risk-team\/test"[^>]*>Add a model/
-      )
-    })
-
-    test('after the last model is removed: says there are none, and offers to add one, with no client secret', async () => {
-      backend({ deployments: [deployment({ status: 'removed' })] })
-
-      const { result } = await get(TEAM_URL)
-
-      expect(result).toContain('No models in Development')
-      expect(result).toMatch(/href="\/connect\/team\/start"[^>]*>Add a model/)
-      expect(result).not.toContain('data-testid="secret-row"')
-      expect(result).not.toContain('Not set up.')
-    })
-
-    test('says nothing about environments not available when all four are', async () => {
-      config.set('teamEnvironments', ['infradev', 'qa', 'preprod', 'prod'])
+    test('has no status fragment of its own now: progress is shown in the section', async () => {
       backend()
 
-      const { result } = await get(TEAM_URL)
+      const { result, headers } = await get(`${TEAM_URL}?fragment=status`)
 
-      expect(result).not.toContain('not available yet')
+      expect(result).toContain('<html')
+      expect(headers.etag).toBeUndefined()
+      expect(result).not.toContain('data-progress-refresh')
+    })
+
+    test('redirects the old Models tab address to the overview in the section', async () => {
+      const { statusCode, headers } = await get(`${TEAM_URL}/models`)
+
+      expect(statusCode).toBe(statusCodes.movedPermanently)
+      expect(headers.location).toBe(`/environments/${sampleTeam.slug}`)
+    })
+
+    test('counts each environment, and says nothing is not available, when all four are available', async () => {
+      config.set('teamEnvironments', ['infradev', 'qa', 'preprod', 'prod'])
+      backend({
+        [`GET ${ENVIRONMENTS_PATH}`]: environmentsRead(
+          ['infradev', 'qa', 'preprod', 'prod'].map((environment) =>
+            summary({ environment })
+          )
+        )
+      })
+
+      const { result } = await get(TEAM_URL)
+      const $ = load(result)
+
+      expect(result).not.toContain('Not available yet')
+      expect($('[data-testid="overview-environment"]')).toHaveLength(4)
     })
   })
 })

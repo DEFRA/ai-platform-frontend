@@ -63,7 +63,7 @@ describe('context and cache', () => {
           navigation: [
             {
               current: false,
-              text: 'Models',
+              text: 'Model catalogue',
               href: '/models'
             },
             {
@@ -179,7 +179,7 @@ describe('context and cache', () => {
           navigation: [
             {
               current: false,
-              text: 'Models',
+              text: 'Model catalogue',
               href: '/models'
             },
             {

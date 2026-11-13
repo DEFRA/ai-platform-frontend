@@ -1,5 +1,7 @@
+import { load } from 'cheerio'
 import createFetchMock from 'vitest-fetch-mock'
 
+import { config } from '#/config/config.js'
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
@@ -10,7 +12,8 @@ import {
   nanoModel,
   sampleModel,
   sampleTeam,
-  teamConnectHelpers
+  teamConnectHelpers,
+  teamWithMembers
 } from '#/test-helpers/team-connect-helpers.js'
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
@@ -43,8 +46,15 @@ vi.mock('openid-client', () => ({
 const fetchMock = createFetchMock(vi)
 fetchMock.enableMocks()
 
-const { mockResponse, get, reachTeamStep, mockModelChoices, mockTeamChoices } =
-  teamConnectHelpers(fetchMock)
+const {
+  mockResponse,
+  get,
+  post,
+  lastRequest,
+  reachTeamStep,
+  mockModelChoices,
+  mockTeamChoices
+} = teamConnectHelpers(fetchMock)
 
 describe('#startController', () => {
   let server
@@ -315,10 +325,237 @@ describe('#startController', () => {
       const { statusCode } = await get(
         server,
         cookies,
-        '/connect/team/start?teamId=team-1'
+        '/connect/team/start?nonsense=team-1'
       )
 
       expect(statusCode).toBe(statusCodes.badRequest)
+    })
+
+    test.each([
+      '/connect/team/start?environment=infradev',
+      '/connect/team/start?teamId=',
+      '/connect/team/start?teamId=flood-risk-team&environment=',
+      '/connect/team/start?teamId=Flood Risk&environment=infradev'
+    ])('GET %s is refused', async (url) => {
+      const cookies = await signInViaOidc(server, fetchMock)
+
+      const { statusCode } = await get(server, cookies, encodeURI(url))
+
+      expect(statusCode).toBe(statusCodes.badRequest)
+    })
+  })
+
+  describe('Deploy a model, from the Environments section, with the team and environment chosen', () => {
+    const START = `/connect/team/start?teamId=${sampleTeam.slug}&environment=infradev`
+    const configured = config.get('teamEnvironments')
+
+    afterEach(() => {
+      config.set('teamEnvironments', configured)
+    })
+
+    async function started(url = START, role = 'admin') {
+      const cookies = await signInViaOidc(server, fetchMock)
+
+      mockResponse(teamWithMembers(role))
+      const response = await get(server, cookies, url)
+
+      return { response, cookies: mergeCookies(cookies, response) }
+    }
+
+    test('lands on the model step without asking for the team or the environment', async () => {
+      const { response, cookies } = await started()
+
+      expect(response.statusCode).toBe(statusCodes.found)
+      expect(response.headers.location).toBe('/connect/team/model')
+      // Only the team is read, to prove the person is a member of it.
+      expect(fetchMock.mock.calls.at(-1)[0]).toContain(
+        `/v1/teams/${sampleTeam.slug}`
+      )
+
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const model = await get(server, cookies, '/connect/team/model')
+      const $ = load(model.result)
+
+      expect(model.statusCode).toBe(statusCodes.ok)
+      expect($('[data-testid="app-heading-caption"]').text()).toBe(
+        'Flood Risk Team'
+      )
+      expect($('legend').text()).toContain('Which models does your team need?')
+      expect($('a.govuk-back-link').attr('href')).toBe(
+        `/environments/${sampleTeam.slug}/infradev`
+      )
+    })
+
+    test('asks what it is for, then checks the answers with no way to change the team, and requests in that environment', async () => {
+      const { cookies: started1 } = await started()
+
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const chosen = mergeCookies(
+        started1,
+        await post(server, started1, '/connect/team/model', {
+          modelSlugs: ['gpt-4o']
+        })
+      )
+      const details = await get(server, chosen, '/connect/team/details')
+
+      expect(details.result).toContain('It will be set up in Development.')
+
+      const answered = mergeCookies(
+        chosen,
+        await post(server, chosen, '/connect/team/details', {
+          purpose: 'Flood alerts'
+        })
+      )
+
+      mockResponse(sampleModel)
+      const check = await get(server, answered, '/connect/team/check')
+      const $ = load(check.result)
+
+      expect(check.statusCode).toBe(statusCodes.ok)
+      expect($('.govuk-summary-list__key').first().text().trim()).toBe('Team')
+      expect($('a[href^="/connect/team/select"]')).toHaveLength(0)
+      expect(check.result).toMatch(
+        /Environment\s*<\/dt>\s*<dd[^>]*>\s*Development\s*<\/dd>/
+      )
+
+      mockResponse({
+        deployments: [
+          {
+            _id: 'deployment-1',
+            teamId: 'team-1',
+            modelSlug: 'gpt-4o',
+            environment: 'infradev',
+            status: 'requested'
+          }
+        ]
+      })
+      const confirmed = await post(server, answered, '/connect/team/check', {})
+
+      expect(confirmed.statusCode).toBe(statusCodes.seeOther)
+      expect(lastRequest().body).toEqual({
+        modelSlugs: ['gpt-4o'],
+        environment: 'infradev',
+        purpose: 'Flood alerts'
+      })
+    })
+
+    test('goes back from the model step and from the details step (when the model step was skipped) to the environment page', async () => {
+      const { cookies } = await started(`${START}&modelSlug=gpt-4o`)
+
+      mockModelChoices({ models: [sampleModel] })
+      const skipped = await get(server, cookies, '/connect/team/model')
+
+      // One model, from its page: the step is skipped.
+      expect(skipped.headers.location).toBe('/connect/team/details')
+
+      const jar = mergeCookies(cookies, skipped)
+      const details = await get(server, jar, '/connect/team/details')
+
+      expect(load(details.result)('a.govuk-back-link').attr('href')).toBe(
+        `/environments/${sampleTeam.slug}/infradev`
+      )
+    })
+
+    describe('directly into an environment after the first', () => {
+      const QA_START = `/connect/team/start?teamId=${sampleTeam.slug}&environment=qa`
+
+      beforeEach(() => {
+        config.set('teamEnvironments', ['infradev', 'qa'])
+      })
+
+      test('offers every model available there, not only those ready in the first environment', async () => {
+        const { cookies } = await started(QA_START)
+
+        // Nothing is deployed in Development, as for a team new to the platform.
+        mockModelChoices({ models: [sampleModel, nanoModel], deployments: [] })
+        const model = await get(server, cookies, '/connect/team/model')
+        const $ = load(model.result)
+
+        expect(model.statusCode).toBe(statusCodes.ok)
+        expect(fetchMock.mock.calls.at(-3)[0]).toContain(
+          '/v1/models?tier=team&environment=qa'
+        )
+        expect($('input[name="modelSlugs"]')).toHaveLength(2)
+      })
+
+      test('goes back from the check page to the details, not to the set-up journey', async () => {
+        const { cookies } = await started(QA_START)
+
+        mockModelChoices({ models: [sampleModel, nanoModel] })
+        const chosen = mergeCookies(
+          cookies,
+          await post(server, cookies, '/connect/team/model', {
+            modelSlugs: ['gpt-4o']
+          })
+        )
+        const answered = mergeCookies(
+          chosen,
+          await post(server, chosen, '/connect/team/details', {
+            purpose: 'Flood alerts'
+          })
+        )
+
+        mockResponse(sampleModel)
+        const check = await get(server, answered, '/connect/team/check')
+
+        expect(check.statusCode).toBe(statusCodes.ok)
+        expect(load(check.result)('a.govuk-back-link').attr('href')).toBe(
+          '/connect/team/details'
+        )
+      })
+    })
+
+    test('with no environment, starts in the first available one and goes back to the overview', async () => {
+      const { response, cookies } = await started(
+        `/connect/team/start?teamId=${sampleTeam.slug}`
+      )
+
+      expect(response.headers.location).toBe('/connect/team/model')
+
+      mockModelChoices({ models: [sampleModel, nanoModel] })
+      const model = await get(server, cookies, '/connect/team/model')
+
+      expect(load(model.result)('a.govuk-back-link').attr('href')).toBe(
+        `/environments/${sampleTeam.slug}`
+      )
+    })
+
+    test.each(['qa', 'preprod', 'nowhere'])(
+      'is a 404 for %s, which is not an available environment, and starts no journey',
+      async (environment) => {
+        const { response, cookies } = await started(
+          `/connect/team/start?teamId=${sampleTeam.slug}&environment=${environment}`
+        )
+
+        expect(response.statusCode).toBe(statusCodes.notFound)
+        expect(response.result).toContain('Environment not found')
+        // Nothing was read: the environment is refused before the team is.
+        expect(fetchMock.mock.calls.at(-1)[0]).not.toContain('/v1/teams/')
+
+        const model = await get(server, cookies, '/connect/team/model')
+
+        expect(model.headers.location).toBe('/models')
+      }
+    )
+
+    test('is a 404 for a team the person is not a member of, and starts no journey', async () => {
+      const cookies = await signInViaOidc(server, fetchMock)
+
+      fetchMock.mockResponseOnce(JSON.stringify({ code: 'not-found' }), {
+        status: 404
+      })
+      const response = await get(server, cookies, START)
+
+      expect(response.statusCode).toBe(statusCodes.notFound)
+      expect(response.result).toContain('Team not found')
+
+      const model = await get(
+        server,
+        mergeCookies(cookies, response),
+        '/connect/team/model'
+      )
+
+      expect(model.headers.location).toBe('/models')
     })
   })
 })

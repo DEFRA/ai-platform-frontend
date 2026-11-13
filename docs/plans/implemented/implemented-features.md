@@ -4,21 +4,23 @@ A one-page index of what is built in the AI Platform Portal (`ai-platform-fronte
 for new joiners. It holds no detail: each row links to the category file in this folder
 that does. What is not built is in [remaining.md](../remaining.md).
 
-Last updated: 5 Nov 2026.
+Last updated: 12 Nov 2026.
 
 ## What you can do
 
-| Journey                                                             | Status                                                | Detail                                                   |
-| ------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
-| Home page, sign in with Defra Entra ID, flat Defra design           | Built (Sept 2026)                                     | [01 Portal journeys](01-portal-journeys.md)              |
-| Browse the model catalogue, including ineligible and retired models | Built (Sept to Oct 2026)                              | [04 Catalogue and gateway](04-catalogue-and-gateway.md)  |
-| Get a personal research key, renew, revoke, re-reveal with a reason | Built, live in Infradev                               | [02 Research tier](02-research-tier.md)                  |
-| Create a team, manage members and roles, set a service code         | Built (Sept to Oct 2026)                              | [03 Team tier](03-team-tier.md)                          |
-| Add a team member by searching the directory (mock until Graph)     | Built (4 Nov 2026), directory is a seeded mock        | [03 Team tier](03-team-tier.md)                          |
-| Request one or several dedicated models, follow the GitOps progress | Built, live in Infradev                               | [03 Team tier](03-team-tier.md)                          |
-| Remove a model from a team (ready models only)                      | Built (18 Oct 2026, ready only 2 Nov 2026)            | [03 Team tier](03-team-tier.md)                          |
-| Rotate and revoke a team credential (Admin)                         | Built; the secret is a labelled placeholder until B18 | [03 Team tier](03-team-tier.md)                          |
-| Session ends after 30 minutes idle or 8 hours, with a warning       | Built (4 Nov 2026), part of B27                       | [06 Shared services](06-shared-services-and-security.md) |
+| Journey                                                              | Status                                                                | Detail                                                                |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Home page, sign in with Defra Entra ID, flat Defra design            | Built (Sept 2026)                                                     | [01 Portal journeys](01-portal-journeys.md)                           |
+| Browse the model catalogue, including ineligible and retired models  | Built (Sept to Oct 2026)                                              | [04 Catalogue and gateway](04-catalogue-and-gateway.md)               |
+| Get a personal research key, renew, revoke, re-reveal with a reason  | Built, live in Infradev                                               | [02 Research tier](02-research-tier.md)                               |
+| Create a team, manage members and roles, set a service code          | Built (Sept to Oct 2026)                                              | [03 Team tier](03-team-tier.md)                                       |
+| Add a team member by searching the directory (mock until Graph)      | Built (4 Nov 2026), directory is a seeded mock                        | [03 Team tier](03-team-tier.md)                                       |
+| Request one or several dedicated models, follow the GitOps progress  | Built, live in Infradev                                               | [03 Team tier](03-team-tier.md)                                       |
+| Remove a model from a team (ready models only)                       | Built (18 Oct 2026, ready only 2 Nov 2026)                            | [03 Team tier](03-team-tier.md)                                       |
+| Rotate and revoke a team credential (Admin)                          | Built; the secret is a labelled placeholder until B18                 | [03 Team tier](03-team-tier.md)                                       |
+| Session ends after 30 minutes idle or 8 hours, with a warning        | Built (4 Nov 2026), part of B27                                       | [06 Shared services](06-shared-services-and-security.md)              |
+| See what is deployed in each environment, deploy, follow each change | Built (12 Nov 2026), B30 pages; in an open pull request, not deployed | [07 Environments and deployments](07-environments-and-deployments.md) |
+| Change a team's limits in an environment within the bounds (Admin)   | Built (12 Nov 2026), B30; in an open pull request, not deployed       | [07 Environments and deployments](07-environments-and-deployments.md) |
 
 ## What it runs on
 

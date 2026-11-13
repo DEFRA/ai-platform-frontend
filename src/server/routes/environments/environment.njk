@@ -1,0 +1,34 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "environment-strip/macro.njk" import appEnvironmentStrip %}
+
+{% block beforeContent %}
+  {{ super() }}
+  <a class="govuk-back-link" href="{{ overviewUrl }}">Back to all environments</a>
+{% endblock %}
+
+{% block content %}
+  {% include "partials/team-notification.njk" %}
+
+  {{ appHeading({
+    text: heading,
+    caption: caption,
+    captionAbove: true
+  }) }}
+
+  <p class="govuk-body-l">
+    {{ displayName }}
+    {{ govukTag({ text: tag.text, classes: tag.tagClass, attributes: { "data-testid": "environment-tag" } }) }}
+  </p>
+  {% if pausedNote %}
+    <p class="govuk-body govuk-hint" data-testid="paused-note">{{ pausedNote }}</p>
+  {% endif %}
+
+  {{ appEnvironmentStrip({ items: strip }) }}
+
+  {# Checked again by progress-refresh.js while a change is open; without script, "Check progress" does it. #}
+  <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
+    {% include "environments/partials/environment-status.njk" %}
+  </div>
+{% endblock %}

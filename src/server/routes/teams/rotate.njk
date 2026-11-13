@@ -7,7 +7,7 @@
 
 {% block beforeContent %}
   {{ super() }}
-  {{ govukBackLink({ text: "Back to " + teamName, href: teamUrl }) }}
+  {{ govukBackLink({ text: "Back to " + teamName, href: backUrl }) }}
 {% endblock %}
 
 {% block content %}
@@ -56,7 +56,7 @@
       </form>
 
       <p class="govuk-body">
-        <a class="govuk-link" href="{{ teamUrl }}">No, keep the client secret I have</a>
+        <a class="govuk-link" href="{{ backUrl }}">No, keep the client secret I have</a>
       </p>
     </div>
   </div>

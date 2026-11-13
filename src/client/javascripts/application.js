@@ -22,8 +22,8 @@ createAll(ServiceNavigation)
 createAll(SkipLink)
 createAll(Tabs)
 
-// Progressive enhancement: a page following a change (a request, a team's
-// Models tab) checks its status again by itself while it is in progress.
+// Progressive enhancement: a page following a change (a request, an
+// environment's page) checks its status again by itself while it is in progress.
 initProgressRefresh()
 
 // Progressive enhancement: warn before the session ends, and let the person

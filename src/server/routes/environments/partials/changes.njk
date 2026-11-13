@@ -1,0 +1,31 @@
+{#
+  Changes in progress: part of what an Environments page's status shows, so it
+  moves with the status. Context: changes (the open ones), changesUnavailable,
+  pageUrl (where "Check progress" loads again) and showEnvironment (the overview
+  names each change's environment and links to its page).
+#}
+{% from "step-list/macro.njk" import appStepList %}
+{% from "environments/partials/failure.njk" import failureDetail %}
+{% from "section-card/macro.njk" import appSectionCard %}
+
+{% call appSectionCard({ title: "Changes in progress", attributes: { "data-testid": "section-changes" } }) %}
+{% if changesUnavailable %}
+  <p class="govuk-body" data-testid="changes-unavailable">We could not read the changes just now. <a class="govuk-link" href="{{ pageUrl }}">Try again</a>.</p>
+{% elif changes.length %}
+  {% for change in changes %}
+    <div class="govuk-!-margin-bottom-6" data-testid="change-in-progress">
+      <h3 class="govuk-heading-m govuk-!-margin-bottom-2">{{ change.heading }}</h3>
+      <p class="govuk-body govuk-!-margin-bottom-1" data-testid="asked-by">{{ change.askedBy }}</p>
+      <p class="govuk-body govuk-hint">This usually takes a few minutes.{% if change.stepText %} {{ change.stepText }}.{% endif %}</p>
+      {{ appStepList({ items: change.steps }) }}
+      {{ failureDetail(change.failure) }}
+      {% if showEnvironment %}
+        <p class="govuk-body"><a class="govuk-link" href="{{ change.href }}" data-testid="view-environment">View {{ change.environmentName }}<span class="govuk-visually-hidden"> to follow {{ change.change }}</span></a></p>
+      {% endif %}
+    </div>
+  {% endfor %}
+  <p class="govuk-body"><a class="govuk-link" href="{{ pageUrl }}" data-testid="check-progress">Check progress</a></p>
+{% else %}
+  <p class="govuk-body" data-testid="no-changes-in-progress">No changes in progress.</p>
+{% endif %}
+{% endcall %}

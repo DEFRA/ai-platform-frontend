@@ -4,7 +4,10 @@ import Joi from 'joi'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import {
   defaultTeamEnvironment,
-  teamEnvironmentList
+  environmentFromAddress,
+  environmentPageUrl,
+  teamEnvironmentList,
+  teamEnvironmentsUrl
 } from '#/server/common/helpers/environment-names.js'
 import {
   buildErrorSummary,
@@ -23,12 +26,11 @@ import {
   isForbidden,
   isNotFound,
   loadTeamForView,
-  teamNotFoundView,
-  teamUrl
-} from './team-view.js'
+  teamNotFoundView
+} from '#/server/routes/teams/team-view.js'
+import { deployUrl } from './environment-view.js'
 
 const CHECK_URL = '/connect/team/check'
-const START_URL = '/connect/team/start'
 
 const setUpSchema = Joi.object({
   modelSlugs: Joi.array()
@@ -47,27 +49,14 @@ const setUpSchema = Joi.object({
     })
 })
 
-/**
- * The environment an address names (`/teams/{slug}/test`), by its lower-case
- * name, when this instance lets teams deploy to it. Anything else, an unknown
- * name or an environment that is not available yet, is undefined.
- * @param {string} name
- * @returns {{environment: string, name: string, available: boolean} | undefined}
- */
-function availableEnvironment(name) {
-  return teamEnvironmentList().find(
-    (item) => item.available && item.name.toLowerCase() === name
-  )
-}
-
 function environmentNotFoundView(h, slug) {
   return h
     .view('error/index', {
       pageTitle: 'Page not found',
       heading: 'Page not found',
       message: 'This environment is not available yet.',
-      actionHref: teamUrl({ slug }),
-      actionText: 'Back to the team'
+      actionHref: teamEnvironmentsUrl(slug),
+      actionText: 'Back to all environments'
     })
     .code(statusCodes.notFound)
 }
@@ -116,7 +105,7 @@ function savedAnswers(request, team, target) {
     journey.teamSlug === team.slug &&
     journey.environment === target.environment &&
     journey.modelSlugs?.length
-    ? { modelSlugs: journey.modelSlugs, purpose: journey.purpose ?? '' }
+    ? { modelSlugs: journey.modelSlugs, purpose: journey.purpose }
     : undefined
 }
 // A new journey ticks every model offered; one come back to from the check
@@ -131,11 +120,11 @@ function initialSelection(request, { team, target, offered }) {
 function setUpView(h, { team, target, source, offered, selected, problem }) {
   const heading = `Which models do you want in ${target.name}?`
 
-  return h.view('teams/set-up-environment', {
+  return h.view('environments/set-up', {
     pageTitle: `${problem ? 'Error: ' : ''}${heading}`,
     heading,
     teamName: team.name,
-    backLink: teamUrl(team),
+    backLink: environmentPageUrl(team.slug, target.environment),
     targetName: target.name,
     sourceName: source.name,
     modelItems: offered.map((model) => ({
@@ -154,15 +143,19 @@ function setUpView(h, { team, target, source, offered, selected, problem }) {
 // there. The first available environment is where a team starts, so it has
 // nothing to set up from elsewhere: it goes to the request journey.
 async function loadSetUp(request, h) {
-  const { slug, environment: name } = request.params
-  const target = availableEnvironment(name)
+  const { slug } = request.params
+  const target = environmentFromAddress(request.params.environment)
 
   if (!target) {
     return { page: environmentNotFoundView(h, slug) }
   }
 
   if (target.environment === defaultTeamEnvironment()) {
-    return { page: h.redirect(START_URL).code(statusCodes.seeOther) }
+    return {
+      page: h
+        .redirect(deployUrl({ slug }, target.environment))
+        .code(statusCodes.seeOther)
+    }
   }
 
   const loaded = await loadTeam(request, slug)

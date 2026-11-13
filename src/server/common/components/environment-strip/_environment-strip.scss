@@ -1,0 +1,61 @@
+@use "govuk-frontend" as *;
+@use "variables/colours" as *;
+
+$app-environment-strip-bar: 4px;
+
+// A row of boxes under the heading, one for each environment, sharing the
+// page's width side by side. Each holds a link with its registry name and the
+// portal's name under it. The current one has a green bar and bold text; one
+// that is not available yet has a dashed border, plain grey text and no link.
+// The boxes wrap rather than shrink below a readable width, so the strip
+// reflows at narrow widths.
+.app-environment-strip {
+  margin-bottom: govuk-spacing(6);
+}
+
+.app-environment-strip__list {
+  @include govuk-font($size: 19);
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: govuk-spacing(3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-environment-strip__item {
+  display: flex;
+  flex: 1 1 8rem;
+  flex-direction: column;
+  padding: govuk-spacing(3);
+  border: 1px solid $govuk-border-colour;
+  border-bottom: $app-environment-strip-bar solid govuk-colour("mid-grey");
+}
+
+.app-environment-strip__item--current {
+  border-bottom-color: $defra-green;
+}
+
+.app-environment-strip__item--unavailable {
+  border: 1px dashed govuk-colour("dark-grey");
+  color: govuk-colour("dark-grey");
+}
+
+.app-environment-strip__link {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-environment-strip__item--current .app-environment-strip__link {
+  @include govuk-typography-weight-bold;
+}
+
+.app-environment-strip__name {
+  @include govuk-typography-weight-bold;
+}
+
+.app-environment-strip__display,
+.app-environment-strip__status {
+  @include govuk-font($size: 16);
+}

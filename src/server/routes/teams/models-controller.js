@@ -2,8 +2,12 @@ import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { setAccountNotification } from '#/server/common/helpers/session.js'
 import { DEPLOYMENT_REMOVED_STATUS } from '#/server/common/helpers/deployment-status.js'
-import { environmentName } from '#/server/common/helpers/environment-names.js'
-import { isNotFound, loadTeamForView, teamUrl } from './team-view.js'
+import {
+  environmentName,
+  environmentPageUrl,
+  teamEnvironmentsUrl
+} from '#/server/common/helpers/environment-names.js'
+import { isNotFound, loadTeamForView } from './team-view.js'
 
 const ACTIVE_STATUS = 'active'
 
@@ -30,8 +34,8 @@ function modelNotFound(h, teamRef) {
       heading: 'Model not found',
       message:
         'This model is not one of this team’s, or you are not an admin of the team.',
-      actionHref: teamUrl({ slug: teamRef }),
-      actionText: 'Back to the team'
+      actionHref: teamEnvironmentsUrl(teamRef),
+      actionText: 'Back to all environments'
     })
     .code(statusCodes.notFound)
 }
@@ -93,7 +97,8 @@ function removalNotification(deployment, { name, environment }) {
 
 /**
  * An admin removes one of the team's models: a confirm page, then the
- * backend takes the model out of the team file through GitOps.
+ * backend takes the model out of the team file through GitOps. Back, Cancel
+ * and the result all return to the model's environment page.
  */
 export const removeModelController = {
   get: {
@@ -124,7 +129,7 @@ export const removeModelController = {
         pageTitle: `Remove ${name} from ${environment}?`,
         heading: `Remove ${name} from ${environment}?`,
         team: loaded.team,
-        teamUrl: teamUrl(loaded.team),
+        backUrl: environmentPageUrl(loaded.team.slug, deployment.environment),
         modelName: name,
         warning: `Anything using ${name} through your team’s address will stop working as soon as it has been removed. Your team’s other models and its client secret are not affected.`
       })
@@ -133,6 +138,14 @@ export const removeModelController = {
   post: {
     async handler(request, h) {
       const { slug, deploymentId } = request.params
+      // Where the result is shown: the environment the model is in.
+      const current = await findDeployment(request, slug, deploymentId)
+
+      if (!current) {
+        return modelNotFound(h, slug)
+      }
+
+      const back = environmentPageUrl(slug, current.environment)
 
       try {
         const { deployment } = await apiClient(request).del(
@@ -166,7 +179,7 @@ export const removeModelController = {
         })
       }
 
-      return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
+      return h.redirect(back).code(statusCodes.seeOther)
     }
   }
 }

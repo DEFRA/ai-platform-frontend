@@ -61,7 +61,7 @@ async function revokeContent(request, credential) {
     warning: `Revoking ${model.displayName} cannot be undone. You will need to connect again to get a new credential.`,
     legend: 'Are you sure you want to revoke this credential?',
     yesText: 'Yes, revoke this credential',
-    noText: 'No, take me back to your access'
+    noText: 'No, take me back to personal access'
   }
 }
 
@@ -87,8 +87,8 @@ export const manageController = {
         ])
 
         return h.view('manage/index', {
-          pageTitle: 'Your access',
-          heading: 'Your access',
+          pageTitle: 'Personal access',
+          heading: 'Personal access',
           researchDays: RESEARCH_CREDENTIAL_DAYS,
           renewalCap: RESEARCH_RENEWAL_CAP,
           keyRows: buildKeyRows(items, modelNames),
@@ -113,7 +113,7 @@ export const manageController = {
               message:
                 'This credential does not exist, or you do not have access to it.',
               actionHref: '/manage',
-              actionText: 'Go to your access'
+              actionText: 'Go to personal access'
             })
             .code(statusCodes.notFound)
         }

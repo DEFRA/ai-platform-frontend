@@ -1,0 +1,25 @@
+{#
+  params.items: [{ name, displayName, available, current?, href? }]
+  The environments as a strip of links, in the order a team meets them. The
+  current one is marked with aria-current; one that is not available yet has
+  no link and says so. params.label: the navigation's accessible name.
+#}
+<nav class="app-environment-strip{{ ' ' + params.classes if params.classes }}" aria-label="{{ params.label or 'Environments' }}" data-testid="environment-strip">
+  <ul class="app-environment-strip__list">
+    {% for item in params.items %}
+      {% set modifier = ' app-environment-strip__item--current' if item.current else ('' if item.available else ' app-environment-strip__item--unavailable') %}
+      <li class="app-environment-strip__item{{ modifier }}">
+        {% if item.available and item.href %}
+          <a class="govuk-link govuk-link--no-visited-state app-environment-strip__link" href="{{ item.href }}"{{ ' aria-current="page"' | safe if item.current }}>
+            <span class="app-environment-strip__name">{{ item.name }}</span>
+            <span class="app-environment-strip__display">{{ item.displayName }}</span>
+          </a>
+        {% else %}
+          <span class="app-environment-strip__name">{{ item.name }}</span>
+          <span class="app-environment-strip__display">{{ item.displayName }}</span>
+          <span class="app-environment-strip__status">Not available yet</span>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</nav>

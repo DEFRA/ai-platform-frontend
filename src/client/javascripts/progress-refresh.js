@@ -1,5 +1,5 @@
 // Progressive enhancement for a page that follows a change (the page after a
-// request, a team's Models tab). The server renders the status part
+// request, an environment's page). The server renders the status part
 // (`data-in-progress`) inside a polite live region marked
 // `data-progress-refresh="<fragment address>"`. While the status says it is in
 // progress, this asks for the fragment every few seconds and swaps it in, so

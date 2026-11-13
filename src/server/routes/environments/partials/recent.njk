@@ -1,0 +1,40 @@
+{#
+  Recent changes, newest first: when, what and how it went (with where, on the
+  overview), and for one that failed, why, with the run to follow. Context:
+  recent, changesUnavailable, showEnvironment.
+  The environment is part of the change's words rather than a column, so the
+  table still fits at 320 px (WCAG 1.4.10).
+#}
+{% from "environments/partials/failure.njk" import failureDetail %}
+{% from "section-card/macro.njk" import appSectionCard %}
+
+{% call appSectionCard({ title: "Recent changes", attributes: { "data-testid": "section-recent" } }) %}
+{% if changesUnavailable %}
+  <p class="govuk-body">We could not read the changes just now.</p>
+{% elif recent.length %}
+  <table class="govuk-table" data-testid="recent-changes">
+    <caption class="govuk-table__caption govuk-visually-hidden">Recent changes</caption>
+    <thead class="govuk-table__head">
+      <tr class="govuk-table__row">
+        <th class="govuk-table__header" scope="col">When</th>
+        <th class="govuk-table__header" scope="col">Change</th>
+        <th class="govuk-table__header" scope="col">Result</th>
+      </tr>
+    </thead>
+    <tbody class="govuk-table__body">
+      {% for item in recent %}
+        <tr class="govuk-table__row" data-testid="recent-change">
+          <td class="govuk-table__cell">{{ item.when }}</td>
+          <td class="govuk-table__cell">{{ item.change }}{% if showEnvironment %} in {{ item.environmentName }}{% endif %}</td>
+          <td class="govuk-table__cell">
+            <strong class="govuk-tag {{ item.result.tagClass }}">{{ item.result.text }}</strong>
+            {{ failureDetail(item.failure) }}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="govuk-body" data-testid="no-recent-changes">No recent changes.</p>
+{% endif %}
+{% endcall %}

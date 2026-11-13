@@ -197,7 +197,7 @@ describe('#teamRequestController', () => {
       const { result } = await page()
 
       expect(result).toContain(
-        'href="/teams/flood-risk-team">Go to Flood Risk Team</a>'
+        'href="/environments/flood-risk-team/infradev">Back to Infradev</a>'
       )
       expect(result).not.toContain('Stop checking')
       expect(result).not.toContain('Check now')
@@ -443,7 +443,7 @@ describe('#teamRequestController', () => {
         'everyone in Flood Risk Team can use GPT-4o with it'
       )
       expect(result).toContain(
-        'admins can show it again or rotate it from <a class="govuk-link" href="/teams/flood-risk-team">your team'
+        'admins can show it again or rotate it from <a class="govuk-link" href="/environments/flood-risk-team/infradev">the Infradev page'
       )
       expect(result).not.toContain('Ask an admin')
       expect(result).not.toContain('http-equiv="refresh"')
@@ -505,7 +505,7 @@ describe('#teamRequestController', () => {
           'The client secret for Development was revoked, so there is nothing to show.'
         )
         expect(result).toContain(
-          'href="/teams/flood-risk-team">Go to Flood Risk Team'
+          'href="/environments/flood-risk-team/infradev">Go to Infradev'
         )
         expect(result).not.toContain('not ready yet')
         expect(result).not.toContain('Show the client secret')
@@ -594,7 +594,7 @@ describe('#teamRequestController', () => {
       const { result } = await page()
 
       expect(result).toContain(
-        'when it is working, you can <a class="govuk-link" href="/teams/flood-risk-team/test">set it up in Test</a>'
+        'when it is working, you can <a class="govuk-link" href="/environments/flood-risk-team/qa/set-up">set it up in Test</a>'
       )
     })
 
@@ -604,7 +604,7 @@ describe('#teamRequestController', () => {
       const { result } = await page()
 
       expect(result).not.toContain('set it up in Test')
-      expect(result).not.toContain('/teams/flood-risk-team/test')
+      expect(result).not.toContain('/environments/flood-risk-team/qa/set-up')
     })
 
     test('does not point to Test from Test itself', async () => {
@@ -950,14 +950,14 @@ describe('#teamRequestController', () => {
       }
     )
 
-    test('leaves a removed model for the team page, as the page does', async () => {
+    test('leaves a removed model for the environment page, as the page does', async () => {
       mockResponse(teamWithMembers())
       mockResponse({ items: [deployment({ status: 'removed' })] })
 
       const { statusCode, headers } = await get(server, cookies, FRAGMENT_URL)
 
       expect(statusCode).toBe(statusCodes.seeOther)
-      expect(headers.location).toBe('/teams/flood-risk-team')
+      expect(headers.location).toBe('/environments/flood-risk-team/infradev')
     })
 
     test('is not found for a deployment the person cannot see', async () => {
@@ -1031,7 +1031,7 @@ describe('#teamRequestController', () => {
     })
 
     test.each(['removing', 'removed'])(
-      'sends a %s deployment to its team page, where the removal is shown',
+      'sends a %s deployment to its environment page, where the removal is shown',
       async (status) => {
         mockResponse(teamWithMembers())
         mockResponse({ items: [deployment({ status })] })
@@ -1039,7 +1039,7 @@ describe('#teamRequestController', () => {
         const { statusCode, headers } = await page()
 
         expect(statusCode).toBe(statusCodes.seeOther)
-        expect(headers.location).toBe('/teams/flood-risk-team')
+        expect(headers.location).toBe('/environments/flood-risk-team/infradev')
       }
     )
 

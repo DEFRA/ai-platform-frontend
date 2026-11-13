@@ -1,0 +1,17 @@
+{#
+  Why a change failed: the reason, the run to follow and the reference to quote.
+  `failure` is { reason, runUrl, reference } from the operation's view.
+#}
+{% macro failureDetail(failure) %}
+  {% if failure %}
+    <div class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0" data-testid="failure">
+      <p class="govuk-body-s govuk-!-margin-bottom-1">{{ failure.reason or "The change did not go through." }}</p>
+      {% if failure.runUrl %}
+        <p class="govuk-body-s govuk-!-margin-bottom-1"><a class="govuk-link" href="{{ failure.runUrl }}">View the run<span class="govuk-visually-hidden"> that failed</span></a></p>
+      {% endif %}
+      {% if failure.reference %}
+        <p class="govuk-body-s govuk-!-margin-bottom-0">Quote {{ failure.reference }} to the AI Platform team.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endmacro %}

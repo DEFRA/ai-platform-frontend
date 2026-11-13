@@ -12,7 +12,9 @@ import { models } from '../routes/models/index.js'
 import { connect } from '../routes/connect/index.js'
 import { manage } from '../routes/manage/index.js'
 import { teams } from '../routes/teams/index.js'
+import { environments } from '../routes/environments/index.js'
 import { serveStaticFiles } from './serve-static-files.js'
+import { registerViteAssets } from './vite-assets.js'
 import { config } from '#/config/config.js'
 
 export const router = {
@@ -36,26 +38,13 @@ export const router = {
         models,
         connect,
         manage,
-        teams
+        teams,
+        environments
       ])
 
       // Static assets
       if (!config.get('isProduction') && !config.get('isTest')) {
-        await (async () => {
-          const createViteServer = (await import('vite')).createServer
-          const vite = await createViteServer({
-            server: { middlewareMode: true },
-            appType: 'custom'
-          })
-
-          await server.register({
-            plugin: (await import('@defra/hapi-connect')).default,
-            options: {
-              path: '/public',
-              middleware: [vite.middlewares]
-            }
-          })
-        })()
+        await registerViteAssets(server)
       } else {
         server.register(serveStaticFiles)
       }

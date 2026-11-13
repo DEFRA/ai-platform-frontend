@@ -1,0 +1,23 @@
+@use "govuk-frontend" as *;
+
+// A section card keeps GOV.UK's summary card and only lines its title up with
+// its actions: the title on the left, the actions on the right, wrapping
+// under the title when there is no room (320 px reflow).
+.app-section-card__title-wrapper {
+  align-items: center;
+  gap: govuk-spacing(2);
+}
+
+.app-section-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: govuk-spacing(3);
+  margin-left: auto;
+}
+
+// The content of a card is a list or a table: no extra bottom margin.
+.app-section-card .govuk-summary-card__content > :last-child {
+  margin-bottom: 0;
+}

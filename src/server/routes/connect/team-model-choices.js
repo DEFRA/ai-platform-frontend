@@ -8,7 +8,7 @@ import {
   useCasesList
 } from '#/server/routes/models/model-availability.js'
 
-const ALREADY_SET_UP_HINT = 'Already set up for this team'
+const ALREADY_SET_UP_TEXT = 'already set up for this team'
 const ACTIVE_STATUS = 'active'
 
 function listedModels(models) {
@@ -75,7 +75,9 @@ export async function loadModelChoices(
 
 /**
  * GOV.UK checkbox items: a model the team already has is shown, not
- * selectable, and never ticked; the others carry their use cases as a hint.
+ * selectable, and never ticked, and says so in its label (a hint beside a
+ * disabled control fails colour contrast); the others carry their use cases as
+ * a hint.
  * @param {{models: object[], held: Set<string>}} choices
  * @param {string[]} selected - Slugs to tick.
  * @returns {object[]}
@@ -85,8 +87,7 @@ export function buildModelCheckboxes({ models, held }, selected) {
     if (held.has(model.slug)) {
       return {
         value: model.slug,
-        text: model.displayName,
-        hint: { text: ALREADY_SET_UP_HINT },
+        text: `${model.displayName} (${ALREADY_SET_UP_TEXT})`,
         disabled: true
       }
     }

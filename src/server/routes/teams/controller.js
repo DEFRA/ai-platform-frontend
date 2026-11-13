@@ -15,13 +15,7 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import {
-  statusFragmentResponse,
-  statusFragmentUnavailable,
-  statusFragmentUrl,
-  wantsStatusFragment
-} from '#/server/common/helpers/status-fragment.js'
-import { loadModelsTab } from './models-tab.js'
+import { loadOverviewTab } from './overview-tab.js'
 import { loadTeamRows } from './team-list.js'
 import { descriptionField, serviceCodeField } from './team-fields.js'
 import { deriveTeamSlug } from './team-slug.js'
@@ -33,7 +27,6 @@ import {
   teamUrl
 } from './team-view.js'
 
-const MODELS_STATUS_PARTIAL = 'teams/partials/models-status'
 const CREATE_TEAM_TITLE = 'Create a team'
 const MIN_TEAM_NAME_LENGTH = 3
 const MAX_TEAM_NAME_LENGTH = 60
@@ -232,27 +225,16 @@ export const teamsController = {
           throw error
         }
 
-        const { team, isAdmin, environments } = loaded
-        const tab = await loadModelsTab(request, {
-          team,
-          isAdmin,
-          environments
-        })
-        const view = { team, teamUrl: teamUrl(team), ...tab }
-
-        if (wantsStatusFragment(request)) {
-          return tab.unavailable
-            ? statusFragmentUnavailable(h)
-            : statusFragmentResponse(request, h, MODELS_STATUS_PARTIAL, view)
-        }
+        const { team } = loaded
 
         return h.view('teams/team', {
           pageTitle: team.name,
           heading: team.name,
-          tabs: teamTabs(team, 'models'),
+          tabs: teamTabs(team, 'overview'),
           notification: takeAccountNotification(request),
-          statusUrl: statusFragmentUrl(request.path),
-          ...view
+          team,
+          teamUrl: teamUrl(team),
+          ...(await loadOverviewTab(request, team))
         })
       }
     }

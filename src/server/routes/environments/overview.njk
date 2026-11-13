@@ -1,0 +1,32 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block content %}
+  {% include "partials/team-notification.njk" %}
+
+  {{ appHeading({
+    text: heading,
+    caption: team.name,
+    captionAbove: true
+  }) }}
+
+  <p class="govuk-body-l">Where {{ team.name }}’s models are deployed, and what is changing now.</p>
+
+  <div class="app-actions--end" data-testid="page-actions">
+    {% if changeTeamUrl %}
+      <a class="govuk-link" href="{{ changeTeamUrl }}" data-testid="change-team">Change team<span class="govuk-visually-hidden"> from {{ team.name }}</span></a>
+    {% endif %}
+    {{ govukButton({
+      text: "Deploy a model",
+      href: deployUrl,
+      classes: "govuk-!-margin-bottom-0",
+      attributes: { "data-testid": "deploy-a-model" }
+    }) }}
+  </div>
+
+  {# Checked again by progress-refresh.js while a change is open; without script, "Check progress" does it. #}
+  <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
+    {% include "environments/partials/overview-status.njk" %}
+  </div>
+{% endblock %}

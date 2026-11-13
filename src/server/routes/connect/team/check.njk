@@ -31,7 +31,7 @@
           {
             key: { text: "Team" },
             value: { text: teamName },
-            actions: { items: [{ href: teamChangeUrl, text: "Change", visuallyHiddenText: "team" }] }
+            actions: { items: [{ href: teamChangeUrl, text: "Change", visuallyHiddenText: "team" }] } if teamChangeUrl
           },
           {
             key: { text: "Models" if models.length > 1 else "Model" },

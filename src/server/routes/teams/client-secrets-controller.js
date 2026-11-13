@@ -1,6 +1,11 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
-import { credentialEnvironmentName } from '#/server/common/helpers/environment-names.js'
+import {
+  credentialEnvironmentName,
+  environmentPageUrl,
+  environmentRegistryName,
+  teamEnvironmentsUrl
+} from '#/server/common/helpers/environment-names.js'
 import {
   buildErrorSummary,
   buildFieldErrors
@@ -21,6 +26,21 @@ import { isNotFound, loadTeamForView, teamUrl } from './team-view.js'
 const SECRET_NAME = 'client secret'
 const ADMIN_REQUIRED = 'admin-required'
 
+// Where each page goes back to, and where a result is shown: the page of the
+// environment the client secret is for. A client secret that does not say
+// returns to the team's overview.
+function backUrlFor(slug, credential) {
+  return credential?.environment
+    ? environmentPageUrl(slug, credential.environment)
+    : teamEnvironmentsUrl(slug)
+}
+
+function backTextFor(credential) {
+  return credential?.environment
+    ? `Back to the ${environmentRegistryName(credential.environment)} page`
+    : 'Back to all environments'
+}
+
 function clientSecretNotFound(h, slug) {
   return h
     .view('error/index', {
@@ -28,8 +48,8 @@ function clientSecretNotFound(h, slug) {
       heading: 'Client secret not found',
       message:
         'This client secret is not one of this team’s, or you are not an admin of the team.',
-      actionHref: teamUrl({ slug }),
-      actionText: 'Back to the team'
+      actionHref: teamEnvironmentsUrl(slug),
+      actionText: 'Back to all environments'
     })
     .code(statusCodes.notFound)
 }
@@ -103,9 +123,9 @@ function takeoverFailure(view) {
   return response.takeover()
 }
 
-// A refusal the person can read becomes a banner on the Models tab; a
+// A refusal the person can read becomes a banner on the environment page; a
 // backend fault goes to the error page like everywhere else.
-function failAsBanner(request, h, error, message) {
+function failAsBanner(request, h, error, message, backUrl) {
   if (
     !(error instanceof ApiError) ||
     error.statusCode >= statusCodes.internalServerError
@@ -115,9 +135,7 @@ function failAsBanner(request, h, error, message) {
 
   setAccountNotification(request, { type: 'error', message })
 
-  return h
-    .redirect(teamUrl({ slug: request.params.slug }))
-    .code(statusCodes.seeOther)
+  return h.redirect(backUrl).code(statusCodes.seeOther)
 }
 
 function revealErrorMessage(error) {
@@ -143,7 +161,7 @@ async function revealView(request, h, { error, values } = {}) {
     pageTitle: `${error ? 'Error: ' : ''}${heading}`,
     heading,
     secretName: SECRET_NAME,
-    backHref: teamUrl(page.team),
+    backHref: backUrlFor(page.team.slug, page.credential),
     values: values ?? { reason: '' },
     errorSummary: error ? buildErrorSummary(error) : null,
     fieldErrors: error ? buildFieldErrors(error) : {}
@@ -164,7 +182,7 @@ async function revokeView(request, h, error) {
   return h.view('manage/revoke', {
     pageTitle: `${error ? 'Error: ' : ''}Confirm revoke`,
     heading,
-    backHref: teamUrl(page.team),
+    backHref: backUrlFor(page.team.slug, page.credential),
     warning: `Revoking the ${environment} ${SECRET_NAME} cannot be undone. Anything using it to reach ${models} stops working straight away.`,
     legend: `Are you sure you want to revoke the ${environment} ${SECRET_NAME}?`,
     yesText: `Yes, revoke the ${SECRET_NAME}`,
@@ -178,8 +196,8 @@ async function revokeView(request, h, error) {
  * A team's client secret, on the team's own routes: an admin shows it (with a
  * reason, recorded), rotates it or revokes it. The backend decides what an
  * admin may do and refuses everyone else; a member is told to ask an admin,
- * on the Models tab, and reaches none of these. Back and cancel return to the
- * Models tab.
+ * on the environment page, and reaches none of these. Back and cancel return to
+ * the page of the client secret's environment.
  */
 export const clientSecretsController = {
   reveal: {
@@ -224,7 +242,13 @@ export const clientSecretsController = {
             .redirect(secretUrl(slug, credentialId, 'revealed'))
             .code(statusCodes.seeOther)
         } catch (error) {
-          return failAsBanner(request, h, error, revealErrorMessage(error))
+          return failAsBanner(
+            request,
+            h,
+            error,
+            revealErrorMessage(error),
+            backUrlFor(slug, page.credential)
+          )
         }
       }
     }
@@ -238,7 +262,9 @@ export const clientSecretsController = {
         // Who may see it is decided again here, before the one-time result is
         // taken: the session slot is shared with personal keys and other
         // teams, and the person may have lost admin since they asked.
-        if (!(await loadClientSecret(request))) {
+        const page = await loadClientSecret(request)
+
+        if (!page) {
           return clientSecretNotFound(h, slug)
         }
 
@@ -248,7 +274,9 @@ export const clientSecretsController = {
         )
 
         if (!issued) {
-          return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
+          return h
+            .redirect(backUrlFor(slug, page.credential))
+            .code(statusCodes.seeOther)
         }
 
         return h
@@ -258,8 +286,8 @@ export const clientSecretsController = {
             secretName: issued.secretName,
             placeholderCredential: issued.placeholderCredential,
             secret: issued.secret,
-            returnHref: teamUrl({ slug }),
-            returnText: 'Back to the team'
+            returnHref: backUrlFor(slug, page.credential),
+            returnText: backTextFor(page.credential)
           })
           .header('cache-control', 'no-store')
       }
@@ -278,7 +306,7 @@ export const clientSecretsController = {
         return h.view('teams/rotate', {
           pageTitle: 'Confirm rotate',
           heading: `Are you sure you want to rotate the ${page.team.name} client secret?`,
-          teamUrl: teamUrl(page.team),
+          backUrl: backUrlFor(page.team.slug, page.credential),
           teamName: page.team.name,
           credential: page.credential,
           environmentName: credentialEnvironmentName(page.credential),
@@ -314,7 +342,8 @@ export const clientSecretsController = {
             error,
             error.code === ADMIN_REQUIRED
               ? 'Only a team admin can rotate this client secret.'
-              : 'This client secret could not be rotated.'
+              : 'This client secret could not be rotated.',
+            backUrlFor(slug, page.credential)
           )
         }
       }
@@ -328,7 +357,9 @@ export const clientSecretsController = {
 
         // As for the revealed secret: decided again before the one-time
         // result is taken.
-        if (!(await loadClientSecret(request))) {
+        const page = await loadClientSecret(request)
+
+        if (!page) {
           return clientSecretNotFound(h, slug)
         }
 
@@ -338,14 +369,17 @@ export const clientSecretsController = {
         )
 
         if (!issued) {
-          return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
+          return h
+            .redirect(backUrlFor(slug, page.credential))
+            .code(statusCodes.seeOther)
         }
 
         return h
           .view('teams/rotated', {
             pageTitle: 'Client secret rotated',
             heading: 'Client secret rotated',
-            teamUrl: teamUrl({ slug }),
+            backUrl: backUrlFor(slug, page.credential),
+            backText: backTextFor(page.credential),
             credential: issued.credential,
             placeholderCredential: isPlaceholderCredential(issued.credential),
             secret: issued.secret,
@@ -393,12 +427,15 @@ export const clientSecretsController = {
               error,
               error.code === ADMIN_REQUIRED
                 ? 'Only a team admin can revoke this client secret.'
-                : 'This client secret could not be revoked.'
+                : 'This client secret could not be revoked.',
+              backUrlFor(slug, page.credential)
             )
           }
         }
 
-        return h.redirect(teamUrl({ slug })).code(statusCodes.seeOther)
+        return h
+          .redirect(backUrlFor(slug, page.credential))
+          .code(statusCodes.seeOther)
       }
     }
   }
