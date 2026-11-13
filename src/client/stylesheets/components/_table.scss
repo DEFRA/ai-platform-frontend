@@ -24,3 +24,11 @@
   font-size: inherit;
   line-height: inherit;
 }
+
+// Secondary text, for a column of detail beside the main one (the Change column
+// of the recent changes, the values of the connection details): the GOV.UK
+// secondary colour at 1rem. A control inside keeps its own colour and size.
+.app-secondary-text {
+  color: var(--govuk-secondary-text-colour, #484949);
+  font-size: 1rem;
+}

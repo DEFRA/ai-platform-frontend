@@ -1,6 +1,8 @@
 {#
   params.title, params.headingLevel (default 2), params.classes, params.attributes,
-  params.actionsHtml (links or buttons shown at the right of the title).
+  params.actionsHtml (links or buttons shown at the right of the title),
+  params.scrollable (the content scrolls vertically inside a named, keyboard-focusable
+  region, so a long list does not stretch the page).
   A page section as a GOV.UK summary card: the macro's call block is its content.
 #}
 {% set level = params.headingLevel or 2 %}
@@ -12,6 +14,12 @@
     {% endif %}
   </div>
   <div class="govuk-summary-card__content">
-    {{ caller() if caller }}
+    {% if params.scrollable %}
+      <div class="app-section-card__scroll" tabindex="0" role="region" aria-label="{{ params.title }}">
+        {{ caller() if caller }}
+      </div>
+    {% else %}
+      {{ caller() if caller }}
+    {% endif %}
   </div>
 </div>

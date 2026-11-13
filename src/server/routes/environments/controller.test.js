@@ -326,6 +326,46 @@ describe('#environmentsController', () => {
       ).toHaveLength(0)
     })
 
+    test('makes Create Passwordless Credential green like Deploy a model', async () => {
+      backend()
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+      const federate = $('a[data-testid="federate-an-application"]')
+      const deploy = $('a[data-testid="deploy-a-model"]')
+
+      expect(federate.attr('class')).toBe(deploy.attr('class'))
+      expect(federate.hasClass('govuk-button--secondary')).toBe(false)
+    })
+
+    test('scrolls the recent changes in a named region, and gives the Change column secondary text', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/operations`]: operationsAnswer({
+          recent: [doneOperation(), failedOperation()]
+        })
+      })
+
+      const $ = pageOf((await get(OVERVIEW_URL)).result)
+      const region = $(
+        '[data-testid="section-recent"] .govuk-summary-card__content > .app-section-card__scroll'
+      )
+
+      expect(region.attr('tabindex')).toBe('0')
+      expect(region.attr('role')).toBe('region')
+      expect(region.attr('aria-label')).toBe('Recent changes')
+      expect(region.find('table[data-testid="recent-changes"]')).toHaveLength(1)
+
+      const rows = $('[data-testid="recent-change"]')
+
+      expect(rows.length).toBeGreaterThan(0)
+      rows.each((_, row) => {
+        const cells = $(row).children('td')
+
+        expect(cells.eq(1).hasClass('app-secondary-text')).toBe(true)
+        expect(cells.eq(0).hasClass('app-secondary-text')).toBe(false)
+        expect(cells.eq(2).hasClass('app-secondary-text')).toBe(false)
+      })
+    })
+
     test('right aligns the actions above the cards', async () => {
       backend({ 'GET /v1/teams': { items: [sampleTeam, coastal] } })
 

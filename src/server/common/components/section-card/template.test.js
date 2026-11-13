@@ -64,4 +64,28 @@ describe('Section card component', () => {
     expect($card('b')).toHaveLength(0)
     expect($card('.govuk-summary-card__title').text()).toBe('<b>Models</b>')
   })
+
+  test('Should keep a card that scrolls as a named, keyboard-focusable region around its content', () => {
+    const $card = renderComponent(
+      'section-card',
+      { title: 'Recent changes', scrollable: true },
+      '<p class="inner">Body</p>'
+    )
+    const $region = $card(
+      '.govuk-summary-card__content > .app-section-card__scroll'
+    )
+
+    expect($region).toHaveLength(1)
+    expect($region.attr('tabindex')).toBe('0')
+    expect($region.attr('role')).toBe('region')
+    expect($region.attr('aria-label')).toBe('Recent changes')
+    expect($region.find('.inner').text()).toBe('Body')
+  })
+
+  test('Should not add a scroll region unless asked', () => {
+    const $card = renderComponent('section-card', { title: 'Models' }, 'Body')
+
+    expect($card('.app-section-card__scroll')).toHaveLength(0)
+    expect($card('[tabindex]')).toHaveLength(0)
+  })
 })

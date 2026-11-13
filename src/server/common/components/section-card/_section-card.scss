@@ -21,3 +21,22 @@
 .app-section-card .govuk-summary-card__content > :last-child {
   margin-bottom: 0;
 }
+
+// A card whose content may be long scrolls it vertically, inside the card. The
+// region takes focus so a keyboard can scroll it, and nothing scrolls sideways:
+// long words wrap instead (WCAG 1.4.10, 2.1.1).
+.app-section-card__scroll {
+  max-height: 20rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+
+  &:focus {
+    outline: $govuk-focus-width solid $govuk-focus-colour;
+    outline-offset: 0;
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+}

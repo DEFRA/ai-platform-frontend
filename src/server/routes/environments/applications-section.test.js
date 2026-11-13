@@ -138,6 +138,10 @@ describe('an environment’s applications and connection details', () => {
 
       expect(card.hasClass('govuk-summary-card')).toBe(true)
       expect(button).toHaveLength(1)
+      expect(button.hasClass('govuk-button--secondary')).toBe(false)
+      expect(button.attr('class')).toBe(
+        $('a[data-testid="deploy-a-model"]').attr('class')
+      )
       expect(button.text().replace(/\s+/g, ' ').trim()).toBe(
         'Create Passwordless Credential in Infradev'
       )
@@ -339,6 +343,18 @@ describe('an environment’s applications and connection details', () => {
         'GET https://gateway.example/flood-risk-team/whoami'
       )
       expect($('[data-testid="connection-row"] button[hidden]')).toHaveLength(7)
+      // The values column is secondary text; the Copy buttons keep their own link colour.
+      expect(
+        $('[data-testid="connection-row"] > dd.govuk-summary-list__value')
+          .map((_, value) => $(value).hasClass('app-secondary-text'))
+          .get()
+      ).toEqual(Array(7).fill(true))
+      expect(
+        $('[data-testid="connection-row"] > dt.app-secondary-text')
+      ).toHaveLength(0)
+      expect(
+        $('[data-testid="connection-row"] button.app-secondary-text')
+      ).toHaveLength(0)
       expect(
         $('#connection-client-id')
           .closest('dd')

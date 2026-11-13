@@ -17,6 +17,59 @@
   }
 }
 
+// An environment card is narrow (four across), so its rows use the whole width
+// of the card, not GOV.UK's 30, 50 and 20 percent columns (the last an empty
+// cell on a row with no actions), which clamp the text into a sliver. Each row
+// is its name over its value, and both wrap.
+.app-environment-card__content {
+  .govuk-summary-list {
+    display: block;
+    width: 100%;
+  }
+
+  .govuk-summary-list__row {
+    display: block;
+    width: 100%;
+
+    &::after {
+      display: none;
+    }
+  }
+
+  .govuk-summary-list__key,
+  .govuk-summary-list__value {
+    display: block;
+    width: 100%;
+    padding-right: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .govuk-summary-list__key {
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .govuk-summary-list__value {
+    padding-top: 0;
+  }
+}
+
+// The title and its label share a line when there is room and wrap when there
+// is not. The label is smaller than it was (16px, not 19px) and stays on
+// one line, so "Not available yet" fits at the side of a short title.
+.app-environment-card__title-wrapper {
+  flex-wrap: wrap;
+  gap: govuk-spacing(2);
+
+  .govuk-tag {
+    @include govuk-font($size: 16, $weight: bold);
+
+    align-self: center;
+    padding: 1px govuk-spacing(1);
+    white-space: nowrap;
+  }
+}
+
 // Cards side by side across the page, wrapping to fewer columns when there is
 // no room and to one at 320 px (WCAG 1.4.10).
 .app-card-grid {
