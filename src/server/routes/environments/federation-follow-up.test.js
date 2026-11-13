@@ -1,3 +1,4 @@
+import { ApiError } from '#/server/common/helpers/api-client.js'
 import {
   federateAfterRequest,
   followUpNotification,
@@ -35,6 +36,28 @@ describe('an error that is not the backend’s', () => {
     expect(request.logger.warn).not.toHaveBeenCalled()
   })
 
+  test('is not swallowed when only the target environment read fails, so it is not taken for an empty environment', async () => {
+    const failure = new TypeError('a bug, not a missing environment')
+
+    readTeamEnvironment.mockImplementation((_request, _team, environment) =>
+      environment === 'qa'
+        ? Promise.reject(failure)
+        : Promise.resolve({
+            applications: {
+              items: [{ host: 'cdp', status: 'ready', service: 'flood-api' }]
+            }
+          })
+    )
+
+    await expect(
+      loadFederableServices(request, {
+        teamSlug: 'flood-risk-team',
+        source: 'infradev',
+        target: 'qa'
+      })
+    ).rejects.toBe(failure)
+  })
+
   test('is not swallowed when adding a confirmed service, so it is not said to be refused', async () => {
     const failure = new TypeError('a bug, not a refusal')
 
@@ -47,6 +70,36 @@ describe('an error that is not the backend’s', () => {
         services: [{ service: 'flood-api', key: 'key-1' }]
       })
     ).rejects.toBe(failure)
+  })
+})
+
+describe('#loadFederableServices when the target environment has nothing to read', () => {
+  const request = { logger: { warn: vi.fn() } }
+
+  test('offers every service of the source when the backend has no record of the target', async () => {
+    readTeamEnvironment.mockImplementation((_request, _team, environment) =>
+      environment === 'qa'
+        ? Promise.reject(
+            new ApiError({
+              statusCode: 404,
+              code: 'environment-not-found',
+              message: 'No such environment'
+            })
+          )
+        : Promise.resolve({
+            applications: {
+              items: [{ host: 'cdp', status: 'ready', service: 'flood-api' }]
+            }
+          })
+    )
+
+    await expect(
+      loadFederableServices(request, {
+        teamSlug: 'flood-risk-team',
+        source: 'infradev',
+        target: 'qa'
+      })
+    ).resolves.toEqual(['flood-api'])
   })
 })
 

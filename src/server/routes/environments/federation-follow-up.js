@@ -34,8 +34,15 @@ export async function loadFederableServices(
   try {
     const [from, to] = await Promise.all([
       readTeamEnvironment(request, teamSlug, source),
-      // The new environment may have nothing to read yet.
-      readTeamEnvironment(request, teamSlug, target).catch(() => ({}))
+      // The new environment may have nothing to read yet (the backend says so);
+      // anything else is not "empty".
+      readTeamEnvironment(request, teamSlug, target).catch((error) => {
+        if (error instanceof ApiError) {
+          return {}
+        }
+
+        throw error
+      })
     ])
     const held = new Set(servicesIn(to, HELD_STATUSES))
 

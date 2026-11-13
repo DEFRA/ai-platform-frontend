@@ -93,6 +93,20 @@ async function loadOffered(request, { slug, source, target }) {
 }
 
 /**
+ * The journey this person already has for this team and environment, when they
+ * come back here from a later step, or undefined.
+ */
+function sameJourney(request, team, target) {
+  const journey = teamJourneyOf(request)
+
+  return journey?.accessType === 'team' &&
+    journey.teamSlug === team.slug &&
+    journey.environment === target.environment
+    ? journey
+    : undefined
+}
+
+/**
  * What the person already answered for this team and environment, when they
  * come back here from the check page, so going Back and Continue keeps it.
  * @param {import('@hapi/hapi').Request} request
@@ -101,15 +115,22 @@ async function loadOffered(request, { slug, source, target }) {
  * @returns {{modelSlugs: string[], purpose: string} | undefined}
  */
 function savedAnswers(request, team, target) {
-  const journey = teamJourneyOf(request)
+  const journey = sameJourney(request, team, target)
 
-  return journey?.accessType === 'team' &&
-    journey.teamSlug === team.slug &&
-    journey.environment === target.environment &&
-    journey.modelSlugs?.length
+  return journey?.modelSlugs?.length
     ? { modelSlugs: journey.modelSlugs, purpose: journey.purpose }
     : undefined
 }
+
+// The CDP services already answered for this team and environment, with the
+// keys of their requests, of those still on offer. An answer of none is an
+// answer, so it stays; no answer yet stays unanswered.
+function savedServices(request, team, target, services) {
+  const answered = sameJourney(request, team, target)?.federateServices
+
+  return answered?.filter(({ service }) => services.includes(service))
+}
+
 // A new journey ticks every model offered; one come back to from the check
 // page keeps what was ticked there (of what is still on offer).
 function initialSelection(request, { team, target, offered }) {
@@ -265,7 +286,11 @@ export const environmentSetUpController = {
         environment: target.environment,
         requestKey: randomUUID(),
         userId: getSessionUser(request).id,
-        federationsOffered: services.length > 0
+        federationsOffered: services.length > 0,
+        // Going Back to the models from the services keeps the answer: the
+        // services chosen, with their keys, so the same answers stay the
+        // same request.
+        federateServices: savedServices(request, team, target, services)
       })
 
       return h

@@ -1,4 +1,5 @@
 import { load } from 'cheerio'
+import { randomUUID } from 'node:crypto'
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
@@ -23,6 +24,12 @@ import {
   sampleTeam,
   teamWithMembers
 } from '#/test-helpers/team-connect-helpers.js'
+
+vi.mock('node:crypto', async (importOriginal) => {
+  const actual = await importOriginal()
+
+  return { ...actual, randomUUID: vi.fn(() => actual.randomUUID()) }
+})
 
 vi.mock('#/server/common/helpers/oidc-client.js', () => ({
   getOidcConfig: vi.fn().mockResolvedValue('fake-oidc-config')
@@ -205,6 +212,130 @@ describe('the CDP services offered when another environment is set up (choice B)
     expect(text($, '[data-testid="app-heading-caption"]')).toBe(
       'Flood Risk Team'
     )
+  })
+
+  test('keeps the services chosen, and their keys, when the models are chosen again from Back', async () => {
+    backend({
+      infradev: [floodApi, floodWorker],
+      qa: [],
+      [`POST ${TEAM_PATH}/deployments`]: reply(202, {
+        deployments: [{ _id: 'deployment-9' }]
+      }),
+      [`POST ${FEDERATIONS_PATH}`]: queued()
+    })
+    await chooseModels()
+
+    const issuedBefore = randomUUID.mock.results.length
+
+    await send('POST', APPLICATIONS_URL, { services: ['flood-worker'] })
+
+    const workerKey = randomUUID.mock.results[issuedBefore].value
+    const again = await chooseModels()
+    const { $ } = await send('GET', APPLICATIONS_URL)
+
+    expect(again.response.headers.location).toBe(APPLICATIONS_URL)
+    expect(
+      $('input[name="services"][checked]')
+        .map((_, el) => $(el).val())
+        .get()
+    ).toEqual(['flood-worker'])
+
+    await send('POST', APPLICATIONS_URL, { services: ['flood-worker'] })
+    await send('POST', CHECK_URL, {})
+
+    expect(
+      calls('POST', FEDERATIONS_PATH).map(([, init]) => [
+        JSON.parse(init.body).service,
+        init.headers['idempotency-key']
+      ])
+    ).toEqual([['flood-worker', workerKey]])
+  })
+
+  test('keeps the answer of no services when the models are chosen again', async () => {
+    backend({ infradev: [floodApi, floodWorker], qa: [] })
+    await chooseModels()
+    await send('POST', APPLICATIONS_URL, {})
+    await chooseModels()
+
+    const { $ } = await send('GET', APPLICATIONS_URL)
+
+    expect($('input[name="services"][checked]')).toHaveLength(0)
+  })
+
+  test('drops a chosen service that is no longer offered when the models are chosen again', async () => {
+    backend({ infradev: [floodApi, floodWorker], qa: [] })
+    await chooseModels()
+    await send('POST', APPLICATIONS_URL, {
+      services: ['flood-api', 'flood-worker']
+    })
+    backend({ infradev: [floodApi], qa: [] })
+    await chooseModels()
+
+    const { $ } = await send('GET', APPLICATIONS_URL)
+
+    expect(
+      $('input[name="services"][checked]')
+        .map((_, el) => $(el).val())
+        .get()
+    ).toEqual(['flood-api'])
+  })
+
+  test('asks again, with every service ticked, when the models are chosen for another environment or team', async () => {
+    backend({ infradev: [floodApi, floodWorker], qa: [] })
+    await chooseModels()
+    await send('POST', APPLICATIONS_URL, { services: ['flood-worker'] })
+    config.set('teamEnvironments', ['infradev', 'qa', 'preprod'])
+    backend({
+      infradev: [floodApi, floodWorker],
+      qa: [],
+      'GET /v1/models?tier=team&environment=preprod': {
+        items: [sampleModel, nanoModel]
+      },
+      [`GET ${TEAM_PATH}/environments/preprod`]: detail({
+        environment: 'preprod',
+        applications: applicationsOf([])
+      })
+    })
+
+    await send('POST', `/environments/${sampleTeam.slug}/preprod/set-up`, {
+      modelSlugs: 'gpt-4o'
+    })
+    const { $ } = await send(
+      'GET',
+      `/environments/${sampleTeam.slug}/preprod/set-up/applications`
+    )
+
+    expect($('input[name="services"][checked]')).toHaveLength(2)
+  })
+
+  test('cannot be checked before the services question is answered', async () => {
+    backend({
+      infradev: [floodApi],
+      qa: [],
+      [`POST ${TEAM_PATH}/deployments`]: reply(202, {
+        deployments: [{ _id: 'deployment-9' }]
+      })
+    })
+    await chooseModels()
+
+    const get = await send('GET', CHECK_URL)
+    const post = await send('POST', CHECK_URL, {})
+
+    expect(get.response.statusCode).toBe(statusCodes.seeOther)
+    expect(get.response.headers.location).toBe(APPLICATIONS_URL)
+    expect(post.response.statusCode).toBe(statusCodes.seeOther)
+    expect(post.response.headers.location).toBe(APPLICATIONS_URL)
+    expect(calls('POST', `${TEAM_PATH}/deployments`)).toHaveLength(0)
+  })
+
+  test('can be checked once the question was answered with no services', async () => {
+    backend({ infradev: [floodApi], qa: [] })
+    await chooseModels()
+    await send('POST', APPLICATIONS_URL, {})
+
+    const { response } = await send('GET', CHECK_URL)
+
+    expect(response.statusCode).toBe(statusCodes.ok)
   })
 
   test('offers every service of the first environment when the new one cannot be read yet', async () => {
@@ -421,14 +552,18 @@ describe('the CDP services offered when another environment is set up (choice B)
       }
     }
 
-    async function confirmed(services, routes = {}) {
+    async function confirm(services, routes = {}) {
       backend(requestRoutes(routes))
       await chooseModels()
       await send('POST', APPLICATIONS_URL, { services })
 
-      const confirm = await send('POST', CHECK_URL, {})
+      return send('POST', CHECK_URL, {})
+    }
 
-      return { confirm, page: await send('GET', REQUEST_URL) }
+    async function confirmed(services, routes = {}) {
+      const made = await confirm(services, routes)
+
+      return { confirm: made, page: await send('GET', REQUEST_URL) }
     }
 
     test('asks for each service to be federated in the new environment after the request, one request each, with a key of its own (AC26)', async () => {
@@ -467,6 +602,64 @@ describe('the CDP services offered when another environment is set up (choice B)
         'flood-api will be federated in QA'
       )
       expect(again.$('[data-testid="team-notification"]')).toHaveLength(0)
+    })
+
+    test('says it on the failed page when the request failed before the first visit, once', async () => {
+      const failedDeployment = deployment({
+        _id: 'deployment-9',
+        modelSlug: 'gpt-4-1-nano',
+        environment: 'qa',
+        status: 'deploy-failed'
+      })
+      await confirm(['flood-api'])
+      mockApi(fetchMock, {
+        [`GET ${TEAM_PATH}`]: { ...teamWithMembers('admin'), environments: [] },
+        [`GET ${TEAM_PATH}/deployments`]: { items: [failedDeployment] },
+        'GET /v1/models?includeIneligible=true': { items: [nanoModel] }
+      })
+
+      const page = await send('GET', REQUEST_URL)
+      const again = await send('GET', REQUEST_URL)
+
+      expect(text(page.$, 'h1')).toContain('We could not set up')
+      expect(text(page.$, '[data-testid="team-notification"]')).toContain(
+        'flood-api will be federated in QA'
+      )
+      expect(again.$('[data-testid="team-notification"]')).toHaveLength(0)
+    })
+
+    test('does not show it on another page before the request page is visited', async () => {
+      await confirm(['flood-api'])
+      mockApi(fetchMock, { 'GET /v1/teams': { items: [sampleTeam] } })
+
+      const teams = await send('GET', '/teams')
+
+      expect(teams.response.statusCode).toBe(statusCodes.ok)
+      expect(teams.response.result).not.toContain('will be federated')
+    })
+
+    test('does not show it on the page of another request', async () => {
+      await confirm(['flood-api'])
+      mockApi(fetchMock, {
+        [`GET ${TEAM_PATH}`]: { ...teamWithMembers('admin'), environments: [] },
+        [`GET ${TEAM_PATH}/deployments`]: {
+          items: [
+            deployment({
+              _id: 'deployment-8',
+              environment: 'qa',
+              status: 'applying'
+            })
+          ]
+        },
+        'GET /v1/models?includeIneligible=true': { items: [sampleModel] }
+      })
+
+      const other = await send(
+        'GET',
+        `/connect/team/request/${sampleTeam.slug}/deployment-8`
+      )
+
+      expect(other.$('[data-testid="team-notification"]')).toHaveLength(0)
     })
 
     test('makes no federation request when none was ticked', async () => {
