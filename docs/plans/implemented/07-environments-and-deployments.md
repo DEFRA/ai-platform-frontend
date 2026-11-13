@@ -2,11 +2,13 @@
 
 The section where a team sees what is deployed in each environment, deploys and changes it, and follows each change,
 one team at a time. Designed 11 Nov 2026 (discovery-docs design F `#environments`, figures F2 to F4, choices J to P
-accepted 12 Nov 2026) and built 12 Nov 2026 in frontend pull request P2, which depends on the backend's P1 (team
-environment reads, operations, limits change). Deploy, remove and limits are real through GitOps in Infradev. B18's
-applications, the Federate journey and connection details (design E `#team-credentials`, figures E6 and F4) were added the
-same day in pull request P8, which depends on P2 and the backend's P6; they run against the mocks (nothing is created in
-Entra while `entra.enabled` is false). Client secrets (P9) are not here yet. Not deployed: G3 is not approved.
+accepted 12 Nov 2026) and built in frontend pull request P2 (#93, merged 13 Nov 2026), which depends on the backend's P1
+(#77: team environment reads, operations, limits change). Deploy, remove and limits are real through GitOps in Infradev
+once deployed. B18's applications, the Federate journey and connection details (design E `#team-credentials`, figures E6
+and F4) were built in pull request P8 (#94, merged 13 Nov 2026), which depends on P2 and the backend's P6 (#78); they run
+against the mocks (nothing is created in Entra while `entra.enabled` is false). The portal says "Create Passwordless
+Credential" where the design says "Federate an application". The backend's client secret routes are merged (#79); the
+frontend client secrets section (P9) is not built. Not deployed to Infradev: G3 is not approved.
 
 | Feature                                                                                  | Built       |
 | ---------------------------------------------------------------------------------------- | ----------- |
