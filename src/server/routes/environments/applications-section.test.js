@@ -157,7 +157,7 @@ describe('an environment’s applications and connection details', () => {
 
       expect($('a[data-testid="federate-an-application"]')).toHaveLength(0)
       expect(text($, '[data-testid="applications-full"]')).toBe(
-        'Infradev holds 20 applications, the most one environment can. Remove one to federate another here.'
+        'Infradev holds 20 applications, the most one environment can. Remove one to create another passwordless credential here.'
       )
     })
 
@@ -262,7 +262,7 @@ describe('an environment’s applications and connection details', () => {
       const { $ } = await page()
 
       expect(text($, '[data-testid="no-applications"]')).toBe(
-        'No applications are federated in Infradev yet.'
+        'No applications have a passwordless credential in Infradev yet.'
       )
     })
 

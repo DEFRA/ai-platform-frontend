@@ -199,7 +199,9 @@ describe('the page that follows a federation', () => {
     const { response, $ } = await send('GET', PROGRESS_URL)
 
     expect(response.statusCode).toBe(statusCodes.ok)
-    expect(text($, 'h1')).toBe('Federating flood-api')
+    expect(text($, 'h1')).toBe(
+      'Creating a passwordless credential for flood-api'
+    )
     expect($('[data-testid="app-heading-caption"]').text()).toBe(
       'Flood Risk Team'
     )
@@ -302,7 +304,7 @@ describe('the page that follows a federation', () => {
     const { $ } = await send('GET', PROGRESS_URL)
 
     expect(text($, '[data-testid="federated-panel"]')).toBe(
-      'flood-api is federated in Infradev and QA'
+      'flood-api has a passwordless credential in Infradev and QA'
     )
     expect(text($, 'main h2')).toBe('Connect flood-api')
     expect(
@@ -348,7 +350,9 @@ describe('the page that follows a federation', () => {
 
     const { $ } = await send('GET', PROGRESS_URL)
 
-    expect(text($, 'h1')).toBe('We could not federate flood-api everywhere')
+    expect(text($, 'h1')).toBe(
+      'We could not create a passwordless credential for flood-api everywhere'
+    )
     expect($('[data-in-progress]').attr('data-in-progress')).toBe('false')
     expect(text($, '[data-testid="failure"]')).toContain(
       'The platform checks refused the change.'

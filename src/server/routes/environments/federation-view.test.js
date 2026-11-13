@@ -74,7 +74,7 @@ describe('#buildApplications', () => {
     expect(view.full).toBe(true)
     expect(view.federateUrl).toBeNull()
     expect(view.fullMessage).toBe(
-      'Infradev holds 20 applications, the most one environment can. Remove one to federate another here.'
+      'Infradev holds 20 applications, the most one environment can. Remove one to create another passwordless credential here.'
     )
   })
 

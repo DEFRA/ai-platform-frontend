@@ -576,7 +576,7 @@ describe('the Federate journey', () => {
 
       expect(response.statusCode).toBe(statusCodes.conflict)
       expect(text($, 'h1')).toBe(
-        'flood-api cannot be federated anywhere just now'
+        'flood-api cannot get a passwordless credential anywhere just now'
       )
     })
 
@@ -625,7 +625,10 @@ describe('the Federate journey', () => {
     })
 
     test.each([
-      ['federation-exists', 'QA: your team already federates flood-api there'],
+      [
+        'federation-exists',
+        'QA: your team already has a passwordless credential for flood-api there'
+      ],
       [
         'federation-trusted-elsewhere',
         'QA: another team already uses flood-api there'
@@ -734,11 +737,13 @@ describe('the Federate journey', () => {
 
       const { $ } = await toCheck()
 
-      expect(text($, 'main h2')).toBe('Now federate flood-api')
+      expect(text($, 'main h2')).toBe(
+        'Now create a passwordless credential for flood-api'
+      )
       expect(text($, 'main')).toContain(
         'flood-api will get Flood Risk Team’s access to every model in Infradev and QA.'
       )
-      expect(text($, 'main form button')).toBe('Federate flood-api')
+      expect(text($, 'main form button')).toBe('Create Passwordless Credential')
     })
 
     test('lists an Azure application by its principal ID and name', async () => {
@@ -752,7 +757,7 @@ describe('the Federate journey', () => {
         `Principal ID ${PRINCIPAL_ID}`
       )
       expect(text($, '.govuk-summary-list')).toContain('Name flood-reports')
-      expect(text($, 'main form button')).toBe('Federate flood-reports')
+      expect(text($, 'main form button')).toBe('Create Passwordless Credential')
     })
 
     test('keeps the same key for the same answers and gives different answers another (AC12)', async () => {
@@ -849,7 +854,7 @@ describe('the Federate journey', () => {
 
       expect(response.statusCode).toBe(statusCodes.conflict)
       expect(text(page, '.govuk-error-summary')).toContain(
-        'QA: your team already federates flood-api there'
+        'QA: your team already has a passwordless credential for flood-api there'
       )
       expect(page('input[value="infradev"]').attr('checked')).toBeDefined()
     })

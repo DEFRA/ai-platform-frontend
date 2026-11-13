@@ -54,12 +54,12 @@ function environmentView(item, operation) {
 
 function headingOf({ name, inProgress, allReady }) {
   if (allReady) {
-    return `${name} is federated`
+    return `${name} has a passwordless credential`
   }
 
   return inProgress
-    ? `Federating ${name}`
-    : `We could not federate ${name} everywhere`
+    ? `Creating a passwordless credential for ${name}`
+    : `We could not create a passwordless credential for ${name} everywhere`
 }
 
 function readyList(team, environments) {

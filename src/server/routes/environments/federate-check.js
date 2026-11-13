@@ -150,11 +150,15 @@ function checkView(h, { team, pending, errorMessage }) {
       ? [{ text: errorMessage, href: `#${firstChange.changeId}` }]
       : null,
     isAdd,
-    nowHeading: isAdd ? `Now federate ${name}` : `Now change ${target.name}`,
+    nowHeading: isAdd
+      ? `Now create a passwordless credential for ${name}`
+      : `Now change ${target.name}`,
     nowText: isAdd
       ? `${name} will get ${team.name}’s access to every model in ${environments}.`
-      : `This replaces ${target.name}’s federated credential in ${environments}. Its client ID and your team’s access stay the same.`,
-    buttonText: isAdd ? `Federate ${name}` : `Change ${target.name}`
+      : `This replaces ${target.name}’s passwordless credential in ${environments}. Its client ID and your team’s access stay the same.`,
+    buttonText: isAdd
+      ? 'Create Passwordless Credential'
+      : `Change ${target.name}`
   })
 }
 

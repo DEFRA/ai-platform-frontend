@@ -104,7 +104,7 @@ export function buildApplications({
     countText: `${used} of ${limit} used`,
     full,
     fullMessage: full
-      ? `${registryName} holds ${limit} applications, the most one environment can. Remove one to federate another here.`
+      ? `${registryName} holds ${limit} applications, the most one environment can. Remove one to create another passwordless credential here.`
       : null,
     federateUrl: full ? null : federateUrl(team.slug, '', { environment }),
     items: items.map((application) => applicationRow(application, context))

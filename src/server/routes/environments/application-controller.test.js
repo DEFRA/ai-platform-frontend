@@ -266,7 +266,7 @@ describe('changing and removing an application', () => {
     test.each([
       [
         'federation-exists',
-        'Infradev: your team already federates flood-api-v2 there'
+        'Infradev: your team already has a passwordless credential for flood-api-v2 there'
       ],
       [
         'federation-unchanged',

@@ -40,7 +40,7 @@
     <p class="govuk-body">Use the <a class="govuk-link" href="https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow">client credentials grant</a>. A CDP service proves who it is with a token from AWS (audience <code>{{ connection.token.audience }}</code>) in place of a secret.</p>
     {{ codeBlock("connection-token-request", connection.token.request, "the token request") }}
     <h3 class="govuk-heading-s">2. Make a first call</h3>
-    <p class="govuk-body">This call returns your client ID, your team, its access window and the models granted to you, without calling a model. If it works, your application is federated and the team’s access is in place.</p>
+    <p class="govuk-body">This call returns your client ID, your team, its access window and the models granted to you, without calling a model. If it works, your passwordless credential and the team’s access are in place.</p>
     {{ codeBlock("connection-token-whoami", connection.token.whoami, "the first call") }}
     <h3 class="govuk-heading-s">3. Call a model</h3>
     <p class="govuk-body">Use the model’s name from the catalogue. The gateway needs the access token only: no key and no <code>api-version</code>.</p>

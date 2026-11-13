@@ -186,7 +186,7 @@ describe('federation answers', () => {
     test.each([
       [
         'federation-exists',
-        'Infradev: your team already federates flood-api there'
+        'Infradev: your team already has a passwordless credential for flood-api there'
       ],
       [
         'federation-trusted-elsewhere',
@@ -204,7 +204,7 @@ describe('federation answers', () => {
 
     test('says a code it does not know plainly, naming the environment', () => {
       expect(refusalText('something-new', context)).toBe(
-        'Infradev: flood-api cannot be federated there'
+        'Infradev: flood-api cannot get a passwordless credential there'
       )
     })
   })

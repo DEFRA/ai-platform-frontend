@@ -138,7 +138,7 @@ function environmentsView(
 function nothingOffered(h, team, pending) {
   return errorPage(h, {
     status: statusCodes.conflict,
-    heading: `${applicationNameOf(pending)} cannot be federated anywhere just now`,
+    heading: `${applicationNameOf(pending)} cannot get a passwordless credential anywhere just now`,
     message:
       'Your team has no environment set up with room for another application. Set one up, or remove an application you no longer use.',
     back: {

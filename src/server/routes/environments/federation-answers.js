@@ -108,7 +108,7 @@ export function applicationBody(answers, environments) {
 
 const REFUSALS = {
   'federation-exists': ({ name, environmentName }) =>
-    `${environmentName}: your team already federates ${name} there`,
+    `${environmentName}: your team already has a passwordless credential for ${name} there`,
   'federation-trusted-elsewhere': ({ name, environmentName }) =>
     `${environmentName}: another team already uses ${name} there`,
   'federation-limit-reached': ({ environmentName }) =>
@@ -129,6 +129,6 @@ const REFUSALS = {
 export function refusalText(code, context) {
   return (
     REFUSALS[code]?.(context) ??
-    `${context.environmentName}: ${context.name} cannot be federated there`
+    `${context.environmentName}: ${context.name} cannot get a passwordless credential there`
   )
 }

@@ -33,7 +33,10 @@ const MODEL_VERBS = {
 const GENERIC_MODEL_VERB = { plain: 'Change', progressive: 'Changing' }
 
 const FEDERATION_VERBS = {
-  add: { plain: 'Federate', progressive: 'Federating' },
+  add: {
+    plain: 'Create a passwordless credential for',
+    progressive: 'Creating a passwordless credential for'
+  },
   change: { plain: 'Change', progressive: 'Changing' },
   remove: { plain: 'Remove', progressive: 'Removing' }
 }

@@ -123,8 +123,8 @@ describe('describeChange', () => {
     const application = { name: 'flood-api', host: 'cdp', service: 'flood-api' }
 
     expect(describeFederation('add', application)).toEqual({
-      plain: 'Federate flood-api',
-      progressive: 'Federating flood-api'
+      plain: 'Create a passwordless credential for flood-api',
+      progressive: 'Creating a passwordless credential for flood-api'
     })
     expect(describeFederation('change', application)).toEqual({
       plain: 'Change flood-api',

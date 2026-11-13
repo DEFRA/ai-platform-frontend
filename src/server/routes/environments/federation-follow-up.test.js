@@ -1,4 +1,54 @@
-import { followUpNotification } from '#/server/routes/environments/federation-follow-up.js'
+import {
+  federateAfterRequest,
+  followUpNotification,
+  loadFederableServices
+} from '#/server/routes/environments/federation-follow-up.js'
+import {
+  postTeamFederations,
+  readTeamEnvironment
+} from '#/server/routes/environments/environments-api.js'
+
+vi.mock('#/server/routes/environments/environments-api.js', () => ({
+  postTeamFederations: vi.fn(),
+  readTeamEnvironment: vi.fn()
+}))
+
+describe('an error that is not the backend’s', () => {
+  const request = { logger: { warn: vi.fn() } }
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  test('is not swallowed when reading the CDP services to offer, so it reaches the error page', async () => {
+    const failure = new TypeError('a bug, not a refusal')
+
+    readTeamEnvironment.mockRejectedValue(failure)
+
+    await expect(
+      loadFederableServices(request, {
+        teamSlug: 'flood-risk-team',
+        source: 'infradev',
+        target: 'qa'
+      })
+    ).rejects.toBe(failure)
+    expect(request.logger.warn).not.toHaveBeenCalled()
+  })
+
+  test('is not swallowed when adding a confirmed service, so it is not said to be refused', async () => {
+    const failure = new TypeError('a bug, not a refusal')
+
+    postTeamFederations.mockRejectedValue(failure)
+
+    await expect(
+      federateAfterRequest(request, {
+        teamSlug: 'flood-risk-team',
+        environment: 'qa',
+        services: [{ service: 'flood-api', key: 'key-1' }]
+      })
+    ).rejects.toBe(failure)
+  })
+})
 
 describe('#followUpNotification', () => {
   test('says nothing when no service was confirmed', () => {
@@ -43,7 +93,7 @@ describe('#followUpNotification', () => {
       'We could not add every CDP service to QA'
     )
     expect(notification.message).toBe(
-      'QA: your team already federates flood-worker there. flood-jobs cannot be added until QA is set up. Federate it from the QA page once your models are ready.'
+      'QA: your team already has a passwordless credential for flood-worker there. flood-jobs cannot be added until QA is set up. Federate it from the QA page once your models are ready.'
     )
   })
 })
