@@ -614,7 +614,7 @@ describe('#admin teams', () => {
         $('[data-testid="sub-navigation"] a')
           .map((_, link) => $(link).text().trim())
           .get()
-      ).toEqual(['Teams', 'Audit log'])
+      ).toEqual(['Teams', 'Deployments', 'Audit log'])
     })
     test.each([
       ['disabled', 'Disabled', 'govuk-tag--grey'],
@@ -661,6 +661,27 @@ describe('#admin teams', () => {
         'Development: Pending removal Can be removed from 26 November 2026',
         'Production: Removed'
       ])
+    })
+
+    test('links each environment the team is still in to its deployment, and not one that was removed', async () => {
+      mockApi(fetchMock, {
+        'GET /v1/admin/teams/team%201': detail({
+          id: 'team 1',
+          environments: [
+            { environment: 'infradev', fileStatus: 'active' },
+            { environment: 'prod', fileStatus: 'removed' }
+          ]
+        })
+      })
+
+      const $ = load((await get('/admin/teams/team%201')).result)
+      const items = $('[data-testid="team-environments"] li')
+
+      expect(items.eq(0).find('a').attr('href')).toBe(
+        '/admin/deployments/team%201/infradev'
+      )
+      expect(items.eq(0).find('a').text()).toBe('Development')
+      expect(items.eq(1).find('a')).toHaveLength(0)
     })
 
     test('says None for a team in no environment, and Not set for no service code', async () => {

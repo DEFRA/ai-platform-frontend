@@ -67,7 +67,7 @@ function member(id, name, role = 'user', userId = `user-${id}`) {
   }
 }
 
-function team(status = 'active') {
+function team(status = 'active', environments = []) {
   return {
     team: {
       id: 'team-1',
@@ -75,7 +75,7 @@ function team(status = 'active') {
       slug: 'flood-risk-team',
       serviceCode: 'FRM',
       status,
-      environments: []
+      environments
     },
     members: [
       member(1, 'Test User', 'admin', 'user-1'),
@@ -481,7 +481,7 @@ describe('#admin team members', () => {
       expect(headers.location).toContain('/sign-in')
     })
 
-    test('warns that the team’s credentials are not changed, and asks the admin to confirm', async () => {
+    test('warns that the team’s credentials are not changed and says to revoke them, and asks the admin to confirm', async () => {
       mockApi(fetchMock, { [`GET ${TEAM}`]: team() })
 
       const { statusCode, result } = await get(REMOVE)
@@ -489,10 +489,11 @@ describe('#admin team members', () => {
 
       expect(statusCode).toBe(statusCodes.ok)
       expect($('h1').text()).toBe('Remove Priya Raman from Flood Risk Team?')
-      expect($('#remove-member').text()).toContain(
-        'Ask a team admin to rotate or revoke them if this person had a copy.'
+      expect($('#remove-member .govuk-warning-text__text').text()).toContain(
+        'Removing someone does not change the team’s credentials. If this person had a copy, revoke the team’s credentials. A Platform Admin cannot rotate them.'
       )
       expect($('#remove-member').text()).not.toContain('client secret')
+      expect($('#remove-member').text()).not.toContain('Ask a team admin')
       expect($('[data-testid="remove-member-confirm"]').text().trim()).toBe(
         'Remove Priya Raman'
       )
@@ -500,6 +501,30 @@ describe('#admin team members', () => {
         TEAM_URL
       )
       expect($('.govuk-back-link').attr('href')).toBe(TEAM_URL)
+    })
+
+    test('links to the team’s deployments, at the first environment it is still in', async () => {
+      mockApi(fetchMock, {
+        [`GET ${TEAM}`]: team('active', [
+          { environment: 'dev', fileStatus: 'removed' },
+          { environment: 'qa', fileStatus: 'active' },
+          { environment: 'prod', fileStatus: 'active' }
+        ])
+      })
+
+      const $ = load((await get(REMOVE)).result)
+      const $link = $('[data-testid="remove-member-warning-link"]')
+
+      expect($link.text()).toBe('View the team’s deployments')
+      expect($link.attr('href')).toBe('/admin/deployments/team-1/qa')
+    })
+
+    test('has no link to deployments for a team in no environment', async () => {
+      mockApi(fetchMock, { [`GET ${TEAM}`]: team() })
+
+      const $ = load((await get(REMOVE)).result)
+
+      expect($('[data-testid="remove-member-warning-link"]')).toHaveLength(0)
     })
 
     test.each([['disabled'], ['pending-removal']])(

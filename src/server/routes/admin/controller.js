@@ -6,6 +6,7 @@ import { teamStatusTag } from '#/server/common/helpers/team-status.js'
 import {
   ADMIN_AUDIT_URL,
   ADMIN_TEAMS_URL,
+  adminDeploymentUrl,
   adminRefusalView,
   adminTabs,
   adminTeamUrl,
@@ -57,6 +58,10 @@ function teamsView(h, { query, result, errors }) {
 function environmentRows(team) {
   return team.environments.map(({ environment, fileStatus, removeAfter }) => ({
     name: environmentName(environment),
+    href:
+      fileStatus === 'removed'
+        ? null
+        : adminDeploymentUrl(team.id, environment),
     status: teamStatusTag(fileStatus),
     removeAfter: removeAfter ?? null
   }))

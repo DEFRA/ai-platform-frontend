@@ -154,7 +154,11 @@ describe('#admin audit log', () => {
         $('[data-testid="sub-navigation"] a')
           .map((_, link) => `${$(link).text().trim()} ${$(link).attr('href')}`)
           .get()
-      ).toEqual(['Teams /admin/teams', 'Audit log /admin/audit'])
+      ).toEqual([
+        'Teams /admin/teams',
+        'Deployments /admin/deployments',
+        'Audit log /admin/audit'
+      ])
       expect(
         $('[data-testid="sub-navigation"] [aria-current="page"]').text()
       ).toBe('Audit log')
@@ -343,8 +347,29 @@ describe('#admin audit log', () => {
 
     test('shows an action it has no words for as its code', async () => {
       mockApi(fetchMock, {
+        [`GET ${AUDIT}`]: listing([event({ action: 'admin.team.archive' })])
+      })
+
+      const $ = load((await get('/admin/audit')).result)
+
+      expect(
+        $('[data-testid="audit-row"] td')
+          .eq(2)
+          .text()
+          .replace(/\s+/g, ' ')
+          .trim()
+      ).toBe('admin.team.archive Person affected: Jo Smith')
+    })
+
+    test('says a credential disable, with its reason, in words, and offers the credential actions in the Action filter', async () => {
+      mockApi(fetchMock, {
         [`GET ${AUDIT}`]: listing([
-          event({ action: 'admin.credentials.disable' })
+          event({
+            action: 'admin.credentials.disable',
+            subject: null,
+            environment: 'infradev',
+            reason: 'Suspected misuse'
+          })
         ])
       })
 
@@ -356,7 +381,18 @@ describe('#admin audit log', () => {
           .text()
           .replace(/\s+/g, ' ')
           .trim()
-      ).toBe('admin.credentials.disable Person affected: Jo Smith')
+      ).toBe('Disabled a team’s credentials Reason: Suspected misuse')
+      expect(
+        $('#action option')
+          .map((_, option) => $(option).text())
+          .get()
+      ).toEqual(
+        expect.arrayContaining([
+          'Disabled a team’s credentials',
+          'Enabled a team’s credentials',
+          'Revoked a team’s credentials'
+        ])
+      )
     })
 
     test('shows nothing from an event beyond the fields it is given: no email, object ID or user ID', async () => {

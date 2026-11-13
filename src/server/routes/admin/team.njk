@@ -27,7 +27,7 @@
           <ul class="govuk-list" data-testid="team-environments">
             {% for environment in environments %}
               <li>
-                {{ environment.name }}: {{ govukTag({ text: environment.status.text, classes: environment.status.classes }) }}
+                {% if environment.href %}<a class="govuk-link" href="{{ environment.href }}">{{ environment.name }}</a>{% else %}{{ environment.name }}{% endif %}: {{ govukTag({ text: environment.status.text, classes: environment.status.classes }) }}
                 {% if environment.removeAfter %}
                   <span class="govuk-hint govuk-!-display-inline">Can be removed from {{ environment.removeAfter | formatDate }}</span>
                 {% endif %}

@@ -11,6 +11,7 @@ import {
 // backend, and the backend answers (plan D2).
 
 export const ADMIN_TEAMS_URL = '/admin/teams'
+export const ADMIN_DEPLOYMENTS_URL = '/admin/deployments'
 export const ADMIN_AUDIT_URL = '/admin/audit'
 
 /**
@@ -23,14 +24,25 @@ export function adminTeamUrl(team) {
 }
 
 /**
- * The Admin area's sub navigation: Teams and Audit log, with the current one
- * marked.
- * @param {'teams'|'audit'} current
+ * Where a team's deployment in one environment is.
+ * @param {string} teamId
+ * @param {string} environment - The environment code.
+ * @returns {string}
+ */
+export function adminDeploymentUrl(teamId, environment) {
+  return `${ADMIN_DEPLOYMENTS_URL}/${encodeURIComponent(teamId)}/${encodeURIComponent(environment)}`
+}
+
+/**
+ * The Admin area's sub navigation: Teams, Deployments and Audit log, with the
+ * current one marked.
+ * @param {'teams'|'deployments'|'audit'} current
  * @returns {Array<{text: string, href: string, current: boolean}>}
  */
 export function adminTabs(current) {
   return [
     { key: 'teams', text: 'Teams', href: ADMIN_TEAMS_URL },
+    { key: 'deployments', text: 'Deployments', href: ADMIN_DEPLOYMENTS_URL },
     { key: 'audit', text: 'Audit log', href: ADMIN_AUDIT_URL }
   ].map(({ key, text, href }) => ({ text, href, current: key === current }))
 }
