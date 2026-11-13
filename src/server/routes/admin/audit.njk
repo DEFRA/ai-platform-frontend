@@ -1,0 +1,202 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/date-input/macro.njk" import govukDateInput %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "sub-navigation/macro.njk" import appSubNavigation %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary({
+          titleText: "There is a problem",
+          errorList: errorSummary
+        }) }}
+      {% endif %}
+    </div>
+  </div>
+
+  {{ appHeading({
+    text: heading,
+    caption: "Admin",
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
+      {# A GET form, so a filter is an address that can be shared and works without script. #}
+      <form method="get" action="/admin/audit" aria-labelledby="filter-heading" novalidate>
+        <h2 class="govuk-heading-m" id="filter-heading" tabindex="-1">Filter the audit log</h2>
+
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            {{ govukSelect({
+              id: "team",
+              name: "team",
+              label: { text: "Team", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              items: teamItems,
+              errorMessage: fieldErrors.team
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-half">
+            {{ govukSelect({
+              id: "environment",
+              name: "environment",
+              label: { text: "Environment", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              items: environmentItems,
+              errorMessage: fieldErrors.environment
+            }) }}
+          </div>
+        </div>
+
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            {{ govukSelect({
+              id: "action",
+              name: "action",
+              label: { text: "Action", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              items: actionItems,
+              errorMessage: fieldErrors.action
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-half">
+            {{ govukSelect({
+              id: "actorType",
+              name: "actorType",
+              label: { text: "Actor type", classes: "govuk-label--s" },
+              classes: "govuk-!-width-full",
+              items: actorTypeItems,
+              errorMessage: fieldErrors.actorType
+            }) }}
+          </div>
+        </div>
+
+        {{ govukInput({
+          id: "person",
+          name: "person",
+          value: values.person,
+          autocomplete: "off",
+          spellcheck: false,
+          classes: "govuk-!-width-one-half",
+          label: { text: "Person", classes: "govuk-label--s" },
+          hint: { text: "Part of a name" },
+          errorMessage: fieldErrors.person
+        }) }}
+
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            {{ govukDateInput({
+              id: "from",
+              namePrefix: "from",
+              fieldset: { legend: { text: "From date", classes: "govuk-fieldset__legend--s" } },
+              hint: { text: "For example, 27 3 2026" },
+              items: fromItems,
+              errorMessage: fieldErrors.from
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-half">
+            {{ govukDateInput({
+              id: "to",
+              namePrefix: "to",
+              fieldset: { legend: { text: "To date", classes: "govuk-fieldset__legend--s" } },
+              hint: { text: "For example, 27 3 2026" },
+              items: toItems,
+              errorMessage: fieldErrors.to
+            }) }}
+          </div>
+        </div>
+
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Apply filters",
+            preventDoubleClick: true,
+            attributes: { "data-testid": "audit-apply" }
+          }) }}
+          {% if filtered %}
+            <a class="govuk-link" href="{{ clearUrl }}" data-testid="audit-clear">Clear filters</a>
+          {% endif %}
+        </div>
+      </form>
+
+      {% if searched %}
+        {% if total == 0 %}
+          <div data-testid="audit-empty">
+            {% if filtered %}
+              <h2 class="govuk-heading-m">No events match</h2>
+              <p class="govuk-body">The audit log goes back {{ retentionDays }} days. <a class="govuk-link" href="{{ clearUrl }}">Clear filters</a> to see every event.</p>
+            {% else %}
+              <h2 class="govuk-heading-m">There are no events in the last {{ retentionDays }} days</h2>
+            {% endif %}
+          </div>
+        {% elif pastEnd %}
+          <div data-testid="audit-past-end">
+            <h2 class="govuk-heading-m">There is no page {{ pastEnd.page }}</h2>
+            <p class="govuk-body">{{ pastEnd.summary }}</p>
+            <ul class="govuk-list">
+              {% for link in pastEnd.links %}
+                <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <p class="govuk-body" data-testid="audit-count">Showing {{ first }} to {{ last }} of {{ total }} {{ "event" if total == 1 else "events" }}. Events are kept for {{ retentionDays }} days.</p>
+
+          <div class="app-table-scroll" role="region" tabindex="0" aria-label="Audit events">
+          <table class="govuk-table" data-testid="audit-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Audit events</caption>
+            <thead class="govuk-table__head">
+              <tr class="govuk-table__row">
+                <th class="govuk-table__header" scope="col">When</th>
+                <th class="govuk-table__header" scope="col">Who</th>
+                <th class="govuk-table__header" scope="col">Action</th>
+                <th class="govuk-table__header" scope="col">Team</th>
+                <th class="govuk-table__header" scope="col">Environment</th>
+                <th class="govuk-table__header" scope="col">Outcome</th>
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for row in rows %}
+                <tr class="govuk-table__row" data-testid="audit-row">
+                  <td class="govuk-table__cell"><time datetime="{{ row.at }}">{{ row.when }}</time></td>
+                  <td class="govuk-table__cell">
+                    {{ row.who.name }}
+                    {% if row.who.type %}
+                      <br><span class="govuk-hint govuk-!-margin-bottom-0">{{ row.who.type }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="govuk-table__cell">
+                    {{ row.action }}
+                    {% if row.subject %}
+                      <p class="govuk-body-s govuk-!-margin-top-1 govuk-!-margin-bottom-0">Person affected: {{ row.subject }}</p>
+                    {% endif %}
+                    {% if row.reason %}
+                      <p class="govuk-body-s govuk-!-margin-top-1 govuk-!-margin-bottom-0">Reason: {{ row.reason }}</p>
+                    {% endif %}
+                  </td>
+                  <td class="govuk-table__cell">{{ row.team }}</td>
+                  <td class="govuk-table__cell">{{ row.environment }}</td>
+                  <td class="govuk-table__cell">{{ govukTag({ text: row.outcome.text, classes: row.outcome.classes }) }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+
+          {% if pagination %}
+            {{ govukPagination(pagination) }}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

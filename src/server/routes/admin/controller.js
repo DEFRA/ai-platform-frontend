@@ -4,6 +4,7 @@ import { environmentName } from '#/server/common/helpers/environment-names.js'
 import { takeAccountNotification } from '#/server/common/helpers/session.js'
 import { teamStatusTag } from '#/server/common/helpers/team-status.js'
 import {
+  ADMIN_AUDIT_URL,
   ADMIN_TEAMS_URL,
   adminRefusalView,
   adminTabs,
@@ -136,7 +137,8 @@ export const adminController = {
         status: teamStatusTag(team.status),
         environments: environmentRows(team),
         members: memberRows(team, members),
-        addMemberUrl: `${adminTeamUrl(team)}/members/add`
+        addMemberUrl: `${adminTeamUrl(team)}/members/add`,
+        auditLogUrl: `${ADMIN_AUDIT_URL}?team=${encodeURIComponent(team.id)}`
       })
     }
   }

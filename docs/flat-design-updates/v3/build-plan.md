@@ -290,6 +290,18 @@ remove pages over the admin routes. Adding yourself is refused ("You cannot add 
 "Removing someone does not change the team's credentials. Ask a team admin to rotate or revoke them if this person had a
 copy." Allowed for a team in any status. Built in [08 Platform admin](../../plans/implemented/08-platform-admin.md).
 
+### 9a-2. Platform Admin: Audit log (design F7, B31)
+
+**`/admin/audit`**: caption "Admin", H1 "Audit log", sub-navigation Teams and Audit log (current marked). GET form "Filter
+the audit log": selects Team, Environment, Action, Actor type (Platform Admin, Team Admin, Team member, Person with no team
+role, System); text "Person" (hint "Part of a name"); date inputs "From date" and "To date" (UK days, inclusive); button
+"Apply filters", "Clear filters" when filtered. Table When (UK time) | Who (name, actor type) | Action (plain label; person
+affected and reason beneath) | Team | Environment | Outcome (tag Done, Failed or Refused), 25 to a page, newest first, in a
+focusable scroll region with a hidden caption; "Showing x to y of z events. Events are kept for N days."; pagination keeps the
+filters. No match: "No events match", the days kept, "Clear filters". A wrong filter: error summary, inline errors, title
+"Error: ...". The team page links to it with "View audit log" (`/admin/audit?team={id}`). Credential events carry no team
+until B18 passes it (deferred, DF1).
+
 ### 10. Details and create a team (16, 17, 18)
 
 **18 `/teams/{slug}/details`**: sub-navigation. Summary list: Team name; Team ID `{slug}`, hint "Part of your team's

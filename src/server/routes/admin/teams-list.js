@@ -1,5 +1,9 @@
 import { apiClient } from '#/server/common/helpers/api-client.js'
 import { environmentName } from '#/server/common/helpers/environment-names.js'
+import {
+  buildPagination as buildPages,
+  isBadPage
+} from '#/server/common/helpers/pagination.js'
 import { teamStatusTag } from '#/server/common/helpers/team-status.js'
 import { ADMIN_TEAMS_URL, adminTeamUrl } from './admin-page.js'
 
@@ -59,46 +63,14 @@ export function listUrl({ search, status }, page = 1) {
   return text ? `${ADMIN_TEAMS_URL}?${text}` : ADMIN_TEAMS_URL
 }
 
-// The page numbers to show: the first, the last, and the pages next to the
-// current one, with a gap between where pages are left out.
-function pageNumbers(page, pages) {
-  const shown = [
-    ...new Set([1, page - 1, page, page + 1, pages].filter(inRange(pages)))
-  ].sort((a, b) => a - b)
-
-  return shown.flatMap((number, index) =>
-    index > 0 && number - shown[index - 1] > 1 ? [null, number] : [number]
-  )
-}
-
-function inRange(pages) {
-  return (number) => number >= 1 && number <= pages
-}
-
 /**
  * The GOV.UK pagination for the list, or null when one page holds everything.
  * @param {{page: number, pageSize: number, total: number}} result
  * @param {{search?: string, status?: string}} filters
  * @returns {object | null}
  */
-export function buildPagination({ page, pageSize, total }, filters) {
-  const pages = Math.ceil(total / pageSize)
-
-  if (pages <= 1) {
-    return null
-  }
-
-  const href = (number) => listUrl(filters, number)
-
-  return {
-    previous: page > 1 ? { href: href(page - 1) } : undefined,
-    next: page < pages ? { href: href(page + 1) } : undefined,
-    items: pageNumbers(page, pages).map((number) =>
-      number === null
-        ? { ellipsis: true }
-        : { number, href: href(number), current: number === page }
-    )
-  }
+export function buildPagination(result, filters) {
+  return buildPages(result, (number) => listUrl(filters, number))
 }
 
 /**
@@ -175,15 +147,3 @@ export function queryErrors({ search, status, page }) {
 
 const BAD_PAGE_MESSAGE =
   'The page number must be a whole number, 1 or more. Search again to start from the first page'
-
-// A page that is given and is not a whole number of 1 or more, which is what
-// the backend refuses.
-function isBadPage(page) {
-  if (page === undefined) {
-    return false
-  }
-
-  const number = Number(page)
-
-  return !Number.isInteger(number) || number < 1
-}
