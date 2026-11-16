@@ -110,7 +110,45 @@ To run the application in `development` mode run:
 npm run dev
 ```
 
-#### Local sign-in without a real Entra ID tenant
+#### Sign in locally with the mock provider
+
+Run `npm run dev:mock-oidc` alongside `npm run dev`. Signing in always logs in as the fixed mock user
+`dev.user@defra.gov.uk`. In `.env`:
+
+```env
+OIDC_MOCK_ISSUER_URL=http://localhost:3100
+AZURE_TENANT_ID=22222222-2222-4222-8222-222222222222
+AZURE_CLIENT_ID=33333333-3333-4333-8333-333333333333
+AZURE_API_CLIENT_ID=44444444-4444-4444-8444-444444444444
+AZURE_CLIENT_SECRET=mock-secret
+```
+
+The backend needs `PORTAL_AUTH_MOCK_ISSUER_URL=http://localhost:3100` and the same tenant, API and frontend ids.
+
+#### Sign in locally with live Entra ID
+
+You sign in as yourself, against the dev instance's real registrations. Do not run `dev:mock-oidc`. In `.env`:
+
+```env
+# OIDC_MOCK_ISSUER_URL must be unset or commented out
+AZURE_TENANT_ID=<Defra Entra tenant id>
+AZURE_CLIENT_ID=<client id of the app-aip-portal registration (this frontend)>
+AZURE_API_CLIENT_ID=<client id of the api-aip-portal registration>
+AZURE_CLIENT_SECRET=<client secret of the frontend registration>
+APP_BASE_URL=http://localhost:3000
+```
+
+The frontend registration must list `http://localhost:3000/auth/callback` as a redirect URI, and the API registration
+must have the access token optional claims `idtyp` (with the additional property `include_user_token`), `acct` and
+`email`; without `idtyp` for people the backend refuses the token and sign-in shows "You cannot sign in with this
+account". Your account must be a member (not a guest) on an allowed email domain. The backend needs `PORTAL_AUTH_MOCK_ISSUER_URL` unset,
+`PORTAL_AUTH_TENANT_ID` set to the same tenant, `PORTAL_AUTH_AUDIENCE` set to the API client id and
+`PORTAL_AUTH_CLIENT_ID` set to the frontend client id. Keep the secret out of git. Restart both services after changing
+their env, and sign out and in again to get a new token.
+
+To switch back to the mock, restore the mock values above.
+
+#### Local sign-in without a real Entra ID tenant (details)
 
 Entra ID (Azure AD) OIDC sign-in normally needs a real `AZURE_TENANT_ID`,
 `AZURE_CLIENT_ID` (the frontend's registration) and `AZURE_API_CLIENT_ID` (the
