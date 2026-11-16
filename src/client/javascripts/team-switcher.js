@@ -61,7 +61,10 @@ function wire(form) {
   select.addEventListener('keydown', (event) => {
     if (movesThroughList(event)) {
       usingKeyboard = true
-    } else if (event.key === 'Enter' && select.value !== current) {
+      return
+    }
+
+    if (event.key === 'Enter' && select.value !== current) {
       event.preventDefault()
       form.requestSubmit()
     }
