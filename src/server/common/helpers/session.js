@@ -11,6 +11,7 @@ const ADD_MEMBER_KEYS = 'addMemberKeys'
 const ADD_MEMBER_GENERATION = 'addMemberGeneration'
 const PENDING_LIMITS_KEY = 'pendingLimits'
 const ENVIRONMENTS_TEAM_KEY = 'environmentsTeam'
+const PENDING_CLIENT_SECRET_KEY = 'pendingClientSecret'
 const PENDING_FEDERATION_KEY = 'pendingFederation'
 const REQUESTED_FEDERATIONS_KEY = 'requestedFederations'
 const MAX_REQUESTED_FEDERATIONS = 5
@@ -167,6 +168,22 @@ export function setPendingLimits(request, value) {
 
 export function clearPendingLimits(request) {
   request.yar.clear(PENDING_LIMITS_KEY)
+}
+
+// The add of a client secret that was asked for and has not been answered (the
+// backend timed out or could not be read again), with the key and name it was
+// asked with, so adding again is the same request even if the first one was
+// made. Holds no secret value.
+export function getPendingClientSecret(request) {
+  return request.yar.get(PENDING_CLIENT_SECRET_KEY)
+}
+
+export function setPendingClientSecret(request, value) {
+  request.yar.set(PENDING_CLIENT_SECRET_KEY, value)
+}
+
+export function clearPendingClientSecret(request) {
+  request.yar.clear(PENDING_CLIENT_SECRET_KEY)
 }
 
 // The team slug whose environments the person last looked at, so the

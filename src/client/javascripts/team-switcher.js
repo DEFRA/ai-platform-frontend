@@ -33,6 +33,15 @@ function describe(select) {
   )
 }
 
+// A key that moves through the list: the arrows and their kin, and a typed
+// letter, which a select takes as "go to the option that starts with it".
+function movesThroughList(event) {
+  return (
+    MOVING_KEYS.has(event.key) ||
+    (event.key.length === 1 && !event.ctrlKey && !event.metaKey)
+  )
+}
+
 function wire(form) {
   const select = form.querySelector('select')
 
@@ -50,7 +59,7 @@ function wire(form) {
   })
 
   select.addEventListener('keydown', (event) => {
-    if (MOVING_KEYS.has(event.key)) {
+    if (movesThroughList(event)) {
       usingKeyboard = true
     } else if (event.key === 'Enter' && select.value !== current) {
       event.preventDefault()

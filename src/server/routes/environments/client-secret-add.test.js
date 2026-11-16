@@ -709,6 +709,90 @@ describe('#clientSecretAddController', () => {
       )
     })
 
+    test('keeps the key and name when the form cannot be read again, and uses them when the page is opened again, so a request that was made is not made twice', async () => {
+      backend()
+
+      const key = await shownKey()
+
+      backend({
+        [`POST ${ADD_PATH}`]: reply(502, { code: 'upstream-unavailable' }),
+        [`GET ${TEAM_PATH}/environments/infradev`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+
+      const timedOut = await post(ADD_URL, { key, name: 'local-dev' })
+
+      expect(timedOut.statusCode).toBe(statusCodes.serviceUnavailable)
+
+      backend()
+
+      const $ = load((await get(ADD_URL)).result)
+
+      expect($('input[name="key"]').attr('value')).toBe(key)
+      expect($('input[name="name"]').attr('value')).toBe('local-dev')
+
+      await post(ADD_URL, {
+        key: $('input[name="key"]').attr('value'),
+        name: $('input[name="name"]').attr('value')
+      })
+      const [, second] = addCalls()
+
+      expect(keySent(second)).toBe(key)
+      expect(JSON.parse(second[1].body)).toEqual({ name: 'local-dev' })
+    })
+
+    test('shows the form again with its key when the team is now full, as the request that timed out may be the one that filled the last place', async () => {
+      backend()
+
+      const key = await shownKey()
+
+      backend({
+        [`POST ${ADD_PATH}`]: reply(502, { code: 'upstream-unavailable' }),
+        environment: { clientSecrets: clientSecretsOf([], { used: 3 }) }
+      })
+
+      const timedOut = await post(ADD_URL, { key })
+
+      expect(timedOut.statusCode).toBe(statusCodes.serviceUnavailable)
+
+      const again = await get(ADD_URL)
+
+      expect(again.statusCode).toBe(statusCodes.ok)
+      expect(load(again.result)('input[name="key"]').attr('value')).toBe(key)
+    })
+
+    test('is a refusal, not a form, when the team is full and no add is waiting to be answered', async () => {
+      backend({
+        environment: { clientSecrets: clientSecretsOf([], { used: 3 }) }
+      })
+
+      const { statusCode } = await get(ADD_URL)
+
+      expect(statusCode).toBe(statusCodes.conflict)
+    })
+
+    test('does not keep an add the backend refused for good, so the next one has a key of its own', async () => {
+      backend()
+
+      const key = await shownKey()
+
+      backend({
+        [`POST ${ADD_PATH}`]: reply(409, {
+          code: 'credential-limit-reached',
+          message: 'x'
+        })
+      })
+      await post(ADD_URL, { key, name: 'local-dev' })
+
+      backend()
+
+      const $ = load((await get(ADD_URL)).result)
+
+      expect($('input[name="key"]').attr('value')).not.toBe(key)
+      expect($('input[name="name"]').attr('value')).toBeUndefined()
+    })
+
     test('says why it cannot be added when the backend failed and the environment no longer allows one', async () => {
       backend()
 

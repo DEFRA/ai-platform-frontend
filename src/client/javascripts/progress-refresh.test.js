@@ -201,6 +201,35 @@ describe('#initProgressRefresh', () => {
       expect(open('New')).toBe(true)
     })
 
+    test('keeps focus on a card’s summary, found again by its card’s key, when the content is swapped', async () => {
+      const card = (key) =>
+        `<details data-collapse-key="${key}" open><summary>${key}</summary></details>`
+
+      page(
+        `<div data-in-progress="true">${card('Models')}${card('Limits')}</div>`
+      )
+      fetchMock.mockResolvedValue(
+        answer(
+          `<div data-in-progress="true">${card('Models')}${card('Limits')}<p>More</p></div>`
+        )
+      )
+      start()
+      const before = region().querySelector(
+        'details[data-collapse-key="Limits"] > summary'
+      )
+
+      before.focus()
+
+      await tick()
+
+      const after = region().querySelector(
+        'details[data-collapse-key="Limits"] > summary'
+      )
+
+      expect(after).not.toBe(before)
+      expect(document.activeElement).toBe(after)
+    })
+
     test('keeps focus on the same link when the content is swapped', async () => {
       fetchMock.mockResolvedValue(answer(status(true, 'Deploying')))
       start()

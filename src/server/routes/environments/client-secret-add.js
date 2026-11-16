@@ -9,8 +9,11 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 import {
+  clearPendingClientSecret,
+  getPendingClientSecret,
   setAccountNotification,
   setIssuedCredential,
+  setPendingClientSecret,
   takeIssuedCredentialIf
 } from '#/server/common/helpers/session.js'
 import { isNotFound, loadTeamForView } from '#/server/routes/teams/team-view.js'
@@ -29,6 +32,7 @@ import {
 
 const SECRET_NAME = 'client secret'
 const ENVIRONMENT_NOT_AVAILABLE = 'environment-not-available'
+const LIMIT_REACHED = 'credential-limit-reached'
 const MAX_NAME_LENGTH = 30
 const NAME_FIELD = 'name'
 const NAME_CHARACTERS_MESSAGE =
@@ -153,7 +157,7 @@ function refusedPage(h, code, { team, environment }) {
  * when the backend failed). Only an admin adds a client secret; the backend
  * refuses everyone else too.
  */
-async function loadAdmin(request, h, { withDetail }) {
+async function loadAdmin(request, h, { withDetail, retryUrl }) {
   const { slug } = request.params
   const environment = environmentFromAddress(request.params.environment)
 
@@ -170,7 +174,9 @@ async function loadAdmin(request, h, { withDetail }) {
       : undefined
     loaded = await loadTeamForView(request, slug)
   } catch (error) {
-    return { page: readFailed(request, h, error, { slug, environment }) }
+    return {
+      page: readFailed(request, h, error, { slug, environment, retryUrl })
+    }
   }
 
   if (!loaded.isAdmin) {
@@ -209,17 +215,41 @@ function addView(
   })
 }
 
-// The backend failed, and the add may or may not have been made: the page
-// comes back with the key and name it had, so trying again is the same
-// request.
-async function addAgain(request, h, { key, name }) {
-  const result = await loadAdmin(request, h, { withDetail: true })
+// The add of this team's environment that was asked for and not answered, if
+// there is one: the same key and name are used again, so the backend adds one
+// secret whether or not the first request was made.
+function pendingAddFor(request, slug, environment) {
+  const pending = getPendingClientSecret(request)
+
+  return pending?.slug === slug &&
+    pending.environment === environment.environment
+    ? pending
+    : undefined
+}
+
+// The code that stops an add being offered. A full team does not stop one that
+// is waiting to be answered: it may be the add that filled the last place, and
+// asking again with its key only says what it did.
+function blockingCode(detail, pending) {
+  const { code } = addableSecret(detail)
+
+  return pending && code === LIMIT_REACHED ? null : code
+}
+
+// The backend failed, and the add may or may not have been made: the key and
+// name are kept in the session, so trying again (here, or from the page again
+// if this one cannot be read) is the same request.
+async function addAgain(request, h, { slug, environment, key, name }) {
+  const result = await loadAdmin(request, h, {
+    withDetail: true,
+    retryUrl: clientSecretAddUrl(slug, environment.environment)
+  })
 
   if (result.page) {
     return result.page
   }
 
-  const { code } = addableSecret(result.detail)
+  const code = blockingCode(result.detail, { key })
 
   if (code) {
     return refusedPage(h, code, result)
@@ -235,16 +265,19 @@ async function addAgain(request, h, { key, name }) {
 }
 
 // A refusal the person can read becomes a banner on the environment's page;
-// anything else is a fault.
+// anything else is a fault. An add that is answered, or refused for good, is
+// no longer waiting.
 async function failed(request, h, error, { slug, environment, key, name }) {
   if (isNotFound(error)) {
+    clearPendingClientSecret(request)
+
     return readFailed(request, h, error, { slug, environment })
   }
 
   if (isUnavailable(error)) {
     request.logger.warn({ err: error }, 'Could not add a client secret')
 
-    return addAgain(request, h, { key, name })
+    return addAgain(request, h, { slug, environment, key, name })
   }
 
   const refusal = REFUSALS[error.code]
@@ -253,6 +286,7 @@ async function failed(request, h, error, { slug, environment, key, name }) {
     throw error
   }
 
+  clearPendingClientSecret(request)
   setAccountNotification(request, {
     type: 'error',
     message: refusal(environment.registryName).message
@@ -332,11 +366,20 @@ export const clientSecretAddController = {
           return result.page
         }
 
-        const { code } = addableSecret(result.detail)
+        const pending = pendingAddFor(
+          request,
+          request.params.slug,
+          result.environment
+        )
+        const code = blockingCode(result.detail, pending)
 
         return code
           ? refusedPage(h, code, result)
-          : addView(h, { ...result, key: randomUUID() })
+          : addView(h, {
+              ...result,
+              key: pending?.key ?? randomUUID(),
+              name: pending?.name
+            })
       }
     },
     post: {
@@ -356,6 +399,13 @@ export const clientSecretAddController = {
 
         const { key, name } = request.payload
 
+        setPendingClientSecret(request, {
+          slug,
+          environment: environment.environment,
+          key,
+          name
+        })
+
         try {
           const { credential, secret } = await postTeamClientSecret(
             request,
@@ -364,6 +414,8 @@ export const clientSecretAddController = {
             key,
             name
           )
+
+          clearPendingClientSecret(request)
 
           // A replay (the key was used for this add already) has no value:
           // the first answer's is shown, if it is still to be shown.

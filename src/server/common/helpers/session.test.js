@@ -11,6 +11,9 @@ import {
   clearPendingLimits,
   getEnvironmentsTeam,
   setEnvironmentsTeam,
+  getPendingClientSecret,
+  setPendingClientSecret,
+  clearPendingClientSecret,
   getPendingFederation,
   setPendingFederation,
   clearPendingFederation,
@@ -57,6 +60,18 @@ describe('#session helpers', () => {
 
     clearPendingLimits(request)
     expect(getPendingLimits(request)).toBeUndefined()
+  })
+
+  test('keeps an add of a client secret that is waiting to be answered until it is cleared', () => {
+    const request = mockRequest()
+
+    expect(getPendingClientSecret(request)).toBeUndefined()
+
+    setPendingClientSecret(request, { slug: 'a', key: 'k' })
+    expect(getPendingClientSecret(request)).toEqual({ slug: 'a', key: 'k' })
+
+    clearPendingClientSecret(request)
+    expect(getPendingClientSecret(request)).toBeUndefined()
   })
 
   test('remembers the team whose environments a person last looked at', () => {

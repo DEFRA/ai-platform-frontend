@@ -59,6 +59,30 @@ describe('#initTeamSwitcher', () => {
     expect(submitted).toHaveBeenCalledTimes(1)
   })
 
+  test('waits for Enter after typing the start of a team’s name, which also changes the choice', () => {
+    const { select, submitted } = page()
+
+    key(select, 'c')
+    choose(select, 'coastal-team')
+
+    expect(submitted).not.toHaveBeenCalled()
+
+    key(select, 'Enter')
+
+    expect(submitted).toHaveBeenCalledTimes(1)
+  })
+
+  test('does not treat a shortcut, such as Ctrl+A, as moving through the list', () => {
+    const { select, submitted } = page()
+
+    select.dispatchEvent(
+      new window.KeyboardEvent('keydown', { key: 'a', ctrlKey: true })
+    )
+    choose(select, 'coastal-team')
+
+    expect(submitted).toHaveBeenCalledTimes(1)
+  })
+
   test('does nothing when the team chosen is the one already shown', () => {
     const { select, submitted } = page()
 
