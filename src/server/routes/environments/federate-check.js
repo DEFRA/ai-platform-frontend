@@ -22,6 +22,7 @@ import {
 import { loadTeamContext } from './federation-context.js'
 import {
   applicationNameOf,
+  refusalsBeforeConfirming,
   refusedEnvironmentsView
 } from './federate-environments.js'
 import {
@@ -59,22 +60,33 @@ function environmentLine(pending, environment) {
     : name
 }
 
-// The answers as the check page lists them. An addition lists where it runs,
-// the application and the environments, each with Change (except the
-// environments when only one was offered); a change lists its environment and
-// the new values.
+// The answers as the check page lists them, in the order they were asked. An
+// addition lists where it runs, the environments (except that Change is left
+// out when only one was offered) and the application, each with Change; a
+// change lists its environment and the new values.
 function answerRows(team, pending) {
   const isAdd = pending.kind === KIND.add
   const rows = []
 
   if (isAdd) {
-    rows.push({
-      key: 'Runs on',
-      value: pending.host === HOSTS.cdp ? 'CDP' : 'Azure',
-      changeUrl: change(team, STEP.where),
-      changeId: 'change-host',
-      hidden: 'where it runs'
-    })
+    rows.push(
+      {
+        key: 'Runs on',
+        value: pending.host === HOSTS.cdp ? 'CDP' : 'Azure',
+        changeUrl: change(team, STEP.where),
+        changeId: 'change-host',
+        hidden: 'where it runs'
+      },
+      {
+        key: pending.environments.length > 1 ? 'Environments' : 'Environment',
+        lines: pending.environments.map((environment) =>
+          environmentLine(pending, environment)
+        ),
+        changeUrl: change(team, STEP.environments),
+        changeId: 'change-environments',
+        hidden: 'the environments'
+      }
+    )
   } else {
     rows.push({
       key: 'Environment',
@@ -107,20 +119,6 @@ function answerRows(team, pending) {
         hidden: 'the name'
       }
     )
-  }
-
-  if (isAdd) {
-    rows.push({
-      key: pending.environments.length > 1 ? 'Environments' : 'Environment',
-      lines: pending.environments.map((environment) =>
-        environmentLine(pending, environment)
-      ),
-      changeUrl: pending.environmentsSkipped
-        ? null
-        : change(team, STEP.environments),
-      changeId: 'change-environments',
-      hidden: 'the environments'
-    })
   }
 
   return rows
@@ -364,9 +362,20 @@ export const federateCheck = {
       const { team } = context
       const pending = pendingFor(request, team.slug)
 
-      return isAnswered(pending)
-        ? checkView(h, { team, pending })
-        : redirectTo(h, federateUrl(team.slug))
+      if (!isAnswered(pending)) {
+        return redirectTo(h, federateUrl(team.slug))
+      }
+
+      // The environments were chosen before the application was named, so
+      // what any of them would refuse is said now, before confirming.
+      const refusals =
+        pending.kind === KIND.add
+          ? await refusalsBeforeConfirming(request, team, pending)
+          : []
+
+      return refusals.length > 0
+        ? refusedEnvironmentsView(request, h, { team, pending, refusals })
+        : checkView(h, { team, pending })
     }
   },
   post: {

@@ -151,6 +151,20 @@ function tokenRequest(connection) {
   ].join('\n')
 }
 
+// The same token request for a client secret: the secret stands in for the
+// token from the CDP service.
+function secretTokenRequest(connection) {
+  return [
+    `POST ${connection.tokenEndpoint}`,
+    'Content-Type: application/x-www-form-urlencoded',
+    '',
+    'grant_type=client_credentials',
+    `&client_id=${connection.clientId}`,
+    `&scope=${connection.scope}`,
+    '&client_secret=<client secret>'
+  ].join('\n')
+}
+
 const ROWS = [
   {
     id: 'gateway',
@@ -178,8 +192,9 @@ const ROWS = [
 
 /**
  * The Connection details section: each value with its Copy, the first call
- * and how to get a token, for every member of the team. Null when the backend
- * has none for the environment.
+ * and how to get a token, for every member of the team. Where client secrets
+ * are allowed it also has the token request that uses one. Null when the
+ * backend has none for the environment.
  * @param {object} params
  * @param {object} params.detail - The backend's environment read.
  * @param {Record<string, {apiProfile?: string}>} params.catalogue - The catalogue's models by slug.
@@ -215,6 +230,10 @@ export function buildConnection({ detail, catalogue }) {
     token: {
       audience: connection.cdpAudience,
       request: tokenRequest(connection),
+      // Only where the environment allows client secrets.
+      secretRequest: detail.clientSecrets?.allowed
+        ? secretTokenRequest(connection)
+        : null,
       whoami: `${whoami}\n${BEARER}`,
       model: modelCall(connection, model, catalogue[model]?.apiProfile)
     }

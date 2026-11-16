@@ -41,24 +41,6 @@
           {% endif %}
         </div>
       {% endfor %}
-
-      {% if secret %}
-        <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (secret.actions.length or secret.askAnAdmin) }}" data-testid="secret-row">
-          <dt class="govuk-summary-list__key">Client secret</dt>
-          <dd class="govuk-summary-list__value">{{ secret.text }}</dd>
-          {% if secret.actions.length %}
-            <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
-              <div class="app-button-group govuk-!-margin-bottom-0">
-                {% for action in secret.actions %}
-                  <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ heading }} client secret</span></a>
-                {% endfor %}
-              </div>
-            </dd>
-          {% elif secret.askAnAdmin %}
-            <dd class="govuk-summary-list__actions" data-testid="ask-an-admin">Ask an admin for it</dd>
-          {% endif %}
-        </div>
-      {% endif %}
     </dl>
   {% else %}
     <p class="govuk-body" data-testid="no-models">No models in {{ heading }}.</p>
@@ -89,6 +71,56 @@
     {% endcall %}
   {% endif %}
 
+  {% if clientSecrets %}
+    {% set addSecretHtml %}
+      {{ govukButton({
+        html: 'Add a client secret<span class="govuk-visually-hidden"> in ' + (heading | escape) + '</span>',
+        href: clientSecrets.addUrl,
+        classes: "govuk-!-margin-bottom-0",
+        attributes: { "data-testid": "add-client-secret" }
+      }) }}
+    {% endset %}
+    {% call appSectionCard({ title: "Client Secrets", actionsHtml: addSecretHtml if clientSecrets.addUrl, attributes: { id: "client-secrets", "data-testid": "section-client-secrets" } }) %}
+    {% if clientSecrets.state == "allowed" %}
+      <p class="govuk-body" data-testid="client-secrets-intro">{{ clientSecrets.intro }}</p>
+      {% if clientSecrets.fullMessage %}
+        <p class="govuk-body" data-testid="client-secrets-full">{{ clientSecrets.fullMessage }}</p>
+      {% endif %}
+
+      {% if clientSecrets.items.length %}
+        <dl class="govuk-summary-list app-summary-list--table">
+          {% for secret in clientSecrets.items %}
+            <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (secret.actions.length or secret.askAnAdmin) }}" data-testid="client-secret-row">
+              <dt class="govuk-summary-list__key">{{ secret.name }}</dt>
+              <dd class="govuk-summary-list__value">
+                <strong class="govuk-tag {{ secret.tag.tagClass }}">{{ secret.tag.text }}</strong>
+                {% if secret.expiryText %}
+                  <span class="govuk-!-margin-left-2" data-testid="client-secret-expiry">{{ secret.expiryText }}</span>
+                {% endif %}
+              </dd>
+              {% if secret.actions.length %}
+                <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
+                  <div class="app-button-group govuk-!-margin-bottom-0">
+                    {% for action in secret.actions %}
+                      <a class="govuk-link" href="{{ action.href }}" data-testid="client-secret-{{ action.text | lower }}">{{ action.text }}<span class="govuk-visually-hidden"> the client secret ending {{ secret.keyHint }} in {{ heading }}</span></a>
+                    {% endfor %}
+                  </div>
+                </dd>
+              {% elif secret.askAnAdmin %}
+                <dd class="govuk-summary-list__actions" data-testid="ask-an-admin">Ask an admin to view, rotate or revoke it</dd>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </dl>
+      {% else %}
+        <p class="govuk-body" data-testid="no-client-secrets">No client secrets in {{ heading }} yet.</p>
+      {% endif %}
+    {% else %}
+      <p class="govuk-body" data-testid="client-secrets-unavailable">{{ clientSecrets.message }}{% if clientSecrets.applicationsHref %} Create a passwordless credential under <a class="govuk-link" href="{{ clientSecrets.applicationsHref }}">Applications</a>.{% endif %}</p>
+    {% endif %}
+    {% endcall %}
+  {% endif %}
+
   {% if applications %}
     {% set federateHtml %}
       {{ govukButton({
@@ -98,7 +130,7 @@
         attributes: { "data-testid": "federate-an-application" }
       }) }}
     {% endset %}
-    {% call appSectionCard({ title: "Applications", actionsHtml: federateHtml if applications.federateUrl, attributes: { id: "applications", "data-testid": "section-applications" } }) %}
+    {% call appSectionCard({ title: "Passwordless Credentials", actionsHtml: federateHtml if applications.federateUrl, attributes: { id: "applications", "data-testid": "section-applications" } }) %}
     <p class="govuk-body" data-testid="applications-count">{{ applications.countText }}. An application here gets your team’s access to every model in {{ heading }}.</p>
     {% if applications.fullMessage and not applications.federateUrl %}
       <p class="govuk-body" data-testid="applications-full">{{ applications.fullMessage }}</p>

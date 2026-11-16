@@ -1,11 +1,85 @@
+@use 'sass:color';
 @use 'govuk-frontend' as *;
+@use 'variables/colours' as *;
+
+// Each environment's card is a toggle: its title and availability label stay
+// in view and the rest opens and closes. A coloured rule across the top marks
+// the stage the environment is (the order a team meets them), and the card
+// lifts when the pointer is over it.
+$app-stage-colours: (
+  1: $defra-green,
+  2: govuk-colour('blue'),
+  3: govuk-colour('orange'),
+  4: govuk-colour('purple')
+);
+
+.app-environment-card {
+  border-top: govuk-spacing(1) solid $defra-green;
+  transition: box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    box-shadow: 0 2px 6px rgb(0, 0, 0, 0.15);
+  }
+
+  @each $stage, $colour in $app-stage-colours {
+    &.app-environment-card--stage-#{$stage} {
+      border-top-color: $colour;
+    }
+  }
+}
+
+.app-environment-card__summary {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:focus-visible {
+    outline: $govuk-focus-width solid $govuk-focus-colour;
+    outline-offset: 0;
+  }
+
+  &:hover .app-environment-card__title-wrapper {
+    background-color: color.mix(
+      govuk-colour('black'),
+      govuk-colour('light-grey'),
+      6%
+    );
+  }
+}
+
+.app-environment-card__details:not([open]) .app-section-card__chevron {
+  transform: rotate(45deg);
+}
+
+// A card is a span under its summary, so the title row is a flex row by
+// itself: the title, then the chevron at the far end.
+.app-environment-card__title-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: govuk-spacing(2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-environment-card {
+    transition: none;
+  }
+}
 
 // An environment the team cannot use yet keeps its card, greyed with a dashed
 // border, so the layout does not change when it opens. The text stays dark
 // enough to read (dark grey on white is 7:1); only the card title and border
 // step back. The card's own classes are targeted, never GOV.UK's.
-.app-environment-card--unavailable {
+.app-environment-card--unavailable.app-environment-card {
   border: 1px dashed govuk-colour('dark-grey');
+
+  &:hover {
+    box-shadow: none;
+  }
 
   .app-environment-card__title-wrapper {
     background-color: govuk-colour('light-grey');
@@ -62,19 +136,44 @@
   display: block;
 }
 
-// The availability label sits in a grey band under the title, across the
-// whole card. The label is 16px and stays on one line.
+// The availability label is a band across the whole card under the title: the
+// band takes the colour of the label (green Available, yellow Paused, grey Not
+// available yet) and the label sits in its middle, in the same dark text so it
+// stays readable. The label is 16px and stays on one line.
 .app-environment-card__status {
+  display: block;
   padding: govuk-spacing(2) govuk-spacing(4);
   background-color: govuk-colour('light-grey');
   border-top: 1px solid $govuk-border-colour;
+  color: govuk-colour('black');
+  text-align: center;
 
   .govuk-tag {
     @include govuk-font($size: 16, $weight: bold);
 
     padding: 1px govuk-spacing(1);
+    background-color: transparent;
+    color: inherit;
     white-space: nowrap;
   }
+}
+
+.app-environment-card__status--green {
+  background-color: color.mix(govuk-colour('white'), govuk-colour('green'), 80%);
+  color: color.mix(govuk-colour('black'), govuk-colour('green'), 40%);
+}
+
+.app-environment-card__status--yellow {
+  background-color: color.mix(
+    govuk-colour('white'),
+    govuk-colour('yellow'),
+    80%
+  );
+  color: color.mix(govuk-colour('black'), govuk-colour('yellow'), 80%);
+}
+
+.app-environment-card__status--grey {
+  color: govuk-colour('dark-grey');
 }
 
 // Cards side by side across the page, wrapping to fewer columns when there is

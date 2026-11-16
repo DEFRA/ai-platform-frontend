@@ -10,6 +10,7 @@ const TOKENS_KEY = 'tokens'
 const ADD_MEMBER_KEYS = 'addMemberKeys'
 const ADD_MEMBER_GENERATION = 'addMemberGeneration'
 const PENDING_LIMITS_KEY = 'pendingLimits'
+const ENVIRONMENTS_TEAM_KEY = 'environmentsTeam'
 const PENDING_FEDERATION_KEY = 'pendingFederation'
 const REQUESTED_FEDERATIONS_KEY = 'requestedFederations'
 const MAX_REQUESTED_FEDERATIONS = 5
@@ -166,6 +167,16 @@ export function setPendingLimits(request, value) {
 
 export function clearPendingLimits(request) {
   request.yar.clear(PENDING_LIMITS_KEY)
+}
+
+// The team slug whose environments the person last looked at, so the
+// Environments link returns to it.
+export function getEnvironmentsTeam(request) {
+  return request.yar.get(ENVIRONMENTS_TEAM_KEY)
+}
+
+export function setEnvironmentsTeam(request, slug) {
+  request.yar.set(ENVIRONMENTS_TEAM_KEY, slug)
 }
 
 // The application a person is federating (or changing) and has not yet

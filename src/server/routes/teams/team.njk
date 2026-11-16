@@ -16,7 +16,7 @@
     <div class="govuk-grid-column-full">
       {{ appSubNavigation({ items: tabs, label: "Team" }) }}
 
-      {% call appSectionCard({ title: "Models your team uses", attributes: { "data-testid": "section-team-models" } }) %}
+      {% call appSectionCard({ title: "Models your team uses", collapsible: false, attributes: { "data-testid": "section-team-models" } }) %}
       {% if unavailable %}
         <p class="govuk-body" data-testid="overview-unavailable">We could not read this team’s environments just now. <a class="govuk-link" href="{{ teamUrl }}">Try again</a>.</p>
       {% elif models.length %}
@@ -30,7 +30,7 @@
       {% endif %}
       {% endcall %}
 
-      {% call appSectionCard({ title: "Environments and deployments", attributes: { "data-testid": "section-team-environments" } }) %}
+      {% call appSectionCard({ title: "Environments and deployments", collapsible: false, attributes: { "data-testid": "section-team-environments" } }) %}
       {% if not unavailable %}
         <dl class="govuk-summary-list app-summary-list--table">
           {% for environment in environments %}

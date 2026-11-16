@@ -1,0 +1,17 @@
+@use 'govuk-frontend' as *;
+
+// One operation (a deployment, a federation, a removal) and its progress. A
+// thin rule between operations keeps several in view apart without changing
+// how the steps look.
+.app-operation {
+  margin-bottom: govuk-spacing(6);
+
+  &:not(:last-of-type) {
+    padding-bottom: govuk-spacing(4);
+    border-bottom: 1px solid $govuk-border-colour;
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+}

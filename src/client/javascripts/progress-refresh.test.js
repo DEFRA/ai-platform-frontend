@@ -177,6 +177,30 @@ describe('#initProgressRefresh', () => {
       expect(text()).toContain('Deploying')
     })
 
+    test('keeps a card as the person left it, closed or open, when the content is swapped', async () => {
+      const card = (key, open) =>
+        `<details data-collapse-key="${key}"${open ? ' open' : ''}><summary>${key}</summary></details>`
+
+      page(
+        `<div data-in-progress="true">${card('Models', false)}${card('Limits', true)}</div>`
+      )
+      fetchMock.mockResolvedValue(
+        answer(
+          `<div data-in-progress="true">${card('Models', true)}${card('Limits', false)}${card('New', true)}</div>`
+        )
+      )
+      start()
+
+      await tick()
+
+      const open = (key) =>
+        region().querySelector(`details[data-collapse-key="${key}"]`).open
+
+      expect(open('Models')).toBe(false)
+      expect(open('Limits')).toBe(true)
+      expect(open('New')).toBe(true)
+    })
+
     test('keeps focus on the same link when the content is swapped', async () => {
       fetchMock.mockResolvedValue(answer(status(true, 'Deploying')))
       start()

@@ -99,6 +99,7 @@ export function summary(overrides = {}) {
     },
     limits: { tokensPerMinute: 1000, requestsPerMinute: 60 },
     applications: { used: 0, limit: 20 },
+    clientSecrets: { allowed: true, used: 1, limit: 3 },
     latestOperation: doneOperation(),
     inProgress: false,
     ...overrides
@@ -132,6 +133,33 @@ export function detail(overrides = {}) {
       requestsPerMinute: { min: 1, max: 300 }
     },
     pendingLimits: null,
+    clientSecrets: clientSecretsOf([clientSecretItem()]),
+    ...overrides
+  }
+}
+
+/** One client secret as `clientSecrets.items` lists it: active, with its key hint. */
+export function clientSecretItem(overrides = {}) {
+  return {
+    id: 'cred-1',
+    keyHint: 'a1b2',
+    name: null,
+    expiresAt: '2027-10-19T00:00:00.000Z',
+    status: 'active',
+    ...overrides
+  }
+}
+
+/**
+ * The client secrets part of an environment read: allowed, with the places
+ * taken by the secrets that have not expired.
+ */
+export function clientSecretsOf(items, overrides = {}) {
+  return {
+    allowed: true,
+    used: items.filter(({ status }) => status === 'active').length,
+    limit: 3,
+    items,
     ...overrides
   }
 }

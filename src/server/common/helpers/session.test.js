@@ -9,6 +9,8 @@ import {
   getPendingLimits,
   setPendingLimits,
   clearPendingLimits,
+  getEnvironmentsTeam,
+  setEnvironmentsTeam,
   getPendingFederation,
   setPendingFederation,
   clearPendingFederation,
@@ -55,6 +57,15 @@ describe('#session helpers', () => {
 
     clearPendingLimits(request)
     expect(getPendingLimits(request)).toBeUndefined()
+  })
+
+  test('remembers the team whose environments a person last looked at', () => {
+    const request = mockRequest()
+
+    expect(getEnvironmentsTeam(request)).toBeUndefined()
+
+    setEnvironmentsTeam(request, 'coastal-team')
+    expect(getEnvironmentsTeam(request)).toBe('coastal-team')
   })
 
   test('keeps the application a person is federating until it is cleared', () => {

@@ -21,13 +21,19 @@ import {
   KIND,
   STEP,
   backUrl,
+  isAnswered,
   pendingFor,
   savePending,
   stepAfter
 } from './federation-journey.js'
 import { federateUrl } from './federation-urls.js'
 import { errorPage, teamNotFound } from './error-views.js'
-import { checkTeamFederation, isUnavailable } from './environments-api.js'
+import {
+  checkTeamFederation,
+  isUnavailable,
+  readTeamEnvironments
+} from './environments-api.js'
+import { environmentHasRoom } from './federation-view.js'
 
 const querySchema = { query: changeQuerySchema }
 const SELECT_FROM_LIST = 'Select environments from the list'
@@ -46,24 +52,50 @@ export function applicationNameOf(pending) {
   return pending.host === HOSTS.cdp ? pending.service : pending.name
 }
 
-// The environments are asked about once the application is named.
+// What the environments question calls the application: its name once it has
+// one, which it has not on a first pass, as this is asked first.
+function subjectOf(pending) {
+  return applicationNameOf(pending) ?? 'your application'
+}
+
+// The question belongs to an addition that has said where it runs.
+function isStarted(pending) {
+  return Boolean(pending?.kind === KIND.add && pending.host)
+}
+
+// An application that has its name can be checked in each environment.
 function isNamed(pending) {
-  return Boolean(
-    pending?.kind === KIND.add &&
-    (pending.host === HOSTS.cdp
-      ? pending.service
-      : pending.principalId && pending.name)
-  )
+  return pending.host === HOSTS.cdp
+    ? Boolean(pending.service)
+    : Boolean(pending.principalId && pending.name)
+}
+
+// The environments the team can use with room for another application, from
+// what the team's environments say: all that can be known before the
+// application is named.
+async function choicesFromSummaries(request, team) {
+  const { environments } = await readTeamEnvironments(request, team.slug)
+  const offered = teamEnvironmentList()
+    .filter(({ available }) => available)
+    .map(({ environment }) => environment)
+    .filter((environment) =>
+      environments.some(
+        (summary) =>
+          summary.environment === environment && environmentHasRoom(summary)
+      )
+    )
+
+  return { codes: new Map(), known: new Set(offered), offered }
 }
 
 /**
- * What each environment the team can use says to the application: the
+ * What each environment the team can use says to the named application: the
  * backend's dry run, in one call. An environment it will not take at all is
  * not offered; one that refuses this application is offered, and refuses it
  * with its reason when chosen.
- * @returns {Promise<{codes: Map<string, string | null>, offered: string[]}>}
+ * @returns {Promise<{codes: Map<string, string | null>, known: Set<string>, offered: string[]}>}
  */
-async function loadChoices(request, team, pending) {
+async function choicesFromDryRun(request, team, pending) {
   const candidates = teamEnvironmentList()
     .filter(({ available }) => available)
     .map(({ environment }) => environment)
@@ -78,10 +110,19 @@ async function loadChoices(request, team, pending) {
 
   return {
     codes,
+    known: new Set(codes.keys()),
     offered: candidates.filter(
       (environment) => !NOT_OFFERED.has(codes.get(environment))
     )
   }
+}
+
+// The environments to offer: from the dry run once the application is named,
+// else from what the team's environments hold.
+function loadChoices(request, team, pending) {
+  return isNamed(pending)
+    ? choicesFromDryRun(request, team, pending)
+    : choicesFromSummaries(request, team)
 }
 
 // A refusal's words for each environment, as an error summary linked to the
@@ -102,28 +143,38 @@ function problemFrom(refusals, pending) {
 }
 
 function hintFor(pending, environment) {
-  const name = applicationNameOf(pending)
+  const subject = subjectOf(pending)
   const trust = cdpTrustText(environment)
 
   return pending.host === HOSTS.cdp && trust
-    ? `Trusts ${name} in ${trust}`
-    : `Trusts ${name} from the Defra tenant`
+    ? `Trusts ${subject} in ${trust}`
+    : `Trusts ${subject} from the Defra tenant`
+}
+
+// Where Back goes: to the check when the question was opened from it, to the
+// last question when every answer is held (a refusal sends the person here),
+// else to where the application runs.
+function backLinkOf(request, team, pending) {
+  if (!isAnswered(pending)) {
+    return backUrl(team, pending, STEP.environments)
+  }
+
+  return isChange(request)
+    ? federateUrl(team.slug, STEP.check)
+    : backUrl(team, pending, STEP.check)
 }
 
 function environmentsView(
   h,
   { request, team, pending, offered, selected, problem }
 ) {
-  const name = applicationNameOf(pending)
-  const heading = `Which environments should trust ${name}?`
+  const heading = `Which environments should trust ${subjectOf(pending)}?`
 
   return h.view('environments/federate-environments', {
     pageTitle: `${problem ? 'Error: ' : ''}${heading}`,
     heading,
     caption: team.name,
-    backLink: isChange(request)
-      ? federateUrl(team.slug, STEP.check)
-      : backUrl(team, pending, STEP.environments),
+    backLink: backLinkOf(request, team, pending),
     items: offered.map((environment) => ({
       value: environment,
       text: environmentRegistryName(environment),
@@ -138,7 +189,7 @@ function environmentsView(
 function nothingOffered(h, team, pending) {
   return errorPage(h, {
     status: statusCodes.conflict,
-    heading: `${applicationNameOf(pending)} cannot get a passwordless credential anywhere just now`,
+    heading: `${subjectOf(pending)} cannot get a passwordless credential anywhere just now`,
     message:
       'Your team has no environment set up with room for another application. Set one up, or remove an application you no longer use.',
     back: {
@@ -196,10 +247,10 @@ function refusalsOf(offered, codes) {
 }
 
 // What is wrong with the environments chosen, if anything. The form only
-// posts what it offered, so one the dry run did not answer for is a stale page
-// or a forged request; one that refuses the application says why.
-function problemOfChoice(environments, { codes, pending }) {
-  if (environments.some((environment) => !codes.has(environment))) {
+// posts what it offered, so one that is not known is a stale page or a forged
+// request; one that refuses the application says why.
+function problemOfChoice(environments, { codes, known, pending }) {
+  if (environments.some((environment) => !known.has(environment))) {
     return {
       errorSummary: [{ text: SELECT_FROM_LIST, href: '#environments' }],
       fieldErrors: { environments: { text: SELECT_FROM_LIST } }
@@ -209,6 +260,32 @@ function problemOfChoice(environments, { codes, pending }) {
   const refusals = refusalsOf(environments, codes)
 
   return refusals.length > 0 ? problemFrom(refusals, pending) : undefined
+}
+
+/**
+ * The environments the named application would be refused in, with why, when
+ * checked before it is confirmed (a dry run; nothing is queued). None when it
+ * would be taken, or when the backend could not say: confirming then reports
+ * any refusal as it always has.
+ * @param {import('@hapi/hapi').Request} request
+ * @param {{slug: string}} team
+ * @param {{environments: string[]}} pending
+ * @returns {Promise<Array<{environment: string, code: string}>>}
+ */
+export async function refusalsBeforeConfirming(request, team, pending) {
+  try {
+    const { codes } = await choicesFromDryRun(request, team, pending)
+
+    return refusalsOf(pending.environments, codes)
+  } catch (error) {
+    if (!isUnavailable(error)) {
+      throw error
+    }
+
+    request.logger.warn({ err: error }, 'Could not check the environments')
+
+    return []
+  }
 }
 
 /**
@@ -259,7 +336,7 @@ async function loadStep(request, h) {
 
   const pending = pendingFor(request, context.team.slug)
 
-  if (!isNamed(pending)) {
+  if (!isStarted(pending)) {
     return { page: redirectTo(h, federateUrl(context.team.slug)) }
   }
 
@@ -269,10 +346,12 @@ async function loadStep(request, h) {
 }
 
 /**
- * Which environments should trust the application: the team's available
- * environments whose registration has room, the one the journey started from
- * ticked. Skipped when only one is offered and it takes the application. Each
- * chosen environment is checked, and one that refuses it says why, naming that
+ * Which environments should trust the application, asked straight after where
+ * it runs: the team's available environments with room for another
+ * application, the one the journey started from ticked. Always asked, even
+ * when only one is offered, so people see where the credential will go. Once
+ * the application is named (the question asked again) each
+ * environment is checked for it, and one that refuses it says why, naming that
  * environment and never another team.
  */
 export const federateEnvironments = {
@@ -292,15 +371,6 @@ export const federateEnvironments = {
       }
 
       const refusals = refusalsOf(offered, codes)
-
-      if (offered.length === 1 && refusals.length === 0 && !isChange(request)) {
-        savePending(request, team.slug, {
-          environments: offered,
-          environmentsSkipped: true
-        })
-
-        return redirectTo(h, federateUrl(team.slug, STEP.check))
-      }
 
       // Alone, an environment that refuses has nothing else to be chosen
       // instead, so it says why before anything is ticked.
@@ -354,9 +424,9 @@ export const federateEnvironments = {
         return step.page
       }
 
-      const { team, pending, offered, codes } = step
+      const { team, pending, offered, codes, known } = step
       const { environments } = request.payload
-      const problem = problemOfChoice(environments, { codes, pending })
+      const problem = problemOfChoice(environments, { codes, known, pending })
 
       if (problem) {
         return environmentsView(h, {
@@ -371,10 +441,7 @@ export const federateEnvironments = {
         }).code(statusCodes.badRequest)
       }
 
-      const saved = savePending(request, team.slug, {
-        environments,
-        environmentsSkipped: false
-      })
+      const saved = savePending(request, team.slug, { environments })
 
       return redirectTo(
         h,

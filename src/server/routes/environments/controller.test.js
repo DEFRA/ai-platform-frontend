@@ -9,18 +9,20 @@ import {
   INFRADEV_URL,
   OVERVIEW_URL,
   TEAM_PATH,
+  clientSecretItem,
+  clientSecretsOf,
   detail,
   doneOperation,
   environmentsRead,
   failedOperation,
   openOperation,
   operationsAnswer,
-  summary,
-  teamCredential
+  summary
 } from '#/test-helpers/environments-helpers.js'
 import {
   signInViaOidc,
-  cookieHeader
+  cookieHeader,
+  mergeCookies
 } from '#/test-helpers/oidc-session-helpers.js'
 import {
   nanoModel,
@@ -115,7 +117,6 @@ describe('#environmentsController', () => {
     mockApi(fetchMock, {
       'GET /v1/teams': { items: [sampleTeam] },
       'GET /v1/models': { items: [sampleModel, nanoModel] },
-      'GET /v1/credentials': { items: [teamCredential] },
       [`GET ${TEAM_PATH}`]: teamWithMembers(role),
       [`GET ${TEAM_PATH}/environments`]: environmentsRead(),
       [`GET ${TEAM_PATH}/environments/infradev`]: detail(),
@@ -131,7 +132,7 @@ describe('#environmentsController', () => {
       .filter((path) => path.startsWith('/v1/') && path !== '/v1/users/me')
   }
 
-  describe('GET /environments (choose a team)', () => {
+  describe('GET /environments (opens the team’s environments)', () => {
     test('redirects to the sign-in page when signed out', async () => {
       const { statusCode, headers } = await server.inject({
         method: 'GET',
@@ -152,23 +153,54 @@ describe('#environmentsController', () => {
       expect(calledPaths()).toEqual(['/v1/teams'])
     })
 
-    test('lists only the person’s own teams when they have several, each linking to its overview', async () => {
+    test('goes to the first team when the person has several and has not chosen one, with no page listing the teams', async () => {
       backend({ 'GET /v1/teams': { items: [sampleTeam, coastal] } })
 
-      const { statusCode, result } = await get('/environments')
-      const $ = pageOf(result)
+      const { statusCode, headers } = await get('/environments')
 
-      expect(statusCode).toBe(statusCodes.ok)
-      expect(text($, 'h1')).toBe('Environments and deployments')
-      expect(
-        $('[data-testid="team-link"]')
-          .map((_, link) => [[$(link).text().trim(), $(link).attr('href')]])
-          .get()
-      ).toEqual([
-        ['Flood Risk Team', OVERVIEW_URL],
-        ['Coastal Team', '/environments/coastal-team']
-      ])
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe(OVERVIEW_URL)
       expect(calledPaths()).toEqual(['/v1/teams'])
+    })
+
+    test('goes to the team the switcher asked for', async () => {
+      backend({ 'GET /v1/teams': { items: [sampleTeam, coastal] } })
+
+      const { statusCode, headers } = await get(
+        '/environments?team=coastal-team'
+      )
+
+      expect(statusCode).toBe(statusCodes.seeOther)
+      expect(headers.location).toBe('/environments/coastal-team')
+    })
+
+    test('ignores a team the person is not a member of, and goes to their first', async () => {
+      backend({ 'GET /v1/teams': { items: [sampleTeam, coastal] } })
+
+      const { headers } = await get('/environments?team=someone-elses')
+
+      expect(headers.location).toBe(OVERVIEW_URL)
+    })
+
+    test('returns to the team last looked at, even when it is not the first', async () => {
+      backend({
+        'GET /v1/teams': { items: [sampleTeam, coastal] },
+        'GET /v1/teams/coastal-team/environments': {
+          ...environmentsRead(),
+          team: { id: 'team-2', slug: coastal.slug, name: coastal.name }
+        },
+        'GET /v1/teams/coastal-team/operations': operationsAnswer()
+      })
+
+      const visit = await get('/environments/coastal-team')
+
+      expect(visit.statusCode).toBe(statusCodes.ok)
+
+      mergeCookies(cookies, visit)
+
+      const { headers } = await get('/environments')
+
+      expect(headers.location).toBe('/environments/coastal-team')
     })
 
     test('offers to create a team when the person has none', async () => {
@@ -180,7 +212,6 @@ describe('#environmentsController', () => {
       expect(statusCode).toBe(statusCodes.ok)
       expect(text($, 'main')).toContain('You are not a member of a team yet')
       expect($('a[href="/teams/new"]').text().trim()).toBe('Create a team')
-      expect($('[data-testid="team-link"]')).toHaveLength(0)
     })
 
     test('says it could not list the teams when the backend is unavailable', async () => {
@@ -379,7 +410,6 @@ describe('#environmentsController', () => {
 
       expect(actions.hasClass('app-actions--end')).toBe(true)
       expect(actions.find('a[data-testid="deploy-a-model"]')).toHaveLength(1)
-      expect(actions.find('a[data-testid="change-team"]')).toHaveLength(1)
       expect(
         actions
           .find('a[data-testid="deploy-a-model"]')
@@ -413,18 +443,40 @@ describe('#environmentsController', () => {
       )
     })
 
-    test('shows Change team only to a person with more than one team', async () => {
+    test('offers a team selector, with the current team chosen, only to a person with more than one team', async () => {
       backend()
       const single = pageOf((await get(OVERVIEW_URL)).result)
 
+      expect(single('[data-testid="team-switcher"]')).toHaveLength(0)
       expect(single('a[data-testid="change-team"]')).toHaveLength(0)
 
       backend({ 'GET /v1/teams': { items: [sampleTeam, coastal] } })
       const several = pageOf((await get(OVERVIEW_URL)).result)
+      const form = several('[data-testid="team-switcher"]')
 
-      expect(several('a[data-testid="change-team"]').attr('href')).toBe(
-        '/environments'
-      )
+      expect(form.attr('method')).toBe('get')
+      expect(form.attr('action')).toBe('/environments')
+      expect(form.find('label[for="team"]').text().trim()).toBe('Team')
+      expect(
+        form
+          .find('select[name="team"] option')
+          .map((_, option) => [
+            [
+              several(option).attr('value'),
+              several(option).text().trim(),
+              several(option).attr('selected') !== undefined
+            ]
+          ])
+          .get()
+      ).toEqual([
+        ['flood-risk-team', 'Flood Risk Team', true],
+        ['coastal-team', 'Coastal Team', false]
+      ])
+      expect(form.attr('data-team-switcher')).toBeDefined()
+      // The button is only for browsers without script, so it sits in noscript.
+      expect(form.find('> button')).toHaveLength(0)
+      expect(form.find('noscript').html()).toContain('Switch team')
+      expect(several('a[data-testid="change-team"]')).toHaveLength(0)
     })
 
     test('shows each change in progress with its steps and times, and the recent changes with their dates', async () => {
@@ -646,7 +698,7 @@ describe('#environmentsController', () => {
 
       for (const path of calledPaths()) {
         expect(
-          ['/v1/models', '/v1/credentials'].includes(path) ||
+          path === '/v1/models' ||
             path === TEAM_PATH ||
             path.startsWith(`${TEAM_PATH}/`)
         ).toBe(true)
@@ -680,7 +732,8 @@ describe('#environmentsController', () => {
         'Changes in progress',
         'Models',
         'Limits',
-        'Applications',
+        'Client Secrets',
+        'Passwordless Credentials',
         'Recent changes'
       ])
       expect($('.govuk-heading-l')).toHaveLength(0)
@@ -752,7 +805,7 @@ describe('#environmentsController', () => {
       )
     })
 
-    test('shows the limits, and Change only to an admin; a member sees neither Remove, Change nor secret actions', async () => {
+    test('shows the limits, and Change only to an admin; a member sees neither Remove, Change nor client secret actions', async () => {
       backend({}, 'admin')
       const admin = pageOf((await get(INFRADEV_URL)).result)
 
@@ -764,16 +817,16 @@ describe('#environmentsController', () => {
         `${INFRADEV_URL}/limits`
       )
       expect(admin('a[data-testid="model-remove"]')).toHaveLength(2)
-      expect(admin('[data-testid="secret-row"] a')).toHaveLength(3)
+      expect(admin('[data-testid="client-secret-row"] a')).toHaveLength(3)
 
       backend({}, 'user')
       const member = pageOf((await get(INFRADEV_URL)).result)
 
       expect(member('a[data-testid="change-limits"]')).toHaveLength(0)
       expect(member('a[data-testid="model-remove"]')).toHaveLength(0)
-      expect(member('[data-testid="secret-row"] a')).toHaveLength(0)
+      expect(member('[data-testid="client-secret-row"] a')).toHaveLength(0)
       expect(member('[data-testid="ask-an-admin"]').text()).toBe(
-        'Ask an admin for it'
+        'Ask an admin to view, rotate or revoke it'
       )
       expect(member('a[data-testid="deploy-a-model"]')).toHaveLength(1)
     })
@@ -925,19 +978,6 @@ describe('#environmentsController', () => {
       )
     })
 
-    test('still shows the page when the client secret cannot be read', async () => {
-      backend({
-        'GET /v1/credentials': reply(502, { code: 'upstream-unavailable' })
-      })
-
-      const { statusCode, result } = await get(INFRADEV_URL)
-
-      expect(statusCode).toBe(statusCodes.ok)
-      expect(text(pageOf(result), '[data-testid="secret-row"]')).toContain(
-        'We could not check this just now.'
-      )
-    })
-
     test('has a status fragment of the changes, models and limits', async () => {
       backend({
         [`GET ${TEAM_PATH}/operations`]: operationsAnswer({
@@ -957,7 +997,193 @@ describe('#environmentsController', () => {
       expect($('[data-testid="model-row"]')).toHaveLength(2)
     })
 
-    describe('what each state of a model and of the client secret says', () => {
+    describe('the client secrets section', () => {
+      const section = ($) => $('[data-testid="section-client-secrets"]')
+
+      function withSecrets(clientSecrets, environment = {}) {
+        backend({
+          [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+            clientSecrets,
+            ...environment
+          })
+        })
+      }
+
+      test('does not read the person’s credentials, which the environment read now answers for', async () => {
+        backend()
+
+        await get(INFRADEV_URL)
+
+        expect(calledPaths()).not.toContain('/v1/credentials')
+      })
+
+      test('counts the secrets in use, lists each with its state and expiry, and for an admin offers Add, View, Rotate and Revoke with their context hidden', async () => {
+        withSecrets(
+          clientSecretsOf([
+            clientSecretItem(),
+            clientSecretItem({
+              id: 'cred-2',
+              keyHint: 'c3d4',
+              expiresAt: null
+            }),
+            clientSecretItem({
+              id: 'cred-3',
+              keyHint: 'e5f6',
+              status: 'expired',
+              expiresAt: '2026-10-01T00:00:00.000Z'
+            })
+          ])
+        )
+
+        const $ = pageOf((await get(INFRADEV_URL)).result)
+        const rows = $('[data-testid="client-secret-row"]')
+
+        expect(text($, '[data-testid="client-secrets-intro"]')).toBe(
+          '2 of 3 client secrets in use. Each lasts at most three months. Use one for local development; your deployed applications should use a passwordless credential.'
+        )
+        expect(rows.map((_, row) => text($(row), 'dt')).get()).toEqual([
+          'Ends a1b2',
+          'Ends c3d4',
+          'Ends e5f6'
+        ])
+        expect(
+          rows
+            .map(
+              (_, row) =>
+                text($(row), '.govuk-tag') +
+                ' / ' +
+                text($(row), '[data-testid="client-secret-expiry"]')
+            )
+            .get()
+        ).toEqual([
+          'Active / Expires 19 October 2027',
+          'Active / Does not expire',
+          'Expired / Expired 1 October 2026'
+        ])
+        expect(
+          rows
+            .eq(0)
+            .find('a')
+            .map((_, link) => [[text($(link), 'span'), $(link).attr('href')]])
+            .get()
+        ).toEqual([
+          [
+            'the client secret ending a1b2 in Infradev',
+            '/teams/flood-risk-team/client-secrets/cred-1/view'
+          ],
+          [
+            'the client secret ending a1b2 in Infradev',
+            '/teams/flood-risk-team/client-secrets/cred-1/rotate'
+          ],
+          [
+            'the client secret ending a1b2 in Infradev',
+            '/teams/flood-risk-team/client-secrets/cred-1/revoke'
+          ]
+        ])
+        expect(rows.eq(2).find('a')).toHaveLength(0)
+        expect(rows.eq(2).find('[data-testid="ask-an-admin"]')).toHaveLength(0)
+
+        const add = section($).find(
+          '.app-section-card__actions a.govuk-button[data-testid="add-client-secret"]'
+        )
+
+        expect(add.attr('href')).toBe(`${INFRADEV_URL}/client-secrets/add`)
+        expect(text(add, '.govuk-visually-hidden')).toBe('in Infradev')
+      })
+
+      test('lists hint and expiry for a member, who is told to ask an admin, with no Add', async () => {
+        backend(
+          {
+            [`GET ${TEAM_PATH}/environments/infradev`]: detail({
+              clientSecrets: clientSecretsOf([clientSecretItem()])
+            })
+          },
+          'user'
+        )
+
+        const $ = pageOf((await get(INFRADEV_URL)).result)
+
+        expect(text($, '[data-testid="client-secret-row"]')).toContain(
+          'Ends a1b2 Active Expires 19 October 2027'
+        )
+        expect($('[data-testid="client-secret-row"] a')).toHaveLength(0)
+        expect(text($, '[data-testid="ask-an-admin"]')).toBe(
+          'Ask an admin to view, rotate or revoke it'
+        )
+        expect($('[data-testid="add-client-secret"]')).toHaveLength(0)
+      })
+
+      test('says the limit is reached, with no Add, when all three places are taken', async () => {
+        withSecrets(
+          clientSecretsOf([
+            clientSecretItem(),
+            clientSecretItem({ id: 'cred-2' }),
+            clientSecretItem({ id: 'cred-3' })
+          ])
+        )
+
+        const $ = pageOf((await get(INFRADEV_URL)).result)
+
+        expect(text($, '[data-testid="client-secrets-full"]')).toContain(
+          'Infradev holds 3 client secrets, the most one environment can.'
+        )
+        expect($('[data-testid="add-client-secret"]')).toHaveLength(0)
+      })
+
+      test('says there are none yet when the environment is set up and allows them', async () => {
+        withSecrets(clientSecretsOf([]))
+
+        const $ = pageOf((await get(INFRADEV_URL)).result)
+
+        expect(text($, '[data-testid="no-client-secrets"]')).toBe(
+          'No client secrets in Infradev yet.'
+        )
+        expect($('[data-testid="add-client-secret"]')).toHaveLength(1)
+      })
+
+      test('says client secrets are not available where they are not allowed, and links to Applications', async () => {
+        withSecrets(clientSecretsOf([], { allowed: false }))
+
+        const $ = pageOf((await get(INFRADEV_URL)).result)
+        const note = $('[data-testid="client-secrets-unavailable"]')
+
+        expect(text($, '[data-testid="client-secrets-unavailable"]')).toBe(
+          'Client secrets are not available in Infradev. Applications there use a passwordless credential. Create a passwordless credential under Applications.'
+        )
+        expect(note.find('a').attr('href')).toBe('#applications')
+        expect($('#applications')).toHaveLength(1)
+        expect($('[data-testid="add-client-secret"]')).toHaveLength(0)
+        expect($('[data-testid="client-secret-row"]')).toHaveLength(0)
+      })
+
+      test('says a model must be deployed first when the environment is not set up', async () => {
+        withSecrets(clientSecretsOf([]), { setUp: false, limits: null })
+
+        const $ = pageOf((await get(INFRADEV_URL)).result)
+
+        expect(text($, '[data-testid="client-secrets-unavailable"]')).toBe(
+          'Deploy a model in Infradev first. You can add a client secret once it is set up.'
+        )
+        expect($('[data-testid="add-client-secret"]')).toHaveLength(0)
+      })
+
+      test('sits after Limits and before Applications, and is in the status fragment', async () => {
+        backend()
+
+        const { result } = await get(`${INFRADEV_URL}?fragment=status`)
+        const $ = pageOf(result)
+
+        expect($('[data-testid="section-client-secrets"]')).toHaveLength(1)
+        expect(
+          $('[data-testid="section-limits"]').next().attr('data-testid')
+        ).toBe('section-client-secrets')
+        expect(
+          $('[data-testid="section-client-secrets"]').next().attr('data-testid')
+        ).toBe('section-applications')
+      })
+    })
+
+    describe('what each state of a model says', () => {
       function modelsIn(states) {
         return states.map(([id, modelSlug, status, extra]) => ({
           _id: id,
@@ -1046,73 +1272,7 @@ describe('#environmentsController', () => {
         expect(result).toContain('gpt-4o')
       })
 
-      test('shows no date for a client secret that does not say when it expires', async () => {
-        backend({
-          'GET /v1/credentials': {
-            items: [{ ...teamCredential, expiresAt: null }]
-          }
-        })
-
-        const { result } = await get(INFRADEV_URL)
-
-        expect(result).not.toContain('Expires')
-        expect(result).toContain(
-          `href="/teams/${sampleTeam.slug}/client-secrets/cred-1/view"`
-        )
-      })
-
-      test.each([
-        [
-          'one not in the vault yet',
-          [{ ...teamCredential, vaultState: 'unwritten' }],
-          'Being prepared'
-        ],
-        [
-          'one revoked after the model turned active',
-          [
-            {
-              ...teamCredential,
-              status: 'revoked',
-              revokedAt: '2026-11-11T09:00:00.000Z'
-            }
-          ],
-          'Revoked'
-        ],
-        ['none yet', [], 'Ready once a model has been set up.']
-      ])(
-        'says where the client secret is with %s, and offers nothing to do with it',
-        async (_name, credentials, expected) => {
-          backend({ 'GET /v1/credentials': { items: credentials } })
-
-          const { result } = await get(INFRADEV_URL)
-
-          expect(result).toContain(expected)
-          expect(result).not.toContain('/client-secrets/')
-        }
-      )
-
-      test('reads the credentials only after the environment, which is what grants a model that just turned active its team secret', async () => {
-        let granted = false
-
-        backend({
-          [`GET ${TEAM_PATH}/environments/infradev`]: async () => {
-            await new Promise((resolve) => setTimeout(resolve, 20))
-            granted = true
-
-            return detail()
-          },
-          'GET /v1/credentials': () => ({
-            items: granted ? [teamCredential] : []
-          })
-        })
-
-        const { result } = await get(INFRADEV_URL)
-
-        expect(result).toContain('Expires 19 October 2027')
-        expect(result).not.toContain('Ready once a model has been set up.')
-      })
-
-      test('hides models that were removed, and the client secret with them, once the last one has gone', async () => {
+      test('says there are no models once the last one has gone', async () => {
         backend({
           [`GET ${TEAM_PATH}/environments/infradev`]: detail({ models: [] })
         })
@@ -1122,7 +1282,6 @@ describe('#environmentsController', () => {
         expect($('[data-testid="no-models"]').text()).toContain(
           'No models in Infradev'
         )
-        expect($('[data-testid="secret-row"]')).toHaveLength(0)
       })
     })
 
@@ -1139,7 +1298,7 @@ describe('#environmentsController', () => {
         )
       })
 
-      test('still shows the overview, without Change team, when the list of the person’s teams cannot be read', async () => {
+      test('still shows the overview, without the team selector, when the list of the person’s teams cannot be read', async () => {
         backend({
           'GET /v1/teams': reply(502, { code: 'upstream-unavailable' })
         })
@@ -1147,7 +1306,7 @@ describe('#environmentsController', () => {
         const { statusCode, result } = await get(OVERVIEW_URL)
 
         expect(statusCode).toBe(statusCodes.ok)
-        expect(pageOf(result)('a[data-testid="change-team"]')).toHaveLength(0)
+        expect(pageOf(result)('[data-testid="team-switcher"]')).toHaveLength(0)
       })
 
       test('masks an email-shaped name of whoever asked, for a Member looking at an open change', async () => {

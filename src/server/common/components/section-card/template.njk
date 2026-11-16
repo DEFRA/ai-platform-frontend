@@ -1,25 +1,37 @@
 {#
   params.title, params.headingLevel (default 2), params.classes, params.attributes,
-  params.actionsHtml (links or buttons shown at the right of the title),
+  params.actionsHtml (links or buttons for the card, at the top of its content),
   params.scrollable (the content scrolls vertically inside a named, keyboard-focusable
   region, so a long list does not stretch the page).
-  A page section as a GOV.UK summary card: the macro's call block is its content.
+  A page section as a GOV.UK summary card. By default it collapses: the title is the
+  toggle of a native details element, so it works without script, and progress-refresh.js
+  keeps a card as the person left it when it swaps the page's status in, matching cards
+  by `data-collapse-key` (the title). params.collapsible = false keeps a card always
+  open, for a page with only a few short cards. The macro's call block is its content.
 #}
 {% set level = params.headingLevel or 2 %}
+{% set collapsible = params.collapsible !== false %}
+{% set boxTag = 'details' if collapsible else 'div' %}
+{% set titleTag = 'summary' if collapsible else 'div' %}
 <div class="govuk-summary-card app-section-card{{ ' ' + params.classes if params.classes }}"{% for name, value in params.attributes %} {{ name }}="{{ value }}"{% endfor %}>
-  <div class="govuk-summary-card__title-wrapper app-section-card__title-wrapper">
-    <h{{ level }} class="govuk-summary-card__title">{{ params.title }}</h{{ level }}>
-    {% if params.actionsHtml %}
-      <div class="app-section-card__actions">{{ params.actionsHtml | safe }}</div>
-    {% endif %}
-  </div>
-  <div class="govuk-summary-card__content">
-    {% if params.scrollable %}
-      <div class="app-section-card__scroll" tabindex="0" role="region" aria-label="{{ params.title }}">
+  <{{ boxTag }} class="app-section-card__details"{% if collapsible %} open data-collapse-key="{{ params.title }}"{% endif %}>
+    <{{ titleTag }} class="govuk-summary-card__title-wrapper app-section-card__title-wrapper{{ ' app-section-card__toggle' if collapsible }}">
+      <h{{ level }} class="govuk-summary-card__title">{{ params.title }}</h{{ level }}>
+      {% if collapsible %}
+        <span class="app-section-card__chevron" aria-hidden="true"></span>
+      {% endif %}
+    </{{ titleTag }}>
+    <div class="govuk-summary-card__content">
+      {% if params.actionsHtml %}
+        <div class="app-section-card__actions">{{ params.actionsHtml | safe }}</div>
+      {% endif %}
+      {% if params.scrollable %}
+        <div class="app-section-card__scroll" tabindex="0" role="region" aria-label="{{ params.title }}">
+          {{ caller() if caller }}
+        </div>
+      {% else %}
         {{ caller() if caller }}
-      </div>
-    {% else %}
-      {{ caller() if caller }}
-    {% endif %}
-  </div>
+      {% endif %}
+    </div>
+  </{{ boxTag }}>
 </div>

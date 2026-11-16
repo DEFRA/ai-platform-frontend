@@ -13,11 +13,11 @@ import { federateUrl } from './federation-urls.js'
 import { HOSTS } from './federation-answers.js'
 
 // The Federate journey, one question to a page: where the application runs,
-// its CDP service or its Azure principal ID and then name, which environments
-// should trust it, then the answers to check. The same questions change an
-// existing application (an admin's Change), which asks nothing about
-// environments. The answers wait in the session with the key that makes
-// confirming them the same request however many times it is sent.
+// which environments should trust it, then its CDP service or its Azure
+// principal ID and name, then the answers to check. The same questions change
+// an existing application (an admin's Change), which asks nothing about where
+// it runs or about environments. The answers wait in the session with the key
+// that makes confirming them the same request however many times it is sent.
 export const STEP = {
   where: '',
   service: 'service',
@@ -54,56 +54,58 @@ function lastQuestionOf(pending) {
 }
 
 /**
- * The step a person goes to after answering one.
+ * The step a person goes to after answering one. Choosing environments goes
+ * on to the application's own questions, or straight to the check when they
+ * were all answered already (the environments were asked again).
  * @param {{kind: string, host: string}} pending
  * @param {string} current - A `STEP` value.
  * @returns {string}
  */
 export function stepAfter(pending, current) {
   if (current === STEP.where) {
-    return firstQuestionOf(pending)
+    return STEP.environments
+  }
+
+  if (current === STEP.environments) {
+    return isAnswered(pending) ? STEP.check : firstQuestionOf(pending)
   }
 
   if (current === STEP.principalId) {
     return STEP.name
   }
 
-  if (current === STEP.environments) {
-    return STEP.check
-  }
-
-  return pending.kind === KIND.change ? STEP.check : STEP.environments
+  return STEP.check
 }
 
 /**
  * The step before another, for its Back link; null when it is the first of
  * the journey, which goes back to the page the person came from.
- * @param {{kind: string, host: string, environmentsSkipped?: boolean}} pending
+ * @param {{kind: string, host: string}} pending
  * @param {string} current - A `STEP` value.
  * @returns {string | null}
  */
 export function stepBefore(pending, current) {
-  const change = pending.kind === KIND.change
-
   if (current === STEP.where) {
     return null
+  }
+
+  if (current === STEP.environments) {
+    return STEP.where
   }
 
   if (current === STEP.name) {
     return STEP.principalId
   }
 
-  if (current === STEP.environments) {
+  if (current === STEP.check) {
     return lastQuestionOf(pending)
   }
 
-  if (current === STEP.check) {
-    return change || pending.environmentsSkipped
-      ? lastQuestionOf(pending)
-      : STEP.environments
+  if (pending.kind === KIND.change) {
+    return null
   }
 
-  return change ? null : STEP.where
+  return STEP.environments
 }
 
 /**

@@ -74,10 +74,33 @@ function restoreFocus(region, saved) {
   region.focus({ preventScroll: true })
 }
 
+// A card the person closed stays closed (and one they opened stays open) when
+// the status is swapped in: cards are found again by their `data-collapse-key`.
+const CARD_SELECTOR = 'details[data-collapse-key]'
+
+function cardStates(region) {
+  return new Map(
+    [...region.querySelectorAll(CARD_SELECTOR)].map((card) => [
+      card.dataset.collapseKey,
+      card.open
+    ])
+  )
+}
+
+function restoreCards(region, states) {
+  for (const card of region.querySelectorAll(CARD_SELECTOR)) {
+    if (states.has(card.dataset.collapseKey)) {
+      card.open = states.get(card.dataset.collapseKey)
+    }
+  }
+}
+
 function swapIn(region, content) {
   const saved = focusedIn(region)
+  const cards = cardStates(region)
 
   region.replaceChildren(...content.childNodes)
+  restoreCards(region, cards)
 
   if (saved) {
     restoreFocus(region, saved)
