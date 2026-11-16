@@ -282,8 +282,11 @@ page below asks the backend, which refuses anyone else with the 403 page "Only a
 Status (tag) | Environments | Members, 25 to a page, pagination; "No teams match your search" with "Clear filters".
 
 **`/admin/teams/{id}`**: caption "Team", H1 team name. Summary list Status (tag), Service code, Environments (each file's
-status, and "Can be removed from {date}" when pending removal); H2 "Members", button "Add a member", the members table with
-"Remove". Read-only for the lifecycle: Disable, Enable, Delete and Restore are a later change.
+status, and "Can be removed from {date}" when pending removal), and a Disabled tag on a disabled environment; H2
+"Members", button "Add a member", the members table with "Remove". The buttons "Disable team" (secondary, team active)
+and "Enable team" (team disabled or an environment disabled) and a warning while disabled lead to
+`/admin/teams/{id}/disable`, `/disable/reason`, `/disabled` and `/enable` (built 16 Nov 2026; see
+[08](../../plans/implemented/08-platform-admin.md#disable-and-enable-a-team)). Delete and Restore are a later change.
 
 **`/admin/teams/{id}/members/add`** (and `/add/people`) and **`.../members/{memberId}/remove`**: the team's own add and
 remove pages over the admin routes. Adding yourself is refused ("You cannot add yourself to a team"). Warning on remove:

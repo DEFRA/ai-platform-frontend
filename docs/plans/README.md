@@ -18,7 +18,7 @@ What is built, and what is left, in two places only.
 | [05-platform-and-gitops-pipeline.md](implemented/05-platform-and-gitops-pipeline.md) | Platform infrastructure      | The repositories and the GitOps worker, how a change flows (B28), Infradev, CDP dev, operating notes                                                                           |
 | [06-shared-services-and-security.md](implemented/06-shared-services-and-security.md) | Shared services and security | Idempotency, audit, locks, backfills, security baseline, federated auth, portal sign-in (B27), session renewal                                                                 |
 | [07-environments-and-deployments.md](implemented/07-environments-and-deployments.md) | Environments and deployments | The Environments section (B30): overview, an environment's page, deploy, limits, progress, the Teams Overview tab; B18's applications, Federate journey and connection details |
-| [08-platform-admin.md](implemented/08-platform-admin.md)                             | Platform admin               | The Admin area's Teams, Deployments and Audit log tabs (B31 in part)                                                                                                           |
+| [08-platform-admin.md](implemented/08-platform-admin.md)                             | Platform admin               | The Admin area's Teams, Deployments and Audit log tabs, and disable and enable a team (B31 in part)                                                                            |
 
 ## Remaining
 

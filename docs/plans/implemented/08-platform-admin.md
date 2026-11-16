@@ -12,6 +12,7 @@ Platform Admin stays the database role `platform-admin`.
 | Add and remove a team's members as a Platform Admin                          | 12 Nov 2026 |
 | Audit log tab: filters, table, paging, link from a team                      | 13 Nov 2026 |
 | Deployments tab: list, detail, Reconcile, Retry, credentials (non-federated) | 13 Nov 2026 |
+| Disable team and Enable team, and the team's view-only display               | 16 Nov 2026 |
 
 ## How it works
 
@@ -22,8 +23,8 @@ Platform Admin stays the database role `platform-admin`.
 - **`/admin/teams`**: a GET form (name search, status filter), 25 teams to a page, tags for Active, Disabled and Pending
   removal. The page sends only `search`, `status` and `page`; a 400 `invalid-query` is shown as an error on the field.
 - **`/admin/teams/{id}`**: status tag, service code, each environment's file status with its removal date (linked to
-  that environment's deployment unless removed), and the members with a Remove link. It is read-only here: Disable,
-  Enable, Delete and Restore of a team are not built.
+  that environment's deployment unless removed), and the members with a Remove link. Disable team and Enable team are
+  buttons here ([below](#disable-and-enable-a-team)); Delete and Restore are not built.
 - **Members** reuse the team's own pages: `createAddMemberController(scope)` and `createPeopleSearchController` run over
   `/v1/admin/teams/{id}/people/search` and `/members`, and the `teams/add-member` and `teams/remove-member` views render
   both. The shared parts are the `add-member-form`, `members-table` and `remove-member-form` components. A Platform
@@ -33,8 +34,7 @@ Platform Admin stays the database role `platform-admin`.
   environment still in use (none for a team in none). It is an optional `warningLink` of the `remove-member-form`
   component; the team's own remove page passes none and is unchanged.
 - Tables sit in a labelled, focusable `app-table-scroll` region so the page reflows at 320 px.
-- Not built: Delete and Restore, Disable and Enable of a team, the stopped-team display, journey tests, federated
-  credentials. See [remaining.md](../remaining.md).
+- Not built: Delete and Restore of a team, journey tests, federated credentials. See [remaining.md](../remaining.md).
 
 ## Audit log tab
 
@@ -107,3 +107,37 @@ only non-federated credentials are in scope (federations are removed by GitOps, 
   environment; Revoke deletes the secrets; the team is not told why. The hook for the gateway side (access window) is
   phase 4's.
 - Environment names come from the existing `common/helpers/environment-names.js`, unchanged.
+
+## Disable and enable a team
+
+Built 16 Nov 2026 (run `2026-11-16-disable-team`) against the backend's `POST /v1/admin/teams/{id}/disable` and
+`/enable`. A disabled team is **view-only in the portal**: its status is `disabled`, optionally with some environments
+(`disabledEnvironments`) also disabled. Nothing reaches the gateway: credentials and models keep working, no GitOps
+operation is queued. To stop calls an admin uses Disable or Revoke credentials (above). The people never see a reason or
+an admin's name.
+
+- **Admin pages** (`admin/team-lifecycle.js`, choices in `team-lifecycle-choices.js`; they reuse the credential flow's
+  templates, reason rule, form key and error codes): the team page has a secondary **Disable team** (team active) and
+  **Enable team** (team disabled or any environment disabled), a warning while disabled and a Disabled tag on each
+  disabled environment. `/admin/teams/{id}/disable`: optional "Which environments?" (zero allowed; only the team's
+  environments not already disabled; "Environments you do not tick stay usable"), then `/disable/reason` (1 to 500
+  characters, the warning "Its credentials keep working…"), one call with an `Idempotency-Key` (HMAC of session, team,
+  form key, reason and environments), then `/disabled` ("Team disabled"; back to the team unless it is done). A failed
+  call is the page "We could not disable {team}" with Try again. `/enable` lists the disabled environments, all ticked;
+  zero ticked still lifts the team lock; no reason; a success notification names what was unlocked. 403 page for
+  non-admins, CSRF crumb on every POST. The audit log labels `admin.team.disable` ("Disabled a team") and
+  `admin.team.enable` ("Enabled a team") and the refusal code `team-disabled`. The admin deployment page shows the
+  team Disabled and "In the portal: Disabled" while still offering the credential actions.
+- **Team pages** (`common/helpers/team-lock.js`; `loadTeamForView` adds `lock`): a banner on the team's tabs and the
+  Environments pages ("This team is disabled. You can view it but you cannot change it."), the team Disabled, and a
+  disabled environment tagged Disabled (ahead of Paused). **Team-wide** actions (details, add, change and remove a
+  member, set up an environment) are greyed while the team is disabled, with nothing ticked; **environment** actions
+  (deploy and remove a model, limits, view and rotate the client secret, create, change and remove an application) only
+  in a disabled environment; an environment not ticked stays Available. Buttons are disabled `govukButton`s, links
+  plain text. Revoking a client secret stays open. A locked page, or a backend `409 team-disabled`, shows "You cannot
+  change this team" (409) with a link back (`catchAll` for the backend's refusal). The request and Federate journeys do
+  not offer a disabled environment (the dry run's `team-disabled`).
+- **Recent changes** (overview and environment page) also read `GET /v1/teams/{team}/status-changes` and merge "Team
+  disabled by the platform team" and "Team enabled by the platform team" newest first within the same 10 rows; a failed
+  read shows "We could not read the changes just now".
+- Not built: Delete and Restore of a team (see [remaining.md](../remaining.md)).

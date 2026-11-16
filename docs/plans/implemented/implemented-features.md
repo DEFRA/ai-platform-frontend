@@ -4,7 +4,7 @@ A one-page index of what is built in the AI Platform Portal (`ai-platform-fronte
 for new joiners. It holds no detail: each row links to the category file in this folder
 that does. What is not built is in [remaining.md](../remaining.md).
 
-Last updated: 12 Nov 2026.
+Last updated: 16 Nov 2026.
 
 ## What you can do
 
@@ -25,6 +25,7 @@ Last updated: 12 Nov 2026.
 | Platform Admin: list every team, open one, add and remove members                         | Built (12 Nov 2026), Teams tab only (B31 in part)                       | [08 Platform admin](08-platform-admin.md)                             |
 | Platform Admin: Audit log of every event, with filters                                    | Built (13 Nov 2026); credential events' team pending                    | [08 Platform admin](08-platform-admin.md#audit-log-tab)               |
 | Platform Admin: Deployments tab, Reconcile, Retry, disable, enable and revoke credentials | Built (13 Nov 2026), non-federated credentials only                     | [08 Platform admin](08-platform-admin.md#deployments-tab)             |
+| Platform Admin: disable and enable a team (view-only in the portal), per-environment lock | Built (16 Nov 2026), local commits; Delete and Restore not built        | [08 Platform admin](08-platform-admin.md#disable-and-enable-a-team)   |
 
 ## What it runs on
 
