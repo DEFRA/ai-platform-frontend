@@ -13,44 +13,49 @@
 
   <div class="app-card-grid" data-testid="environment-cards">
   {% for card in cards %}
-    <div class="govuk-summary-card app-environment-card{{ ' app-environment-card--unavailable' if not card.available }}" data-testid="environment-card-{{ card.code }}">
-      <div class="govuk-summary-card__title-wrapper app-environment-card__title-wrapper">
-        <h3 class="govuk-summary-card__title app-environment-card__title">{{ card.name }} <span class="app-environment-card__subtitle">{{ card.displayName }}</span></h3>
-      </div>
-      <div class="app-environment-card__status">
-        {{ govukTag({ text: card.tag.text, classes: card.tag.tagClass, attributes: { "data-testid": "card-tag" } }) }}
-      </div>
-      <div class="govuk-summary-card__content app-environment-card__content">
-        {% if not card.available %}
-          <p class="govuk-body" data-testid="card-message">{{ card.message }}</p>
-        {% elif card.unreadable %}
-          <p class="govuk-body">We could not read {{ card.name }} just now.</p>
-        {% elif card.rows %}
-          <dl class="govuk-summary-list app-summary-list--table">
-            {% for row in card.rows %}
-              <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
-                <dt class="govuk-summary-list__key">{{ row.key }}</dt>
-                <dd class="govuk-summary-list__value">{{ row.value }}</dd>
-              </div>
-            {% endfor %}
-          </dl>
-        {% else %}
-          <p class="govuk-body" data-testid="not-set-up">{{ card.notSetUp }}</p>
-        {% endif %}
+    <div class="govuk-summary-card app-environment-card app-environment-card--stage-{{ loop.index }}{{ ' app-environment-card--unavailable' if not card.available }}" data-testid="environment-card-{{ card.code }}">
+      <details class="app-environment-card__details" open data-collapse-key="{{ card.code }}">
+        <summary class="app-environment-card__summary">
+          <span class="govuk-summary-card__title-wrapper app-environment-card__title-wrapper">
+            <h3 class="govuk-summary-card__title app-environment-card__title">{{ card.name }} <span class="app-environment-card__subtitle">{{ card.displayName }}</span></h3>
+            <span class="app-section-card__chevron" aria-hidden="true"></span>
+          </span>
+          <span class="app-environment-card__status app-environment-card__status--{{ card.tag.tagClass | replace('govuk-tag--', '') }}">
+            {{ govukTag({ text: card.tag.text, classes: card.tag.tagClass, attributes: { "data-testid": "card-tag" } }) }}
+          </span>
+        </summary>
+        <div class="govuk-summary-card__content app-environment-card__content">
+          {% if not card.available %}
+            <p class="govuk-body" data-testid="card-message">{{ card.message }}</p>
+          {% elif card.unreadable %}
+            <p class="govuk-body">We could not read {{ card.name }} just now.</p>
+          {% elif card.rows %}
+            <dl class="govuk-summary-list app-summary-list--table">
+              {% for row in card.rows %}
+                <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
+                  <dt class="govuk-summary-list__key">{{ row.key }}</dt>
+                  <dd class="govuk-summary-list__value">{{ row.value }}</dd>
+                </div>
+              {% endfor %}
+            </dl>
+          {% else %}
+            <p class="govuk-body" data-testid="not-set-up">{{ card.notSetUp }}</p>
+          {% endif %}
 
-        {% if card.pausedNote %}
-          <p class="govuk-body govuk-hint">{{ card.pausedNote }}</p>
-        {% endif %}
+          {% if card.pausedNote %}
+            <p class="govuk-body govuk-hint">{{ card.pausedNote }}</p>
+          {% endif %}
 
-        {% if card.available %}
-          <p class="govuk-body">
-            {% if card.setUpUrl %}
-              <a class="govuk-link govuk-!-margin-right-4" href="{{ card.setUpUrl }}" data-testid="set-up-environment">{{ card.setUpText }}</a>
-            {% endif %}
-            <a class="govuk-link" href="{{ card.href }}" data-testid="card-link">{{ card.linkText }}</a>
-          </p>
-        {% endif %}
-      </div>
+          {% if card.available %}
+            <p class="govuk-body govuk-!-margin-top-4 govuk-!-text-align-centre">
+              {% if card.setUpUrl %}
+                <a class="govuk-link govuk-!-margin-right-4" href="{{ card.setUpUrl }}" data-testid="set-up-environment">{{ card.setUpText }}</a>
+              {% endif %}
+              <a class="govuk-link" href="{{ card.href }}" data-testid="card-link">{{ card.linkText }}</a>
+            </p>
+          {% endif %}
+        </div>
+      </details>
     </div>
   {% endfor %}
   </div>

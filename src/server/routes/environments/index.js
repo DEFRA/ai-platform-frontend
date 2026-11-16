@@ -7,8 +7,10 @@ import { federateEnvironments } from './federate-environments.js'
 import { federateCheck } from './federate-check.js'
 import { federateProgress } from './federate-progress.js'
 import { applicationController } from './application-controller.js'
+import { clientSecretAddController } from './client-secret-add.js'
 
 const limits = '/environments/{slug}/{environment}/limits'
+const clientSecrets = '/environments/{slug}/{environment}/client-secrets'
 const federate = '/environments/{slug}/federate'
 const application = '/environments/{slug}/{environment}/applications/{id}'
 
@@ -125,6 +127,22 @@ const routes = [
     method: 'POST',
     path: `${application}/remove`,
     handler: applicationController.remove.post.handler
+  },
+  {
+    method: 'GET',
+    path: `${clientSecrets}/add`,
+    handler: clientSecretAddController.add.get.handler
+  },
+  {
+    method: 'POST',
+    path: `${clientSecrets}/add`,
+    options: clientSecretAddController.add.post.options,
+    handler: clientSecretAddController.add.post.handler
+  },
+  {
+    method: 'GET',
+    path: `${clientSecrets}/added`,
+    handler: clientSecretAddController.added.get.handler
   }
 ]
 

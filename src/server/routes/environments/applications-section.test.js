@@ -111,9 +111,9 @@ describe('an environment’s applications and connection details', () => {
 
       const { $ } = await page()
 
-      expect(
-        text($, '#applications > .govuk-summary-card__title-wrapper > h2')
-      ).toBe('Applications')
+      expect(text($, '#applications > details > summary > h2')).toBe(
+        'Passwordless Credentials'
+      )
       expect(text($, '[data-testid="applications-count"]')).toContain(
         '3 of 20 used'
       )
@@ -316,9 +316,9 @@ describe('an environment’s applications and connection details', () => {
       const { $ } = await page()
       const rows = $('[data-testid="connection-row"]')
 
-      expect(
-        text($, '#connection-details > .govuk-summary-card__title-wrapper > h2')
-      ).toBe('Connection details')
+      expect(text($, '#connection-details > details > summary > h2')).toBe(
+        'Connection details'
+      )
       expect($('#connection-details').hasClass('govuk-summary-card')).toBe(true)
       expect(
         $('#connection-details').find('[data-testid="connection-row"]')
@@ -414,13 +414,15 @@ describe('an environment’s applications and connection details', () => {
       expect($('[data-testid="connection-row"]')).toHaveLength(7)
     })
 
-    test('explains how to get a token, the first call and the model call, with the values filled in (AC25, D8)', async () => {
+    test('explains how to use the passwordless credential: get a token, the first call and the model call, with the values filled in (AC25, D8)', async () => {
       backend({ environment: { connection: connectionDetails } })
 
       const { $ } = await page()
       const help = $('details#how-to-get-a-token')
 
-      expect(help.find('summary').text().trim()).toBe('How to get a token')
+      expect(help.find('summary').text().trim()).toBe(
+        'Using a passwordless credential'
+      )
       expect(help.find('#connection-token-request').text()).toContain(
         `client_id=${connectionDetails.clientId}`
       )
@@ -432,6 +434,74 @@ describe('an environment’s applications and connection details', () => {
       )
       expect(help.find('#connection-token-model').text()).toContain('gpt-4o')
       expect(help.find('button[hidden]')).toHaveLength(3)
+    })
+
+    describe('using a client secret', () => {
+      test('explains how to get a token with the secret and call the gateway with it, for local development only, where client secrets are allowed', async () => {
+        backend({ environment: { connection: connectionDetails } })
+
+        const { $ } = await page()
+        const help = $('details#client-secret-token')
+
+        expect(help.find('summary').text().trim()).toBe('Using a client secret')
+        expect(help.text()).toContain('on your own machine')
+        expect(help.text()).toContain('passwordless credential')
+        expect(help.find('#connection-secret-token-request').text()).toBe(
+          [
+            `POST ${connectionDetails.tokenEndpoint}`,
+            'Content-Type: application/x-www-form-urlencoded',
+            '',
+            'grant_type=client_credentials',
+            `&client_id=${connectionDetails.clientId}`,
+            `&scope=${connectionDetails.scope}`,
+            '&client_secret=<client secret>'
+          ].join('\n')
+        )
+        expect(help.find('#connection-secret-token-whoami').text()).toContain(
+          'GET https://gateway.example/flood-risk-team/whoami'
+        )
+        expect(help.find('#connection-secret-token-model').text()).toContain(
+          'POST https://gateway.example/flood-risk-team/openai/v1/chat/completions'
+        )
+        expect(help.find('button[hidden]')).toHaveLength(3)
+      })
+
+      test('is not shown where client secrets are not allowed, and the federated guidance stays', async () => {
+        backend({
+          environment: {
+            connection: connectionDetails,
+            clientSecrets: { allowed: false, used: 0, limit: 3, items: [] }
+          }
+        })
+
+        const { $ } = await page()
+
+        expect($('details#client-secret-token')).toHaveLength(0)
+        expect($('details#how-to-get-a-token')).toHaveLength(1)
+      })
+
+      test('is outside the status fragment, like the rest of the guidance', async () => {
+        backend({ environment: { connection: connectionDetails } })
+
+        const response = await server.inject({
+          method: 'GET',
+          url: `${INFRADEV_URL}?fragment=status`,
+          headers: { cookie: cookieHeader(cookies) }
+        })
+
+        expect(load(response.result)('#client-secret-token')).toHaveLength(0)
+      })
+
+      test('is shown to a Member too, who can see the connection details', async () => {
+        backend({
+          role: 'user',
+          environment: { connection: connectionDetails }
+        })
+
+        const { $ } = await page()
+
+        expect($('details#client-secret-token')).toHaveLength(1)
+      })
     })
 
     test('has no Connection details section when the backend gives none', async () => {

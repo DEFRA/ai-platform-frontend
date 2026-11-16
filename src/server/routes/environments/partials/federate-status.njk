@@ -11,7 +11,7 @@
 
 <div data-in-progress="{{ 'true' if inProgress else 'false' }}" data-testid="federate-status">
   {% for environment in environments %}
-    <div class="govuk-!-margin-bottom-6" data-testid="federate-environment">
+    <div class="app-operation" data-testid="federate-environment">
       <h2 class="govuk-heading-m govuk-!-margin-bottom-2">{{ environment.name }}</h2>
       {{ appStepList({ items: environment.steps }) }}
       {{ failureDetail(environment.failure) }}

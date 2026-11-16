@@ -22,6 +22,7 @@ import {
 import { loadTeamContext } from './federation-context.js'
 import {
   applicationNameOf,
+  refusalsBeforeConfirming,
   refusedEnvironmentsView
 } from './federate-environments.js'
 import {
@@ -29,7 +30,8 @@ import {
   STEP,
   backUrl,
   isAnswered,
-  pendingFor
+  pendingFor,
+  savePending
 } from './federation-journey.js'
 import { federateUrl, federateProgressUrl } from './federation-urls.js'
 import { environmentNotFound, errorPage, teamNotFound } from './error-views.js'
@@ -59,22 +61,33 @@ function environmentLine(pending, environment) {
     : name
 }
 
-// The answers as the check page lists them. An addition lists where it runs,
-// the application and the environments, each with Change (except the
-// environments when only one was offered); a change lists its environment and
-// the new values.
+// The answers as the check page lists them, in the order they were asked. An
+// addition lists where it runs, the environments (except that Change is left
+// out when only one was offered) and the application, each with Change; a
+// change lists its environment and the new values.
 function answerRows(team, pending) {
   const isAdd = pending.kind === KIND.add
   const rows = []
 
   if (isAdd) {
-    rows.push({
-      key: 'Runs on',
-      value: pending.host === HOSTS.cdp ? 'CDP' : 'Azure',
-      changeUrl: change(team, STEP.where),
-      changeId: 'change-host',
-      hidden: 'where it runs'
-    })
+    rows.push(
+      {
+        key: 'Runs on',
+        value: pending.host === HOSTS.cdp ? 'CDP' : 'Azure',
+        changeUrl: change(team, STEP.where),
+        changeId: 'change-host',
+        hidden: 'where it runs'
+      },
+      {
+        key: pending.environments.length > 1 ? 'Environments' : 'Environment',
+        lines: pending.environments.map((environment) =>
+          environmentLine(pending, environment)
+        ),
+        changeUrl: change(team, STEP.environments),
+        changeId: 'change-environments',
+        hidden: 'the environments'
+      }
+    )
   } else {
     rows.push({
       key: 'Environment',
@@ -107,20 +120,6 @@ function answerRows(team, pending) {
         hidden: 'the name'
       }
     )
-  }
-
-  if (isAdd) {
-    rows.push({
-      key: pending.environments.length > 1 ? 'Environments' : 'Environment',
-      lines: pending.environments.map((environment) =>
-        environmentLine(pending, environment)
-      ),
-      changeUrl: pending.environmentsSkipped
-        ? null
-        : change(team, STEP.environments),
-      changeId: 'change-environments',
-      hidden: 'the environments'
-    })
   }
 
   return rows
@@ -364,9 +363,22 @@ export const federateCheck = {
       const { team } = context
       const pending = pendingFor(request, team.slug)
 
-      return isAnswered(pending)
-        ? checkView(h, { team, pending })
-        : redirectTo(h, federateUrl(team.slug))
+      if (!isAnswered(pending)) {
+        return redirectTo(h, federateUrl(team.slug))
+      }
+
+      // The environments were chosen before the application was named, so
+      // what any of them would refuse is said now, before confirming, unless
+      // this confirmation was already tried: the backend may have made it, and
+      // confirming again replays it.
+      const refusals =
+        pending.kind === KIND.add && !pending.attempted
+          ? await refusalsBeforeConfirming(request, team, pending)
+          : []
+
+      return refusals.length > 0
+        ? refusedEnvironmentsView(request, h, { team, pending, refusals })
+        : checkView(h, { team, pending })
     }
   },
   post: {
@@ -423,10 +435,19 @@ export const federateCheck = {
       }
 
       try {
+        // A confirmation that cannot be answered (a timeout) may have been
+        // made: it is remembered, so opening the check again does not refuse
+        // what it did, and confirming again replays it with its key.
+        savePending(request, team.slug, { attempted: true })
+
         const answer = await makeRequest(request, { team, pending })
 
         return succeeded(request, h, { team, pending, answer })
       } catch (error) {
+        if (!isUnavailable(error)) {
+          savePending(request, team.slug, { attempted: false })
+        }
+
         return failed(request, h, error, { team, pending })
       }
     }

@@ -13,7 +13,7 @@
   <p class="govuk-body" data-testid="changes-unavailable">We could not read the changes just now. <a class="govuk-link" href="{{ pageUrl }}">Try again</a>.</p>
 {% elif changes.length %}
   {% for change in changes %}
-    <div class="govuk-!-margin-bottom-6" data-testid="change-in-progress">
+    <div class="app-operation" data-testid="change-in-progress">
       <h3 class="govuk-heading-m govuk-!-margin-bottom-2">{{ change.heading }}</h3>
       <p class="govuk-body govuk-!-margin-bottom-1" data-testid="asked-by">{{ change.askedBy }}</p>
       <p class="govuk-body govuk-hint">This usually takes a few minutes.{% if change.stepText %} {{ change.stepText }}.{% endif %}</p>

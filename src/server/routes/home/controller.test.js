@@ -195,6 +195,7 @@ describe('#homeController', () => {
           .get()
           .filter((linkText) => linkText && linkText !== 'Sign out')
       ).toEqual([
+        'Home',
         'Model catalogue',
         'Personal access',
         'Teams',

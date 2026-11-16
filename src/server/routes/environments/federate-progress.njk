@@ -17,7 +17,7 @@
         <ul class="govuk-list" data-testid="connect-links">
           {% for link in readyLinks %}
             <li><a class="govuk-link" href="{{ link.connectionUrl }}">Connection details for {{ link.name }}</a></li>
-            <li><a class="govuk-link" href="{{ link.tokenUrl }}">How {{ applicationName }} gets a token in {{ link.name }}</a></li>
+            <li><a class="govuk-link" href="{{ link.tokenUrl }}">How {{ applicationName }} uses its passwordless credential in {{ link.name }}</a></li>
           {% endfor %}
         </ul>
         <p class="govuk-body"><a class="govuk-link" href="{{ overviewUrl }}">Back to all environments</a></p>
@@ -31,7 +31,7 @@
     }) }}
 
     <div class="govuk-grid-row">
-      <div class="govuk-grid-column-two-thirds">
+      <div class="govuk-grid-column-full">
         {% if inProgress %}
           <p class="govuk-body-l" data-testid="federate-lead">This usually takes a few minutes. You can leave this page and come back. Progress also shows on each environment’s page.</p>
         {% else %}

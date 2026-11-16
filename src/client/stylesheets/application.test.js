@@ -103,4 +103,34 @@ describe('Application stylesheet', () => {
     expect(subtitle).toMatch(/display:\s*block/)
     expect(subtitle).toMatch(/font-size:\s*1rem/)
   })
+
+  test('Should run the steps of a progress list across the page from tablet width, and stack them below it', () => {
+    const stacked = css.match(/\n\.app-step-list\s*\{([^}]*)\}/)[1]
+
+    expect(stacked).not.toMatch(/display:\s*grid/)
+    expect(css).toMatch(
+      /@media \(min-width: 40\.0625em\)\s*\{[^@]*?\.app-step-list\s*\{[^}]*display:\s*grid[^}]*grid-auto-flow:\s*column/
+    )
+  })
+
+  test('Should draw the line between done steps in green', () => {
+    expect(
+      declarationsOf(css, '.app-step-list__item--done:not(:last-child)::before')
+    ).toMatch(/background-color:\s*#008531/)
+  })
+
+  test('Should turn the chevron of a collapsible card as it opens and closes', () => {
+    expect(
+      declarationsOf(
+        css,
+        '.app-section-card__details:not([open]) .app-section-card__chevron'
+      )
+    ).toMatch(/rotate\(45deg\)/)
+    expect(
+      declarationsOf(
+        css,
+        '.app-environment-card__details:not([open]) .app-section-card__chevron'
+      )
+    ).toMatch(/rotate\(45deg\)/)
+  })
 })

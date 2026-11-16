@@ -5,6 +5,10 @@ import {
   formatWhen
 } from './environment-view.js'
 import { config } from '#/config/config.js'
+import {
+  clientSecretItem,
+  clientSecretsOf
+} from '#/test-helpers/environments-helpers.js'
 
 const NOW = new Date('2026-11-12T12:00:00.000Z')
 const modelNames = { 'gpt-4o': 'GPT-4o', 'gpt-4-1-mini': 'GPT-4.1 mini' }
@@ -261,7 +265,6 @@ describe('environment-view', () => {
         },
         operations: { open: [], recent: [] },
         modelNames,
-        credentials: [],
         now: NOW,
         ...overrides
       })
@@ -388,58 +391,28 @@ describe('environment-view', () => {
       ])
     })
 
-    test('keeps the team client secret as built: dates and actions for an admin, "Ask an admin" for a member', () => {
-      const credentials = [
-        {
-          _id: 'cred-1',
-          tier: 'team',
-          teamId: 'team-1',
-          environment: 'infradev',
-          status: 'active',
-          expiresAt: '2027-10-19T00:00:00.000Z',
-          createdAt: '2026-10-21T10:45:00.000Z'
+    test('builds the client secrets section from the environment read, and has no single secret row', () => {
+      const view = page({
+        detail: {
+          ...summary(),
+          clientSecrets: clientSecretsOf([clientSecretItem()]),
+          models: [deployment()],
+          limitBounds: null,
+          pendingLimits: null
         }
-      ]
+      })
 
-      expect(page({ credentials }).secret).toEqual({
-        text: 'Expires 19 October 2027',
-        actions: [
-          {
-            text: 'View',
-            href: '/teams/flood-risk-team/client-secrets/cred-1/view'
-          },
-          {
-            text: 'Rotate',
-            href: '/teams/flood-risk-team/client-secrets/cred-1/rotate'
-          },
-          {
-            text: 'Revoke',
-            href: '/teams/flood-risk-team/client-secrets/cred-1/revoke'
-          }
-        ],
-        askAnAdmin: false
+      expect(view.clientSecrets).toMatchObject({
+        state: 'allowed',
+        countText: '1 of 3 client secrets in use'
       })
-      expect(page({ credentials, isAdmin: false }).secret).toMatchObject({
-        actions: [],
-        askAnAdmin: true
-      })
-      expect(page({ credentials: null }).secret).toEqual({
-        text: 'We could not check this just now.'
-      })
-      expect(page().secret.text).toBe('Ready once a model has been set up.')
+      expect(view).not.toHaveProperty('secret')
       expect(
-        page({
-          detail: {
-            ...summary(),
-            models: [],
-            limitBounds: null,
-            pendingLimits: null
-          }
-        }).secret
+        page({ detail: { ...summary(), clientSecrets: undefined, models: [] } })
+          .clientSecrets
       ).toBeNull()
     })
   })
-
   describe('what the cards and the page leave unsaid', () => {
     test('says a latest change with no time without one', () => {
       const [infradev] = buildCards({
@@ -474,7 +447,6 @@ describe('environment-view', () => {
           },
           operations: { open: [], recent: [] },
           modelNames,
-          credentials: [],
           now: NOW
         })
 
@@ -503,7 +475,6 @@ describe('environment-view', () => {
         },
         operations: { open: [], recent: [] },
         modelNames,
-        credentials: [],
         now: NOW
       })
 
