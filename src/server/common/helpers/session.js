@@ -3,6 +3,7 @@ const PENDING_ACCESS_KEY = 'pendingAccess'
 const REQUESTED_DEPLOYMENTS_KEY = 'requestedDeployments'
 const PENDING_TEAM_KEY = 'pendingTeam'
 const ISSUED_CREDENTIAL_KEY = 'issuedCredential'
+const ADDED_CLIENT_SECRET_KEY = 'addedClientSecret'
 const OIDC_LOGIN_KEY = 'oidcLogin'
 const ACCOUNT_NOTIFICATION_KEY = 'accountNotification'
 const SESSION_CLOCK_KEY = 'sessionClock'
@@ -121,6 +122,25 @@ export function takeIssuedCredentialIf(request, matches) {
 
   request.yar.clear(ISSUED_CREDENTIAL_KEY)
   return credential
+}
+
+// The client secret an admin has just added, shown once on its own page. It has
+// a slot of its own, so another journey that takes an issued credential (a
+// personal key's page) neither clears it nor fails on it.
+export function setAddedClientSecret(request, value) {
+  request.yar.set(ADDED_CLIENT_SECRET_KEY, value)
+}
+
+// One-render only, and only for the page it is for.
+export function takeAddedClientSecretIf(request, matches) {
+  const added = request.yar.get(ADDED_CLIENT_SECRET_KEY)
+
+  if (!added || !matches(added)) {
+    return undefined
+  }
+
+  request.yar.clear(ADDED_CLIENT_SECRET_KEY)
+  return added
 }
 
 export function setOidcLoginState(request, value) {

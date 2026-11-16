@@ -182,6 +182,10 @@ describe('the Federate journey', () => {
     return JSON.parse(init.body)
   }
 
+  function keyOfCall(call) {
+    return call[1].headers['idempotency-key']
+  }
+
   describe('where the application runs', () => {
     test('asks one question, on CDP or on Azure, with a Back link to the overview (AC13, AC15)', async () => {
       backend()
@@ -928,6 +932,58 @@ describe('the Federate journey', () => {
       )
       expect(text($, '.govuk-summary-list')).toContain('Name flood-reports')
       expect(text($, 'main form button')).toBe('Create Passwordless Credential')
+    })
+
+    test('shows the check again, without the dry run, after a confirmation that timed out, so confirming again replays it with its key', async () => {
+      backend({
+        [`POST ${FEDERATIONS_PATH}`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+      const { $ } = await toCheck(['infradev', 'qa'])
+      const key = $('input[name="key"]').attr('value')
+
+      const timedOut = await post(CHECK_URL, { key })
+
+      expect(timedOut.response.statusCode).toBe(statusCodes.serviceUnavailable)
+
+      // The backend made it after all: the dry run would now say it exists.
+      backend({
+        [`POST ${CHECK_PATH}`]: dryRun({
+          infradev: 'federation-exists',
+          qa: 'federation-exists'
+        })
+      })
+      const checksBefore = calls('POST', CHECK_PATH).length
+      const again = await get(CHECK_URL)
+
+      expect(again.response.statusCode).toBe(statusCodes.ok)
+      expect(text(again.$, 'h1')).toBe('Check your answers')
+      expect(again.$('input[name="key"]').attr('value')).toBe(key)
+      expect(calls('POST', CHECK_PATH)).toHaveLength(checksBefore)
+
+      const replay = await post(CHECK_URL, { key })
+      const sent = calls('POST', FEDERATIONS_PATH)
+
+      expect(replay.response.headers.location).toMatch(PROGRESS_PAGE)
+      expect(keyOfCall(sent.at(-1))).toBe(key)
+    })
+
+    test('asks the dry run again once the answers are changed after a confirmation that timed out', async () => {
+      backend({
+        [`POST ${FEDERATIONS_PATH}`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+      const { $ } = await toCheck(['infradev', 'qa'])
+
+      await post(CHECK_URL, { key: $('input[name="key"]').attr('value') })
+      await post(ENVIRONMENTS_URL, { environments: ['infradev'] })
+      const checksBefore = calls('POST', CHECK_PATH).length
+
+      await get(CHECK_URL)
+
+      expect(calls('POST', CHECK_PATH)).toHaveLength(checksBefore + 1)
     })
 
     test('keeps the same key for the same answers and gives different answers another (AC12)', async () => {

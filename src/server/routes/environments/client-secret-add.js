@@ -12,9 +12,9 @@ import {
   clearPendingClientSecret,
   getPendingClientSecret,
   setAccountNotification,
-  setIssuedCredential,
+  setAddedClientSecret,
   setPendingClientSecret,
-  takeIssuedCredentialIf
+  takeAddedClientSecretIf
 } from '#/server/common/helpers/session.js'
 import { isNotFound, loadTeamForView } from '#/server/routes/teams/team-view.js'
 import {
@@ -420,7 +420,7 @@ export const clientSecretAddController = {
           // A replay (the key was used for this add already) has no value:
           // the first answer's is shown, if it is still to be shown.
           if (secret) {
-            setIssuedCredential(request, {
+            setAddedClientSecret(request, {
               secret,
               credential,
               secretName: SECRET_NAME,
@@ -445,8 +445,7 @@ export const clientSecretAddController = {
         const { slug } = request.params
 
         // Who may see it is decided again here, before the one-time result is
-        // taken: the session slot is shared, and the person may have lost
-        // admin since they asked.
+        // taken: the person may have lost admin since they asked.
         const result = await loadAdmin(request, h, { withDetail: false })
 
         if (result.page) {
@@ -454,7 +453,7 @@ export const clientSecretAddController = {
         }
 
         const { team, environment } = result
-        const issued = takeIssuedCredentialIf(
+        const issued = takeAddedClientSecretIf(
           request,
           isAddedHere(slug, environment)
         )
@@ -480,7 +479,7 @@ export const clientSecretAddController = {
         } catch (error) {
           // Nothing has been shown yet: it stays to be shown when the page is
           // loaded again.
-          setIssuedCredential(request, issued)
+          setAddedClientSecret(request, issued)
 
           if (isUnavailable(error)) {
             request.logger.warn({ err: error }, 'Could not read a credential')

@@ -877,6 +877,22 @@ describe('#clientSecretAddController', () => {
       expect(JSON.stringify(logged)).not.toContain(SECRET)
     })
 
+    test('is not taken by a visit to the personal credential page between Add and Added, which has a slot of its own', async () => {
+      backend()
+
+      const { jar } = await added()
+      const personal = await get('/connect/shared/credential', jar)
+
+      // Nothing issued for a personal key: it goes back to the catalogue,
+      // and leaves the team secret to be shown.
+      expect(personal.statusCode).toBe(statusCodes.found)
+
+      const response = await get(ADDED_URL, mergeCookies({ ...jar }, personal))
+
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(text(load(response.result), '#client-secret-value')).toBe(SECRET)
+    })
+
     test('shows the name the admin gave the secret, and no name row when it has none', async () => {
       backend({
         [`POST ${ADD_PATH}`]: reply(201, {

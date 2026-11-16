@@ -164,7 +164,13 @@ export function savePending(request, teamSlug, changes) {
     teamSlug
   }
   const same = known?.key && fingerprint(known) === fingerprint(next)
-  const saved = { ...next, key: same ? known.key : randomUUID() }
+  // A confirmation that was tried belongs to its answers: other answers have
+  // not been tried.
+  const saved = {
+    ...next,
+    key: same ? known.key : randomUUID(),
+    attempted: same ? Boolean(next.attempted) : false
+  }
 
   setPendingFederation(request, saved)
 

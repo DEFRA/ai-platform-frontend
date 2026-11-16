@@ -30,7 +30,8 @@ import {
   STEP,
   backUrl,
   isAnswered,
-  pendingFor
+  pendingFor,
+  savePending
 } from './federation-journey.js'
 import { federateUrl, federateProgressUrl } from './federation-urls.js'
 import { environmentNotFound, errorPage, teamNotFound } from './error-views.js'
@@ -367,9 +368,11 @@ export const federateCheck = {
       }
 
       // The environments were chosen before the application was named, so
-      // what any of them would refuse is said now, before confirming.
+      // what any of them would refuse is said now, before confirming, unless
+      // this confirmation was already tried: the backend may have made it, and
+      // confirming again replays it.
       const refusals =
-        pending.kind === KIND.add
+        pending.kind === KIND.add && !pending.attempted
           ? await refusalsBeforeConfirming(request, team, pending)
           : []
 
@@ -432,10 +435,19 @@ export const federateCheck = {
       }
 
       try {
+        // A confirmation that cannot be answered (a timeout) may have been
+        // made: it is remembered, so opening the check again does not refuse
+        // what it did, and confirming again replays it with its key.
+        savePending(request, team.slug, { attempted: true })
+
         const answer = await makeRequest(request, { team, pending })
 
         return succeeded(request, h, { team, pending, answer })
       } catch (error) {
+        if (!isUnavailable(error)) {
+          savePending(request, team.slug, { attempted: false })
+        }
+
         return failed(request, h, error, { team, pending })
       }
     }

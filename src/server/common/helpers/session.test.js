@@ -14,6 +14,8 @@ import {
   getPendingClientSecret,
   setPendingClientSecret,
   clearPendingClientSecret,
+  setAddedClientSecret,
+  takeAddedClientSecretIf,
   getPendingFederation,
   setPendingFederation,
   clearPendingFederation,
@@ -60,6 +62,18 @@ describe('#session helpers', () => {
 
     clearPendingLimits(request)
     expect(getPendingLimits(request)).toBeUndefined()
+  })
+
+  test('keeps the client secret an admin has just added, in a slot of its own, until it is shown', () => {
+    const request = mockRequest()
+
+    setAddedClientSecret(request, { teamSlug: 'a', secret: 's' })
+    expect(takeIssuedCredential(request)).toBeUndefined()
+    expect(takeAddedClientSecretIf(request, () => false)).toBeUndefined()
+    expect(
+      takeAddedClientSecretIf(request, ({ teamSlug }) => teamSlug === 'a')
+    ).toEqual({ teamSlug: 'a', secret: 's' })
+    expect(takeAddedClientSecretIf(request, () => true)).toBeUndefined()
   })
 
   test('keeps an add of a client secret that is waiting to be answered until it is cleared', () => {
