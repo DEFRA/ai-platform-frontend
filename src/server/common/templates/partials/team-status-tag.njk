@@ -1,0 +1,11 @@
+{#
+  The team's status on its pages, said only while it is Disabled (the status
+  is as text in the tag, not only colour). Context: teamLocked.
+#}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+{% if teamLocked %}
+  <p class="govuk-body" data-testid="team-status">
+    <span class="govuk-visually-hidden">Status: </span>{{ govukTag({ text: "Disabled", classes: "govuk-tag--grey" }) }}
+  </p>
+{% endif %}

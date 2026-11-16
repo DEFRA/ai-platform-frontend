@@ -1,4 +1,9 @@
-import { carryFormKey, credentialKey, issueFormKey } from './credential-keys.js'
+import {
+  carryFormKey,
+  credentialKey,
+  issueFormKey,
+  teamDisableKey
+} from './credential-keys.js'
 
 const UUID_V4 =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -39,6 +44,51 @@ describe('#credentialKey', () => {
     expect(credentialKey({ yar: { id: 'session-2' } }, operation)).not.toBe(
       credentialKey(request, operation)
     )
+  })
+})
+
+describe('#teamDisableKey', () => {
+  const disable = {
+    teamId: 'team-1',
+    formKey: issueFormKey(),
+    reason: 'Suspected misuse',
+    environments: ['infradev', 'qa']
+  }
+
+  test('is a version 4 UUID, the same for a retry of the same form, reason and choice, whatever the order of the environments', () => {
+    expect(teamDisableKey(request, disable)).toMatch(UUID_V4)
+    expect(teamDisableKey(request, disable)).toBe(
+      teamDisableKey(request, { ...disable, environments: ['qa', 'infradev'] })
+    )
+  })
+
+  test.each([
+    ['team', { teamId: 'team-2' }],
+    ['form', { formKey: issueFormKey() }],
+    ['reason', { reason: 'Another reason' }],
+    ['environments', { environments: ['infradev'] }],
+    ['choice of none', { environments: [] }]
+  ])('is another key when the %s is another', (_name, change) => {
+    expect(teamDisableKey(request, { ...disable, ...change })).not.toBe(
+      teamDisableKey(request, disable)
+    )
+  })
+
+  test('is another key for another session, and from a credential key', () => {
+    expect(teamDisableKey({ yar: { id: 'session-2' } }, disable)).not.toBe(
+      teamDisableKey(request, disable)
+    )
+    expect(teamDisableKey(request, disable)).not.toBe(
+      credentialKey(request, operation)
+    )
+  })
+
+  test('does not change the order of the list it is given', () => {
+    const environments = ['qa', 'infradev']
+
+    teamDisableKey(request, { ...disable, environments })
+
+    expect(environments).toEqual(['qa', 'infradev'])
   })
 })
 

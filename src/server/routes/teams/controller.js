@@ -4,6 +4,7 @@ import Joi from 'joi'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { safeReturnTo } from '#/server/common/helpers/safe-redirect.js'
+import { lockContext } from '#/server/common/helpers/team-lock.js'
 import {
   getSessionUser,
   getPendingTeam,
@@ -232,6 +233,7 @@ export const teamsController = {
           heading: team.name,
           tabs: teamTabs(team, 'overview'),
           notification: takeAccountNotification(request),
+          ...lockContext(loaded.lock),
           team,
           teamUrl: teamUrl(team),
           ...(await loadOverviewTab(request, team))

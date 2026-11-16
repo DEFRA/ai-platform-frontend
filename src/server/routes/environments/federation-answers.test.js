@@ -197,7 +197,11 @@ describe('federation answers', () => {
         'environment-not-set-up',
         'Infradev is not set up yet. Deploy a model there first'
       ],
-      ['environment-not-available', 'Infradev is not available yet']
+      ['environment-not-available', 'Infradev is not available yet'],
+      [
+        'team-disabled',
+        'Infradev is disabled. You can view it but not change it'
+      ]
     ])('says what %s means for an environment', (code, expected) => {
       expect(refusalText(code, context)).toBe(expected)
     })

@@ -22,7 +22,8 @@ describe('#actionLabel', () => {
     ['not-a-member', 'Refused: not a member of the team'],
     ['admin-required', 'Refused: Team Admin role needed'],
     ['platform-admin-required', 'Refused: Platform Admin role needed'],
-    ['self-add-refused', 'Refused: adding yourself to a team']
+    ['self-add-refused', 'Refused: adding yourself to a team'],
+    ['team-disabled', 'Refused: the team is disabled']
   ])('Should say an access refusal for %s as "%s"', (code, label) => {
     expect(actionLabel({ action: 'access.denied', code })).toBe(label)
   })
@@ -39,9 +40,22 @@ describe('#actionLabel', () => {
   test.each([
     ['admin.credentials.disable', 'Disabled a team’s credentials'],
     ['admin.credentials.enable', 'Enabled a team’s credentials'],
-    ['admin.credentials.revoke', 'Revoked a team’s credentials']
+    ['admin.credentials.revoke', 'Revoked a team’s credentials'],
+    ['admin.team.disable', 'Disabled a team'],
+    ['admin.team.enable', 'Enabled a team']
   ])('Should say %s as "%s"', (action, label) => {
     expect(actionLabel({ action, code: null })).toBe(label)
+  })
+
+  test('Should offer the team disable and enable actions to the Action filter, by their labels', () => {
+    expect(
+      ACTION_OPTIONS.filter(({ value }) => value.startsWith('admin.team.')).map(
+        ({ value, text }) => [value, text]
+      )
+    ).toEqual([
+      ['admin.team.disable', 'Disabled a team'],
+      ['admin.team.enable', 'Enabled a team']
+    ])
   })
 
   test('Should offer the three credential actions to the Action filter, by their labels', () => {

@@ -4,6 +4,12 @@
 
 export const MAX_REASON_LENGTH = 500
 
+// What the page says when the backend refused the reason (it checks it again).
+export const REASON_CODES = {
+  'reason-required': 'Enter a reason',
+  'reason-too-long': `Reason must be ${MAX_REASON_LENGTH} characters or fewer`
+}
+
 /**
  * Reads the reason a form came with.
  * @param {unknown} value - What the form's field held.

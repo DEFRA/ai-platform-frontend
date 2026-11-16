@@ -3,6 +3,7 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
 {% from "members-table/macro.njk" import appMembersTable %}
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 
@@ -19,6 +20,14 @@
     <div class="govuk-grid-column-full">
       {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
 
+      {% if warning %}
+        {{ govukWarningText({
+          text: warning,
+          iconFallbackText: "Warning",
+          attributes: { "data-testid": "team-disabled-warning" }
+        }) }}
+      {% endif %}
+
       {% set statusHtml %}{{ govukTag({ text: status.text, classes: status.classes }) }}{% endset %}
       {% set environmentsHtml %}
         {% if environments.length == 0 %}
@@ -28,6 +37,9 @@
             {% for environment in environments %}
               <li>
                 {% if environment.href %}<a class="govuk-link" href="{{ environment.href }}">{{ environment.name }}</a>{% else %}{{ environment.name }}{% endif %}: {{ govukTag({ text: environment.status.text, classes: environment.status.classes }) }}
+                {% if environment.disabled %}
+                  {{ govukTag({ text: "Disabled", classes: "govuk-tag--grey", attributes: { "data-testid": "environment-disabled" } }) }}
+                {% endif %}
                 {% if environment.removeAfter %}
                   <span class="govuk-hint govuk-!-display-inline">Can be removed from {{ environment.removeAfter | formatDate }}</span>
                 {% endif %}
@@ -45,6 +57,26 @@
           { key: { text: "Environments" }, value: { html: environmentsHtml } }
         ]
       }) }}
+
+      {% if canDisable or canEnable %}
+        <div class="govuk-button-group" data-testid="team-lifecycle-actions">
+          {% if canDisable %}
+            {{ govukButton({
+              text: "Disable team",
+              href: disableUrl,
+              classes: "govuk-button--secondary",
+              attributes: { "data-testid": "disable-team" }
+            }) }}
+          {% endif %}
+          {% if canEnable %}
+            {{ govukButton({
+              text: "Enable team",
+              href: enableUrl,
+              attributes: { "data-testid": "enable-team" }
+            }) }}
+          {% endif %}
+        </div>
+      {% endif %}
 
       <p class="govuk-body">
         <a class="govuk-link" href="{{ auditLogUrl }}" data-testid="view-audit-log">View audit log</a>

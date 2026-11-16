@@ -6,12 +6,14 @@
 
 {% block content %}
   {% include "partials/team-notification.njk" %}
+  {% include "partials/team-lock-banner.njk" %}
 
   {{ appHeading({
     text: heading,
     caption: "Team",
     captionAbove: true
   }) }}
+  {% include "partials/team-status-tag.njk" %}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
@@ -20,7 +22,8 @@
       {% if isAdmin %}
         {{ govukButton({
           text: "Add a member",
-          href: addMemberUrl,
+          href: none if teamLocked else addMemberUrl,
+          disabled: teamLocked,
           attributes: { "data-testid": "add-member" }
         }) }}
       {% endif %}

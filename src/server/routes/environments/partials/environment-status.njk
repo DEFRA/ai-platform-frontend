@@ -14,7 +14,8 @@
   {% set deployHtml %}
     {{ govukButton({
       text: "Deploy a model",
-      href: deployUrl,
+      href: none if deployLocked else deployUrl,
+      disabled: deployLocked,
       classes: "govuk-!-margin-bottom-0",
       attributes: { "data-testid": "deploy-a-model" }
     }) }}
@@ -23,7 +24,7 @@
   {% if models.length %}
     <dl class="govuk-summary-list app-summary-list--table">
       {% for model in models %}
-        <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not model.removeUrl }}" data-testid="model-row">
+        <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (model.removeUrl or model.removeLocked) }}" data-testid="model-row">
           <dt class="govuk-summary-list__key">{{ model.name }}</dt>
           <dd class="govuk-summary-list__value">
             <strong class="govuk-tag {{ model.tagClass }}">{{ model.statusText }}</strong>
@@ -38,6 +39,10 @@
             <dd class="govuk-summary-list__actions">
               <a class="govuk-link" href="{{ model.removeUrl }}" data-testid="model-remove">Remove<span class="govuk-visually-hidden"> {{ model.name }} from {{ heading }}</span></a>
             </dd>
+          {% elif model.removeLocked %}
+            <dd class="govuk-summary-list__actions">
+              <span class="app-secondary-text" data-testid="model-remove-locked">Remove<span class="govuk-visually-hidden"> {{ model.name }} from {{ heading }}</span></span>
+            </dd>
           {% endif %}
         </div>
       {% endfor %}
@@ -50,7 +55,11 @@
             <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
               <div class="app-button-group govuk-!-margin-bottom-0">
                 {% for action in secret.actions %}
-                  <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ heading }} client secret</span></a>
+                  {% if action.href %}
+                    <a class="govuk-link" href="{{ action.href }}">{{ action.text }}<span class="govuk-visually-hidden"> the {{ heading }} client secret</span></a>
+                  {% else %}
+                    <span class="app-secondary-text" data-testid="secret-{{ action.text | lower }}-locked">{{ action.text }}<span class="govuk-visually-hidden"> the {{ heading }} client secret</span></span>
+                  {% endif %}
                 {% endfor %}
               </div>
             </dd>
@@ -64,15 +73,21 @@
     <p class="govuk-body" data-testid="no-models">No models in {{ heading }}.</p>
     {% if setUpUrl %}
       <p class="govuk-body"><a class="govuk-link" href="{{ setUpUrl }}" data-testid="set-up-environment">Set up {{ heading }}</a></p>
+    {% elif setUpLocked %}
+      <p class="govuk-body app-secondary-text" data-testid="set-up-environment-locked">Set up {{ heading }}</p>
     {% endif %}
   {% endif %}
   {% endcall %}
 
   {% if limits %}
     {% set changeLimitsHtml %}
-      <a class="govuk-link" href="{{ limits.changeUrl }}" data-testid="change-limits">Change<span class="govuk-visually-hidden"> the limits in {{ heading }}</span></a>
+      {% if limits.changeLocked %}
+        <span class="app-secondary-text" data-testid="change-limits-locked">Change<span class="govuk-visually-hidden"> the limits in {{ heading }}</span></span>
+      {% else %}
+        <a class="govuk-link" href="{{ limits.changeUrl }}" data-testid="change-limits">Change<span class="govuk-visually-hidden"> the limits in {{ heading }}</span></a>
+      {% endif %}
     {% endset %}
-    {% call appSectionCard({ title: "Limits", actionsHtml: changeLimitsHtml if limits.changeUrl, attributes: { "data-testid": "section-limits" } }) %}
+    {% call appSectionCard({ title: "Limits", actionsHtml: changeLimitsHtml if (limits.changeUrl or limits.changeLocked), attributes: { "data-testid": "section-limits" } }) %}
     <dl class="govuk-summary-list app-summary-list--table">
       <div class="govuk-summary-list__row govuk-summary-list__row--no-actions" data-testid="limits-row-tokens">
         <dt class="govuk-summary-list__key">Tokens a minute</dt>
@@ -93,12 +108,13 @@
     {% set federateHtml %}
       {{ govukButton({
         html: 'Create Passwordless Credential<span class="govuk-visually-hidden"> in ' + (heading | escape) + '</span>',
-        href: applications.federateUrl,
+        href: none if applications.federateLocked else applications.federateUrl,
+        disabled: applications.federateLocked,
         classes: "govuk-!-margin-bottom-0",
         attributes: { "data-testid": "federate-an-application" }
       }) }}
     {% endset %}
-    {% call appSectionCard({ title: "Applications", actionsHtml: federateHtml if applications.federateUrl, attributes: { id: "applications", "data-testid": "section-applications" } }) %}
+    {% call appSectionCard({ title: "Applications", actionsHtml: federateHtml if (applications.federateUrl or applications.federateLocked), attributes: { id: "applications", "data-testid": "section-applications" } }) %}
     <p class="govuk-body" data-testid="applications-count">{{ applications.countText }}. An application here gets your team’s access to every model in {{ heading }}.</p>
     {% if applications.fullMessage and not applications.federateUrl %}
       <p class="govuk-body" data-testid="applications-full">{{ applications.fullMessage }}</p>
@@ -107,7 +123,7 @@
     {% if applications.items.length %}
       <dl class="govuk-summary-list app-summary-list--table">
         {% for application in applications.items %}
-          <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (application.changeUrl or application.removeUrl) }}" data-testid="application-row">
+          <div class="govuk-summary-list__row{{ ' govuk-summary-list__row--no-actions' if not (application.changeUrl or application.removeUrl or application.lockedActions.length) }}" data-testid="application-row">
             <dt class="govuk-summary-list__key">{{ application.name }} <span class="govuk-hint govuk-!-margin-bottom-0">{{ application.kind }}</span></dt>
             <dd class="govuk-summary-list__value">
               <strong class="govuk-tag {{ application.tag.tagClass }}">{{ application.tag.text }}</strong>
@@ -115,7 +131,15 @@
                 <p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0" data-testid="application-reason">{{ application.reason }}</p>
               {% endif %}
             </dd>
-            {% if application.changeUrl or application.removeUrl %}
+            {% if application.lockedActions.length %}
+              <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
+                <div class="app-button-group govuk-!-margin-bottom-0">
+                  {% for text in application.lockedActions %}
+                    <span class="app-secondary-text" data-testid="application-{{ text | lower }}-locked">{{ text }}<span class="govuk-visually-hidden"> {{ application.name }} {{ "in" if text == "Change" else "from" }} {{ heading }}</span></span>
+                  {% endfor %}
+                </div>
+              </dd>
+            {% elif application.changeUrl or application.removeUrl %}
               <dd class="govuk-summary-list__actions app-summary-list__actions--inline">
                 <div class="app-button-group govuk-!-margin-bottom-0">
                   {% if application.changeUrl %}

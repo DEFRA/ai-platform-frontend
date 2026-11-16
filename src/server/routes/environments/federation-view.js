@@ -33,14 +33,19 @@ function tagFor(status) {
 // Only an admin changes or removes an application, because that can cut off a
 // running service. An application being set up or removed is left alone until
 // it settles; one that failed can only be cleared away.
-function actionsFor(application, { team, environment, isAdmin }) {
+function actionsFor(application, { team, environment, isAdmin, locked }) {
   const { id, status } = application
   const url = (action) => applicationUrl(team.slug, environment, id, action)
+  const changeable = isAdmin && status === READY
+  const removable = isAdmin && (status === READY || status === FAILED)
 
+  // In a disabled environment the actions are still shown, as plain text.
   return {
-    changeUrl: isAdmin && status === READY ? url('change') : null,
-    removeUrl:
-      isAdmin && (status === READY || status === FAILED) ? url('remove') : null
+    changeUrl: changeable && !locked ? url('change') : null,
+    removeUrl: removable && !locked ? url('remove') : null,
+    lockedActions: locked
+      ? [changeable && 'Change', removable && 'Remove'].filter(Boolean)
+      : []
   }
 }
 
@@ -81,6 +86,7 @@ export function environmentHasRoom(summary) {
  * @param {string} params.registryName
  * @param {object} params.detail - The backend's environment read.
  * @param {boolean} params.isAdmin
+ * @param {boolean} [params.locked] - The environment is disabled: nothing can be created, changed or removed.
  * @returns {object | null}
  */
 export function buildApplications({
@@ -88,7 +94,8 @@ export function buildApplications({
   environment,
   registryName,
   detail,
-  isAdmin
+  isAdmin,
+  locked = false
 }) {
   if (!detail.setUp || !detail.applications) {
     return null
@@ -96,7 +103,7 @@ export function buildApplications({
 
   const { used, limit, items = [] } = detail.applications
   const full = used >= limit
-  const context = { team, environment, isAdmin }
+  const context = { team, environment, isAdmin, locked }
 
   return {
     used,
@@ -106,7 +113,9 @@ export function buildApplications({
     fullMessage: full
       ? `${registryName} holds ${limit} applications, the most one environment can. Remove one to create another passwordless credential here.`
       : null,
-    federateUrl: full ? null : federateUrl(team.slug, '', { environment }),
+    federateUrl:
+      full || locked ? null : federateUrl(team.slug, '', { environment }),
+    federateLocked: locked && !full,
     items: items.map((application) => applicationRow(application, context))
   }
 }

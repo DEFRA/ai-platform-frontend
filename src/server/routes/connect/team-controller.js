@@ -13,7 +13,15 @@ import {
   buildErrorSummary,
   buildFieldErrors
 } from '#/server/common/helpers/govuk-errors.js'
-import { defaultTeamEnvironment } from '#/server/common/helpers/environment-names.js'
+import {
+  defaultTeamEnvironment,
+  teamEnvironmentsUrl
+} from '#/server/common/helpers/environment-names.js'
+import {
+  isTeamDisabledError,
+  lockedPage,
+  teamLockOf
+} from '#/server/common/helpers/team-lock.js'
 import {
   changeQuerySchema,
   hasCompletedTeamJourney,
@@ -166,6 +174,18 @@ export const teamConnectController = {
         // Another team has other models and its own deployments, so the
         // models are chosen again. From here the journey belongs to this
         // person (teamJourneyOf).
+        const locked = lockedPage(h, teamLockOf(team), {
+          environment: pendingAccess.environment ?? defaultTeamEnvironment(),
+          back: {
+            href: teamEnvironmentsUrl(team.slug),
+            text: 'Back to all environments'
+          }
+        })
+
+        if (locked) {
+          return locked
+        }
+
         const sameTeam = pendingAccess.teamSlug === team.slug
         const { modelSlugs, modelStepSkipped, ...rest } = pendingAccess
 
@@ -454,7 +474,8 @@ export const teamConnectController = {
             )
             .code(statusCodes.seeOther)
         } catch (error) {
-          if (error instanceof ApiError) {
+          // A disabled team has a page of its own (the error handler's).
+          if (error instanceof ApiError && !isTeamDisabledError(error)) {
             const existingRequestUrl =
               error.code === 'deployment-exists' && error.existingId
                 ? `/connect/team/request/${encodeURIComponent(teamSlug)}/${error.existingId}`

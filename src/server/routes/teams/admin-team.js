@@ -1,4 +1,5 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
+import { lockedPage } from '#/server/common/helpers/team-lock.js'
 import {
   isNotFound,
   loadTeamForView,
@@ -41,7 +42,8 @@ export function adminRequiredView(h, team, action, tab) {
  * @param {import('@hapi/hapi').ResponseToolkit} h
  * @param {string} action - What only an admin can do, for example "add people".
  * @param {'members' | 'details'} tab - The tab to offer going back to.
- * @returns {Promise<{page: object} | {loaded: object}>}
+ * @returns {Promise<{page: object} | {loaded: object}>} The page is the one
+ *   for a person who is not an admin, or for a disabled team (409).
  */
 export async function loadAdminTeam(request, h, action, tab) {
   let loaded
@@ -58,6 +60,19 @@ export async function loadAdminTeam(request, h, action, tab) {
 
   if (!loaded.isAdmin) {
     return { page: adminRequiredView(h, loaded.team, action, tab) }
+  }
+
+  // Everything an admin does on these pages is a team-wide change, locked
+  // while the team is disabled (the backend refuses it too).
+  const locked = lockedPage(h, loaded.lock, {
+    back: {
+      href: `${teamUrl(loaded.team)}${TABS[tab].path}`,
+      text: TABS[tab].text
+    }
+  })
+
+  if (locked) {
+    return { page: locked }
   }
 
   return { loaded }

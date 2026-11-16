@@ -6,6 +6,10 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { cdpTrustText } from '#/server/common/helpers/cdp-environments.js'
 import {
+  TEAM_DISABLED,
+  teamDisabledPage
+} from '#/server/common/helpers/team-lock.js'
+import {
   changeQuerySchema,
   isChange
 } from '#/server/routes/connect/team-journey.js'
@@ -35,7 +39,8 @@ const SELECT_FROM_LIST = 'Select environments from the list'
 const NOT_OFFERED = new Set([
   'environment-not-available',
   'environment-not-set-up',
-  'federation-limit-reached'
+  'federation-limit-reached',
+  TEAM_DISABLED
 ])
 
 function redirectTo(h, url) {
@@ -288,7 +293,18 @@ export const federateEnvironments = {
       const { team, pending, offered, codes } = step
 
       if (offered.length === 0) {
-        return nothingOffered(h, team, pending)
+        // Every environment that could take it is disabled: the page says so
+        // rather than that there is no room.
+        return [...codes.values()].includes(TEAM_DISABLED)
+          ? teamDisabledPage(
+              h,
+              {
+                href: teamEnvironmentsUrl(team.slug),
+                text: 'Back to all environments'
+              },
+              { environment: true }
+            )
+          : nothingOffered(h, team, pending)
       }
 
       const refusals = refusalsOf(offered, codes)

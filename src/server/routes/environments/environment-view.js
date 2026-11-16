@@ -25,6 +25,12 @@ import {
 import { teamUrl } from '#/server/routes/teams/team-view.js'
 import { buildOperationItem } from './operation-view.js'
 import { buildApplications, buildConnection } from './federation-view.js'
+import {
+  isDeployLocked,
+  isEnvironmentLocked,
+  lockContext,
+  withDisabledEnvironment
+} from '#/server/common/helpers/team-lock.js'
 
 const ACTIVE_STATUS = 'active'
 const START_URL = '/connect/team/start'
@@ -32,10 +38,34 @@ const START_URL = '/connect/team/start'
 const numberFormat = new Intl.NumberFormat('en-GB')
 
 const TAG_AVAILABLE = { text: 'Available', tagClass: 'govuk-tag--green' }
+const TAG_DISABLED = { text: 'Disabled', tagClass: 'govuk-tag--grey' }
 const TAG_PAUSED = { text: 'Paused', tagClass: 'govuk-tag--yellow' }
 const TAG_NOT_AVAILABLE = {
   text: 'Not available yet',
   tagClass: 'govuk-tag--grey'
+}
+
+const NO_LOCK = { teamDisabled: false, disabledEnvironments: [] }
+
+/**
+ * Whether an environment is disabled: the backend says so on the environment
+ * itself and in the team's list; either is enough to grey its actions.
+ * @param {{disabledEnvironments: string[]}} lock
+ * @param {string} environment - The environment code.
+ * @param {{disabled?: boolean} | null | undefined} summary - The environment as read.
+ * @returns {boolean}
+ */
+export function isDisabled(lock, environment, summary) {
+  return Boolean(summary?.disabled) || isEnvironmentLocked(lock, environment)
+}
+
+// What an environment says it is: a lock is ahead of a pause.
+function statusTag({ disabled, paused }) {
+  if (disabled) {
+    return TAG_DISABLED
+  }
+
+  return paused ? TAG_PAUSED : TAG_AVAILABLE
 }
 
 /**
@@ -127,15 +157,17 @@ function tokensText(limits) {
     : 'Not set up yet'
 }
 
-function availableCard(slot, summary, { team, modelNames, now }) {
+function availableCard(slot, summary, { team, modelNames, now, lock }) {
+  const disabled = isDisabled(lock, slot.code, summary)
   const card = {
     ...slot,
-    tag: summary?.paused ? TAG_PAUSED : TAG_AVAILABLE,
+    tag: statusTag({ disabled, paused: summary?.paused }),
     href: environmentPageUrl(team.slug, slot.code),
     linkText: `View ${slot.name}`,
     setUp: Boolean(summary?.setUp),
     setUpUrl: null,
     setUpText: null,
+    setUpLocked: false,
     notSetUp: null,
     pausedNote: summary?.paused
       ? `Changes wait here until the platform team resumes ${slot.name}.`
@@ -156,8 +188,13 @@ function availableCard(slot, summary, { team, modelNames, now }) {
       notSetUp: isFirst
         ? `Not set up yet. Deploy a model to set up ${slot.name}.`
         : 'Not set up yet.',
-      setUpUrl: isFirst ? null : environmentSetUpUrl(team.slug, slot.code),
-      setUpText: isFirst ? null : `Set up ${slot.name}`
+      // Setting up an environment is a team-wide change, locked with the team.
+      setUpUrl:
+        isFirst || lock.teamDisabled
+          ? null
+          : environmentSetUpUrl(team.slug, slot.code),
+      setUpText: isFirst ? null : `Set up ${slot.name}`,
+      setUpLocked: !isFirst && lock.teamDisabled
     }
   }
 
@@ -186,10 +223,17 @@ function availableCard(slot, summary, { team, modelNames, now }) {
  * @param {{slug: string}} params.team
  * @param {object[]} params.summaries - The backend's environments, by code.
  * @param {Record<string, string>} params.modelNames
+ * @param {{teamDisabled: boolean, disabledEnvironments: string[]}} [params.lock] - What is locked for the team.
  * @param {Date} [params.now]
  * @returns {object[]}
  */
-export function buildCards({ team, summaries, modelNames, now = new Date() }) {
+export function buildCards({
+  team,
+  summaries,
+  modelNames,
+  lock = NO_LOCK,
+  now = new Date()
+}) {
   return slots().map((slot) => {
     if (!slot.available) {
       return {
@@ -205,7 +249,7 @@ export function buildCards({ team, summaries, modelNames, now = new Date() }) {
       ({ environment }) => environment === slot.code
     )
 
-    return availableCard(slot, summary, { team, modelNames, now })
+    return availableCard(slot, summary, { team, modelNames, now, lock })
   })
 }
 
@@ -222,11 +266,13 @@ function modelDetailLink(deployment, team, { failed, inProgress }) {
 }
 
 // One model in the environment: its state, what a person can do about it and,
-// for an admin, the way to remove it, which only a ready model has.
-function modelRow(deployment, { team, isAdmin, modelNames }) {
+// for an admin, the way to remove it, which only a ready model has. In a
+// disabled environment the way to remove it is plain text.
+function modelRow(deployment, { team, isAdmin, modelNames, locked }) {
   const { status } = deployment
   const failed = DEPLOYMENT_FAILURE_STATUSES.includes(status)
   const inProgress = isDeploymentInProgress(status)
+  const removable = isAdmin && status === ACTIVE_STATUS
 
   return {
     name: modelNames[deployment.modelSlug] ?? deployment.modelSlug,
@@ -238,16 +284,25 @@ function modelRow(deployment, { team, isAdmin, modelNames }) {
       status === ACTIVE_STATUS ? (deployment.failureReason ?? null) : null,
     detail: modelDetailLink(deployment, team, { failed, inProgress }),
     removeUrl:
-      isAdmin && status === ACTIVE_STATUS
+      removable && !locked
         ? `${teamUrl(team)}/models/${encodeURIComponent(deployment._id)}/remove`
-        : null
+        : null,
+    removeLocked: removable && locked
   }
 }
 
 // The team's client secret for the environment: when it expires (only when
 // the credential says so), and what a person can do with it. Admins view,
-// rotate and revoke it; members are told to ask an admin.
-function secretRow({ team, environment, isAdmin, credentials, deployments }) {
+// rotate and revoke it; members are told to ask an admin. In a disabled
+// environment viewing and rotating are plain text: revoking stays open.
+function secretRow({
+  team,
+  environment,
+  isAdmin,
+  credentials,
+  deployments,
+  locked
+}) {
   if (credentials === null) {
     return { text: 'We could not check this just now.' }
   }
@@ -277,8 +332,8 @@ function secretRow({ team, environment, isAdmin, credentials, deployments }) {
       : '',
     actions: isAdmin
       ? [
-          { text: 'View', href: `${base}/view` },
-          { text: 'Rotate', href: `${base}/rotate` },
+          { text: 'View', href: locked ? null : `${base}/view` },
+          { text: 'Rotate', href: locked ? null : `${base}/rotate` },
           { text: 'Revoke', href: `${base}/revoke` }
         ]
       : [],
@@ -291,12 +346,13 @@ function limitText(value) {
   return typeof value === 'number' ? numberFormat.format(value) : 'Not set'
 }
 
-function limitsView({ team, environment, detail, isAdmin }) {
+function limitsView({ team, environment, detail, isAdmin, locked }) {
   if (!detail.setUp || !detail.limits) {
     return null
   }
 
   const { pendingLimits } = detail
+  const changeable = isAdmin && Boolean(detail.limitBounds)
 
   return {
     tokensPerMinute: limitText(detail.limits.tokensPerMinute),
@@ -305,9 +361,10 @@ function limitsView({ team, environment, detail, isAdmin }) {
       ? `Changing to ${numberFormat.format(pendingLimits.tokensPerMinute)} tokens and ${numberFormat.format(pendingLimits.requestsPerMinute)} requests a minute`
       : null,
     changeUrl:
-      isAdmin && detail.limitBounds
+      changeable && !locked
         ? `${environmentPageUrl(team.slug, environment)}/limits`
-        : null
+        : null,
+    changeLocked: changeable && locked
   }
 }
 
@@ -323,6 +380,7 @@ function limitsView({ team, environment, detail, isAdmin }) {
  * @param {Record<string, string>} params.modelNames
  * @param {Record<string, object>} [params.catalogue] - The catalogue's models by slug, for the call a model takes.
  * @param {object[] | null} params.credentials - The person's credentials, or null when they could not be read.
+ * @param {{teamDisabled: boolean, disabledEnvironments: string[]}} [params.lock] - What is locked for the team.
  * @param {Date} [params.now]
  * @returns {object}
  */
@@ -335,10 +393,15 @@ export function buildEnvironmentPage({
   modelNames,
   catalogue = {},
   credentials,
+  lock = NO_LOCK,
   now = new Date()
 }) {
+  const locked = isDisabled(lock, environment, detail)
+  // The page's lock, with this environment in it when the backend says so on
+  // the environment itself.
+  const pageLock = locked ? withDisabledEnvironment(lock, environment) : lock
   const models = detail.models.map((deployment) =>
-    modelRow(deployment, { team, isAdmin, modelNames })
+    modelRow(deployment, { team, isAdmin, modelNames, locked })
   )
 
   return {
@@ -346,16 +409,24 @@ export function buildEnvironmentPage({
     caption: team.name,
     displayName: name,
     strip: buildStrip(team.slug, environment),
-    tag: detail.paused ? TAG_PAUSED : TAG_AVAILABLE,
+    tag: statusTag({ disabled: locked, paused: detail.paused }),
+    ...lockContext(pageLock, environment),
     pausedNote: detail.paused
       ? `Changes wait here until the platform team resumes ${registryName}.`
       : null,
     deployUrl: deployUrl(team, environment),
+    deployLocked: isDeployLocked(pageLock, environment, detail),
     setUp: Boolean(detail.setUp),
     setUpUrl:
-      !detail.setUp && environment !== defaultTeamEnvironment()
+      !detail.setUp &&
+      environment !== defaultTeamEnvironment() &&
+      !lock.teamDisabled
         ? environmentSetUpUrl(team.slug, environment)
         : null,
+    setUpLocked:
+      !detail.setUp &&
+      environment !== defaultTeamEnvironment() &&
+      lock.teamDisabled,
     changes: operations.open.map((operation) =>
       buildOperationItem(operation, { modelNames })
     ),
@@ -368,16 +439,18 @@ export function buildEnvironmentPage({
             environment,
             isAdmin,
             credentials,
-            deployments: detail.models
+            deployments: detail.models,
+            locked
           })
         : null,
-    limits: limitsView({ team, environment, detail, isAdmin }),
+    limits: limitsView({ team, environment, detail, isAdmin, locked }),
     applications: buildApplications({
       team,
       environment,
       registryName,
       detail,
-      isAdmin
+      isAdmin,
+      locked
     }),
     connection: buildConnection({ detail, catalogue }),
     inProgress:

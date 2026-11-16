@@ -25,7 +25,7 @@
       {% for item in recent %}
         <tr class="govuk-table__row" data-testid="recent-change">
           <td class="govuk-table__cell">{{ item.when }}</td>
-          <td class="govuk-table__cell app-secondary-text">{{ item.change }}{% if showEnvironment %} in {{ item.environmentName }}{% endif %}</td>
+          <td class="govuk-table__cell app-secondary-text">{{ item.change }}{% if showEnvironment and item.environmentName %} in {{ item.environmentName }}{% endif %}</td>
           <td class="govuk-table__cell">
             <strong class="govuk-tag {{ item.result.tagClass }}">{{ item.result.text }}</strong>
             {{ failureDetail(item.failure) }}

@@ -28,6 +28,8 @@ const ACTION_LABELS = {
   'admin.credentials.disable': 'Disabled a team’s credentials',
   'admin.credentials.enable': 'Enabled a team’s credentials',
   'admin.credentials.revoke': 'Revoked a team’s credentials',
+  'admin.team.disable': 'Disabled a team',
+  'admin.team.enable': 'Enabled a team',
   'access.denied': 'Access refused'
 }
 
@@ -38,7 +40,8 @@ const REFUSAL_LABELS = {
   'not-a-member': 'Refused: not a member of the team',
   'admin-required': 'Refused: Team Admin role needed',
   'platform-admin-required': 'Refused: Platform Admin role needed',
-  'self-add-refused': 'Refused: adding yourself to a team'
+  'self-add-refused': 'Refused: adding yourself to a team',
+  'team-disabled': 'Refused: the team is disabled'
 }
 
 /**

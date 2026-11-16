@@ -1,6 +1,7 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { getSessionUser } from '#/server/common/helpers/session.js'
+import { teamLockOf } from '#/server/common/helpers/team-lock.js'
 
 /**
  * Where a team's pages live: its slug, never its id (D10).
@@ -90,7 +91,7 @@ export function maskIfAddress(name) {
  * backend's rule, answered when a change is tried.
  * @param {import('@hapi/hapi').Request} request
  * @param {string} teamRef - The team's slug (or id).
- * @returns {Promise<{team: object, members: object[], isAdmin: boolean, environments: Array<{environment: string, limits: object}>}>}
+ * @returns {Promise<{team: object, members: object[], isAdmin: boolean, lock: {teamDisabled: boolean, disabledEnvironments: string[]}, environments: Array<{environment: string, limits: object}>}>}
  */
 export async function loadTeamForView(request, teamRef) {
   const sessionUser = getSessionUser(request)
@@ -124,5 +125,5 @@ export async function loadTeamForView(request, teamRef) {
       }
     })
 
-  return { ...result, members, isAdmin }
+  return { ...result, members, isAdmin, lock: teamLockOf(result.team) }
 }

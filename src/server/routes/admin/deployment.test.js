@@ -238,6 +238,48 @@ describe('#admin deployment detail', () => {
       )
     })
 
+    test('shows the team Disabled in the portal, and still offers the credential actions, when the environment is disabled', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          teamDisabled: true,
+          team: {
+            id: 'team-1',
+            name: 'Flood Risk Team',
+            status: 'disabled',
+            memberCount: 3
+          }
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const rows = $(
+        '[data-testid="deployment-summary"] .govuk-summary-list__row'
+      )
+        .map((_, row) => [
+          [
+            $(row).find('dt').text().trim(),
+            $(row).find('dd').text().replace(/\s+/g, ' ').trim()
+          ]
+        ])
+        .get()
+
+      expect(rows).toContainEqual(['Team status', 'Disabled'])
+      expect(rows).toContainEqual([
+        'In the portal',
+        'Disabled The team can view Development but not change it. Its credentials keep working.'
+      ])
+      expect($('[data-testid="disable-credentials"]')).toHaveLength(1)
+      expect($('[data-testid="revoke-credentials"]')).toHaveLength(1)
+    })
+
+    test('has no portal row for an environment that is not disabled', async () => {
+      mockApi(fetchMock, { [`GET ${DETAIL}`]: detail({ teamDisabled: false }) })
+
+      const $ = load((await get(PAGE)).result)
+
+      expect($('[data-testid="environment-disabled"]')).toHaveLength(0)
+    })
+
     test('says when a credential is disabled, and when', async () => {
       mockApi(fetchMock, {
         [`GET ${DETAIL}`]: detail({

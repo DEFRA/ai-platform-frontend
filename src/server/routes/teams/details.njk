@@ -4,12 +4,14 @@
 
 {% block content %}
   {% include "partials/team-notification.njk" %}
+  {% include "partials/team-lock-banner.njk" %}
 
   {{ appHeading({
     text: heading,
     caption: "Team",
     captionAbove: true
   }) }}
+  {% include "partials/team-status-tag.njk" %}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
@@ -39,7 +41,11 @@
           </dd>
           {% if isAdmin %}
             <dd class="govuk-summary-list__actions">
-              <a class="govuk-link" href="{{ serviceCodeUrl }}" data-testid="change-service-code">Change<span class="govuk-visually-hidden"> the service code</span></a>
+              {% if teamLocked %}
+                <span class="app-secondary-text" data-testid="change-service-code-locked">Change<span class="govuk-visually-hidden"> the service code</span></span>
+              {% else %}
+                <a class="govuk-link" href="{{ serviceCodeUrl }}" data-testid="change-service-code">Change<span class="govuk-visually-hidden"> the service code</span></a>
+              {% endif %}
             </dd>
           {% endif %}
         </div>
@@ -49,7 +55,11 @@
           <dd class="govuk-summary-list__value">{{ team.description or "Not given" }}</dd>
           {% if isAdmin %}
             <dd class="govuk-summary-list__actions">
-              <a class="govuk-link" href="{{ descriptionUrl }}" data-testid="change-description">Change<span class="govuk-visually-hidden"> what the team does</span></a>
+              {% if teamLocked %}
+                <span class="app-secondary-text" data-testid="change-description-locked">Change<span class="govuk-visually-hidden"> what the team does</span></span>
+              {% else %}
+                <a class="govuk-link" href="{{ descriptionUrl }}" data-testid="change-description">Change<span class="govuk-visually-hidden"> what the team does</span></a>
+              {% endif %}
             </dd>
           {% endif %}
         </div>

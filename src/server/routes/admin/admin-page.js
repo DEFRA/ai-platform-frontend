@@ -15,6 +15,22 @@ export const ADMIN_DEPLOYMENTS_URL = '/admin/deployments'
 export const ADMIN_AUDIT_URL = '/admin/audit'
 
 /**
+ * Whether the backend could not do a call, or refused it for a reason a
+ * repeat may put right (it failed, or the key was used for another request),
+ * so a page says so and offers to try again. Anything else it refused is for
+ * the page to say or to throw.
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export function isCallFailure(error) {
+  return (
+    error instanceof ApiError &&
+    (error.statusCode >= statusCodes.internalServerError ||
+      error.statusCode === statusCodes.conflict)
+  )
+}
+
+/**
  * Where a team's admin page is.
  * @param {{id: string}} team
  * @returns {string}

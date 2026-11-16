@@ -1,7 +1,7 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError, apiClient } from '#/server/common/helpers/api-client.js'
 import { setAccountNotification } from '#/server/common/helpers/session.js'
-import { adminDeploymentUrl, adminTabs } from './admin-page.js'
+import { adminDeploymentUrl, adminTabs, isCallFailure } from './admin-page.js'
 import {
   CREDENTIAL_ACTIONS,
   credentialIn,
@@ -11,7 +11,7 @@ import {
   resolveEnvironments
 } from './credential-actions.js'
 import { carryFormKey, credentialKey, issueFormKey } from './credential-keys.js'
-import { readReason } from './credential-reason.js'
+import { readReason, REASON_CODES } from './credential-reason.js'
 import {
   DEPLOYMENTS_API,
   deploymentBreadcrumbs,
@@ -29,11 +29,6 @@ import {
 // for the deployment first, and the backend refuses anyone who is not a
 // Platform Admin.
 
-const REASON_CODES = {
-  'reason-required': 'Enter a reason',
-  'reason-too-long': 'Reason must be 500 characters or fewer'
-}
-
 const PROBLEM_TEXT = {
   none: 'Choose at least one environment',
   'not-offered': 'Choose environments from the list'
@@ -41,17 +36,6 @@ const PROBLEM_TEXT = {
 
 const ENVIRONMENTS_ANCHOR = '#environments'
 const REASON_ANCHOR = '#reason'
-
-// What the backend answers when it could not do one environment, so the page
-// names it: it failed (5xx, 502 when the issuer or vault did not answer), or
-// the key was already used for another request.
-function isEnvironmentFailure(error) {
-  return (
-    error instanceof ApiError &&
-    (error.statusCode >= statusCodes.internalServerError ||
-      error.statusCode === statusCodes.conflict)
-  )
-}
 
 function deploymentUrl(deployment) {
   return adminDeploymentUrl(deployment.team.id, deployment.environment)
@@ -204,7 +188,10 @@ async function applyToEnvironment(request, args) {
 
     return 'done'
   } catch (error) {
-    if (isEnvironmentFailure(error)) {
+    // What the backend answers when it could not do this environment, so the
+    // page names it: it failed (5xx, 502 when the issuer or vault did not
+    // answer), or the key was already used for another request.
+    if (isCallFailure(error)) {
       return 'failed'
     }
 

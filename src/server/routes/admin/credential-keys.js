@@ -35,6 +35,33 @@ export function carryFormKey(offered) {
 }
 
 /**
+ * The `Idempotency-Key` for a Disable team: one call for the whole team, so
+ * the key is made from the session, the team, the page's key, the reason and
+ * the environments chosen (another choice from the same page is another
+ * request, as the backend sees it).
+ * @param {import('@hapi/hapi').Request} request
+ * @param {object} operation
+ * @param {string} operation.teamId
+ * @param {string} operation.formKey - The key the reason page was issued with.
+ * @param {string} operation.reason - The reason, as sent.
+ * @param {string[]} operation.environments - The environments chosen.
+ * @returns {string}
+ */
+export function teamDisableKey(
+  request,
+  { teamId, formKey, reason, environments }
+) {
+  return derivedIdempotencyKey([
+    'admin-team-disable',
+    request.yar.id,
+    teamId,
+    formKey,
+    reason,
+    [...environments].sort()
+  ])
+}
+
+/**
  * The `Idempotency-Key` for one environment of a disable or revoke.
  * @param {import('@hapi/hapi').Request} request
  * @param {object} operation

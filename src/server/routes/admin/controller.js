@@ -12,6 +12,8 @@ import {
   adminTeamUrl,
   loadAdminTeam
 } from './admin-page.js'
+import { environmentList } from './deployment-page.js'
+import { canEnable, disabledEnvironmentsOf } from './team-lifecycle-choices.js'
 import {
   buildPagination,
   listQuery,
@@ -53,18 +55,38 @@ function teamsView(h, { query, result, errors }) {
   })
 }
 
-// Each environment the team has a file in, with that file's status and, for a
-// team pending removal, the date it may be removed from.
+// Each environment the team has a file in, with that file's status, whether
+// it is disabled and, for a team pending removal, the date it may be removed
+// from.
 function environmentRows(team) {
-  return team.environments.map(({ environment, fileStatus, removeAfter }) => ({
-    name: environmentName(environment),
-    href:
-      fileStatus === 'removed'
-        ? null
-        : adminDeploymentUrl(team.id, environment),
-    status: teamStatusTag(fileStatus),
-    removeAfter: removeAfter ?? null
-  }))
+  return team.environments.map(
+    ({ environment, fileStatus, removeAfter, disabled }) => ({
+      name: environmentName(environment),
+      href:
+        fileStatus === 'removed'
+          ? null
+          : adminDeploymentUrl(team.id, environment),
+      status: teamStatusTag(fileStatus),
+      disabled: Boolean(disabled) && fileStatus !== 'removed',
+      removeAfter: removeAfter ?? null
+    })
+  )
+}
+
+const KEEPS_WORKING = 'Its credentials keep working.'
+
+// What the page warns of while the team or any of its environments is
+// disabled: the people can view but not change, and the credentials still work.
+function disabledWarning(team) {
+  const disabled = disabledEnvironmentsOf(team)
+
+  if (team.status === 'disabled') {
+    return `This team is disabled. Its people can view it but not change it. ${KEEPS_WORKING}`
+  }
+
+  return disabled.length > 0
+    ? `${environmentList(disabled)} ${disabled.length === 1 ? 'is' : 'are'} disabled. The team’s people can view ${disabled.length === 1 ? 'it' : 'them'} but not change ${disabled.length === 1 ? 'it' : 'them'}. ${KEEPS_WORKING}`
+    : null
 }
 
 function memberRows(team, members) {
@@ -140,6 +162,11 @@ export const adminController = {
         notification: takeAccountNotification(request),
         team,
         status: teamStatusTag(team.status),
+        warning: disabledWarning(team),
+        canDisable: (team.status ?? 'active') === 'active',
+        canEnable: canEnable(team),
+        disableUrl: `${adminTeamUrl(team)}/disable`,
+        enableUrl: `${adminTeamUrl(team)}/enable`,
         environments: environmentRows(team),
         members: memberRows(team, members),
         addMemberUrl: `${adminTeamUrl(team)}/members/add`,

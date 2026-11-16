@@ -8,6 +8,7 @@ import {
   adminPeopleSearchController,
   adminRemoveMemberController
 } from './members.js'
+import { adminTeamLifecycleController } from './team-lifecycle.js'
 
 const team = '/admin/teams/{id}'
 const deployment = '/admin/deployments/{teamId}/{environment}'
@@ -52,8 +53,29 @@ function credentialRoutes() {
   ]
 }
 
+// The pages that disable and enable a team: which environments, a reason (to
+// disable) and the confirmation after.
+function lifecycleRoutes() {
+  const { disable, disableReason, disabled, enable } =
+    adminTeamLifecycleController
+  const pages = [
+    ['disable', disable],
+    ['disable/reason', disableReason],
+    ['enable', enable]
+  ]
+
+  return [
+    ...pages.flatMap(([path, { get, post }]) => [
+      { method: 'GET', path: `${team}/${path}`, handler: get.handler },
+      { method: 'POST', path: `${team}/${path}`, handler: post.handler }
+    ]),
+    { method: 'GET', path: `${team}/disabled`, handler: disabled.handler }
+  ]
+}
+
 const routes = [
   ...credentialRoutes(),
+  ...lifecycleRoutes(),
   { method: 'GET', path: '/admin', handler: adminController.index.handler },
   {
     method: 'GET',
@@ -117,7 +139,7 @@ const routes = [
 
 /**
  * Sets up the Platform Admin area (B31): the Teams tab (every team, a team's
- * page, adding and removing its members), the Deployments tab (each team's
+ * page, adding and removing its members, disabling and enabling it), the Deployments tab (each team's
  * deployment in an environment, its health and its credentials) and the Audit
  * log tab. Protected by the global
  * sign-in gate (src/server/plugins/require-sign-in-globally.js); who may use

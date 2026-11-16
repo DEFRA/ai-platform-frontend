@@ -96,6 +96,29 @@ describe('Members table component', () => {
     expect($('a').first().attr('data-testid')).toBe('member-action')
   })
 
+  test('Should show a locked action as plain text, not a link, still saying who it is for', () => {
+    const $ = renderComponent('members-table', {
+      caption: 'Members',
+      rows: [
+        {
+          name: 'Test User (you)',
+          email: 'test.user@defra.gov.uk',
+          role: 'Admin',
+          actionLocked: true,
+          actionText: 'Change',
+          actionHidden: 'role of Test User (you)'
+        }
+      ],
+      actionHeading: 'Change',
+      actionTestId: 'member-change'
+    })
+
+    expect($('a')).toHaveLength(0)
+    expect($('[data-testid="member-change-locked"]').text()).toBe(
+      'Change role of Test User (you)'
+    )
+  })
+
   test('Should escape what a member is called', () => {
     const $ = renderComponent('members-table', {
       caption: 'Members',

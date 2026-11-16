@@ -5,12 +5,14 @@ import {
   defaultTeamEnvironment,
   environmentFromAddress,
   environmentPageUrl,
+  environmentRegistryName,
   teamEnvironmentsUrl
 } from '#/server/common/helpers/environment-names.js'
 import {
   getSessionUser,
   setPendingAccess
 } from '#/server/common/helpers/session.js'
+import { lockedPage, teamLockOf } from '#/server/common/helpers/team-lock.js'
 import {
   environmentNotFound,
   teamNotFound
@@ -114,6 +116,23 @@ export const startController = {
 
         if (!team) {
           return teamNotFound(h)
+        }
+
+        // A disabled environment is not offered: nothing can be started in it.
+        const locked = lockedPage(h, teamLockOf(team), {
+          environment: environment.environment,
+          back: {
+            href: environmentCode
+              ? environmentPageUrl(team.slug, environment.environment)
+              : teamEnvironmentsUrl(team.slug),
+            text: environmentCode
+              ? `Back to ${environmentRegistryName(environment.environment)}`
+              : 'Back to all environments'
+          }
+        })
+
+        if (locked) {
+          return locked
         }
 
         // The journey belongs to this person from here (teamJourneyOf), and

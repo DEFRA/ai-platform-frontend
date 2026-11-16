@@ -1,9 +1,10 @@
 {#
   A team's members, one row each (screen 13).
   params.caption: what the table lists, said only to a screen reader
-  params.rows: [{ name, email, role, actionUrl?, actionText?, actionHidden? }]
+  params.rows: [{ name, email, role, actionUrl?, actionLocked?, actionText?, actionHidden? }]
   params.actionHeading: when given, the table has an action column, named for a
-    screen reader with this; a row without an actionUrl has no link
+    screen reader with this; a row without an actionUrl has no link, and one
+    that is actionLocked (the team is disabled) shows the action as plain text
   params.actionTestId: the data-testid of each action link (default "member-action")
 #}
 <div class="app-table-scroll" role="region" tabindex="0" aria-label="{{ params.caption }}">
@@ -29,6 +30,8 @@
           <td class="govuk-table__cell govuk-table__cell--numeric">
             {% if row.actionUrl %}
               <a class="govuk-link" href="{{ row.actionUrl }}" data-testid="{{ params.actionTestId or 'member-action' }}">{{ row.actionText }}<span class="govuk-visually-hidden"> {{ row.actionHidden }}</span></a>
+            {% elif row.actionLocked %}
+              <span class="app-secondary-text" data-testid="{{ params.actionTestId or 'member-action' }}-locked">{{ row.actionText }}<span class="govuk-visually-hidden"> {{ row.actionHidden }}</span></span>
             {% endif %}
           </td>
         {% endif %}

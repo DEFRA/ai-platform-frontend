@@ -4,12 +4,14 @@
 
 {% block content %}
   {% include "partials/team-notification.njk" %}
+  {% include "partials/team-lock-banner.njk" %}
 
   {{ appHeading({
     text: heading,
     caption: team.name,
     captionAbove: true
   }) }}
+  {% include "partials/team-status-tag.njk" %}
 
   <p class="govuk-body-l">Where {{ team.name }}’s models are deployed, and what is changing now.</p>
 
@@ -17,17 +19,19 @@
     {% if changeTeamUrl %}
       <a class="govuk-link" href="{{ changeTeamUrl }}" data-testid="change-team">Change team<span class="govuk-visually-hidden"> from {{ team.name }}</span></a>
     {% endif %}
-    {% if federateUrl %}
+    {% if federateUrl or federateLocked %}
       {{ govukButton({
         text: "Create Passwordless Credential",
-        href: federateUrl,
+        href: none if federateLocked else federateUrl,
+        disabled: federateLocked,
         classes: "govuk-!-margin-bottom-0",
         attributes: { "data-testid": "federate-an-application" }
       }) }}
     {% endif %}
     {{ govukButton({
       text: "Deploy a model",
-      href: deployUrl,
+      href: none if deployLocked else deployUrl,
+      disabled: deployLocked,
       classes: "govuk-!-margin-bottom-0",
       attributes: { "data-testid": "deploy-a-model" }
     }) }}

@@ -46,6 +46,8 @@
           <p class="govuk-body">
             {% if card.setUpUrl %}
               <a class="govuk-link govuk-!-margin-right-4" href="{{ card.setUpUrl }}" data-testid="set-up-environment">{{ card.setUpText }}</a>
+            {% elif card.setUpLocked %}
+              <span class="app-secondary-text govuk-!-margin-right-4" data-testid="set-up-environment-locked">{{ card.setUpText }}</span>
             {% endif %}
             <a class="govuk-link" href="{{ card.href }}" data-testid="card-link">{{ card.linkText }}</a>
           </p>

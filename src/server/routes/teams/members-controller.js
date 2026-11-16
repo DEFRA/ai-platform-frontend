@@ -4,6 +4,7 @@ import {
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
+import { lockContext } from '#/server/common/helpers/team-lock.js'
 import {
   errorOn,
   joiErrors,
@@ -98,7 +99,7 @@ const ROLE_CHANGE = {
   other: (name) => `change ${name}’s role`
 }
 
-function memberRow(member, { team, isAdmin }) {
+function memberRow(member, { team, isAdmin, locked }) {
   const memberSegment = member.isYou ? 'me' : encodeURIComponent(member._id)
   const name = member.isYou ? `${member.displayName} (you)` : member.displayName
 
@@ -106,7 +107,9 @@ function memberRow(member, { team, isAdmin }) {
     name,
     email: member.email,
     role: roleText(member.role),
-    actionUrl: isAdmin ? `${membersUrl(team)}/${memberSegment}/role` : null,
+    actionUrl:
+      isAdmin && !locked ? `${membersUrl(team)}/${memberSegment}/role` : null,
+    actionLocked: isAdmin && locked,
     actionText: 'Change',
     actionHidden: `role of ${name}`
   }
@@ -131,7 +134,8 @@ export const membersController = {
         throw error
       }
 
-      const { team, isAdmin, members } = loaded
+      const { team, isAdmin, members, lock } = loaded
+      const locked = lock.teamDisabled
 
       return h.view('teams/members', {
         pageTitle: `${team.name} members`,
@@ -139,9 +143,12 @@ export const membersController = {
         team,
         tabs: teamTabs(team, 'members'),
         notification: takeAccountNotification(request),
+        ...lockContext(lock),
         isAdmin,
         addMemberUrl: `${membersUrl(team)}/add`,
-        members: members.map((member) => memberRow(member, { team, isAdmin }))
+        members: members.map((member) =>
+          memberRow(member, { team, isAdmin, locked })
+        )
       })
     }
   }

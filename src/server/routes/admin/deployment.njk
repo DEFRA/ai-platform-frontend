@@ -48,14 +48,23 @@
         <a class="govuk-link govuk-!-margin-left-2" href="{{ teamUrl }}" data-testid="view-team">View team</a>
       {% endset %}
       {% set teamStatusHtml %}{{ govukTag({ text: team.statusTag.text, classes: team.statusTag.classes }) }}{% endset %}
+      {% set portalHtml %}
+        {{ govukTag({ text: "Disabled", classes: "govuk-tag--grey", attributes: { "data-testid": "environment-disabled" } }) }}
+        <p class="govuk-body-s govuk-!-margin-top-1 govuk-!-margin-bottom-0">The team can view {{ environmentLabel }} but not change it. Its credentials keep working.</p>
+      {% endset %}
+
+      {% set summaryRows = [
+        { key: { text: "Credential" }, value: { html: credentialHtml } },
+        { key: { text: "Members" }, value: { html: membersHtml } },
+        { key: { text: "Team status" }, value: { html: teamStatusHtml } }
+      ] %}
+      {% if environmentDisabled %}
+        {% set ignored = summaryRows.push({ key: { text: "In the portal" }, value: { html: portalHtml } }) %}
+      {% endif %}
 
       {{ govukSummaryList({
         attributes: { "data-testid": "deployment-summary" },
-        rows: [
-          { key: { text: "Credential" }, value: { html: credentialHtml } },
-          { key: { text: "Members" }, value: { html: membersHtml } },
-          { key: { text: "Team status" }, value: { html: teamStatusHtml } }
-        ]
+        rows: summaryRows
       }) }}
 
       {% if buttons.length > 0 %}

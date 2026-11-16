@@ -148,6 +148,61 @@ describe('#catchAll an API call the backend refused as unauthorised', () => {
   })
 })
 
+describe('#catchAll a change the backend refused because the team is disabled', () => {
+  const refusal = () =>
+    Boom.boomify(
+      new ApiError({
+        statusCode: statusCodes.conflict,
+        code: 'team-disabled',
+        message: 'This team is disabled. You can view it but not change it.'
+      })
+    )
+
+  test('shows the "You cannot change this team" page with a 409 and a way back to the team in the address', () => {
+    const request = {
+      response: refusal(),
+      path: '/teams/flood-risk-team/members/add',
+      params: { slug: 'flood-risk-team' },
+      method: 'post',
+      yar: { get: () => ({ id: 'user-1' }) }
+    }
+    const h = { view: vi.fn().mockReturnThis(), code: vi.fn().mockReturnThis() }
+
+    catchAll(request, h)
+
+    expect(h.view).toHaveBeenCalledWith(
+      'error/index',
+      expect.objectContaining({
+        heading: 'You cannot change this team',
+        actionHref: '/teams/flood-risk-team'
+      })
+    )
+    expect(h.code).toHaveBeenCalledWith(statusCodes.conflict)
+  })
+
+  test('is shown for the error a thrown handler really makes, never as a 500', async () => {
+    const server = await createServer()
+    server.route({
+      method: 'GET',
+      path: '/test-disabled',
+      options: { app: { public: true } },
+      handler() {
+        throw new ApiError({ statusCode: 409, code: 'team-disabled' })
+      }
+    })
+    await server.initialize()
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/test-disabled'
+    })
+    await server.stop({ timeout: 0 })
+
+    expect(statusCode).toBe(statusCodes.conflict)
+    expect(result).toContain('You cannot change this team')
+  })
+})
+
 describe('#catchAll', () => {
   const mockErrorLogger = vi.fn()
   const mockStack = 'Mock error stack'

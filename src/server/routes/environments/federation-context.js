@@ -27,15 +27,15 @@ export function unavailablePage(h, { what, back }) {
  * backend failed.
  * @param {import('@hapi/hapi').Request} request
  * @param {import('@hapi/hapi').ResponseToolkit} h
- * @returns {Promise<{team: object, isAdmin: boolean} | {page: import('@hapi/hapi').ResponseObject}>}
+ * @returns {Promise<{team: object, isAdmin: boolean, lock: object} | {page: import('@hapi/hapi').ResponseObject}>}
  */
 export async function loadTeamContext(request, h) {
   const { slug } = request.params
 
   try {
-    const { team, isAdmin } = await loadTeamForView(request, slug)
+    const { team, isAdmin, lock } = await loadTeamForView(request, slug)
 
-    return { team, isAdmin }
+    return { team, isAdmin, lock }
   } catch (error) {
     if (isNotFound(error)) {
       return { page: teamNotFound(h) }

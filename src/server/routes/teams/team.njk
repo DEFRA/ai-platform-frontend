@@ -5,12 +5,14 @@
 
 {% block content %}
   {% include "partials/team-notification.njk" %}
+  {% include "partials/team-lock-banner.njk" %}
 
   {{ appHeading({
     text: heading,
     caption: "Team",
     captionAbove: true
   }) }}
+  {% include "partials/team-status-tag.njk" %}
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
