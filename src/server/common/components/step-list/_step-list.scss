@@ -4,8 +4,9 @@
 $app-step-marker-size: 28px;
 $app-step-line-width: 2px;
 
-// Vertical steps: a circle per step joined by a line. Done is a green circle
-// with a white tick, current a blue ring spinner, waiting a grey ring.
+// Steps: a circle per step joined by a line. Done is a green circle with a
+// white tick, current a blue ring spinner, waiting a grey ring. They run
+// across the page from tablet width and stack below it.
 .app-step-list {
   @include govuk-font($size: 19);
 
@@ -25,7 +26,8 @@ $app-step-line-width: 2px;
   padding-bottom: 0;
 }
 
-// The line runs from under this circle to the next one.
+// The line runs from under this circle to the next one. It is green once the
+// step it leaves is done.
 .app-step-list__item:not(:last-child)::before {
   position: absolute;
   top: $app-step-marker-size;
@@ -34,6 +36,10 @@ $app-step-line-width: 2px;
   width: $app-step-line-width;
   background-color: govuk-colour("mid-grey");
   content: "";
+}
+
+.app-step-list__item--done:not(:last-child)::before {
+  background-color: $defra-green;
 }
 
 .app-step-list__marker {
@@ -128,6 +134,54 @@ $app-step-line-width: 2px;
 
   margin: govuk-spacing(1) 0 0;
   color: govuk-colour("dark-grey");
+}
+
+// From tablet width the steps run across the page: the circles and the line
+// between them on top, each label and hint under its circle. This saves
+// scrolling and uses the page's width. Narrower than that they stay stacked,
+// so nothing is squeezed at 320 px (WCAG 1.4.10).
+@include govuk-media-query($from: tablet) {
+  .app-step-list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .app-step-list__item {
+    min-height: 0;
+    padding: 0 govuk-spacing(2) 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .app-step-list__item:last-child {
+    padding-right: 0;
+  }
+
+  .app-step-list__marker {
+    position: relative;
+    top: auto;
+    left: auto;
+    display: block;
+  }
+
+  // The line now runs along the circles' middle, to the next circle.
+  .app-step-list__item:not(:last-child)::before {
+    top: ($app-step-marker-size - $app-step-line-width) * 0.5;
+    right: govuk-spacing(1);
+    bottom: auto;
+    left: $app-step-marker-size + govuk-spacing(1);
+    width: auto;
+    height: $app-step-line-width;
+  }
+
+  .app-step-list__content {
+    min-height: 0;
+    margin-top: govuk-spacing(2);
+  }
+
+  .app-step-list__label {
+    padding-top: 0;
+  }
 }
 
 @keyframes app-step-spin {

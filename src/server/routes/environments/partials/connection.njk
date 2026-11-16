@@ -47,9 +47,29 @@
     {{ codeBlock("connection-token-model", connection.token.model, "the model call") }}
   {% endset %}
   {{ govukDetails({
-    summaryText: "How to get a token",
+    summaryText: "Using a passwordless credential",
     html: tokenHtml,
     attributes: { id: "how-to-get-a-token", "data-testid": "how-to-get-a-token" }
   }) }}
+
+  {% if connection.token.secretRequest %}
+    {% set secretTokenHtml %}
+      <p class="govuk-body">Use a client secret to get a token while you develop on your own machine. Your deployed applications should use a passwordless credential instead, which has no secret to store, rotate or leak. Read the secret from an environment variable or a secret store: never put it in your code or commit it.</p>
+      <h3 class="govuk-heading-s">1. Ask for a token with the secret</h3>
+      <p class="govuk-body">Use the same <a class="govuk-link" href="https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow">client credentials grant</a>, with your client secret in place of the token from AWS. The client ID, token endpoint and scope are the values above.</p>
+      {{ codeBlock("connection-secret-token-request", connection.token.secretRequest, "the token request with a client secret") }}
+      <h3 class="govuk-heading-s">2. Make a first call</h3>
+      <p class="govuk-body">Send the access token the same way. This call returns your client ID, your team, its access window and the models granted to you, without calling a model.</p>
+      {{ codeBlock("connection-secret-token-whoami", connection.token.whoami, "the first call") }}
+      <h3 class="govuk-heading-s">3. Call a model</h3>
+      <p class="govuk-body">Use the model’s name from the catalogue. The gateway needs the access token only: no key and no <code>api-version</code>.</p>
+      {{ codeBlock("connection-secret-token-model", connection.token.model, "the model call") }}
+    {% endset %}
+    {{ govukDetails({
+      summaryText: "Using a client secret",
+      html: secretTokenHtml,
+      attributes: { id: "client-secret-token", "data-testid": "client-secret-token" }
+    }) }}
+  {% endif %}
   {% endcall %}
 {% endif %}

@@ -88,6 +88,33 @@ export function readTeamStatusChanges(request, teamRef, filters) {
 }
 
 /**
+ * Adds a client secret to the team's registration in one environment (an
+ * admin): 201 with the credential and the secret, shown once, or 200 with the
+ * credential alone when the key was used for this request already. The key
+ * makes asking again the same request. A `name` (already validated, 1 to 30
+ * characters) is sent as the body; without one there is no body.
+ * @param {import('@hapi/hapi').Request} request
+ * @param {string} teamRef
+ * @param {string} environment
+ * @param {string} idempotencyKey
+ * @param {string} [name] - A short name to tell the secret apart.
+ * @returns {Promise<{credential: {id: string, keyHint: string, expiresAt: string | null, environment: string, name: string | null}, secret?: string}>}
+ */
+export function postTeamClientSecret(
+  request,
+  teamRef,
+  environment,
+  idempotencyKey,
+  name
+) {
+  return apiClient(request).post(
+    `${teamPath(teamRef)}/environments/${encodeURIComponent(environment)}/client-secrets`,
+    name ? { name } : undefined,
+    { idempotencyKey }
+  )
+}
+
+/**
  * One change to a team's files, as the backend gives it.
  * @param {import('@hapi/hapi').Request} request
  * @param {string} teamRef

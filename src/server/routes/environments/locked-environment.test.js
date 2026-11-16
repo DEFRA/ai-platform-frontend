@@ -15,13 +15,14 @@ import {
   OVERVIEW_URL,
   TEAM_PATH,
   applicationsOf,
+  clientSecretItem,
+  clientSecretsOf,
   detail,
   doneOperation,
   environmentsRead,
   federatedApplication,
   operationsAnswer,
-  summary,
-  teamCredential
+  summary
 } from '#/test-helpers/environments-helpers.js'
 import {
   cookieHeader,
@@ -121,7 +122,6 @@ describe('#environments of a disabled team', () => {
     mockApi(fetchMock, {
       'GET /v1/teams': { items: [sampleTeam] },
       'GET /v1/models': { items: [sampleModel] },
-      'GET /v1/credentials': { items: [teamCredential] },
       [`GET ${TEAM_PATH}`]: read,
       [`GET ${TEAM_PATH}/environments`]: environmentsRead(),
       [`GET ${TEAM_PATH}/environments/infradev`]: detail(),
@@ -407,6 +407,7 @@ describe('#environments of a disabled team', () => {
       backend(read, {
         [`GET ${TEAM_PATH}/environments/infradev`]: detail({
           disabled: read === INFRADEV_ONLY || read === INFRADEV_DISABLED,
+          clientSecrets: clientSecretsOf([clientSecretItem()]),
           applications: applications
             ? applicationsOf([federatedApplication()])
             : undefined
@@ -432,11 +433,21 @@ describe('#environments of a disabled team', () => {
       expect($('a[data-testid="model-remove"]')).toHaveLength(0)
       expect($('[data-testid="model-remove-locked"]')).toHaveLength(2)
       expect($('a[href$="/view"], a[href$="/rotate"]')).toHaveLength(0)
-      expect(text($, '[data-testid="secret-view-locked"]')).toContain('View')
-      expect(text($, '[data-testid="secret-rotate-locked"]')).toContain(
+      expect(text($, '[data-testid="client-secret-view-locked"]')).toContain(
+        'View'
+      )
+      expect(text($, '[data-testid="client-secret-rotate-locked"]')).toContain(
         'Rotate'
       )
-      expect($('[data-testid="secret-row"] a[href$="/revoke"]')).toHaveLength(1)
+      expect(
+        $('[data-testid="client-secret-row"] a[href$="/revoke"]')
+      ).toHaveLength(1)
+      expect($('a[data-testid="add-client-secret"]')).toHaveLength(0)
+      expect(
+        $(
+          '[data-testid="section-client-secrets"] button[data-testid="add-client-secret"]'
+        )
+      ).toHaveLength(1)
       expect($('a[data-testid="change-limits"]')).toHaveLength(0)
       expect($('[data-testid="change-limits-locked"]')).toHaveLength(1)
       expect(
@@ -626,17 +637,21 @@ describe('#environments of a disabled team', () => {
       ).toEqual(['qa', 'preprod'])
     })
 
-    test('goes straight on with the one environment left when the others are disabled', async () => {
+    test('still asks which environment when only one is left because the others are disabled, so people see where it will go', async () => {
       backend(ACTIVE, {
         [`POST ${FEDERATIONS_PATH}/check`]: dryRun({
           infradev: 'team-disabled'
         })
       })
 
-      const { response } = await toEnvironments()
+      const { response, $ } = await toEnvironments()
 
-      expect(response.statusCode).toBe(statusCodes.seeOther)
-      expect(response.headers.location).toBe(`${FEDERATE_URL}/check`)
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(
+        $('input[name="environments"]')
+          .map((_, input) => $(input).val())
+          .get()
+      ).toEqual(['qa'])
     })
 
     test('says the environment is disabled, as the 409 page, when every environment that could take it is', async () => {

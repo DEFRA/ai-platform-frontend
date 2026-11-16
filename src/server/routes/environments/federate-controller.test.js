@@ -20,7 +20,8 @@ import {
   detail,
   environmentsRead,
   federatedApplication,
-  operationsAnswer
+  operationsAnswer,
+  summary
 } from '#/test-helpers/environments-helpers.js'
 import {
   signInViaOidc,
@@ -104,7 +105,10 @@ describe('the Federate journey', () => {
       'GET /v1/models': { items: [sampleModel] },
       'GET /v1/credentials': { items: [] },
       [`GET ${TEAM_PATH}`]: teamWithMembers(role),
-      [`GET ${TEAM_PATH}/environments`]: environmentsRead(),
+      [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+        summary(),
+        summary({ environment: 'qa' })
+      ]),
       [`GET ${TEAM_PATH}/environments/infradev`]: detail(),
       [`GET ${TEAM_PATH}/operations`]: operationsAnswer(),
       [`POST ${CHECK_PATH}`]: dryRun(),
@@ -138,15 +142,31 @@ describe('the Federate journey', () => {
     return { response, $: load(response.result ?? '') }
   }
 
-  // The journey as far as a CDP service, and the dry run it makes.
-  async function toCdpService(service = 'flood-api', start = '') {
-    await post(`${FEDERATE_URL}${start}`, { host: 'cdp' })
+  // The journey as far as the environments question, which comes straight
+  // after where the application runs.
+  async function toCdpEnvironments(start = '') {
+    return post(`${FEDERATE_URL}${start}`, { host: 'cdp' })
+  }
+
+  // The journey through where it runs, the environments (both by default) and
+  // the CDP service, which is the dry run's first sight of the name.
+  async function toCdpService(
+    service = 'flood-api',
+    start = '',
+    environments = ['infradev', 'qa']
+  ) {
+    await toCdpEnvironments(start)
+    await post(ENVIRONMENTS_URL, { environments })
 
     return post(SERVICE_URL, { service })
   }
 
-  async function toAzureName(name = 'flood-reports') {
+  async function toAzureName(
+    name = 'flood-reports',
+    environments = ['infradev', 'qa']
+  ) {
     await post(FEDERATE_URL, { host: 'azure' })
+    await post(ENVIRONMENTS_URL, { environments })
     await post(PRINCIPAL_URL, { principalId: PRINCIPAL_ID })
 
     return post(NAME_URL, { name })
@@ -160,6 +180,10 @@ describe('the Federate journey', () => {
 
   function bodyOf([, init]) {
     return JSON.parse(init.body)
+  }
+
+  function keyOfCall(call) {
+    return call[1].headers['idempotency-key']
   }
 
   describe('where the application runs', () => {
@@ -221,17 +245,17 @@ describe('the Federate journey', () => {
       )
     })
 
-    test.each([
-      ['cdp', SERVICE_URL],
-      ['azure', PRINCIPAL_URL]
-    ])('goes on to the %s question', async (host, next) => {
-      backend()
+    test.each(['cdp', 'azure'])(
+      'goes on to ask which environments, whichever way the %s application runs',
+      async (host) => {
+        backend()
 
-      const { response } = await post(FEDERATE_URL, { host })
+        const { response } = await post(FEDERATE_URL, { host })
 
-      expect(response.statusCode).toBe(statusCodes.seeOther)
-      expect(response.headers.location).toBe(next)
-    })
+        expect(response.statusCode).toBe(statusCodes.seeOther)
+        expect(response.headers.location).toBe(ENVIRONMENTS_URL)
+      }
+    )
 
     test('lets any member of the team federate', async () => {
       backend({ role: 'user' })
@@ -271,7 +295,7 @@ describe('the Federate journey', () => {
       const { response } = await post(FEDERATE_URL, { host: 'cdp' })
       const { $ } = await get(SERVICE_URL)
 
-      expect(response.headers.location).toBe(SERVICE_URL)
+      expect(response.headers.location).toBe(ENVIRONMENTS_URL)
       expect($('#service').attr('value')).toBe('flood-api')
     })
 
@@ -298,7 +322,7 @@ describe('the Federate journey', () => {
 
     test('asks what the CDP service is called, with the rule in the hint (AC13)', async () => {
       backend()
-      await post(FEDERATE_URL, { host: 'cdp' })
+      await toCdpEnvironments()
 
       const { response, $ } = await get(SERVICE_URL)
 
@@ -308,7 +332,7 @@ describe('the Federate journey', () => {
         'Its repository name: lower-case letters, numbers and single hyphens, up to 32 characters.'
       )
       expect($('#service').attr('autocomplete')).toBe('off')
-      expect($('a.govuk-back-link').attr('href')).toBe(FEDERATE_URL)
+      expect($('a.govuk-back-link').attr('href')).toBe(ENVIRONMENTS_URL)
     })
 
     test('is not for a person who said the application runs on Azure', async () => {
@@ -348,20 +372,18 @@ describe('the Federate journey', () => {
       }
     )
 
-    test('goes on to the environments with a valid name', async () => {
+    test('goes on to the check with a valid name, the environments having been chosen already', async () => {
       backend()
-      await post(FEDERATE_URL, { host: 'cdp' })
+      await toCdpEnvironments()
 
       const { response } = await post(SERVICE_URL, { service: 'flood-api' })
 
-      expect(response.headers.location).toBe(ENVIRONMENTS_URL)
+      expect(response.headers.location).toBe(CHECK_URL)
     })
 
     test('goes straight back to the check page when it was opened from there', async () => {
       backend()
       await toCdpService('flood-api')
-      await get(ENVIRONMENTS_URL)
-      await post(ENVIRONMENTS_URL, { environments: ['infradev'] })
 
       const { response } = await post(`${SERVICE_URL}?change=check`, {
         service: 'flood-api-v2'
@@ -423,12 +445,12 @@ describe('the Federate journey', () => {
       expect($('.govuk-error-summary a').attr('href')).toBe('#name')
     })
 
-    test('goes on to the environments after the name', async () => {
+    test('goes on to the check after the name, the environments having been chosen already', async () => {
       backend()
 
       const { response } = await toAzureName()
 
-      expect(response.headers.location).toBe(ENVIRONMENTS_URL)
+      expect(response.headers.location).toBe(CHECK_URL)
     })
   })
 
@@ -447,9 +469,19 @@ describe('the Federate journey', () => {
       })
     })
 
-    test('sends a person whose application is not named back to the first question', async () => {
+    test('asks nothing of the dry run before the application is named, only what the team’s environments hold', async () => {
       backend()
-      await post(FEDERATE_URL, { host: 'cdp' })
+      await toCdpEnvironments()
+
+      const { response } = await get(ENVIRONMENTS_URL)
+
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(calls('POST', CHECK_PATH)).toHaveLength(0)
+      expect(calls('GET', `${TEAM_PATH}/environments`)).toHaveLength(1)
+    })
+
+    test('sends a person with no journey back to the first question', async () => {
+      backend()
 
       const { response } = await get(ENVIRONMENTS_URL)
 
@@ -459,13 +491,13 @@ describe('the Federate journey', () => {
 
     test('lists the environments with room as checkboxes, each saying which CDP environment it trusts, and ticks the one it started from (AC14)', async () => {
       backend()
-      await toCdpService('flood-api', '?environment=infradev')
+      await toCdpEnvironments('?environment=infradev')
 
       const { response, $ } = await get(ENVIRONMENTS_URL)
 
       expect(response.statusCode).toBe(statusCodes.ok)
       expect(text($, 'legend h1')).toBe(
-        'Which environments should trust flood-api?'
+        'Which environments should trust your application?'
       )
       expect(
         $('input[name="environments"]')
@@ -475,49 +507,64 @@ describe('the Federate journey', () => {
       expect($('input[value="infradev"]').attr('checked')).toBeDefined()
       expect($('input[value="qa"]').attr('checked')).toBeUndefined()
       expect(text($, '#environments-item-hint')).toBe(
-        'Trusts flood-api in CDP’s dev environment'
+        'Trusts your application in CDP’s dev environment'
       )
       expect(text($, '#environments-2-item-hint')).toBe(
-        'Trusts flood-api in CDP’s test environment'
+        'Trusts your application in CDP’s test environment'
       )
       expect(text($, '#environments-hint')).toBe(
         'Only environments your team has set up, with room for another application, are listed.'
       )
-      expect($('a.govuk-back-link').attr('href')).toBe(SERVICE_URL)
+      expect($('a.govuk-back-link').attr('href')).toBe(FEDERATE_URL)
     })
 
     test('ticks nothing when the journey started from the overview', async () => {
       backend()
-      await toCdpService('flood-api')
+      await toCdpEnvironments()
 
       const { $ } = await get(ENVIRONMENTS_URL)
 
       expect($('input[name="environments"][checked]')).toHaveLength(0)
     })
 
-    test('does not list an environment whose registration is full or that is not set up, and says why in the hint (AC17)', async () => {
+    test('does not list an environment whose registration is full or that is not set up (AC17)', async () => {
       config.set('teamEnvironments', ['infradev', 'qa', 'preprod'])
       backend({
-        [`POST ${CHECK_PATH}`]: dryRun({
-          qa: 'federation-limit-reached',
-          preprod: 'environment-not-set-up',
-          infradev: null
-        })
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary(),
+          summary({
+            environment: 'qa',
+            applications: { used: 20, limit: 20 }
+          }),
+          summary({ environment: 'preprod', setUp: false })
+        ])
       })
-      await toCdpService('flood-api')
+      await toCdpEnvironments()
 
-      const { response } = await get(ENVIRONMENTS_URL)
+      const { response, $ } = await get(ENVIRONMENTS_URL)
 
-      // Only Infradev is left offered, and it takes the application.
-      expect(response.headers.location).toBe(CHECK_URL)
+      // Only Infradev is left offered, and it is still asked.
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(
+        $('input[name="environments"]')
+          .map((_, el) => $(el).val())
+          .get()
+      ).toEqual(['infradev'])
     })
 
     test('lists the environments left when some are full, and not the full one', async () => {
       config.set('teamEnvironments', ['infradev', 'qa', 'preprod'])
       backend({
-        [`POST ${CHECK_PATH}`]: dryRun({ qa: 'federation-limit-reached' })
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary(),
+          summary({
+            environment: 'qa',
+            applications: { used: 20, limit: 20 }
+          }),
+          summary({ environment: 'preprod' })
+        ])
       })
-      await toCdpService('flood-api')
+      await toCdpEnvironments()
 
       const { $ } = await get(ENVIRONMENTS_URL)
 
@@ -531,20 +578,104 @@ describe('the Federate journey', () => {
       )
     })
 
-    test('skips the question when only one environment has room and takes the application, and the check page says so (AC17)', async () => {
+    test('does not list an environment this instance does not offer, though the team could use it elsewhere', async () => {
       backend({
-        [`POST ${CHECK_PATH}`]: dryRun({ qa: 'federation-limit-reached' })
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary(),
+          summary({ environment: 'qa' }),
+          summary({ environment: 'prod' })
+        ])
       })
-      await toCdpService('flood-api')
+      await toCdpEnvironments()
 
-      const skipped = await get(ENVIRONMENTS_URL)
+      const { $ } = await get(ENVIRONMENTS_URL)
+
+      expect(
+        $('input[name="environments"]')
+          .map((_, el) => $(el).val())
+          .get()
+      ).toEqual(['infradev', 'qa'])
+    })
+
+    test('still asks the question when only one environment has room, so people see where the credential will go (AC17)', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary(),
+          summary({
+            environment: 'qa',
+            applications: { used: 20, limit: 20 }
+          })
+        ])
+      })
+      await toCdpEnvironments('?environment=infradev')
+
+      const { response, $ } = await get(ENVIRONMENTS_URL)
+
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(
+        $('input[name="environments"]')
+          .map((_, el) => $(el).val())
+          .get()
+      ).toEqual(['infradev'])
+      expect($('input[value="infradev"]').attr('checked')).toBeDefined()
+
+      await post(ENVIRONMENTS_URL, { environments: ['infradev'] })
+      await post(SERVICE_URL, { service: 'flood-api' })
       const check = await get(CHECK_URL)
 
-      expect(skipped.response.statusCode).toBe(statusCodes.seeOther)
-      expect(skipped.response.headers.location).toBe(CHECK_URL)
-      expect(check.response.statusCode).toBe(statusCodes.ok)
-      expect(check.$('#change-environments')).toHaveLength(0)
+      expect(check.$('#change-environments')).toHaveLength(1)
       expect(check.$('a.govuk-back-link').attr('href')).toBe(SERVICE_URL)
+    })
+
+    test('goes on to the question of the host the application runs on, once environments are chosen', async () => {
+      backend()
+      await toCdpEnvironments()
+      const cdp = await post(ENVIRONMENTS_URL, { environments: ['qa'] })
+
+      await post(FEDERATE_URL, { host: 'azure' })
+      const azure = await post(ENVIRONMENTS_URL, {
+        environments: ['infradev', 'qa']
+      })
+
+      expect(cdp.response.headers.location).toBe(SERVICE_URL)
+      expect(azure.response.headers.location).toBe(PRINCIPAL_URL)
+    })
+
+    test('says it cannot read the environments just now when the backend fails before the application is named', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+      await toCdpEnvironments()
+
+      const { response, $ } = await get(ENVIRONMENTS_URL)
+
+      expect(response.statusCode).toBe(statusCodes.serviceUnavailable)
+      expect(text($, 'h1')).toBe('Applications are not available just now')
+    })
+
+    test('refuses, before the application is named, an environment the team does not have room in', async () => {
+      backend({
+        [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+          summary(),
+          summary({ environment: 'qa' }),
+          summary({
+            environment: 'preprod',
+            applications: { used: 20, limit: 20 }
+          })
+        ])
+      })
+      await toCdpEnvironments()
+
+      const { response, $ } = await post(ENVIRONMENTS_URL, {
+        environments: ['preprod']
+      })
+
+      expect(response.statusCode).toBe(statusCodes.badRequest)
+      expect(text($, '.govuk-error-summary')).toContain(
+        'Select environments from the list'
+      )
     })
 
     test('says why when the only environment with room refuses the application, naming it and never another team (AC16)', async () => {
@@ -685,8 +816,7 @@ describe('the Federate journey', () => {
 
   describe('check your answers', () => {
     async function toCheck(environments = ['infradev', 'qa']) {
-      await toCdpService('flood-api')
-      await post(ENVIRONMENTS_URL, { environments })
+      await toCdpService('flood-api', '', environments)
 
       return get(CHECK_URL)
     }
@@ -699,7 +829,7 @@ describe('the Federate journey', () => {
       expect(response.headers.location).toBe(FEDERATE_URL)
     })
 
-    test('lists each answer with Change, naming each environment and the CDP environment it trusts (AC13)', async () => {
+    test('lists each answer in the order it was asked, with Change, naming each environment and the CDP environment it trusts (AC13)', async () => {
       backend()
 
       const { response, $ } = await toCheck()
@@ -708,10 +838,10 @@ describe('the Federate journey', () => {
       expect(response.statusCode).toBe(statusCodes.ok)
       expect(text($, 'h1')).toBe('Check your answers')
       expect(text($, rows.eq(0))).toContain('Runs on CDP')
-      expect(text($, rows.eq(1))).toContain('CDP service flood-api')
+      expect(text($, rows.eq(1).find('dt'))).toBe('Environments')
       expect(
         rows
-          .eq(2)
+          .eq(1)
           .find('p')
           .map((_, el) => $(el).text())
           .get()
@@ -719,19 +849,61 @@ describe('the Federate journey', () => {
         'Infradev, which trusts CDP’s dev environment',
         'QA, which trusts CDP’s test environment'
       ])
-      expect(text($, rows.eq(2).find('dt'))).toBe('Environments')
+      expect(text($, rows.eq(2))).toContain('CDP service flood-api')
       expect(
         $('.govuk-summary-list__actions a')
           .map((_, el) => $(el).attr('href'))
           .get()
       ).toEqual([
         `${FEDERATE_URL}?change=check`,
-        `${SERVICE_URL}?change=check`,
-        `${ENVIRONMENTS_URL}?change=check`
+        `${ENVIRONMENTS_URL}?change=check`,
+        `${SERVICE_URL}?change=check`
       ])
       expect(text($, '#change-service .govuk-visually-hidden')).toBe(
         'the CDP service'
       )
+    })
+
+    test('says what the application would be refused in before it is confirmed, on the environments question, with nothing queued (AC16)', async () => {
+      backend({
+        [`POST ${CHECK_PATH}`]: dryRun({ qa: 'federation-exists' })
+      })
+
+      const { response, $ } = await toCheck()
+
+      expect(response.statusCode).toBe(statusCodes.conflict)
+      expect(text($, '.govuk-error-summary')).toContain(
+        'QA: your team already has a passwordless credential for flood-api there'
+      )
+      expect($('input[value="infradev"]').attr('checked')).toBeDefined()
+      expect($('a.govuk-back-link').attr('href')).toBe(SERVICE_URL)
+      expect(calls('POST', FEDERATIONS_PATH)).toHaveLength(0)
+    })
+
+    test('goes on to the check once the refused environment is left out', async () => {
+      backend({
+        [`POST ${CHECK_PATH}`]: dryRun({ qa: 'federation-exists' })
+      })
+      await toCheck()
+
+      const { response } = await post(ENVIRONMENTS_URL, {
+        environments: ['infradev']
+      })
+      const { response: check } = await get(CHECK_URL)
+
+      expect(response.headers.location).toBe(CHECK_URL)
+      expect(check.statusCode).toBe(statusCodes.ok)
+    })
+
+    test('shows the check when the environments cannot be checked just now, as confirming says if one refuses', async () => {
+      backend({
+        [`POST ${CHECK_PATH}`]: reply(502, { code: 'upstream-unavailable' })
+      })
+
+      const { response, $ } = await toCheck()
+
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(text($, 'h1')).toBe('Check your answers')
     })
 
     test('says the application gets the team’s access to every model in each environment, and names the button for it', async () => {
@@ -760,6 +932,58 @@ describe('the Federate journey', () => {
       )
       expect(text($, '.govuk-summary-list')).toContain('Name flood-reports')
       expect(text($, 'main form button')).toBe('Create Passwordless Credential')
+    })
+
+    test('shows the check again, without the dry run, after a confirmation that timed out, so confirming again replays it with its key', async () => {
+      backend({
+        [`POST ${FEDERATIONS_PATH}`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+      const { $ } = await toCheck(['infradev', 'qa'])
+      const key = $('input[name="key"]').attr('value')
+
+      const timedOut = await post(CHECK_URL, { key })
+
+      expect(timedOut.response.statusCode).toBe(statusCodes.serviceUnavailable)
+
+      // The backend made it after all: the dry run would now say it exists.
+      backend({
+        [`POST ${CHECK_PATH}`]: dryRun({
+          infradev: 'federation-exists',
+          qa: 'federation-exists'
+        })
+      })
+      const checksBefore = calls('POST', CHECK_PATH).length
+      const again = await get(CHECK_URL)
+
+      expect(again.response.statusCode).toBe(statusCodes.ok)
+      expect(text(again.$, 'h1')).toBe('Check your answers')
+      expect(again.$('input[name="key"]').attr('value')).toBe(key)
+      expect(calls('POST', CHECK_PATH)).toHaveLength(checksBefore)
+
+      const replay = await post(CHECK_URL, { key })
+      const sent = calls('POST', FEDERATIONS_PATH)
+
+      expect(replay.response.headers.location).toMatch(PROGRESS_PAGE)
+      expect(keyOfCall(sent.at(-1))).toBe(key)
+    })
+
+    test('asks the dry run again once the answers are changed after a confirmation that timed out', async () => {
+      backend({
+        [`POST ${FEDERATIONS_PATH}`]: reply(502, {
+          code: 'upstream-unavailable'
+        })
+      })
+      const { $ } = await toCheck(['infradev', 'qa'])
+
+      await post(CHECK_URL, { key: $('input[name="key"]').attr('value') })
+      await post(ENVIRONMENTS_URL, { environments: ['infradev'] })
+      const checksBefore = calls('POST', CHECK_PATH).length
+
+      await get(CHECK_URL)
+
+      expect(calls('POST', CHECK_PATH)).toHaveLength(checksBefore + 1)
     })
 
     test('keeps the same key for the same answers and gives different answers another (AC12)', async () => {

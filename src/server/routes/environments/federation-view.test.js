@@ -260,6 +260,39 @@ describe('#buildConnection', () => {
     expect(token.request).toContain('grant_type=client_credentials')
   })
 
+  test('shows the token request for a client secret, with the same values, only where client secrets are allowed', () => {
+    const allowed = build({
+      detail: {
+        connection,
+        models: [],
+        clientSecrets: { allowed: true, used: 0, limit: 3 }
+      }
+    }).token.secretRequest
+
+    expect(allowed).toBe(
+      [
+        `POST ${connection.tokenEndpoint}`,
+        'Content-Type: application/x-www-form-urlencoded',
+        '',
+        'grant_type=client_credentials',
+        `&client_id=${connection.clientId}`,
+        `&scope=${connection.scope}`,
+        '&client_secret=<client secret>'
+      ].join('\n')
+    )
+    expect(allowed).not.toContain('client_assertion')
+    expect(build().token.secretRequest).toBeNull()
+    expect(
+      build({
+        detail: {
+          connection,
+          models: [],
+          clientSecrets: { allowed: false, used: 0, limit: 3 }
+        }
+      }).token.secretRequest
+    ).toBeNull()
+  })
+
   test('shows the first call as GET on the gateway’s whoami', () => {
     expect(build().token.whoami).toBe(
       'GET https://gateway.example/flood-risk-team/whoami\nAuthorization: Bearer <access token>'

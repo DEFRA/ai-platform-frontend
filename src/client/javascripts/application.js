@@ -12,6 +12,7 @@ import {
 
 import { initProgressRefresh } from './progress-refresh.js'
 import { initSessionTimeout } from './session-timeout.js'
+import { initTeamSwitcher } from './team-switcher.js'
 
 createAll(Button)
 createAll(CharacterCount)
@@ -31,6 +32,9 @@ initProgressRefresh()
 // session, without script).
 initSessionTimeout()
 
+// Progressive enhancement: choosing a team in the Environments team selector
+// switches to it (without script its "Switch team" button does).
+initTeamSwitcher()
 // Progressive enhancement: reveal and wire up "Copy key" and "Copy code"
 // buttons (hidden by default so the readonly key field and the code still
 // work with no JavaScript). A field is copied by its value, code by its text.

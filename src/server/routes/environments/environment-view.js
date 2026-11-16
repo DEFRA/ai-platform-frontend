@@ -18,11 +18,8 @@ import {
   environmentSetUpUrl,
   teamEnvironmentList
 } from '#/server/common/helpers/environment-names.js'
-import {
-  TEAM_SECRET_STATE,
-  teamSecretFor
-} from '#/server/routes/teams/team-secret.js'
 import { teamUrl } from '#/server/routes/teams/team-view.js'
+import { buildClientSecrets } from './client-secrets-view.js'
 import { buildOperationItem } from './operation-view.js'
 import { buildApplications, buildConnection } from './federation-view.js'
 import {
@@ -291,56 +288,6 @@ function modelRow(deployment, { team, isAdmin, modelNames, locked }) {
   }
 }
 
-// The team's client secret for the environment: when it expires (only when
-// the credential says so), and what a person can do with it. Admins view,
-// rotate and revoke it; members are told to ask an admin. In a disabled
-// environment viewing and rotating are plain text: revoking stays open.
-function secretRow({
-  team,
-  environment,
-  isAdmin,
-  credentials,
-  deployments,
-  locked
-}) {
-  if (credentials === null) {
-    return { text: 'We could not check this just now.' }
-  }
-
-  const { state, credential } = teamSecretFor(credentials, deployments, {
-    teamId: team._id,
-    environment
-  })
-
-  if (state === TEAM_SECRET_STATE.revoked) {
-    return { text: 'Revoked' }
-  }
-
-  if (state === TEAM_SECRET_STATE.preparing) {
-    return { text: 'Being prepared. Check again in a moment.' }
-  }
-
-  if (state === TEAM_SECRET_STATE.none) {
-    return { text: 'Ready once a model has been set up.' }
-  }
-
-  const base = `${teamUrl(team)}/client-secrets/${encodeURIComponent(credential._id)}`
-
-  return {
-    text: credential.expiresAt
-      ? `Expires ${formatDate(credential.expiresAt, 'd MMMM yyyy')}`
-      : '',
-    actions: isAdmin
-      ? [
-          { text: 'View', href: locked ? null : `${base}/view` },
-          { text: 'Rotate', href: locked ? null : `${base}/rotate` },
-          { text: 'Revoke', href: `${base}/revoke` }
-        ]
-      : [],
-    askAnAdmin: !isAdmin
-  }
-}
-
 // A limit the team file does not hold is null, which reads "Not set", not 0.
 function limitText(value) {
   return typeof value === 'number' ? numberFormat.format(value) : 'Not set'
@@ -370,7 +317,8 @@ function limitsView({ team, environment, detail, isAdmin, locked }) {
 
 /**
  * An environment's own page: the strip with this one selected, then what is
- * changing here, its models, limits and recent changes.
+ * changing here, its models, limits, client secrets, applications and recent
+ * changes.
  * @param {object} params
  * @param {{_id: string, slug: string, name: string}} params.team
  * @param {boolean} params.isAdmin
@@ -379,7 +327,6 @@ function limitsView({ team, environment, detail, isAdmin, locked }) {
  * @param {{open: object[], recent: object[]}} params.operations - This environment's changes.
  * @param {Record<string, string>} params.modelNames
  * @param {Record<string, object>} [params.catalogue] - The catalogue's models by slug, for the call a model takes.
- * @param {object[] | null} params.credentials - The person's credentials, or null when they could not be read.
  * @param {{teamDisabled: boolean, disabledEnvironments: string[]}} [params.lock] - What is locked for the team.
  * @param {Date} [params.now]
  * @returns {object}
@@ -392,7 +339,6 @@ export function buildEnvironmentPage({
   operations,
   modelNames,
   catalogue = {},
-  credentials,
   lock = NO_LOCK,
   now = new Date()
 }) {
@@ -432,18 +378,15 @@ export function buildEnvironmentPage({
     ),
     recent: buildRecent(operations.recent, { modelNames, now }),
     models,
-    secret:
-      models.length > 0
-        ? secretRow({
-            team,
-            environment,
-            isAdmin,
-            credentials,
-            deployments: detail.models,
-            locked
-          })
-        : null,
     limits: limitsView({ team, environment, detail, isAdmin, locked }),
+    clientSecrets: buildClientSecrets({
+      team,
+      environment,
+      registryName,
+      detail,
+      isAdmin,
+      locked
+    }),
     applications: buildApplications({
       team,
       environment,

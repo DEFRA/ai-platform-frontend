@@ -15,6 +15,24 @@ describe('Section card component', () => {
     expect($card('.govuk-summary-card__content .inner').text()).toBe('Body')
   })
 
+  test('Should keep a card always open, with no toggle, when told it does not collapse', () => {
+    const $card = renderComponent(
+      'section-card',
+      {
+        title: 'Models',
+        collapsible: false,
+        actionsHtml: '<a class="act" href="/x">Deploy</a>'
+      },
+      'Body'
+    )
+
+    expect($card('details, summary')).toHaveLength(0)
+    expect($card('.app-section-card__chevron')).toHaveLength(0)
+    expect($card('.app-section-card__title-wrapper > h2').text()).toBe('Models')
+    expect($card('.govuk-summary-card__content').text()).toContain('Body')
+    expect($card('.govuk-summary-card__content a.act')).toHaveLength(1)
+  })
+
   test('Should take the heading level, classes and attributes it is given', () => {
     const $card = renderComponent(
       'section-card',
@@ -35,7 +53,7 @@ describe('Section card component', () => {
     )
   })
 
-  test('Should put actions in a block beside the title, and leave it out when there are none', () => {
+  test('Should put actions in a block at the top of the content, and leave it out when there are none', () => {
     const $with = renderComponent(
       'section-card',
       { title: 'Models', actionsHtml: '<a class="act" href="/x">Deploy</a>' },
@@ -48,10 +66,26 @@ describe('Section card component', () => {
     )
 
     expect(
-      $with('.govuk-summary-card__title-wrapper > .app-section-card__actions a')
+      $with('.govuk-summary-card__content > .app-section-card__actions a')
     ).toHaveLength(1)
     expect($with('a.act').attr('href')).toBe('/x')
     expect($without('.app-section-card__actions')).toHaveLength(0)
+  })
+
+  test('Should collapse: the title is the summary of an open details element, with a chevron hidden from assistive technology', () => {
+    const $card = renderComponent('section-card', { title: 'Models' }, 'Body')
+    const $details = $card('.app-section-card__details')
+
+    expect($details).toHaveLength(1)
+    expect($details.attr('open')).toBeDefined()
+    expect($details.attr('data-collapse-key')).toBe('Models')
+    expect($details.children('summary').children('h2').text()).toBe('Models')
+    expect(
+      $details.find('summary .app-section-card__chevron').attr('aria-hidden')
+    ).toBe('true')
+    expect($details.children('.govuk-summary-card__content').text()).toContain(
+      'Body'
+    )
   })
 
   test('Should escape the title', () => {

@@ -6,7 +6,11 @@ import {
   environmentPageUrl,
   teamEnvironmentsUrl
 } from '#/server/common/helpers/environment-names.js'
-import { takeAccountNotification } from '#/server/common/helpers/session.js'
+import {
+  getEnvironmentsTeam,
+  setEnvironmentsTeam,
+  takeAccountNotification
+} from '#/server/common/helpers/session.js'
 import {
   isDeployLocked,
   lockContext
@@ -101,6 +105,30 @@ function itemsOf(outcome) {
   return outcome.status === 'fulfilled' ? outcome.value.items : null
 }
 
+// The team an `/environments` visit opens: the one the team switcher asked
+// for (`?team=`), else the one last looked at, else the person's first. A
+// slug that is not one of the person's teams is ignored.
+function startingTeam(request, teams) {
+  const asked = request.query.team ?? getEnvironmentsTeam(request)
+
+  return teams.find((team) => team.slug === asked) ?? teams[0]
+}
+
+// The team switcher on the overview: only for a person with more than one
+// team, with the current team selected.
+function teamSwitcher(teams, current) {
+  return teams && teams.length > 1
+    ? {
+        action: '/environments',
+        items: teams.map((team) => ({
+          value: team.slug,
+          text: team.name,
+          selected: team.slug === current.slug
+        }))
+      }
+    : null
+}
+
 /**
  * The page or the status of a page for a read that was refused or failed, or
  * undefined when it went through. The refusal is the same whether the team
@@ -176,7 +204,7 @@ async function loadOverview(request) {
   return {
     team,
     ...lockContext(lock),
-    changeTeamUrl: (itemsOf(teams)?.length ?? 0) > 1 ? '/environments' : null,
+    teamSwitcher: teamSwitcher(itemsOf(teams), team),
     ...federateOffer(team, environments.environments, lock),
     deployLocked: isDeployLocked(
       lock,
@@ -232,36 +260,34 @@ async function loadEnvironment(request, environment) {
   const filters = { environment: environment.environment }
   // The detail has been answered, so the person is a member: the rest is read
   // together. The team is needed to know whether they are an admin.
-  const [loaded, open, recent, statusChanges, catalogue, credentials] =
-    await Promise.all([
-      loadTeamForView(request, slug),
-      settled(
-        readTeamOperations(request, slug, {
-          ...filters,
-          status: 'open',
-          limit: MOST_OPEN_CHANGES
-        })
-      ),
-      settled(
-        readTeamOperations(request, slug, {
-          ...filters,
-          status: 'recent',
-          limit: RECENT_CHANGES
-        })
-      ),
-      settled(
-        readTeamStatusChanges(request, slug, {
-          ...filters,
-          limit: RECENT_CHANGES
-        })
-      ),
-      settled(client.get('/v1/models?includeIneligible=true')),
-      settled(client.get('/v1/credentials'))
-    ])
+  const [loaded, open, recent, statusChanges, catalogue] = await Promise.all([
+    loadTeamForView(request, slug),
+    settled(
+      readTeamOperations(request, slug, {
+        ...filters,
+        status: 'open',
+        limit: MOST_OPEN_CHANGES
+      })
+    ),
+    settled(
+      readTeamOperations(request, slug, {
+        ...filters,
+        status: 'recent',
+        limit: RECENT_CHANGES
+      })
+    ),
+    settled(
+      readTeamStatusChanges(request, slug, {
+        ...filters,
+        limit: RECENT_CHANGES
+      })
+    ),
+    settled(client.get('/v1/models?includeIneligible=true'))
+  ])
 
   warnOnFailure(
     request,
-    [open, recent, statusChanges, catalogue, credentials],
+    [open, recent, statusChanges, catalogue],
     'Could not read part of an environment page'
   )
 
@@ -278,7 +304,6 @@ async function loadEnvironment(request, environment) {
     operations: { open: itemsOf(open) ?? [], recent: itemsOf(recent) ?? [] },
     modelNames: modelNamesOf(catalogue),
     catalogue: modelsBySlug(catalogue),
-    credentials: itemsOf(credentials),
     lock
   })
 
@@ -315,20 +340,16 @@ export const environmentsController = {
         })
       }
 
-      if (teams.length === 1) {
-        return h
-          .redirect(teamEnvironmentsUrl(teams[0].slug))
-          .code(statusCodes.seeOther)
+      if (teams.length === 0) {
+        return h.view('environments/no-teams', {
+          pageTitle: OVERVIEW_TITLE,
+          heading: OVERVIEW_TITLE
+        })
       }
 
-      return h.view('environments/list', {
-        pageTitle: OVERVIEW_TITLE,
-        heading: OVERVIEW_TITLE,
-        teams: teams.map((team) => ({
-          name: team.name,
-          href: teamEnvironmentsUrl(team.slug)
-        }))
-      })
+      return h
+        .redirect(teamEnvironmentsUrl(startingTeam(request, teams).slug))
+        .code(statusCodes.seeOther)
     }
   },
 
@@ -353,6 +374,8 @@ export const environmentsController = {
       if (wantsStatusFragment(request)) {
         return statusFragmentResponse(request, h, OVERVIEW_STATUS, context)
       }
+
+      setEnvironmentsTeam(request, view.team.slug)
 
       return h.view('environments/overview', {
         ...context,

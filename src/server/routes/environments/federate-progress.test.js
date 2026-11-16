@@ -354,7 +354,7 @@ describe('the page that follows a federation', () => {
     expect($('h1')).toHaveLength(0)
   })
 
-  test('confirms every environment is ready with a link to each one’s connection details and how to get a token (AC13)', async () => {
+  test('confirms every environment is ready with a link to each one’s connection details and how to use the passwordless credential (AC13)', async () => {
     const done = ['done', 'done', 'done', 'done', 'done']
 
     backend(
@@ -378,12 +378,12 @@ describe('the page that follows a federation', () => {
     ).toEqual([
       ['Connection details for Infradev', `${INFRADEV_URL}#connection-details`],
       [
-        'How flood-api gets a token in Infradev',
+        'How flood-api uses its passwordless credential in Infradev',
         `${INFRADEV_URL}#how-to-get-a-token`
       ],
       ['Connection details for QA', `${OVERVIEW_URL}/qa#connection-details`],
       [
-        'How flood-api gets a token in QA',
+        'How flood-api uses its passwordless credential in QA',
         `${OVERVIEW_URL}/qa#how-to-get-a-token`
       ]
     ])

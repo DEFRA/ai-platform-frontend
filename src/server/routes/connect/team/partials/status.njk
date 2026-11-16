@@ -9,10 +9,12 @@
 
 <div data-in-progress="{{ 'true' if inProgress else 'false' }}" data-testid="request-status">
   {% for item in requests %}
-    {% if item.title %}
-      <h2 class="govuk-heading-m">{{ item.title }}</h2>
-    {% endif %}
-    {{ appStepList({ items: item.steps }) }}
+    <div class="app-operation" data-testid="request-operation">
+      {% if item.title %}
+        <h2 class="govuk-heading-m">{{ item.title }}</h2>
+      {% endif %}
+      {{ appStepList({ items: item.steps }) }}
+    </div>
   {% endfor %}
 
   {% if finished %}

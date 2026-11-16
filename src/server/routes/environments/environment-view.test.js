@@ -5,6 +5,10 @@ import {
   formatWhen
 } from './environment-view.js'
 import { config } from '#/config/config.js'
+import {
+  clientSecretItem,
+  clientSecretsOf
+} from '#/test-helpers/environments-helpers.js'
 
 const NOW = new Date('2026-11-12T12:00:00.000Z')
 const modelNames = { 'gpt-4o': 'GPT-4o', 'gpt-4-1-mini': 'GPT-4.1 mini' }
@@ -261,7 +265,6 @@ describe('environment-view', () => {
         },
         operations: { open: [], recent: [] },
         modelNames,
-        credentials: [],
         now: NOW,
         ...overrides
       })
@@ -389,70 +392,30 @@ describe('environment-view', () => {
       ])
     })
 
-    test('keeps the team client secret as built: dates and actions for an admin, "Ask an admin" for a member', () => {
-      const credentials = [
-        {
-          _id: 'cred-1',
-          tier: 'team',
-          teamId: 'team-1',
-          environment: 'infradev',
-          status: 'active',
-          expiresAt: '2027-10-19T00:00:00.000Z',
-          createdAt: '2026-10-21T10:45:00.000Z'
+    test('builds the client secrets section from the environment read, and has no single secret row', () => {
+      const view = page({
+        detail: {
+          ...summary(),
+          clientSecrets: clientSecretsOf([clientSecretItem()]),
+          models: [deployment()],
+          limitBounds: null,
+          pendingLimits: null
         }
-      ]
+      })
 
-      expect(page({ credentials }).secret).toEqual({
-        text: 'Expires 19 October 2027',
-        actions: [
-          {
-            text: 'View',
-            href: '/teams/flood-risk-team/client-secrets/cred-1/view'
-          },
-          {
-            text: 'Rotate',
-            href: '/teams/flood-risk-team/client-secrets/cred-1/rotate'
-          },
-          {
-            text: 'Revoke',
-            href: '/teams/flood-risk-team/client-secrets/cred-1/revoke'
-          }
-        ],
-        askAnAdmin: false
+      expect(view.clientSecrets).toMatchObject({
+        state: 'allowed',
+        countText: '1 of 3 client secrets in use'
       })
-      expect(page({ credentials, isAdmin: false }).secret).toMatchObject({
-        actions: [],
-        askAnAdmin: true
-      })
-      expect(page({ credentials: null }).secret).toEqual({
-        text: 'We could not check this just now.'
-      })
-      expect(page().secret.text).toBe('Ready once a model has been set up.')
+      expect(view).not.toHaveProperty('secret')
       expect(
-        page({
-          detail: {
-            ...summary(),
-            models: [],
-            limitBounds: null,
-            pendingLimits: null
-          }
-        }).secret
+        page({ detail: { ...summary(), clientSecrets: undefined, models: [] } })
+          .clientSecrets
       ).toBeNull()
     })
   })
 
   describe('with the team disabled', () => {
-    const credentials = [
-      {
-        _id: 'cred-1',
-        tier: 'team',
-        teamId: 'team-1',
-        environment: 'infradev',
-        status: 'active',
-        expiresAt: '2027-10-19T00:00:00.000Z',
-        createdAt: '2026-10-21T10:45:00.000Z'
-      }
-    ]
     const disabledTeam = { teamDisabled: true, disabledEnvironments: [] }
     const infradevLocked = {
       teamDisabled: true,
@@ -484,6 +447,7 @@ describe('environment-view', () => {
         detail: {
           ...summary(),
           applications: federated,
+          clientSecrets: clientSecretsOf([clientSecretItem()]),
           models: [deployment()],
           limitBounds: {
             tokensPerMinute: { min: 1, max: 5000 },
@@ -493,7 +457,6 @@ describe('environment-view', () => {
         },
         operations: { open: [], recent: [] },
         modelNames,
-        credentials,
         lock,
         now: NOW,
         ...overrides
@@ -536,7 +499,11 @@ describe('environment-view', () => {
         removeUrl: null,
         removeLocked: true
       })
-      expect(view.secret.actions).toEqual([
+      expect(view.clientSecrets).toMatchObject({
+        addUrl: null,
+        addLocked: true
+      })
+      expect(view.clientSecrets.items[0].actions).toEqual([
         { text: 'View', href: null },
         { text: 'Rotate', href: null },
         {
@@ -568,7 +535,10 @@ describe('environment-view', () => {
         '/teams/flood-risk-team/models/deployment-1/remove'
       )
       expect(view.models[0].removeLocked).toBe(false)
-      expect(view.secret.actions.every(({ href }) => href)).toBe(true)
+      expect(view.clientSecrets.addLocked).toBe(false)
+      expect(
+        view.clientSecrets.items[0].actions.every(({ href }) => href)
+      ).toBe(true)
       expect(view.limits.changeUrl).toBe(
         '/environments/flood-risk-team/infradev/limits'
       )
@@ -614,7 +584,6 @@ describe('environment-view', () => {
         detail: { ...summary({ environment: 'qa', setUp: false }), models: [] },
         operations: { open: [], recent: [] },
         modelNames,
-        credentials: [],
         lock: disabledTeam,
         now: NOW
       })
@@ -706,7 +675,6 @@ describe('environment-view', () => {
           },
           operations: { open: [], recent: [] },
           modelNames,
-          credentials: [],
           now: NOW
         })
 
@@ -735,7 +703,6 @@ describe('environment-view', () => {
         },
         operations: { open: [], recent: [] },
         modelNames,
-        credentials: [],
         now: NOW
       })
 

@@ -21,21 +21,23 @@ function currentItems(navigation) {
 }
 
 describe('#buildNavigation', () => {
-  test('Should show Model catalogue and Help only, with no Home, when signed out', () => {
+  test('Should show Home, Model catalogue and Help when signed out', () => {
     expect(
       buildNavigation(mockRequest({ path: '/non-existent-path' }))
     ).toEqual([
+      { text: 'Home', href: '/', current: false },
       { text: 'Model catalogue', href: '/models', current: false },
       { text: 'Help', href: '/about', current: false }
     ])
   })
 
-  test('Should show Model catalogue, Personal access, Teams, Environments and Help in order when signed in', () => {
+  test('Should show Home, Model catalogue, Personal access, Teams, Environments and Help in order when signed in', () => {
     expect(
       buildNavigation(
         mockRequest({ path: '/non-existent-path' }, { signedIn: true })
       )
     ).toEqual([
+      { text: 'Home', href: '/', current: false },
       { text: 'Model catalogue', href: '/models', current: false },
       { text: 'Personal access', href: '/manage', current: false },
       { text: 'Teams', href: '/teams', current: false },
@@ -53,9 +55,11 @@ describe('#buildNavigation', () => {
         )
       )
     ).toEqual([
-      { text: 'Models', href: '/models', current: false },
-      { text: 'Your access', href: '/manage', current: false },
+      { text: 'Home', href: '/', current: false },
+      { text: 'Model catalogue', href: '/models', current: false },
+      { text: 'Personal access', href: '/manage', current: false },
       { text: 'Teams', href: '/teams', current: false },
+      { text: 'Environments', href: '/environments', current: false },
       { text: 'Admin', href: '/admin', current: false },
       { text: 'Help', href: '/about', current: false }
     ])
@@ -80,10 +84,11 @@ describe('#buildNavigation', () => {
       buildNavigation(
         mockRequest({ path: '/admin' }, { platformAdmin: true })
       ).map((item) => item.text)
-    ).toEqual(['Models', 'Help'])
+    ).toEqual(['Home', 'Model catalogue', 'Help'])
   })
 
   test.each([
+    ['/', 'Home'],
     ['/models', 'Model catalogue'],
     ['/models/gpt-4o', 'Model catalogue'],
     ['/manage', 'Personal access'],
@@ -101,18 +106,17 @@ describe('#buildNavigation', () => {
     ).toEqual([text])
   })
 
-  test('Should highlight nothing on the home page, which has no item', () => {
-    expect(
-      currentItems(
-        buildNavigation(mockRequest({ path: '/' }, { signedIn: true }))
-      )
-    ).toEqual([])
+  test('Should highlight Home alone on the home page, not every address', () => {
+    expect(currentItems(buildNavigation(mockRequest({ path: '/' })))).toEqual([
+      'Home'
+    ])
   })
 
   test('Should not show Personal access, Teams or Environments to a signed out person on a teams address', () => {
     const navigation = buildNavigation(mockRequest({ path: '/teams' }))
 
     expect(navigation.map((item) => item.text)).toEqual([
+      'Home',
       'Model catalogue',
       'Help'
     ])

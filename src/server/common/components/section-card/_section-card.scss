@@ -1,20 +1,84 @@
+@use "sass:color";
 @use "govuk-frontend" as *;
+@use "variables/colours" as *;
 
-// A section card keeps GOV.UK's summary card and only lines its title up with
-// its actions: the title on the left, the actions on the right, wrapping
-// under the title when there is no room (320 px reflow).
+$app-chevron-size: 10px;
+
+// A section card keeps GOV.UK's summary card. Its title is a toggle that
+// opens and closes the content: a chevron on the right shows which, and turns
+// when the card is open. A green rule across the top, and a lift when the
+// pointer is over it, give the cards some life without a new colour.
+.app-section-card {
+  border-top: govuk-spacing(1) solid $defra-green;
+  transition: box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    box-shadow: 0 2px 6px rgb(0, 0, 0, 0.15);
+  }
+}
+
 .app-section-card__title-wrapper {
   align-items: center;
   gap: govuk-spacing(2);
 }
 
+// Only a collapsing card's title is a toggle, so only it looks like one.
+.app-section-card__toggle {
+  cursor: pointer;
+  list-style: none;
+
+  // The browser's own triangle: the chevron replaces it.
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:hover {
+    background-color: color.mix(
+      govuk-colour("black"),
+      govuk-colour("light-grey"),
+      6%
+    );
+  }
+
+  &:focus-visible {
+    outline: $govuk-focus-width solid $govuk-focus-colour;
+    outline-offset: 0;
+    background-color: $govuk-focus-colour;
+  }
+}
+
+// An open card's chevron points up, a closed one's down.
+.app-section-card__chevron {
+  flex: none;
+  box-sizing: border-box;
+  width: $app-chevron-size;
+  height: $app-chevron-size;
+  margin: 0 govuk-spacing(1) 0 auto;
+  transform: rotate(-135deg);
+  border: solid govuk-colour("black");
+  border-width: 0 2px 2px 0;
+  transition: transform 0.15s ease-in-out;
+}
+
+.app-section-card__details:not([open]) .app-section-card__chevron {
+  transform: rotate(45deg);
+}
+
+// The card's actions sit at the right, above its content.
 .app-section-card__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: govuk-spacing(3);
-  margin-left: auto;
+  margin-bottom: govuk-spacing(3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-section-card,
+  .app-section-card__chevron {
+    transition: none;
+  }
 }
 
 // The content of a card is a list or a table: no extra bottom margin.
