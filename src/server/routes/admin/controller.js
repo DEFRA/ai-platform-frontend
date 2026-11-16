@@ -57,19 +57,27 @@ function teamsView(h, { query, result, errors }) {
 
 // Each environment the team has a file in, with that file's status, whether
 // it is disabled and, for a team pending removal, the date it may be removed
-// from.
+// from. A disabled environment whose file is active shows Disabled alone, so
+// it never reads as both Active and Disabled; any other file status keeps its
+// own tag beside Disabled.
 function environmentRows(team) {
   return team.environments.map(
-    ({ environment, fileStatus, removeAfter, disabled }) => ({
-      name: environmentName(environment),
-      href:
-        fileStatus === 'removed'
-          ? null
-          : adminDeploymentUrl(team.id, environment),
-      status: teamStatusTag(fileStatus),
-      disabled: Boolean(disabled) && fileStatus !== 'removed',
-      removeAfter: removeAfter ?? null
-    })
+    ({ environment, fileStatus, removeAfter, disabled }) => {
+      const locked = Boolean(disabled) && fileStatus !== 'removed'
+      const replacesActive = locked && (fileStatus ?? 'active') === 'active'
+
+      return {
+        name: environmentName(environment),
+        href:
+          fileStatus === 'removed'
+            ? null
+            : adminDeploymentUrl(team.id, environment),
+        status: teamStatusTag(replacesActive ? 'disabled' : fileStatus),
+        statusIsDisabled: replacesActive,
+        disabled: locked && !replacesActive,
+        removeAfter: removeAfter ?? null
+      }
+    }
   )
 }
 

@@ -616,6 +616,17 @@ describe('#admin teams', () => {
           .get()
       ).toEqual(['Teams', 'Deployments', 'Audit log'])
     })
+
+    test('puts the Admin tabs above the team’s title, so they read as the area and not the team', async () => {
+      mockApi(fetchMock, { 'GET /v1/admin/teams/team-1': detail() })
+
+      const $ = load((await get('/admin/teams/team-1')).result)
+      const order = $('main [data-testid="sub-navigation"], main h1')
+        .map((_, element) => element.tagName)
+        .get()
+
+      expect(order).toEqual(['nav', 'h1'])
+    })
     test.each([
       ['disabled', 'Disabled', 'govuk-tag--grey'],
       ['pending-removal', 'Pending removal', 'govuk-tag--orange'],

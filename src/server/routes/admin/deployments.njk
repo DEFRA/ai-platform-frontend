@@ -9,6 +9,8 @@
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 
 {% block content %}
+  {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}
@@ -28,9 +30,6 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
-      {{ appSubNavigation({ items: environmentTabs, label: "Environment" }) }}
-
       {# A GET form, so a filter is an address that can be shared and works without script. The environment is kept with a hidden field. #}
       <form method="get" action="/admin/deployments" aria-labelledby="filter-heading" novalidate>
         <h2 class="govuk-heading-m" id="filter-heading" tabindex="-1">Filter the deployments{% if environmentLabel %} in {{ environmentLabel }}{% endif %}</h2>
@@ -94,6 +93,8 @@
           {% endif %}
         </div>
       </form>
+
+      {{ appSubNavigation({ items: environmentTabs, label: "Environment" }) }}
 
       {% if searched %}
         {% if total == 0 %}

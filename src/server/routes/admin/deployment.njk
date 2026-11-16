@@ -7,6 +7,8 @@
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 
 {% block content %}
+  {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
   {% include "partials/team-notification.njk" %}
 
   <div class="govuk-grid-row">
@@ -31,8 +33,6 @@
       <p class="govuk-body">
         {{ govukTag({ text: status.text, classes: status.classes, attributes: { "data-testid": "deployment-status" } }) }}
       </p>
-
-      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
 
       {% set credentialHtml %}
         {{ govukTag({ text: credential.text, classes: credential.classes }) }}
@@ -84,6 +84,67 @@
         <a class="govuk-link" href="{{ activityUrl }}" data-testid="view-activity">View activity</a>
       </p>
 
+      {% if clientSecrets %}
+        <h2 class="govuk-heading-l" id="client-secrets" tabindex="-1">Client secrets</h2>
+        <p class="govuk-body" data-testid="client-secrets-count">{{ clientSecrets.countText }}</p>
+        <div class="app-table-scroll" role="region" tabindex="0" aria-label="Client secrets in {{ environmentLabel }}">
+          <table class="govuk-table" data-testid="client-secrets-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Client secrets in {{ environmentLabel }}</caption>
+            <thead class="govuk-table__head">
+              <tr class="govuk-table__row">
+                <th class="govuk-table__header" scope="col">Secret</th>
+                <th class="govuk-table__header" scope="col">Expires</th>
+                <th class="govuk-table__header" scope="col">Status</th>
+                <th class="govuk-table__header" scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for secret in clientSecrets.rows %}
+                <tr class="govuk-table__row" data-testid="client-secret-row">
+                  <td class="govuk-table__cell">{{ secret.hint }}</td>
+                  <td class="govuk-table__cell">{{ (secret.expiresAt | formatDate) if secret.expiresAt else "Never" }}</td>
+                  <td class="govuk-table__cell">{{ govukTag({ text: secret.status.text, classes: secret.status.classes }) }}</td>
+                  <td class="govuk-table__cell">
+                    {% if secret.revokeUrl %}
+                      <a class="govuk-link" href="{{ secret.revokeUrl }}" data-testid="revoke-secret">Revoke<span class="govuk-visually-hidden"> secret {{ secret.hint | lower }}</span></a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      {% if federations.length > 0 %}
+        <h2 class="govuk-heading-l" id="federated-credentials" tabindex="-1">Federated credentials</h2>
+        <div class="app-table-scroll" role="region" tabindex="0" aria-label="Federated credentials in {{ environmentLabel }}">
+          <table class="govuk-table" data-testid="federations-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Federated credentials in {{ environmentLabel }}</caption>
+            <thead class="govuk-table__head">
+              <tr class="govuk-table__row">
+                <th class="govuk-table__header" scope="col">Application</th>
+                <th class="govuk-table__header" scope="col">Type</th>
+                <th class="govuk-table__header" scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for federation in federations %}
+                <tr class="govuk-table__row" data-testid="federation-row">
+                  <td class="govuk-table__cell">{{ federation.name }}</td>
+                  <td class="govuk-table__cell">{{ federation.kind }}</td>
+                  <td class="govuk-table__cell">
+                    {{ govukTag({ text: federation.status.text, classes: federation.status.classes }) }}
+                    {% if federation.reason %}<p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0">{{ federation.reason }}</p>{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="govuk-hint" data-testid="federations-note">Disable, Enable and Revoke credentials change client secrets only. They do not change these.</p>
+      {% endif %}
+
       <h2 class="govuk-heading-l" id="health" tabindex="-1">Deployment health</h2>
 
       {% if models.length == 0 %}
@@ -128,22 +189,6 @@
           </tbody>
         </table>
         </div>
-      {% endif %}
-
-      {% if environments.length > 0 %}
-        <h2 class="govuk-heading-m">This team in each environment</h2>
-        <ul class="govuk-list" data-testid="team-environments">
-          {% for item in environments %}
-            <li>
-              {% if item.current %}
-                {{ item.name }} (this page):
-              {% else %}
-                <a class="govuk-link" href="{{ item.href }}">{{ item.name }}</a>:
-              {% endif %}
-              {{ govukTag({ text: item.credential.text, classes: item.credential.classes }) }}
-            </li>
-          {% endfor %}
-        </ul>
       {% endif %}
     </div>
   </div>

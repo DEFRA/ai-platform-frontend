@@ -8,6 +8,8 @@
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 
 {% block content %}
+  {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
   {% include "partials/team-notification.njk" %}
 
   {{ appHeading({
@@ -18,8 +20,6 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
-
       {% if warning %}
         {{ govukWarningText({
           text: warning,
@@ -36,7 +36,7 @@
           <ul class="govuk-list" data-testid="team-environments">
             {% for environment in environments %}
               <li>
-                {% if environment.href %}<a class="govuk-link" href="{{ environment.href }}">{{ environment.name }}</a>{% else %}{{ environment.name }}{% endif %}: {{ govukTag({ text: environment.status.text, classes: environment.status.classes }) }}
+                {% if environment.href %}<a class="govuk-link" href="{{ environment.href }}">{{ environment.name }}</a>{% else %}{{ environment.name }}{% endif %}: {{ govukTag({ text: environment.status.text, classes: environment.status.classes, attributes: { "data-testid": "environment-disabled" } if environment.statusIsDisabled else {} }) }}
                 {% if environment.disabled %}
                   {{ govukTag({ text: "Disabled", classes: "govuk-tag--grey", attributes: { "data-testid": "environment-disabled" } }) }}
                 {% endif %}

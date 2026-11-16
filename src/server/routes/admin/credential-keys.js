@@ -62,6 +62,35 @@ export function teamDisableKey(
 }
 
 /**
+ * The `Idempotency-Key` for revoking one secret: made from the session, the
+ * team, the environment, the secret, the page's key and the reason, so a retry
+ * of the same form sends the same key and another secret or reason has a key
+ * of its own.
+ * @param {import('@hapi/hapi').Request} request
+ * @param {object} operation
+ * @param {string} operation.teamId
+ * @param {string} operation.environment
+ * @param {string} operation.credentialId
+ * @param {string} operation.formKey - The key the page was issued with.
+ * @param {string} operation.reason - The reason, as sent.
+ * @returns {string}
+ */
+export function secretRevokeKey(
+  request,
+  { teamId, environment, credentialId, formKey, reason }
+) {
+  return derivedIdempotencyKey([
+    'admin-secret-revoke',
+    request.yar.id,
+    teamId,
+    environment,
+    credentialId,
+    formKey,
+    reason
+  ])
+}
+
+/**
  * The `Idempotency-Key` for one environment of a disable or revoke.
  * @param {import('@hapi/hapi').Request} request
  * @param {object} operation

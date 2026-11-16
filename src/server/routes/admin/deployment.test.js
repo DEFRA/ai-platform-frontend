@@ -499,19 +499,111 @@ describe('#admin deployment detail', () => {
       )
     })
 
-    test('links to the team’s deployment in each environment, with its credential state, the current one not a link', async () => {
+    test('lists the client secrets by the end of the key, with the places used, expiry and status', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          clientSecrets: {
+            allowed: true,
+            used: 2,
+            limit: 3,
+            items: [
+              {
+                id: 's1',
+                keyHint: 'a1b2',
+                expiresAt: '2027-02-03T00:00:00.000Z',
+                status: 'active'
+              },
+              { id: 's2', keyHint: 'c9d4', expiresAt: null, status: 'active' },
+              {
+                id: 's3',
+                keyHint: 'e5f6',
+                expiresAt: '2026-10-01T00:00:00.000Z',
+                status: 'expired'
+              }
+            ]
+          }
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const rows = $('[data-testid="client-secret-row"]')
+        .map((_, row) => $(row).text().replace(/\s+/g, ' ').trim())
+        .get()
+
+      expect($('[data-testid="client-secrets-count"]').text()).toBe(
+        '2 of 3 places used'
+      )
+      expect(rows).toEqual([
+        'Ending a1b2 3 February 2027 Active Revoke secret ending a1b2',
+        'Ending c9d4 Never Active Revoke secret ending c9d4',
+        'Ending e5f6 1 October 2026 Expired'
+      ])
+      expect(
+        $('[data-testid="revoke-secret"]')
+          .map((_, link) => $(link).attr('href'))
+          .get()
+      ).toEqual([
+        `${PAGE}/credentials/s1/revoke`,
+        `${PAGE}/credentials/s2/revoke`
+      ])
+    })
+
+    test('shows no client secrets table when the backend lists none', async () => {
       mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
 
       const $ = load((await get(PAGE)).result)
-      const items = $('[data-testid="team-environments"] li')
 
-      expect(
-        items.map((_, item) => $(item).text().replace(/\s+/g, ' ').trim()).get()
-      ).toEqual(['Development (this page): Active', 'Test: Disabled'])
-      expect(items.eq(0).find('a')).toHaveLength(0)
-      expect(items.eq(1).find('a').attr('href')).toBe(
-        '/admin/deployments/team-1/qa'
+      expect($('[data-testid="client-secrets-table"]')).toHaveLength(0)
+      expect($('#client-secrets')).toHaveLength(0)
+    })
+
+    test('lists the federated credentials, with what failed, and says the actions do not change them', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          federations: [
+            { id: 'f1', name: 'beta-api', host: 'cdp', status: 'ready' },
+            {
+              id: 'f2',
+              name: 'beta-job',
+              host: 'azure',
+              status: 'failed',
+              failureReason: 'The identity was not found'
+            }
+          ]
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const rows = $('[data-testid="federation-row"]')
+        .map((_, row) => $(row).text().replace(/\s+/g, ' ').trim())
+        .get()
+
+      expect(rows).toEqual([
+        'beta-api CDP service Ready to use',
+        'beta-job Azure managed identity Failed The identity was not found'
+      ])
+      expect($('[data-testid="federations-note"]').text()).toContain(
+        'client secrets only'
       )
+    })
+
+    test('shows no federated credentials table, or its note, when the team has none', async () => {
+      mockApi(fetchMock, { [`GET ${DETAIL}`]: detail({ federations: [] }) })
+
+      const $ = load((await get(PAGE)).result)
+
+      expect($('[data-testid="federations-table"]')).toHaveLength(0)
+      expect($('[data-testid="federations-note"]')).toHaveLength(0)
+      expect($('#federated-credentials')).toHaveLength(0)
+    })
+
+    test('does not list the team’s other environments', async () => {
+      mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
+
+      const $ = load((await get(PAGE)).result)
+
+      expect($('[data-testid="team-environments"]')).toHaveLength(0)
+      expect($('h2').text()).not.toContain('This team in each environment')
     })
 
     test('escapes what the backend gave, and shows no secret, key hint or external id', async () => {

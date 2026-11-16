@@ -185,6 +185,19 @@ describe('#admin deployments list', () => {
       expect(nav.find('[aria-current="page"]').text()).toBe('Development')
     })
 
+    test('puts the environment tabs between the filter and the results', async () => {
+      mockApi(fetchMock, { [`GET ${LIST}`]: listing([row()]) })
+
+      const $ = load((await get('/admin/deployments')).result)
+      const order = $(
+        'main form[action="/admin/deployments"], main [aria-label="Environment"], main [data-testid="deployments-table"]'
+      )
+        .map((_, element) => element.tagName)
+        .get()
+
+      expect(order).toEqual(['form', 'nav', 'table'])
+    })
+
     test('asks for the environment given', async () => {
       mockApi(fetchMock, {
         [`GET ${LIST}?environment=prod`]: listing([row()], {

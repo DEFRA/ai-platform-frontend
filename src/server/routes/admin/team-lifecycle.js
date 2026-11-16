@@ -122,7 +122,9 @@ function disableChoice(team) {
     hintText:
       'Optional. Environments you do not tick stay usable. You can choose none.',
     noItemsText:
-      'Every environment is already disabled. You can still disable the team.',
+      disabledEnvironmentsOf(team).length > 0
+        ? 'Every environment is already disabled. You can still disable the team.'
+        : 'There are no models to disable. You can still disable the team.',
     buttonText: 'Continue',
     buttonClasses: ''
   }

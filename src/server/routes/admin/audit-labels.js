@@ -28,6 +28,7 @@ const ACTION_LABELS = {
   'admin.credentials.disable': 'Disabled a team’s credentials',
   'admin.credentials.enable': 'Enabled a team’s credentials',
   'admin.credentials.revoke': 'Revoked a team’s credentials',
+  'admin.credential.revoke': 'Revoked a team’s secret',
   'admin.team.disable': 'Disabled a team',
   'admin.team.enable': 'Enabled a team',
   'access.denied': 'Access refused'

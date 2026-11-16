@@ -10,6 +10,8 @@
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 
 {% block content %}
+  {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}
@@ -29,8 +31,6 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
-
       {# A GET form, so a filter is an address that can be shared and works without script. #}
       <form method="get" action="/admin/audit" aria-labelledby="filter-heading" novalidate>
         <h2 class="govuk-heading-m" id="filter-heading" tabindex="-1">Filter the audit log</h2>

@@ -2,6 +2,7 @@ import { adminAuditController } from './audit.js'
 import { adminController } from './controller.js'
 import { adminDeploymentController } from './deployment.js'
 import { adminCredentialsController } from './deployment-credentials.js'
+import { adminSecretRevokeController } from './deployment-secret-revoke.js'
 import { adminDeploymentsController } from './deployments.js'
 import {
   adminAddMemberController,
@@ -75,6 +76,16 @@ function lifecycleRoutes() {
 
 const routes = [
   ...credentialRoutes(),
+  {
+    method: 'GET',
+    path: `${deployment}/credentials/{credentialId}/revoke`,
+    handler: adminSecretRevokeController.get.handler
+  },
+  {
+    method: 'POST',
+    path: `${deployment}/credentials/{credentialId}/revoke`,
+    handler: adminSecretRevokeController.post.handler
+  },
   ...lifecycleRoutes(),
   { method: 'GET', path: '/admin', handler: adminController.index.handler },
   {

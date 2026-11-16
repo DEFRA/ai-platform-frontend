@@ -26,7 +26,21 @@ const STATUS_TAGS = {
   [FAILED]: { text: 'Failed', tagClass: 'govuk-tag--red' }
 }
 
-function tagFor(status) {
+/**
+ * The words for where an application runs.
+ * @param {string} host
+ * @returns {string}
+ */
+export function federationKind(host) {
+  return HOSTS[host] ?? host
+}
+
+/**
+ * The tag for an application's state.
+ * @param {string} status
+ * @returns {{text: string, tagClass: string}}
+ */
+export function federationTag(status) {
   return STATUS_TAGS[status] ?? { text: status, tagClass: 'govuk-tag--grey' }
 }
 
@@ -53,8 +67,8 @@ function applicationRow(application, context) {
   return {
     id: application.id,
     name: application.name,
-    kind: HOSTS[application.host] ?? application.host,
-    tag: tagFor(application.status),
+    kind: federationKind(application.host),
+    tag: federationTag(application.status),
     reason:
       application.status === FAILED
         ? (application.failureReason ?? null)

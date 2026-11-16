@@ -9,6 +9,8 @@
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 
 {% block content %}
+  {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}
@@ -28,8 +30,6 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-full">
-      {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
-
       {# A GET form, so a search or a filter is an address that can be shared and works without script. #}
       <form method="get" action="/admin/teams" role="search" novalidate>
         {{ govukInput({

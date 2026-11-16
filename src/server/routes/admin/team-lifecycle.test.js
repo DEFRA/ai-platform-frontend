@@ -217,6 +217,39 @@ describe('#admin disable and enable a team', () => {
       expect($('[data-testid="environment-disabled"]')).toHaveLength(1)
     })
 
+    test('shows a disabled environment as Disabled alone, never also Active', async () => {
+      mockApi(fetchMock, { [`GET ${API}`]: DEVELOPMENT_ONLY })
+
+      const $ = load((await get(PAGE)).result)
+      const rows = $('[data-testid="team-environments"] li')
+        .map((_, row) => text($(row)))
+        .get()
+
+      expect(rows).toEqual(['Development: Disabled', 'Test: Active'])
+      expect($('[data-testid="environment-disabled"]')).toHaveLength(1)
+    })
+
+    test('keeps the file status beside Disabled when it is not Active', async () => {
+      mockApi(fetchMock, {
+        [`GET ${API}`]: teamRead({
+          environments: [
+            {
+              environment: 'infradev',
+              fileStatus: 'pending-removal',
+              disabled: true
+            }
+          ]
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+
+      expect(text($('[data-testid="team-environments"] li'))).toContain(
+        'Development: Pending removal Disabled'
+      )
+      expect($('[data-testid="environment-disabled"]')).toHaveLength(1)
+    })
+
     test('does not tag a removed environment Disabled', async () => {
       mockApi(fetchMock, {
         [`GET ${API}`]: teamRead({
@@ -340,6 +373,20 @@ describe('#admin disable and enable a team', () => {
       expect(checkboxes($)).toEqual([])
       expect(text($('[data-testid="no-environments"]'))).toBe(
         'Every environment is already disabled. You can still disable the team.'
+      )
+      expect($('[data-testid="credentials-submit"]')).toHaveLength(1)
+    })
+
+    test('says there are no models to disable when the team has deployed none', async () => {
+      mockApi(fetchMock, {
+        [`GET ${API}`]: teamRead({ environments: [] })
+      })
+
+      const $ = load((await get(`${PAGE}/disable`)).result)
+
+      expect(checkboxes($)).toEqual([])
+      expect(text($('[data-testid="no-environments"]'))).toBe(
+        'There are no models to disable. You can still disable the team.'
       )
       expect($('[data-testid="credentials-submit"]')).toHaveLength(1)
     })

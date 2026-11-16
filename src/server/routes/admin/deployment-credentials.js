@@ -57,7 +57,17 @@ function pageTitle(deployment, heading, isError = false) {
   return `${isError ? 'Error: ' : ''}${heading} - ${deployment.team.name} - Admin`
 }
 
-function pageView(h, template, deployment, heading, context) {
+/**
+ * A page of the credential actions on a team's deployment: its title,
+ * caption, breadcrumbs and the way back, with what the page adds.
+ * @param {import('@hapi/hapi').ResponseToolkit} h
+ * @param {string} template
+ * @param {object} deployment - What the backend gave.
+ * @param {string} heading
+ * @param {object} context
+ * @returns {import('@hapi/hapi').ResponseObject}
+ */
+export function pageView(h, template, deployment, heading, context) {
   return h.view(template, {
     pageTitle: pageTitle(
       deployment,
@@ -432,7 +442,13 @@ function doneController(action) {
 
 // Each page is asked for the deployment first, which is the check; whatever
 // the backend refuses is shown as the Admin area shows it.
-function guarded(handler) {
+/**
+ * Wraps a page's handler so what the backend refuses is shown as the Admin
+ * area shows it.
+ * @param {(request: import('@hapi/hapi').Request, h: import('@hapi/hapi').ResponseToolkit) => Promise<unknown>} handler
+ * @returns {(request: import('@hapi/hapi').Request, h: import('@hapi/hapi').ResponseToolkit) => Promise<unknown>}
+ */
+export function guarded(handler) {
   return async (request, h) => {
     try {
       return await handler(request, h)

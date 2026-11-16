@@ -15,6 +15,10 @@ import {
 } from './admin-page.js'
 import { isOffered, OFFERED } from './credential-actions.js'
 import {
+  clientSecretsSection,
+  federationRows
+} from './deployment-credential-rows.js'
+import {
   credentialHeld,
   credentialStatus,
   credentialTag,
@@ -80,15 +84,6 @@ function underBlock(credential) {
     : null
 }
 
-function environmentLinks(deployment) {
-  return deployment.environments.map(({ environment, credential }) => ({
-    name: environmentName(environment),
-    current: environment === deployment.environment,
-    href: adminDeploymentUrl(deployment.team.id, environment),
-    credential: credentialTag(credentialStatus(credential))
-  }))
-}
-
 /**
  * The deployment page: the team in one environment, its credential and its
  * models' health, with what an admin can do. Used for the page itself and for
@@ -130,7 +125,8 @@ export function deploymentView(
     activityUrl: `${ADMIN_AUDIT_URL}?team=${encodeURIComponent(team.id)}&environment=${encodeURIComponent(environment)}`,
     models: modelRows(deployment),
     buttons: credentialButtons(deployment),
-    environments: environmentLinks(deployment)
+    clientSecrets: clientSecretsSection(deployment),
+    federations: federationRows(deployment)
   })
 }
 
