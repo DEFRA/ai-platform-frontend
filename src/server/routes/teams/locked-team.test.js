@@ -11,6 +11,7 @@ import {
 } from '#/test-helpers/environments-helpers.js'
 import {
   cookieHeader,
+  mergeCookies,
   signInViaOidc
 } from '#/test-helpers/oidc-session-helpers.js'
 import {
@@ -265,6 +266,44 @@ describe('#teams of a disabled team', () => {
       expect($('[data-testid="team-lock-banner"]')).toHaveLength(1)
       expect($('[data-testid="add-member"]')).toHaveLength(0)
       expect($('[data-testid="member-change-locked"]')).toHaveLength(0)
+    })
+
+    test('gives the lock banner and the notification of a change just made each their own title, so no id is used twice and each names itself', async () => {
+      backend(ACTIVE, { [`DELETE ${TEAM_PATH}/members/member-3`]: reply(204) })
+
+      const removed = await post(`${MEMBERS_URL}/member-3/remove`)
+      const jar = mergeCookies({ ...cookies }, removed)
+
+      backend(DISABLED)
+
+      const $ = load(
+        (
+          await server.inject({
+            method: 'GET',
+            url: MEMBERS_URL,
+            headers: { cookie: cookieHeader(jar) }
+          })
+        ).result
+      )
+      const ids = $('[id]')
+        .map((_, element) => $(element).attr('id'))
+        .get()
+      const notification = $('[data-testid="team-notification"]')
+      const lock = $('[data-testid="team-lock-banner"]')
+
+      expect(notification).toHaveLength(1)
+      expect(lock).toHaveLength(1)
+      expect(new Set(ids).size).toBe(ids.length)
+
+      for (const banner of [notification, lock]) {
+        const titleId = banner.attr('aria-labelledby')
+
+        expect(banner.find(`#${titleId}`)).toHaveLength(1)
+      }
+
+      expect(lock.attr('aria-labelledby')).not.toBe(
+        notification.attr('aria-labelledby')
+      )
     })
   })
 

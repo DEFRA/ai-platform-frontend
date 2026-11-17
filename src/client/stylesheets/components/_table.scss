@@ -40,7 +40,10 @@
   position: relative;
   overflow-x: auto;
 
+  // GOV.UK's focus for a box: yellow ring with a dark ring outside it, and a
+  // transparent outline for forced-colours modes. Yellow alone is about 1.35:1
+  // on white (WCAG 1.4.11).
   &:focus {
-    outline: $govuk-focus-width solid $govuk-focus-colour;
+    @include govuk-focused-box;
   }
 }

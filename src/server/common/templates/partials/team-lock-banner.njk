@@ -15,6 +15,7 @@
       {% endset %}
       {{ govukNotificationBanner({
         html: lockHtml,
+        titleId: "team-lock-banner-title",
         attributes: { "data-testid": "team-lock-banner" }
       }) }}
     </div>
