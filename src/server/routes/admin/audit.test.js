@@ -390,9 +390,14 @@ describe('#admin audit log', () => {
         expect.arrayContaining([
           'Disabled a team’s credentials',
           'Enabled a team’s credentials',
-          'Revoked a team’s credentials'
+          'Revoked a team’s secret'
         ])
       )
+      expect(
+        $('#action option')
+          .map((_, option) => $(option).text())
+          .get()
+      ).not.toContain('Revoked a team’s credentials')
     })
 
     test('shows nothing from an event beyond the fields it is given: no email, object ID or user ID', async () => {

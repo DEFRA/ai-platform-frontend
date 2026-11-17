@@ -39,8 +39,7 @@ const HEALTH_ANCHOR = '#health'
 
 const BUTTONS = {
   disable: { text: 'Disable credentials', classes: 'govuk-button--secondary' },
-  enable: { text: 'Enable credentials', classes: '' },
-  revoke: { text: 'Revoke credentials', classes: 'govuk-button--warning' }
+  enable: { text: 'Enable credentials', classes: '' }
 }
 
 function modelRows(deployment) {

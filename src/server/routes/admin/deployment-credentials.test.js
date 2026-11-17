@@ -153,7 +153,6 @@ describe('#admin deployment credentials', () => {
 
   describe.each([
     ['disable', 'Disable credentials'],
-    ['revoke', 'Revoke credentials'],
     ['enable', 'Enable credentials']
   ])(
     'the %s pages, asked of a person who may not or a team that is not there',
@@ -260,18 +259,6 @@ describe('#admin deployment credentials', () => {
       ])
     })
 
-    test('Revoke: lists only the environments with a credential the team holds', async () => {
-      mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
-
-      const $ = load((await get(`${PAGE}/credentials/revoke`)).result)
-
-      expect(
-        $('.govuk-checkboxes__item label')
-          .map((_, label) => text($(label)))
-          .get()
-      ).toEqual(['Development', 'Test'])
-    })
-
     test('Enable: lists only the disabled environments, ticked from the current one, with a plain button', async () => {
       mockApi(fetchMock, {
         [`GET ${DETAIL}`]: detail({
@@ -324,7 +311,7 @@ describe('#admin deployment credentials', () => {
       expect($('.govuk-checkboxes__item input:checked')).toHaveLength(0)
     })
 
-    test('Disable and Revoke: posting a choice goes to the reason page with the environments named in the address', async () => {
+    test('Disable: posting a choice goes to the reason page with the environments named in the address', async () => {
       mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
 
       const response = await post(`${PAGE}/credentials/disable`, {
@@ -340,7 +327,6 @@ describe('#admin deployment credentials', () => {
 
     test.each([
       ['disable', {}],
-      ['revoke', {}],
       [
         'enable',
         {
@@ -380,7 +366,7 @@ describe('#admin deployment credentials', () => {
     test('says an environment the action is not offered for is not on the list, and changes nothing', async () => {
       mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
 
-      const { statusCode, result } = await post(`${PAGE}/credentials/revoke`, {
+      const { statusCode, result } = await post(`${PAGE}/credentials/enable`, {
         environments: 'prod'
       })
 
@@ -444,23 +430,6 @@ describe('#admin deployment credentials', () => {
       expect($('[data-testid="credentials-cancel"]').attr('href')).toBe(PAGE)
       expect($('.govuk-back-link').attr('href')).toBe(
         `${PAGE}/credentials/disable?environments=infradev,qa`
-      )
-    })
-
-    test('Revoke: has a red button and says it cannot be undone', async () => {
-      mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
-
-      const $ = load(
-        (await get(`${PAGE}/credentials/revoke/reason?environments=infradev`))
-          .result
-      )
-
-      expect($('h1').text()).toBe('Revoke credentials in Development')
-      expect($('[data-testid="credentials-submit"]').attr('class')).toContain(
-        'govuk-button--warning'
-      )
-      expect(text($('[data-testid="credentials-effect"]'))).toContain(
-        'Revoking cannot be undone. The secrets are deleted. The team is not told why.'
       )
     })
 
@@ -606,78 +575,6 @@ describe('#admin deployment credentials', () => {
       expect(keys.slice(4, 6)).not.toEqual(keys.slice(0, 2))
     })
 
-    test('Revoke sends the revoke route', async () => {
-      mockApi(fetchMock, {
-        [`GET ${DETAIL}`]: detail(),
-        [`POST ${DETAIL}/credentials/revoke`]: {
-          environment: 'infradev',
-          revoked: 1
-        }
-      })
-
-      const response = await post(
-        `${PAGE}/credentials/revoke/reason?environments=infradev`,
-        { reason: 'Leaked' }
-      )
-
-      expect(writes().map(({ path }) => path)).toEqual([
-        `${DETAIL}/credentials/revoke`
-      ])
-      expect(response.headers.location).toBe(
-        `${PAGE}/credentials/revoked?environments=infradev`
-      )
-    })
-
-    test('Revoke does not say "revoked" for an environment the backend revoked nothing in (P1-AC11), and says so on the deployment', async () => {
-      mockApi(fetchMock, {
-        [`GET ${DETAIL}`]: detail(),
-        [`POST ${DETAIL}/credentials/revoke`]: {
-          environment: 'infradev',
-          revoked: 0
-        },
-        [`POST ${API}/qa/credentials/revoke`]: {
-          environment: 'qa',
-          revoked: 1
-        }
-      })
-
-      const response = await post(
-        `${PAGE}/credentials/revoke/reason?environments=infradev,qa`,
-        { reason: 'Leaked' }
-      )
-      const page = load((await follow(response)).result)
-
-      expect(response.statusCode).toBe(statusCodes.seeOther)
-      expect(response.headers.location).toBe(PAGE)
-      expect(page('[data-testid="team-notification"]').text()).toContain(
-        'Credentials revoked in Test. There was no credential to revoke in Development.'
-      )
-    })
-
-    test('Revoke with nothing revoked anywhere says only that there was none to revoke', async () => {
-      mockApi(fetchMock, {
-        [`GET ${DETAIL}`]: detail(),
-        [`POST ${DETAIL}/credentials/revoke`]: {
-          environment: 'infradev',
-          revoked: 0
-        }
-      })
-
-      const response = await post(
-        `${PAGE}/credentials/revoke/reason?environments=infradev`,
-        { reason: 'Leaked' }
-      )
-      const page = load((await follow(response)).result)
-
-      expect(response.headers.location).toBe(PAGE)
-      expect(text(page('[data-testid="team-notification"]'))).toContain(
-        'There was no credential to revoke in Development.'
-      )
-      expect(page('[data-testid="team-notification"]').text()).not.toContain(
-        'Credentials revoked'
-      )
-    })
-
     test('names the environment that failed, shows no success, says what stands, and offers Try again for the failed one', async () => {
       mockApi(fetchMock, {
         [`GET ${DETAIL}`]: detail(),
@@ -814,73 +711,56 @@ describe('#admin deployment credentials', () => {
   })
 
   describe('the confirmation', () => {
-    const blocked = { status: 'disabled', held: 'revoked' }
+    test('shows a panel naming the environments, what is true now and a way back', async () => {
+      const disabled = { status: 'disabled' }
 
-    test.each([
-      [
-        'disabled',
-        'Credentials disabled',
-        'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.',
-        { status: 'disabled' }
-      ],
-      [
-        'revoked',
-        'Credentials revoked',
-        'Revoking cannot be undone. The secrets are deleted. The team is not told why.',
-        blocked
-      ]
-    ])(
-      '%s: shows a panel naming the environments, what is true now and a way back',
-      async (word, title, effect, credential) => {
-        mockApi(fetchMock, {
-          [`GET ${DETAIL}`]: detail({
-            environments: [
-              { environment: 'infradev', credential },
-              { environment: 'qa', credential },
-              { environment: 'prod', credential: { status: 'revoked' } }
-            ]
-          })
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          environments: [
+            { environment: 'infradev', credential: disabled },
+            { environment: 'qa', credential: disabled },
+            { environment: 'prod', credential: { status: 'revoked' } }
+          ]
         })
+      })
 
-        const { statusCode, result } = await get(
-          `${PAGE}/credentials/${word}?environments=infradev,qa`
-        )
-        const $ = load(result)
+      const { statusCode, result } = await get(
+        `${PAGE}/credentials/disabled?environments=infradev,qa`
+      )
+      const $ = load(result)
 
-        expect(statusCode).toBe(statusCodes.ok)
-        expect($('title').text()).toContain(`${title} - Flood Risk Team`)
-        expect($('.govuk-panel__title').text().trim()).toBe(title)
-        expect(text($('.govuk-panel__body'))).toBe('in Development and Test')
-        expect(text($('[data-testid="credentials-effect"]'))).toBe(effect)
-        expect($('[data-testid="credentials-back"]').attr('href')).toBe(PAGE)
-      }
-    )
+      expect(statusCode).toBe(statusCodes.ok)
+      expect($('title').text()).toContain(
+        'Credentials disabled - Flood Risk Team'
+      )
+      expect($('.govuk-panel__title').text().trim()).toBe(
+        'Credentials disabled'
+      )
+      expect(text($('.govuk-panel__body'))).toBe('in Development and Test')
+      expect(text($('[data-testid="credentials-effect"]'))).toBe(
+        'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.'
+      )
+      expect($('[data-testid="credentials-back"]').attr('href')).toBe(PAGE)
+    })
 
-    test.each([
-      ['disabled', { status: 'active' }],
-      ['revoked', { status: 'active' }],
-      ['revoked', { status: 'disabled', held: 'active' }]
-    ])(
-      '%s: does not say it happened when an environment is %j, and goes to the deployment (a bookmark or Back)',
-      async (word, credential) => {
-        mockApi(fetchMock, {
-          [`GET ${DETAIL}`]: detail({
-            environments: [
-              { environment: 'infradev', credential: { status: 'revoked' } },
-              { environment: 'qa', credential }
-            ]
-          })
+    test('does not say it happened when an environment is still active, and goes to the deployment (a bookmark or Back)', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          environments: [
+            { environment: 'infradev', credential: { status: 'disabled' } },
+            { environment: 'qa', credential: { status: 'active' } }
+          ]
         })
+      })
 
-        const response = await get(
-          `${PAGE}/credentials/${word}?environments=infradev,qa`
-        )
+      const response = await get(
+        `${PAGE}/credentials/disabled?environments=infradev,qa`
+      )
 
-        expect(response.statusCode).toBe(statusCodes.seeOther)
-        expect(response.headers.location).toBe(PAGE)
-        expect(response.result).not.toContain('Credentials revoked')
-      }
-    )
+      expect(response.statusCode).toBe(statusCodes.seeOther)
+      expect(response.headers.location).toBe(PAGE)
+      expect(response.result).not.toContain('Credentials disabled')
+    })
 
     test('shows the 404 page for an environment the team does not have, so an address cannot say what it likes', async () => {
       mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
@@ -896,10 +776,34 @@ describe('#admin deployment credentials', () => {
     test('shows the 404 page with no environments named', async () => {
       mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
 
-      const { statusCode } = await get(`${PAGE}/credentials/revoked`)
+      const { statusCode } = await get(`${PAGE}/credentials/disabled`)
 
       expect(statusCode).toBe(statusCodes.notFound)
     })
+
+    test.each([
+      ['GET', 'credentials/revoke'],
+      ['POST', 'credentials/revoke'],
+      ['GET', 'credentials/revoke/reason?environments=infradev'],
+      ['POST', 'credentials/revoke/reason?environments=infradev'],
+      ['GET', 'credentials/revoked?environments=infradev']
+    ])(
+      'the whole-environment revoke is gone: %s %s is a 404, and nothing is sent',
+      async (method, path) => {
+        mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
+
+        const { statusCode } =
+          method === 'GET'
+            ? await get(`${PAGE}/${path}`)
+            : await post(`${PAGE}/${path}`, {
+                environments: 'infradev',
+                reason: 'Leaked'
+              })
+
+        expect(statusCode).toBe(statusCodes.notFound)
+        expect(writes()).toEqual([])
+      }
+    )
 
     test('shows the 403 page for a person who is not a Platform Admin', async () => {
       mockApi(fetchMock, { [`GET ${DETAIL}`]: FORBIDDEN })

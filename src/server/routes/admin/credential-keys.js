@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { derivedIdempotencyKey } from '#/server/common/helpers/idempotency-key.js'
 
-// A disable or revoke is one call for each environment, each with an
+// A disable is one call for each environment, each with an
 // `Idempotency-Key` the backend takes as a version 4 UUID. The reason page
 // carries a key it was issued with; the key sent for an environment is made
 // from the session, the team, the action, the environment, the page's key and
@@ -91,10 +91,10 @@ export function secretRevokeKey(
 }
 
 /**
- * The `Idempotency-Key` for one environment of a disable or revoke.
+ * The `Idempotency-Key` for one environment of a disable.
  * @param {import('@hapi/hapi').Request} request
  * @param {object} operation
- * @param {string} operation.action - disable or revoke.
+ * @param {string} operation.action - disable.
  * @param {string} operation.teamId
  * @param {string} operation.environment
  * @param {string} operation.formKey - The key the page was issued with.

@@ -14,17 +14,14 @@ import { adminTeamLifecycleController } from './team-lifecycle.js'
 const team = '/admin/teams/{id}'
 const deployment = '/admin/deployments/{teamId}/{environment}'
 
-// The pages of the credential actions: which environments, a reason (Disable
-// and Revoke) and the confirmation after.
+// The pages of the credential actions: which environments, a reason (Disable)
+// and the confirmation after.
 function credentialRoutes() {
-  const { disable, disableReason, disabled, revoke, revokeReason, revoked } =
+  const { disable, disableReason, disabled, enable } =
     adminCredentialsController
-  const { enable } = adminCredentialsController
   const pages = [
     ['disable', disable],
     ['disable/reason', disableReason],
-    ['revoke', revoke],
-    ['revoke/reason', revokeReason],
     ['enable', enable]
   ]
 
@@ -45,11 +42,6 @@ function credentialRoutes() {
       method: 'GET',
       path: `${deployment}/credentials/disabled`,
       handler: disabled.handler
-    },
-    {
-      method: 'GET',
-      path: `${deployment}/credentials/revoked`,
-      handler: revoked.handler
     }
   ]
 }

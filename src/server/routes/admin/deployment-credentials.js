@@ -21,13 +21,13 @@ import {
   loadDeployment
 } from './deployment-page.js'
 
-// The pages that disable, enable or revoke a team's credentials in the
-// environments an admin chooses (F6, plan D5, D9, D11, D12): which
-// environments, a reason (Disable and Revoke), then one call to the backend
-// for each environment, so the page can name the one that failed and a repeat
-// completes it. Nothing here decides who may: every page asks the backend
-// for the deployment first, and the backend refuses anyone who is not a
-// Platform Admin.
+// The pages that disable or enable a team's credentials in the environments an
+// admin chooses (F6, plan D5, D9, D11, D12): which environments, a reason
+// (Disable), then one call to the backend for each environment, so the page can
+// name the one that failed and a repeat completes it. Nothing here decides who
+// may: every page asks the backend for the deployment first, and the backend
+// refuses anyone who is not a Platform Admin. Revoking is one secret at a time
+// (deployment-secret-revoke.js), not here.
 
 const PROBLEM_TEXT = {
   none: 'Choose at least one environment',
@@ -100,8 +100,7 @@ function chooseView(h, deployment, action, { ticked, problem }) {
     nothingToDo: items.length === 0,
     nothingText: {
       disable: 'Every environment already has its credentials disabled.',
-      enable: 'No environment has its credentials disabled.',
-      revoke: 'No environment has a credential the team holds.'
+      enable: 'No environment has its credentials disabled.'
     }[action],
     errorSummary: error
       ? [{ text: error.text, href: ENVIRONMENTS_ANCHOR }]
@@ -166,18 +165,17 @@ function credentialsPath(deployment, environment, action) {
   return `${DEPLOYMENTS_API}/${encodeURIComponent(deployment.team.id)}/${encodeURIComponent(environment)}/credentials/${action}`
 }
 
-// One environment: the call, with the reason and a key of its own for Disable
-// and Revoke. Resolves `done`, `failed`, or `nothing` when the backend says a
-// Revoke revoked nothing (the credential was already gone); what the backend
-// refused that the admin cannot put right here (a refusal of role, a team
-// that is gone, a reason it will not take) is thrown for the page to say.
+// One environment: the call, with the reason and a key of its own for Disable.
+// Resolves `done` or `failed`; what the backend refused that the admin cannot
+// put right here (a refusal of role, a team that is gone, a reason it will not
+// take) is thrown for the page to say.
 async function applyToEnvironment(request, args) {
   const { action, deployment, environment, reason, formKey } = args
   const path = credentialsPath(deployment, environment, action)
 
   try {
     if (CREDENTIAL_ACTIONS[action].needsReason) {
-      const result = await apiClient(request).post(
+      await apiClient(request).post(
         path,
         { reason },
         {
@@ -191,7 +189,7 @@ async function applyToEnvironment(request, args) {
         }
       )
 
-      return action === 'revoke' && result?.revoked === 0 ? 'nothing' : 'done'
+      return 'done'
     }
 
     await apiClient(request).post(path)
@@ -212,7 +210,7 @@ async function applyToEnvironment(request, args) {
 // Every environment is tried, so one that fails does not stop the others and
 // the page can say which did.
 async function applyToEnvironments(request, args) {
-  const outcomes = { done: [], failed: [], nothing: [] }
+  const outcomes = { done: [], failed: [] }
 
   for (const environment of args.environments) {
     const outcome = await applyToEnvironment(request, { ...args, environment })
@@ -223,34 +221,15 @@ async function applyToEnvironments(request, args) {
   return outcomes
 }
 
-// What the deployment page says when a Revoke left some environments with
-// nothing to revoke: it does not say "revoked" for those.
-function nothingToRevokeMessage({ done, nothing }) {
-  const none = `There was no credential to revoke in ${environmentList(nothing)}.`
-
-  return done.length > 0
-    ? `Credentials revoked in ${environmentList(done)}. ${none}`
-    : none
-}
-
 async function finish(request, h, args) {
   const { action, deployment } = args
-  const { done, failed, nothing } = await applyToEnvironments(request, args)
+  const { done, failed } = await applyToEnvironments(request, args)
 
   if (failed.length > 0) {
     return failedView(h, deployment, action, { done, failed })
   }
 
   const copy = CREDENTIAL_ACTIONS[action]
-
-  if (nothing.length > 0) {
-    setAccountNotification(request, {
-      type: 'info',
-      message: nothingToRevokeMessage({ done, nothing })
-    })
-
-    return h.redirect(deploymentUrl(deployment)).code(statusCodes.seeOther)
-  }
 
   if (copy.needsReason) {
     return h
@@ -463,16 +442,13 @@ function guardedPair({ get, post }) {
 }
 
 /**
- * The Platform Admin's credential pages for a team's deployment: Disable and
- * Revoke ask which environments and why; Enable asks which environments and
- * acts. Each has the pages for them and the confirmation after.
+ * The Platform Admin's credential pages for a team's deployment: Disable asks
+ * which environments and why; Enable asks which environments and acts. Disable
+ * has the pages for it and the confirmation after.
  */
 export const adminCredentialsController = {
   disable: guardedPair(chooseController('disable')),
   disableReason: guardedPair(reasonController('disable')),
   disabled: { handler: guarded(doneController('disable')) },
-  revoke: guardedPair(chooseController('revoke')),
-  revokeReason: guardedPair(reasonController('revoke')),
-  revoked: { handler: guarded(doneController('revoke')) },
   enable: guardedPair(chooseController('enable'))
 }

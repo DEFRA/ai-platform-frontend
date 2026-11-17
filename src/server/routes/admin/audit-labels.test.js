@@ -40,7 +40,6 @@ describe('#actionLabel', () => {
   test.each([
     ['admin.credentials.disable', 'Disabled a team’s credentials'],
     ['admin.credentials.enable', 'Enabled a team’s credentials'],
-    ['admin.credentials.revoke', 'Revoked a team’s credentials'],
     ['admin.credential.revoke', 'Revoked a team’s secret'],
     ['admin.team.disable', 'Disabled a team'],
     ['admin.team.enable', 'Enabled a team']
@@ -59,16 +58,18 @@ describe('#actionLabel', () => {
     ])
   })
 
-  test('Should offer the three credential actions to the Action filter, by their labels', () => {
+  test('Should offer the two whole-environment credential actions to the Action filter, by their labels, and no whole-environment revoke', () => {
     expect(
       ACTION_OPTIONS.filter(({ value }) =>
         value.startsWith('admin.credentials.')
       ).map(({ text }) => text)
-    ).toEqual([
-      'Disabled a team’s credentials',
-      'Enabled a team’s credentials',
-      'Revoked a team’s credentials'
-    ])
+    ).toEqual(['Disabled a team’s credentials', 'Enabled a team’s credentials'])
+  })
+
+  test('Should show the removed whole-environment revoke as its code, as for any action with no label', () => {
+    expect(actionLabel({ action: 'admin.credentials.revoke' })).toBe(
+      'admin.credentials.revoke'
+    )
   })
 
   test('Should show the action as it is when it has no label yet', () => {

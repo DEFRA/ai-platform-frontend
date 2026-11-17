@@ -3,30 +3,23 @@
 // every call.
 
 import { environmentName } from '#/server/common/helpers/environment-names.js'
-import { credentialHeld, credentialStatus } from './deployment-labels.js'
-
-// What a credential can be revoked from: one the team holds. A block the
-// backend did not say what is under (it always does) is not offered.
-const HELD = new Set(['active'])
+import { credentialStatus } from './deployment-labels.js'
 
 const RULES = {
   // A block outlasts a revoked or missing credential: it stops a new one
   // being created, so only an environment already disabled is not offered.
   disable: (credential) => credentialStatus(credential) !== 'disabled',
-  // Only a credential the team still holds can be revoked: one that is
-  // active, or under a block that holds an active one.
-  revoke: (credential) => HELD.has(credentialHeld(credential)),
   // Only a block can be lifted; a revoked credential stays revoked.
   enable: (credential) => credentialStatus(credential) === 'disabled'
 }
 
 /** The actions, in the order their buttons show. */
-export const OFFERED = ['disable', 'enable', 'revoke']
+export const OFFERED = ['disable', 'enable']
 
 /**
  * Whether an action is offered for an environment whose credential is as
  * given.
- * @param {string} action - disable, enable or revoke.
+ * @param {string} action - disable or enable.
  * @param {string | {status: string, held?: string} | null | undefined} credential
  *   - What the backend gave: a status word or an object with a status.
  * @returns {boolean}
@@ -37,15 +30,14 @@ export function isOffered(action, credential) {
 
 // What a credential is like once the action has been done to it.
 const DONE = {
-  disable: (credential) => credentialStatus(credential) === 'disabled',
-  revoke: (credential) => credentialHeld(credential) === 'revoked'
+  disable: (credential) => credentialStatus(credential) === 'disabled'
 }
 
 /**
  * Whether an action has been done to an environment: its credential is
- * disabled (Disable) or revoked, blocked or not (Revoke). A confirmation page
- * says an action happened only when this is so.
- * @param {string} action - disable or revoke.
+ * disabled (Disable). A confirmation page says an action happened only when
+ * this is so.
+ * @param {string} action - disable.
  * @param {string | {status: string, held?: string} | null | undefined} credential
  * @returns {boolean}
  */
@@ -77,17 +69,6 @@ export const CREDENTIAL_ACTIONS = {
     past: 'enabled',
     verbing: 'enabling',
     notDone: 'enable'
-  },
-  revoke: {
-    title: 'Revoke credentials',
-    needsReason: true,
-    buttonClasses: 'govuk-button--warning',
-    effect:
-      'Revoking cannot be undone. The secrets are deleted. The team is not told why.',
-    done: 'Credentials revoked',
-    past: 'revoked',
-    verbing: 'revoking',
-    notDone: 'revoke'
   }
 }
 
@@ -122,7 +103,7 @@ const DISABLE_HINTS = {
  * The choices of "Which environments?": each environment of the team the
  * action is offered for, in the order the backend lists them, with the ones in
  * `ticked` ticked (plan D11).
- * @param {string} action - disable, enable or revoke.
+ * @param {string} action - disable or enable.
  * @param {object} deployment - What the backend gave for the page.
  * @param {string[]} ticked - The environment codes to tick.
  * @returns {Array<{value: string, text: string, checked: boolean, hint?: {text: string}}>}

@@ -29,7 +29,7 @@ describe('#credentialKey', () => {
   })
 
   test.each([
-    ['action', { action: 'revoke' }],
+    ['action', { action: 'enable' }],
     ['team', { teamId: 'team-2' }],
     ['environment', { environment: 'prod' }],
     ['form', { formKey: issueFormKey() }],

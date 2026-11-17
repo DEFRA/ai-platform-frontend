@@ -15,10 +15,6 @@ describe('#isOffered', () => {
     ['disable', 'disabled', false],
     ['disable', 'revoked', true],
     ['disable', 'none', true],
-    ['revoke', 'active', true],
-    ['revoke', 'disabled', false],
-    ['revoke', 'revoked', false],
-    ['revoke', 'none', false],
     ['enable', 'active', false],
     ['enable', 'disabled', true],
     ['enable', 'revoked', false],
@@ -30,21 +26,10 @@ describe('#isOffered', () => {
     }
   )
 
-  test('offers nothing for an action it does not know', () => {
+  test('offers nothing for an action it does not know, including the removed whole-environment revoke', () => {
     expect(isOffered('delete', 'active')).toBe(false)
+    expect(isOffered('revoke', 'active')).toBe(false)
   })
-
-  test.each([
-    ['active', true],
-    ['revoked', false],
-    ['none', false],
-    [undefined, false]
-  ])(
-    'Revoke for a disabled environment holding %s: %s (P1-AC11)',
-    (held, expected) => {
-      expect(isOffered('revoke', { status: 'disabled', held })).toBe(expected)
-    }
-  )
 
   test('Disable and Enable follow the block, whatever is under it', () => {
     expect(isOffered('enable', { status: 'disabled', held: 'revoked' })).toBe(
@@ -56,7 +41,7 @@ describe('#isOffered', () => {
   })
 
   test('lists the actions in the order the buttons show', () => {
-    expect(OFFERED).toEqual(['disable', 'enable', 'revoke'])
+    expect(OFFERED).toEqual(['disable', 'enable'])
   })
 })
 
@@ -64,39 +49,32 @@ describe('#isDone', () => {
   test.each([
     ['disable', 'disabled', true],
     ['disable', 'active', false],
-    ['revoke', 'revoked', true],
-    ['revoke', 'active', false],
-    ['revoke', { status: 'disabled', held: 'revoked' }, true],
-    ['revoke', { status: 'disabled', held: 'active' }, false],
-    ['revoke', { status: 'disabled' }, false],
-    ['enable', 'active', false]
+    ['enable', 'active', false],
+    ['revoke', 'revoked', false]
   ])('%s, credential %j: %s', (action, credential, expected) => {
     expect(isDone(action, credential)).toBe(expected)
   })
 })
 
 describe('#CREDENTIAL_ACTIONS', () => {
-  test('asks for a reason to disable and to revoke, and not to enable', () => {
+  test('has Disable and Enable only', () => {
+    expect(Object.keys(CREDENTIAL_ACTIONS)).toEqual(['disable', 'enable'])
+  })
+
+  test('asks for a reason to disable, and not to enable', () => {
     expect(CREDENTIAL_ACTIONS.disable.needsReason).toBe(true)
-    expect(CREDENTIAL_ACTIONS.revoke.needsReason).toBe(true)
     expect(CREDENTIAL_ACTIONS.enable.needsReason).toBe(false)
   })
 
-  test('says what is true for Disable and Revoke, and that the team is not told why', () => {
+  test('says what is true for Disable, and that the team is not told why', () => {
     expect(CREDENTIAL_ACTIONS.disable.effect).toBe(
       'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.'
     )
-    expect(CREDENTIAL_ACTIONS.revoke.effect).toBe(
-      'Revoking cannot be undone. The secrets are deleted. The team is not told why.'
-    )
   })
 
-  test('has a secondary button to disable, a red one to revoke and a plain one to enable', () => {
+  test('has a secondary button to disable and a plain one to enable', () => {
     expect(CREDENTIAL_ACTIONS.disable.buttonClasses).toBe(
       'govuk-button--secondary'
-    )
-    expect(CREDENTIAL_ACTIONS.revoke.buttonClasses).toBe(
-      'govuk-button--warning'
     )
     expect(CREDENTIAL_ACTIONS.enable.buttonClasses).toBe('')
   })
@@ -136,37 +114,6 @@ describe('#environmentChoices', () => {
       'It has no credential yet. Disabling stops one being created.'
     )
     expect(items.find(({ value }) => value === 'infradev').hint).toBeUndefined()
-  })
-
-  test('lists for Revoke only the environments with a credential the team holds', () => {
-    expect(
-      environmentChoices('revoke', deployment, []).map(({ value }) => value)
-    ).toEqual(['infradev', 'qa'])
-  })
-
-  test('lists for Revoke a disabled environment only when what is under the block is held', () => {
-    const blocked = {
-      environment: 'infradev',
-      credential: { status: 'disabled', held: 'active' },
-      environments: [
-        {
-          environment: 'infradev',
-          credential: { status: 'disabled', held: 'active' }
-        },
-        {
-          environment: 'qa',
-          credential: { status: 'disabled', held: 'revoked' }
-        },
-        {
-          environment: 'prod',
-          credential: { status: 'disabled', held: 'none' }
-        }
-      ]
-    }
-
-    expect(
-      environmentChoices('revoke', blocked, []).map(({ value }) => value)
-    ).toEqual(['infradev'])
   })
 
   test('reads an environment’s credential from the list, and none for one the team lacks', () => {

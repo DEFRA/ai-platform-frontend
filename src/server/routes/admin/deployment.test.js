@@ -269,7 +269,7 @@ describe('#admin deployment detail', () => {
         'Disabled The team can view Development but not change it. Its credentials keep working.'
       ])
       expect($('[data-testid="disable-credentials"]')).toHaveLength(1)
-      expect($('[data-testid="revoke-credentials"]')).toHaveLength(1)
+      expect($('[data-testid="revoke-credentials"]')).toHaveLength(0)
     })
 
     test('has no portal row for an environment that is not disabled', async () => {
@@ -388,7 +388,7 @@ describe('#admin deployment detail', () => {
     })
 
     test.each([
-      ['active', ['Disable credentials', 'Revoke credentials']],
+      ['active', ['Disable credentials']],
       ['revoked', ['Disable credentials']],
       ['none', ['Disable credentials']]
     ])(
@@ -409,7 +409,7 @@ describe('#admin deployment detail', () => {
     )
 
     test.each([
-      ['active', ['Enable credentials', 'Revoke credentials']],
+      ['active', ['Enable credentials']],
       ['revoked', ['Enable credentials']],
       ['none', ['Enable credentials']]
     ])(
@@ -471,7 +471,22 @@ describe('#admin deployment detail', () => {
       expect($('[data-testid="credential-under-block"]')).toHaveLength(0)
     })
 
-    test('links each credential action to its page, Disable secondary, Enable green and Revoke red', async () => {
+    test.each(['active', 'revoked', 'none'])(
+      'has no Revoke credentials button, or link to a whole-environment revoke, for %s',
+      async (status) => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: detail({ credential: { status } })
+        })
+
+        const $ = load((await get(PAGE)).result)
+
+        expect($('[data-testid="revoke-credentials"]')).toHaveLength(0)
+        expect($('main').text()).not.toContain('Revoke credentials')
+        expect($(`a[href="${PAGE}/credentials/revoke"]`)).toHaveLength(0)
+      }
+    )
+
+    test('links each credential action to its page, Disable secondary and Enable green', async () => {
       mockApi(fetchMock, {
         [`GET ${DETAIL}`]: detail({
           credential: { status: 'disabled', held: 'active' }
@@ -480,12 +495,9 @@ describe('#admin deployment detail', () => {
 
       const $ = load((await get(PAGE)).result)
       const enable = $('[data-testid="enable-credentials"]')
-      const revoke = $('[data-testid="revoke-credentials"]')
 
       expect(enable.attr('href')).toBe(`${PAGE}/credentials/enable`)
       expect(enable.attr('class')).not.toContain('govuk-button--secondary')
-      expect(revoke.attr('href')).toBe(`${PAGE}/credentials/revoke`)
-      expect(revoke.attr('class')).toContain('govuk-button--warning')
 
       mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
 
