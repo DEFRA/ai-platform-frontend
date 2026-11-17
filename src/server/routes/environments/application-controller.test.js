@@ -445,7 +445,10 @@ describe('changing and removing an application', () => {
       expect(response.statusCode).toBe(statusCodes.ok)
       expect(text($, 'h1')).toBe('Remove flood-api from Infradev?')
       expect(text($, '[data-testid="remove-warning"]')).toContain(
-        'flood-api will stop getting new tokens in Infradev. Tokens it already has work until they expire'
+        'flood-api will stop getting new tokens in Infradev. Tokens it already has work until they expire, up to 2 hours after they were issued.'
+      )
+      expect(text($, '[data-testid="remove-warning"]')).not.toContain(
+        '90 minutes'
       )
       expect(text($, 'main form button')).toBe('Remove flood-api')
       expect($('main form button').hasClass('govuk-button--warning')).toBe(true)

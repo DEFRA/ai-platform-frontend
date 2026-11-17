@@ -111,7 +111,7 @@ only client secrets are acted on: federated applications are listed, not changed
   beside an active secret opens a reason page that is also the confirmation (red button). There is **no
   whole-environment Revoke** (removed 17 Nov 2026, R-D5): Entra cannot disable one secret, so Disable credentials is the
   reversible stop and Revoke is for one secret, for good. The page says the truth of design F: no new token can be made
-  with the secret, a token already issued keeps working for up to 90 minutes, and Disable credentials is the immediate
+  with the secret, a token already issued keeps working until it expires, up to 2 hours, and Disable credentials is the immediate
   stop (true once S2's gateway effect lands; see Known gaps). Success returns to the detail page with "Revoked the secret
   ending {last four}." A secret that is not active is sent back to the deployment with a notice.
 - **One call for each environment** (Disable), each with its own `Idempotency-Key` (an HMAC of session, team, action,

@@ -293,8 +293,9 @@ remove pages over the admin routes. Adding yourself is refused ("You cannot add 
 "Removing someone does not change the team's credentials. Ask a team admin to rotate or revoke them if this person had a
 copy." Allowed for a team in any status. Built in [08 Platform admin](../../plans/implemented/08-platform-admin.md).
 Since 17 Nov 2026 the warning reads: "Removing someone does not change the team’s credentials. If this person had a copy of
-a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works for up
-to 90 minutes, and Disable credentials stops calls now. A Platform Admin cannot rotate a secret." with the link "View the
+a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works until
+it expires, up to 2 hours, and Disable credentials stops calls now. A Platform Admin cannot rotate a secret." with the
+link "View the
 team’s deployments" under it.
 
 ### 9a-2. Platform Admin: Audit log (design F7, B31)
@@ -347,7 +348,7 @@ with the gateway effect (the next ship, S2).
 
 **`.../credentials/{credentialId}/revoke`**: H1 "Revoke the secret ending {last four}", a reason page that is also the
 confirmation (500 characters, the same warning, red button "Revoke secret", "Cancel"). It says revoking cannot be undone,
-that no new token can be made with the secret, that a token already issued keeps working for up to 90 minutes, and that
+that no new token can be made with the secret, that a token already issued keeps working until it expires, up to 2 hours, and that
 the team's other secrets are not changed. Success returns to the detail page with the banner "Revoked the secret ending
 {last four}."
 

@@ -176,7 +176,7 @@ describe('#admin revoke one client secret', () => {
         'Revoke the secret ending a1b2 - Flood Risk Team - Admin'
       )
       expect(text($('[data-testid="credentials-effect"]'))).toBe(
-        'Revoking cannot be undone. No new token can be made with this secret. A token already issued with it keeps working for up to 90 minutes. To stop calls now, also use Disable credentials on this deployment. The team’s other secrets are not changed. The team is not told why.'
+        'Revoking cannot be undone. No new token can be made with this secret. A token already issued with it keeps working until it expires, up to 2 hours. To stop calls now, also use Disable credentials on this deployment. The team’s other secrets are not changed. The team is not told why.'
       )
       expect(text($('[data-testid="credentials-effect"]'))).not.toContain(
         'stops working'
