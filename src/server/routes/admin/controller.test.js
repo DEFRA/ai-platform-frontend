@@ -314,6 +314,38 @@ describe('#admin teams', () => {
       expect($('.govuk-pagination')).toHaveLength(0)
     })
 
+    test('says a page past the last does not exist, with no count and no table, and links to the first and last pages, keeping the filters', async () => {
+      mockApi(fetchMock, {
+        'GET /v1/admin/teams?search=team&status=active&page=9': {
+          teams: [],
+          page: 9,
+          pageSize: 25,
+          total: 30
+        }
+      })
+
+      const $ = load(
+        (await get('/admin/teams?search=team&status=active&page=9')).result
+      )
+      const past = $('[data-testid="teams-past-end"]')
+
+      expect(past.find('h2').text()).toBe('There is no page 9')
+      expect(past.text()).toContain('There are 30 teams on 2 pages.')
+      expect(
+        past
+          .find('a')
+          .map((_, link) => `${$(link).text()} ${$(link).attr('href')}`)
+          .get()
+      ).toEqual([
+        'Go to page 1 /admin/teams?search=team&status=active',
+        'Go to page 2 (the last page) /admin/teams?search=team&status=active&page=2'
+      ])
+      expect($('[data-testid="teams-count"]')).toHaveLength(0)
+      expect($('[data-testid="teams-table"]')).toHaveLength(0)
+      expect($('[data-testid="teams-empty"]')).toHaveLength(0)
+      expect($('.govuk-pagination')).toHaveLength(0)
+    })
+
     test('says no teams match, with Clear filters, when a search finds none', async () => {
       mockApi(fetchMock, {
         'GET /v1/admin/teams?search=zzz&status=active': {

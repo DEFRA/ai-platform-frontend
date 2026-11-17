@@ -13,10 +13,12 @@ import {
   loadAdminTeam
 } from './admin-page.js'
 import { environmentList } from './deployment-page.js'
+import { pastEnd } from './past-end.js'
 import { canEnable, disabledEnvironmentsOf } from './team-lifecycle-choices.js'
 import {
   buildPagination,
   listQuery,
+  listUrl,
   loadAdminTeamList,
   queryErrors,
   STATUS_FILTERS
@@ -24,10 +26,58 @@ import {
 
 const ADMIN_BREADCRUMB = { text: 'Admin', href: ADMIN_TEAMS_URL }
 
-function teamsView(h, { query, result, errors }) {
-  const { rows = [], page = 1, pageSize = 0, total = 0 } = result ?? {}
+// What the page shows of the list before anything has been asked of the backend.
+const NOT_SEARCHED = {
+  searched: false,
+  pastEnd: null,
+  rows: [],
+  total: 0,
+  first: 0,
+  last: 0,
+  pagination: null
+}
+
+// The rows, the count over them and the way to the other pages, or a page that
+// is past the last, from what the backend answered.
+function listingView(result, query) {
+  if (result === undefined) {
+    return NOT_SEARCHED
+  }
+
+  const { rows, page, pageSize, total } = result
   const first = rows.length > 0 ? (page - 1) * pageSize + 1 : 0
 
+  return {
+    searched: true,
+    pastEnd: pastEnd({
+      shown: rows.length,
+      page,
+      pageSize,
+      total,
+      nouns: ['team', 'teams'],
+      href: (number) => listUrl(query, number)
+    }),
+    rows,
+    total,
+    first,
+    last: first === 0 ? 0 : first + rows.length - 1,
+    pagination: buildPagination(result, query)
+  }
+}
+
+// The search and status as the form shows them, and whether either is set.
+function filterView({ search = '', status = '' }) {
+  return {
+    values: { search, status },
+    statusItems: STATUS_FILTERS.map((item) => ({
+      ...item,
+      selected: item.value === status
+    })),
+    filtered: Boolean(search || status)
+  }
+}
+
+function teamsView(h, { query, result, errors }) {
   return h.view('admin/teams', {
     pageTitle: `${errors ? 'Error: ' : ''}Teams - Admin`,
     heading: 'Teams',
@@ -37,19 +87,9 @@ function teamsView(h, { query, result, errors }) {
       { text: 'Teams' }
     ],
     tabs: adminTabs('teams'),
-    values: { search: query.search ?? '', status: query.status ?? '' },
-    statusItems: STATUS_FILTERS.map((item) => ({
-      ...item,
-      selected: item.value === (query.status ?? '')
-    })),
-    filtered: Boolean(query.search || query.status),
+    ...filterView(query),
     clearUrl: ADMIN_TEAMS_URL,
-    searched: result !== undefined,
-    rows,
-    total,
-    first,
-    last: first === 0 ? 0 : first + rows.length - 1,
-    pagination: result ? buildPagination(result, query) : null,
+    ...listingView(result, query),
     errorSummary: errors?.errorSummary ?? null,
     fieldErrors: errors?.fieldErrors ?? {}
   })
@@ -92,9 +132,13 @@ function disabledWarning(team) {
     return `This team is disabled. Its people can view it but not change it. ${KEEPS_WORKING}`
   }
 
-  return disabled.length > 0
-    ? `${environmentList(disabled)} ${disabled.length === 1 ? 'is' : 'are'} disabled. The team’s people can view ${disabled.length === 1 ? 'it' : 'them'} but not change ${disabled.length === 1 ? 'it' : 'them'}. ${KEEPS_WORKING}`
-    : null
+  if (disabled.length === 0) {
+    return null
+  }
+
+  const one = disabled.length === 1
+
+  return `${environmentList(disabled)} ${one ? 'is' : 'are'} disabled. The team’s people can view ${one ? 'it' : 'them'} but not change ${one ? 'it' : 'them'}. ${KEEPS_WORKING}`
 }
 
 function memberRows(team, members) {

@@ -99,9 +99,8 @@ export function buildTeamRow(team) {
  */
 export async function loadAdminTeamList(request, query) {
   const params = new URLSearchParams(query).toString()
-  const { teams, page, pageSize, total } = await apiClient(request).get(
-    `/v1/admin/teams${params ? `?${params}` : ''}`
-  )
+  const apiUrl = params ? `/v1/admin/teams?${params}` : '/v1/admin/teams'
+  const { teams, page, pageSize, total } = await apiClient(request).get(apiUrl)
 
   return { rows: teams.map(buildTeamRow), page, pageSize, total }
 }
@@ -129,11 +128,11 @@ export function queryErrors({ search, status, page }) {
   }
 
   if (statusUnknown && !searchWrongLength) {
-    const text = 'Choose a status from the list'
+    const statusText = 'Choose a status from the list'
 
     return {
-      errorSummary: [{ text, href: '#status' }],
-      fieldErrors: { status: { text } }
+      errorSummary: [{ text: statusText, href: '#status' }],
+      fieldErrors: { status: { text: statusText } }
     }
   }
 

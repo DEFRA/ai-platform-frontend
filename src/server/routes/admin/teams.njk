@@ -74,6 +74,16 @@
               <h2 class="govuk-heading-m">There are no teams yet</h2>
             {% endif %}
           </div>
+        {% elif pastEnd %}
+          <div data-testid="teams-past-end">
+            <h2 class="govuk-heading-m">There is no page {{ pastEnd.page }}</h2>
+            <p class="govuk-body">{{ pastEnd.summary }}</p>
+            <ul class="govuk-list">
+              {% for link in pastEnd.links %}
+                <li><a class="govuk-link" href="{{ link.href }}">{{ link.text }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
         {% else %}
           <p class="govuk-body" data-testid="teams-count">Showing {{ first }} to {{ last }} of {{ total }} {{ "team" if total == 1 else "teams" }}</p>
 
