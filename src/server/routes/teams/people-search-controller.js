@@ -58,7 +58,7 @@ function refusal(h, error, messages) {
  * act on, rather than the redirect to sign in that other pages get.
  * @param {object} scope
  * @param {(request: object) => string} scope.ref - The team, from the address.
- * @param {((teamRef: string) => string) | undefined} [scope.pathOf] - The team's address on the backend.
+ * @param {(teamRef: string) => string} [scope.pathOf] - The team's address on the backend.
  * @param {{forbidden: string, notFound: string}} scope.messages - What the box says when refused.
  */
 export function createPeopleSearchController({ ref, pathOf, messages }) {

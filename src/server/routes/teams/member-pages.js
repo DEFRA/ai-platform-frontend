@@ -9,6 +9,7 @@ import {
   loadAdminTeam as loadAdmin
 } from './admin-team.js'
 import { isForbidden, isNotFound, teamUrl } from './team-view.js'
+import { teamPath } from './team-people.js'
 
 // What the member pages share: the Members tab's address, the pages for a
 // person who is not an admin or a member who is not there, and the errors a
@@ -135,8 +136,7 @@ export function joiErrors(error) {
  * @property {(request: object, h: object, action: string) => Promise<{page: object} | {loaded: {team: object}}>} load
  *   The team for the page, or the page to show instead (a refusal).
  * @property {(team: object) => string} ref - What names the team to the backend and to the add keys.
- * @property {((teamRef: string) => string) | undefined} pathOf
- *   The team's address on the backend; the team's own pages when undefined.
+ * @property {(teamRef: string) => string} pathOf - The team's address on the backend.
  * @property {(team: object) => string} listUrl - The members, where Back and a done add go.
  * @property {(team: object) => string} searchUrl - Where the page's script searches the directory.
  * @property {(request: object, h: object, team: object, error: unknown, action: string) => object} refusalView
@@ -147,7 +147,7 @@ export function joiErrors(error) {
 export const teamMemberScope = {
   load: loadAdminTeam,
   ref: (team) => team.slug,
-  pathOf: undefined,
+  pathOf: teamPath,
   listUrl: membersUrl,
   searchUrl: (team) => `${membersUrl(team)}/add/people`,
   refusalView: (_request, h, team, error, action) =>

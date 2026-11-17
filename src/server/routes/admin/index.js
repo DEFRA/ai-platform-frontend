@@ -20,22 +20,22 @@ function credentialRoutes() {
   const { disable, disableReason, disabled, enable } =
     adminCredentialsController
   const pages = [
-    ['disable', disable],
-    ['disable/reason', disableReason],
-    ['enable', enable]
+    { path: 'disable', page: disable },
+    { path: 'disable/reason', page: disableReason },
+    { path: 'enable', page: enable }
   ]
 
   return [
-    ...pages.flatMap(([path, { get, post }]) => [
+    ...pages.flatMap(({ path, page }) => [
       {
         method: 'GET',
         path: `${deployment}/credentials/${path}`,
-        handler: get.handler
+        handler: page.get.handler
       },
       {
         method: 'POST',
         path: `${deployment}/credentials/${path}`,
-        handler: post.handler
+        handler: page.post.handler
       }
     ]),
     {
@@ -52,15 +52,15 @@ function lifecycleRoutes() {
   const { disable, disableReason, disabled, enable } =
     adminTeamLifecycleController
   const pages = [
-    ['disable', disable],
-    ['disable/reason', disableReason],
-    ['enable', enable]
+    { path: 'disable', page: disable },
+    { path: 'disable/reason', page: disableReason },
+    { path: 'enable', page: enable }
   ]
 
   return [
-    ...pages.flatMap(([path, { get, post }]) => [
-      { method: 'GET', path: `${team}/${path}`, handler: get.handler },
-      { method: 'POST', path: `${team}/${path}`, handler: post.handler }
+    ...pages.flatMap(({ path, page }) => [
+      { method: 'GET', path: `${team}/${path}`, handler: page.get.handler },
+      { method: 'POST', path: `${team}/${path}`, handler: page.post.handler }
     ]),
     { method: 'GET', path: `${team}/disabled`, handler: disabled.handler }
   ]

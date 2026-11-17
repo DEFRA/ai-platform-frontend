@@ -208,17 +208,20 @@ async function applyToEnvironment(request, args) {
 }
 
 // Every environment is tried, so one that fails does not stop the others and
-// the page can say which did.
+// the page can say which did. Each is its own call, under its own lock in the
+// backend, so they run together; the lists keep the order chosen.
 async function applyToEnvironments(request, args) {
-  const outcomes = { done: [], failed: [] }
+  const { environments } = args
+  const outcomes = await Promise.all(
+    environments.map((environment) =>
+      applyToEnvironment(request, { ...args, environment })
+    )
+  )
 
-  for (const environment of args.environments) {
-    const outcome = await applyToEnvironment(request, { ...args, environment })
-
-    outcomes[outcome].push(environment)
+  return {
+    done: environments.filter((_, index) => outcomes[index] === 'done'),
+    failed: environments.filter((_, index) => outcomes[index] === 'failed')
   }
-
-  return outcomes
 }
 
 async function finish(request, h, args) {

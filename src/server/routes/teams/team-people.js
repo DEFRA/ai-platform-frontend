@@ -34,7 +34,12 @@ const PROBLEMS = {
   }
 }
 
-function teamPath(teamSlug) {
+/**
+ * Where a team member's calls about their own team go: by the team's slug.
+ * @param {string} teamSlug
+ * @returns {string}
+ */
+export function teamPath(teamSlug) {
   return `/v1/teams/${encodeURIComponent(teamSlug)}`
 }
 
