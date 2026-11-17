@@ -113,4 +113,21 @@ describe('#enableMessage', () => {
       expect(enableMessage(enabled, remaining)).toBe(text)
     }
   )
+
+  test.each([
+    [['infradev'], [], 'Development unlocked.'],
+    [['infradev', 'qa'], [], 'Development and Test unlocked.'],
+    [
+      ['infradev'],
+      ['qa', 'prod'],
+      'Development unlocked. Test and Production are still disabled.'
+    ]
+  ])(
+    'for a team that was already enabled, says only that %j unlocked and %j still disabled: "%s"',
+    (enabled, remaining, text) => {
+      expect(
+        enableMessage(enabled, remaining, { teamWasDisabled: false })
+      ).toBe(text)
+    }
+  )
 })

@@ -99,18 +99,29 @@ function areStill(names) {
 
 /**
  * What the team page says after an Enable: what was unlocked and what stays
- * disabled.
+ * disabled. A team that was already enabled is not said to be enabled by this
+ * action: only the environments unlocked are.
  * @param {string[]} enabled - The environments unlocked.
  * @param {string[]} remaining - The environments that stay disabled.
+ * @param {{teamWasDisabled?: boolean}} [options] - Whether the team itself was disabled before this action (default true).
  * @returns {string}
  */
-export function enableMessage(enabled, remaining) {
-  const unlocked =
-    enabled.length > 0 ? ` and ${environmentList(enabled)} unlocked` : ''
+export function enableMessage(
+  enabled,
+  remaining,
+  { teamWasDisabled = true } = {}
+) {
   const staying =
     remaining.length > 0
       ? ` ${environmentList(remaining)} ${areStill(remaining)}.`
       : ''
+
+  if (!teamWasDisabled && enabled.length > 0) {
+    return `${environmentList(enabled)} unlocked.${staying}`
+  }
+
+  const unlocked =
+    enabled.length > 0 ? ` and ${environmentList(enabled)} unlocked` : ''
 
   return `Team enabled${unlocked}.${staying}`
 }

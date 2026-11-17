@@ -423,7 +423,8 @@ const enableController = {
         environments,
         copy.offered.filter(
           (environment) => !environments.includes(environment)
-        )
+        ),
+        { teamWasDisabled: team.status === 'disabled' }
       )
     })
 

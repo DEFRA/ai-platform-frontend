@@ -965,9 +965,10 @@ describe('#admin disable and enable a team', () => {
 
         const $ = load((await follow(response)).result)
 
-        expect(text($('[data-testid="team-notification"]'))).toContain(
-          'Team enabled and Development unlocked.'
-        )
+        const banner = text($('[data-testid="team-notification"]'))
+
+        expect(banner).toContain('Development unlocked.')
+        expect(banner).not.toContain('Team enabled')
       })
     })
 
