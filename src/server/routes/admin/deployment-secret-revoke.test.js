@@ -175,11 +175,11 @@ describe('#admin revoke one client secret', () => {
       expect($('title').text()).toContain(
         'Revoke the secret ending a1b2 - Flood Risk Team - Admin'
       )
-      expect(text($('[data-testid="credentials-effect"]'))).toContain(
-        'Revoking cannot be undone. The secret is deleted'
+      expect(text($('[data-testid="credentials-effect"]'))).toBe(
+        'Revoking cannot be undone. No new token can be made with this secret. A token already issued with it keeps working for up to 90 minutes. To stop calls now, also use Disable credentials on this deployment. The team’s other secrets are not changed. The team is not told why.'
       )
-      expect(text($('[data-testid="credentials-effect"]'))).toContain(
-        'The team’s other secrets are not changed.'
+      expect(text($('[data-testid="credentials-effect"]'))).not.toContain(
+        'stops working'
       )
       expect(text($('[data-testid="credentials-submit"]'))).toBe(
         'Revoke secret'
@@ -369,6 +369,20 @@ describe('#admin revoke one client secret', () => {
       expect(result).not.toContain('misusing')
       expect(JSON.stringify(logged)).not.toContain('jo.smith')
       expect(JSON.stringify(logged)).not.toContain('misusing')
+    })
+
+    test('lets the 403 of a person who lost the role through to the 403 page, and revokes nothing', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail(),
+        [`POST ${REVOKE_API}`]: answer(403, 'platform-admin-required')
+      })
+
+      const { statusCode, result } = await post(REVOKE, { reason: 'Leaked' })
+
+      expect(statusCode).toBe(statusCodes.forbidden)
+      expect(load(result)('h1').text()).toBe(
+        'Only a Platform Admin can use this page'
+      )
     })
 
     test('refuses a post with no crumb, and changes nothing', async () => {

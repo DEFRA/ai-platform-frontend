@@ -82,30 +82,35 @@ only non-federated credentials are in scope (federations are removed by GitOps, 
   400 `invalid-query` gives the error summary and a 400. `req.query.search` is redacted from the request log.
 - **`/admin/deployments/{teamId}/{environment}`**: team name as the H1, the environment as the caption and in the
   breadcrumb, the worst-state tag, a summary list (Credential status with "Disabled on {date}", Members with View team,
-  Team status), buttons Disable credentials (secondary) or Enable credentials, and Revoke credentials (red), only where
-  offered; View activity (`/admin/audit?team=&environment=`); the Deployment health table (Model, Status, Detail,
-  Updated, Actions); and the team's other environments. An unknown team or environment is the 404 page.
+  Team status), the Client secrets list (id ending, expiry, status; a Revoke link beside each active secret only), the
+  Federations list, buttons Disable credentials (secondary) or Enable credentials, only where offered; View activity
+  (`/admin/audit?team=&environment=`); the Deployment health table (Model, Status, Detail, Updated, Actions); and the
+  team's other environments. An unknown team or environment is the 404 page.
 - **Reconcile and Retry** are POST buttons with the CSRF crumb and the model name as hidden text. Retry shows only when
   the backend says `retryable` (`deploy-failed`, `timed-out` or held; a `checks-failed` model says the team must
   request it again, which differs from F6 note 3). Success redirects (PRG) with a banner. A 409 shows the detail page
   again with the reason in the error summary (`deployment-not-retryable` says why); a 502 is the error page.
-- **Disable, Revoke and Enable** (`.../credentials/{disable,revoke,enable}`): "Which environments?" with checkboxes (the
+- **Disable and Enable credentials** (`.../credentials/{disable,enable}`): "Which environments?" with checkboxes (the
   current one ticked; Disable offers environments not already disabled, with a hint where the credential is revoked or
-  missing; Revoke those with a credential the team holds; Enable those disabled), the choice kept in the address
-  (`?environments=a,b`) and checked again by the page and the API. Disable and Revoke go on to `.../reason`: a
-  character count (500) "This is saved in the audit log. The team cannot see it.", the warning "Do not include names or
-  contact details", the text shown as typed (escaped) and kept on an error, the error summary linked to the field and
-  the title "Error: ". Disable's button is secondary and Revoke's red (design F text over the figure). Enable has no
+  missing; Enable those disabled), the choice kept in the address (`?environments=a,b`) and checked again by the page
+  and the API. Disable goes on to `.../reason`: a character count (500) "This is saved in the audit log. The team cannot
+  see it.", the warning "Do not include names or contact details", the text shown as typed (escaped) and kept on an
+  error, the error summary linked to the field and the title "Error: ". Disable's button is secondary. Enable has no
   reason and no confirmation page: it acts and returns to the detail page with a banner.
-- **One call for each environment**, each with its own `Idempotency-Key` (an HMAC of session, team, action,
+- **Revoke one client secret** (`.../credentials/{credentialId}/revoke`, `deployment-secret-revoke.js`): the Revoke link
+  beside an active secret opens a reason page that is also the confirmation (red button). There is **no
+  whole-environment Revoke** (removed 17 Nov 2026, R-D5): Entra cannot disable one secret, so Disable credentials is the
+  reversible stop and Revoke is for one secret, for good. The page says the truth of design F: no new token can be made
+  with the secret, a token already issued keeps working for up to 90 minutes, and Disable credentials is the immediate
+  stop. A secret that is not active is sent back to the deployment with a notice.
+- **One call for each environment** (Disable), each with its own `Idempotency-Key` (an HMAC of session, team, action,
   environment, the form's key and the reason, as the add-member keys are, so a retry sends the same key and another
-  reason a new one). If one fails (5xx, 409) the page "We could not {disable or revoke} the credentials in {names}"
-  names it, says what did complete, and links "Try again" for the failed ones; no success is shown. Otherwise PRG to
-  "Credentials disabled" or "Credentials revoked" (`.../disabled`, `.../revoked`, checked against the team's
-  environments).
-- What the actions do in phase 1 (backend B1): Disable blocks new credentials, reveal and rotate for the team in that
-  environment; Revoke deletes the secrets; the team is not told why. The hook for the gateway side (access window) is
-  phase 4's.
+  reason a new one). If one fails (5xx, 409) the page "We could not disable the credentials in {names}" names it, says
+  what did complete, and links "Try again" for the failed ones; no success is shown. Otherwise PRG to "Credentials
+  disabled" (`.../disabled`, checked against the team's environments).
+- What the actions do (backend B1): Disable blocks new credentials, reveal and rotate for the team in that environment
+  and sets the gateway block; Revoke one secret removes that secret, so no new token can be made with it. Neither tells
+  the team why.
 - Environment names come from the existing `common/helpers/environment-names.js`, unchanged.
 
 ## Disable and enable a team
@@ -113,7 +118,8 @@ only non-federated credentials are in scope (federations are removed by GitOps, 
 Built 16 Nov 2026 (run `2026-11-16-disable-team`) against the backend's `POST /v1/admin/teams/{id}/disable` and
 `/enable`. A disabled team is **view-only in the portal**: its status is `disabled`, optionally with some environments
 (`disabledEnvironments`) also disabled. Nothing reaches the gateway: credentials and models keep working, no GitOps
-operation is queued. To stop calls an admin uses Disable or Revoke credentials (above). The people never see a reason or
+operation is queued. To stop calls an admin uses Disable credentials on the deployment (above); revoking one secret stops
+new tokens only. The people never see a reason or
 an admin's name.
 
 - **Admin pages** (`admin/team-lifecycle.js`, choices in `team-lifecycle-choices.js`; they reuse the credential flow's
@@ -124,7 +130,8 @@ an admin's name.
   characters, the warning "Its credentials keep working…"), one call with an `Idempotency-Key` (HMAC of session, team,
   form key, reason and environments), then `/disabled` ("Team disabled"; back to the team unless it is done). A failed
   call is the page "We could not disable {team}" with Try again. `/enable` lists the disabled environments, all ticked;
-  zero ticked still lifts the team lock; no reason; a success notification names what was unlocked. 403 page for
+  zero ticked still lifts the team lock of a disabled team (a team that is already enabled must tick at least one
+  environment); no reason; a success notification names what was unlocked. 403 page for
   non-admins, CSRF crumb on every POST. The audit log labels `admin.team.disable` ("Disabled a team") and
   `admin.team.enable` ("Enabled a team") and the refusal code `team-disabled`. The admin deployment page shows the
   team Disabled and "In the portal: Disabled" while still offering the credential actions.

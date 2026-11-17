@@ -26,7 +26,7 @@ Last updated: 16 Nov 2026.
 | Team switcher, Home link, horizontal progress, collapsible cards, environments chosen first                      | Built (16 Nov 2026), review feedback on B18 and B30; on a branch        | [07 Environments and deployments](07-environments-and-deployments.md) |
 | Platform Admin: list every team, open one, add and remove members                                                | Built (12 Nov 2026), Teams tab only (B31 in part)                       | [08 Platform admin](08-platform-admin.md)                             |
 | Platform Admin: Audit log of every event, with filters                                                           | Built (13 Nov 2026); credential events' team pending                    | [08 Platform admin](08-platform-admin.md#audit-log-tab)               |
-| Platform Admin: Deployments tab, Reconcile, Retry, disable, enable and revoke credentials                        | Built (13 Nov 2026), non-federated credentials only                     | [08 Platform admin](08-platform-admin.md#deployments-tab)             |
+| Platform Admin: Deployments tab, Reconcile, Retry, disable and enable credentials, revoke one client secret      | Built (13 Nov 2026); whole-environment revoke removed (17 Nov 2026)     | [08 Platform admin](08-platform-admin.md#deployments-tab)             |
 | Platform Admin: disable and enable a team (view-only in the portal), per-environment lock                        | Built (16 Nov 2026), local commits; Delete and Restore not built        | [08 Platform admin](08-platform-admin.md#disable-and-enable-a-team)   |
 
 ## What it runs on

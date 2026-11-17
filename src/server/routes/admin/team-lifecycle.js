@@ -38,9 +38,12 @@ const TEAMS_API = '/v1/admin/teams'
 const ENVIRONMENTS_ANCHOR = '#environments'
 const REASON_ANCHOR = '#reason'
 const NOT_OFFERED_TEXT = 'Choose environments from the list'
+const NONE_CHOSEN_TEXT = 'Choose at least one environment to unlock'
 
+// Disable team writes the team record only, so nothing at the gateway changes
+// (design F): the way to stop calls is Disable credentials.
 const KEEPS_WORKING =
-  'Its credentials keep working. To stop them, disable or revoke credentials on the Deployments tab.'
+  'Its credentials keep working. To stop calls, disable its credentials on the Deployments tab.'
 const BACK_TO_TEAM = 'Back to the team'
 
 function disableUrl(team, suffix = '') {
@@ -96,8 +99,9 @@ function environmentNotFoundView(h, team) {
 }
 
 // "Which environments?", for Disable (optional, may be none) and Enable.
+// `problem` is the error to show on the field, if any.
 function chooseView(h, team, copy, { ticked, problem }) {
-  const error = problem ? { text: NOT_OFFERED_TEXT } : null
+  const error = problem ? { text: problem } : null
 
   return pageView(h, 'admin/credential-environments', team, copy.heading, {
     items: teamEnvironmentChoices(copy.offered, ticked),
@@ -131,11 +135,14 @@ function disableChoice(team) {
 }
 
 function enableChoice(team) {
+  const teamDisabled = team.status === 'disabled'
+
   return {
     heading: 'Enable team',
     offered: disabledEnvironmentsOf(team),
-    hintText:
-      'The team is enabled whatever you choose. Environments you do not tick stay disabled.',
+    hintText: teamDisabled
+      ? 'The team is enabled whatever you choose. Environments you do not tick stay disabled.'
+      : 'The team is already enabled. Tick the environments to unlock. Environments you do not tick stay disabled.',
     noItemsText:
       'No environment is disabled. Enabling the team lets its people change it again.',
     buttonText: 'Enable team',
@@ -200,7 +207,10 @@ function environmentsOrPage(h, team, copy, requested) {
 
   if (resolved.problem) {
     return {
-      page: chooseView(h, team, copy, { ticked: requested, problem: true })
+      page: chooseView(h, team, copy, {
+        ticked: requested,
+        problem: NOT_OFFERED_TEXT
+      })
     }
   }
 
@@ -380,6 +390,15 @@ const enableController = {
 
     if (page) {
       return page
+    }
+
+    // A team that is already enabled has only an environment to unlock: with
+    // none chosen nothing would change, so it is not shown as done.
+    if (team.status !== 'disabled' && environments.length === 0) {
+      return chooseView(h, team, copy, {
+        ticked: [],
+        problem: NONE_CHOSEN_TEXT
+      })
     }
 
     try {

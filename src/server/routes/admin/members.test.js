@@ -481,7 +481,7 @@ describe('#admin team members', () => {
       expect(headers.location).toContain('/sign-in')
     })
 
-    test('warns that the team’s credentials are not changed and says to revoke them, and asks the admin to confirm', async () => {
+    test('warns that the team’s credentials are not changed and says to revoke the person’s client secret, with the 90 minute limit and Disable credentials, and asks the admin to confirm', async () => {
       mockApi(fetchMock, { [`GET ${TEAM}`]: team() })
 
       const { statusCode, result } = await get(REMOVE)
@@ -489,10 +489,19 @@ describe('#admin team members', () => {
 
       expect(statusCode).toBe(statusCodes.ok)
       expect($('h1').text()).toBe('Remove Priya Raman from Flood Risk Team?')
-      expect($('#remove-member .govuk-warning-text__text').text()).toContain(
-        'Removing someone does not change the team’s credentials. If this person had a copy, revoke the team’s credentials. A Platform Admin cannot rotate them.'
+      expect(
+        $('#remove-member .govuk-warning-text__text')
+          .text()
+          .replace(/\s+/g, ' ')
+      ).toContain(
+        'Removing someone does not change the team’s credentials. If this person had a copy of a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works for up to 90 minutes, and Disable credentials stops calls now. A Platform Admin cannot rotate a secret.'
       )
-      expect($('#remove-member').text()).not.toContain('client secret')
+      expect($('#remove-member').text()).not.toContain(
+        'Rotate it if they had a copy'
+      )
+      expect($('#remove-member').text()).not.toContain(
+        'revoke the team’s credentials'
+      )
       expect($('#remove-member').text()).not.toContain('Ask a team admin')
       expect($('[data-testid="remove-member-confirm"]').text().trim()).toBe(
         'Remove Priya Raman'

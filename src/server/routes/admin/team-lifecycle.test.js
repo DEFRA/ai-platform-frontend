@@ -464,9 +464,10 @@ describe('#admin disable and enable a team', () => {
       expect(text($('[data-testid="credentials-effect"]'))).toBe(
         'People in Flood Risk Team can view it but not change it, and cannot change anything in Development. The team is not told why.'
       )
-      expect(text($('[data-testid="credentials-note"]'))).toContain(
-        'Its credentials keep working. To stop them, disable or revoke credentials on the Deployments tab.'
+      expect(text($('[data-testid="credentials-note"]'))).toBe(
+        '! Warning Its credentials keep working. To stop calls, disable its credentials on the Deployments tab.'
       )
+      expect($('main').text()).not.toMatch(/revoke/i)
       expect(
         $('textarea[name="reason"]').attr('data-maxlength') ??
           $('.govuk-character-count').attr('data-maxlength')
@@ -534,6 +535,33 @@ describe('#admin disable and enable a team', () => {
         expect(writes()).toEqual([])
       }
     )
+
+    test('shows the choice again for an environment that is not offered, and the not-found page for an unknown one, and disables nothing', async () => {
+      mockApi(fetchMock, { [`GET ${API}`]: DEVELOPMENT_ONLY })
+
+      const refused = await post(
+        `${PAGE}/disable/reason?environments=infradev`,
+        {
+          reason: 'Leaked',
+          formKey: FORM_ID
+        }
+      )
+      const $ = load(refused.result)
+
+      expect(refused.statusCode).toBe(statusCodes.badRequest)
+      expect($('title').text().trim()).toMatch(/^Error: /)
+      expect(text($('.govuk-error-summary'))).toContain(
+        'Choose environments from the list'
+      )
+      expect(
+        (
+          await post(`${PAGE}/disable/reason?environments=moon`, {
+            reason: 'Leaked'
+          })
+        ).statusCode
+      ).toBe(statusCodes.notFound)
+      expect(writes()).toEqual([])
+    })
 
     test('disables the team in one call with the reason, the environments and an Idempotency-Key, then goes to the confirmation', async () => {
       mockApi(fetchMock, {
@@ -710,10 +738,10 @@ describe('#admin disable and enable a team', () => {
       expect($('h1')).toHaveLength(1)
       expect(text($('.govuk-panel__title'))).toBe('Team disabled')
       expect(text($('.govuk-panel__body'))).toBe('Development also disabled')
-      expect(text($('[data-testid="credentials-effect"]'))).toContain(
-        'Its credentials keep working.'
+      expect(text($('[data-testid="credentials-effect"]'))).toBe(
+        'Its credentials keep working. To stop calls, disable its credentials on the Deployments tab.'
       )
-      expect($('[data-testid="credentials-back"]').attr('href')).toBe(PAGE)
+      expect($('main').text()).not.toMatch(/revoke/i)
       expect(text($('[data-testid="credentials-back"]'))).toBe(
         'Back to the team'
       )
@@ -864,9 +892,83 @@ describe('#admin disable and enable a team', () => {
         [`POST ${API}/enable`]: { team: { id: 'team-1', status: 'active' } }
       })
 
-      await post(`${PAGE}/enable`, {})
+      const response = await post(`${PAGE}/enable`, {})
 
       expect(writes()[0].body).toEqual({ environments: [] })
+
+      mockApi(fetchMock, {
+        [`GET ${API}`]: teamRead({
+          ...DISABLED_BOTH.team,
+          status: 'active'
+        })
+      })
+
+      const $ = load((await follow(response)).result)
+
+      expect(text($('[data-testid="team-notification"]'))).toContain(
+        'Team enabled. Development and Test are still disabled.'
+      )
+    })
+
+    describe('a team that is already enabled, with an environment still disabled', () => {
+      beforeEach(() => {
+        mockApi(fetchMock, { [`GET ${API}`]: DEVELOPMENT_ONLY })
+      })
+
+      test('says the team is already enabled, rather than that it is enabled whatever is chosen', async () => {
+        const $ = load((await get(`${PAGE}/enable`)).result)
+
+        expect(text($('#environments-hint'))).toBe(
+          'The team is already enabled. Tick the environments to unlock. Environments you do not tick stay disabled.'
+        )
+      })
+
+      test('asks for at least one environment when none is ticked, shows no success, and changes nothing', async () => {
+        const { statusCode, result } = await post(`${PAGE}/enable`, {})
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.badRequest)
+        expect($('title').text().trim()).toMatch(/^Error: /)
+        expect(text($('.govuk-error-summary'))).toContain(
+          'Choose at least one environment to unlock'
+        )
+        expect($('.govuk-error-summary a').attr('href')).toBe('#environments')
+        expect(text($('#environments-error'))).toContain(
+          'Choose at least one environment to unlock'
+        )
+        expect(checkboxes($)).toEqual([{ value: 'infradev', checked: false }])
+        expect(writes()).toEqual([])
+      })
+
+      test('unlocks the environment that is ticked, with a banner that says so', async () => {
+        mockApi(fetchMock, {
+          [`GET ${API}`]: DEVELOPMENT_ONLY,
+          [`POST ${API}/enable`]: {
+            team: { id: 'team-1', status: 'active', disabledEnvironments: [] }
+          }
+        })
+
+        const response = await post(`${PAGE}/enable`, {
+          environments: ['infradev']
+        })
+
+        expect(response.statusCode).toBe(statusCodes.seeOther)
+        expect(writes()).toEqual([
+          {
+            path: `${API}/enable`,
+            body: { environments: ['infradev'] },
+            key: undefined
+          }
+        ])
+
+        mockApi(fetchMock, { [`GET ${API}`]: ACTIVE })
+
+        const $ = load((await follow(response)).result)
+
+        expect(text($('[data-testid="team-notification"]'))).toContain(
+          'Team enabled and Development unlocked.'
+        )
+      })
     })
 
     test('shows the choice again for an environment that is not disabled, and the not-found page for an unknown one, and changes nothing', async () => {

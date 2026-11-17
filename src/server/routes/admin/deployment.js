@@ -118,7 +118,7 @@ export function deploymentView(
       : null,
     underBlock: underBlock(deployment.credential),
     team: { ...team, statusTag: teamStatusTag(team.status) },
-    environmentDisabled: Boolean(deployment.teamDisabled),
+    environmentDisabled: Boolean(deployment.environmentDisabled),
     memberText: `${team.memberCount} ${team.memberCount === 1 ? 'member' : 'members'}`,
     teamUrl: adminTeamUrl(team),
     activityUrl: `${ADMIN_AUDIT_URL}?team=${encodeURIComponent(team.id)}&environment=${encodeURIComponent(environment)}`,

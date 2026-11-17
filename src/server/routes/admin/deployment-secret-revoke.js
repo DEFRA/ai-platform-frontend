@@ -41,6 +41,12 @@ function endingText({ keyHint }) {
   return `ending ${keyHint}`
 }
 
+// What revoking does and does not do (design F, "When it bites"): the gateway
+// cannot tell which secret a token came from, so a token already issued keeps
+// working until it expires; Disable credentials is the immediate stop.
+const REVOKE_EFFECT =
+  'Revoking cannot be undone. No new token can be made with this secret. A token already issued with it keeps working for up to 90 minutes. To stop calls now, also use Disable credentials on this deployment. The team’s other secrets are not changed. The team is not told why.'
+
 function reasonView(h, deployment, secret, form) {
   const heading = `Revoke the secret ${endingText(secret)}`
   const error = form.error ? { text: form.error } : null
@@ -48,8 +54,7 @@ function reasonView(h, deployment, secret, form) {
   return pageView(h, 'admin/credential-reason', deployment, heading, {
     titleText: heading,
     crumb: 'Revoke secret',
-    effect:
-      'Revoking cannot be undone. The secret is deleted and anything using it stops working. The team’s other secrets are not changed. The team is not told why.',
+    effect: REVOKE_EFFECT,
     buttonText: 'Revoke secret',
     buttonClasses: 'govuk-button--warning',
     backUrl: deploymentUrl(deployment),

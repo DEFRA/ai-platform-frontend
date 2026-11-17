@@ -24,14 +24,16 @@ import {
 // so with a refusal (plan D3).
 
 // Says what is true now (plan D13): the credentials stay as they are, and a
-// Platform Admin cannot rotate a team's secrets, so revoking them is the way
-// to stop a copy being used. The deployments are where to revoke.
+// Platform Admin cannot rotate a team's secrets, so revoking the secret the
+// person had is the way to stop it making new tokens. A token already issued
+// works for up to 90 minutes; Disable credentials stops calls at once (design
+// F, "When it bites"). The deployments are where to do either.
 const REMOVE_WARNING =
-  'Removing someone does not change the team’s credentials. If this person had a copy, revoke the team’s credentials. A Platform Admin cannot rotate them.'
+  'Removing someone does not change the team’s credentials. If this person had a copy of a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works for up to 90 minutes, and Disable credentials stops calls now. A Platform Admin cannot rotate a secret.'
 
-// A link to where the team's credentials are revoked: its deployment in the
-// first environment it is still in. A team in none has no credentials to
-// revoke, so there is no link.
+// A link to where the team's credentials are managed: its deployment in the
+// first environment it is still in. A team in none has no credentials, so
+// there is no link.
 function deploymentsLink(team) {
   const environment = team.environments?.find(
     ({ fileStatus }) => fileStatus !== 'removed'

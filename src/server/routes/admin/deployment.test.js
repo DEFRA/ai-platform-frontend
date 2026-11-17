@@ -241,7 +241,7 @@ describe('#admin deployment detail', () => {
     test('shows the team Disabled in the portal, and still offers the credential actions, when the environment is disabled', async () => {
       mockApi(fetchMock, {
         [`GET ${DETAIL}`]: detail({
-          teamDisabled: true,
+          environmentDisabled: true,
           team: {
             id: 'team-1',
             name: 'Flood Risk Team',
@@ -273,7 +273,9 @@ describe('#admin deployment detail', () => {
     })
 
     test('has no portal row for an environment that is not disabled', async () => {
-      mockApi(fetchMock, { [`GET ${DETAIL}`]: detail({ teamDisabled: false }) })
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({ environmentDisabled: false })
+      })
 
       const $ = load((await get(PAGE)).result)
 
