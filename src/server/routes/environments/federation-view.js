@@ -54,12 +54,20 @@ function actionsFor(application, { team, environment, isAdmin, locked }) {
   const removable = isAdmin && (status === READY || status === FAILED)
 
   // In a disabled environment the actions are still shown, as plain text.
+  if (locked) {
+    return {
+      changeUrl: null,
+      removeUrl: null,
+      lockedActions: [changeable && 'Change', removable && 'Remove'].filter(
+        Boolean
+      )
+    }
+  }
+
   return {
-    changeUrl: changeable && !locked ? url('change') : null,
-    removeUrl: removable && !locked ? url('remove') : null,
-    lockedActions: locked
-      ? [changeable && 'Change', removable && 'Remove'].filter(Boolean)
-      : []
+    changeUrl: changeable ? url('change') : null,
+    removeUrl: removable ? url('remove') : null,
+    lockedActions: []
   }
 }
 

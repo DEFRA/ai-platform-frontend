@@ -41,6 +41,8 @@ function endingText({ keyHint }) {
   return `ending ${keyHint}`
 }
 
+const REVOKE_SECRET = 'Revoke secret'
+
 // What revoking does and does not do (design F, "When it bites"): the gateway
 // cannot tell which secret a token came from, so a token already issued keeps
 // working until it expires. Disable credentials has no gateway effect until the
@@ -54,9 +56,9 @@ function reasonView(h, deployment, secret, form) {
 
   return pageView(h, 'admin/credential-reason', deployment, heading, {
     titleText: heading,
-    crumb: 'Revoke secret',
+    crumb: REVOKE_SECRET,
     effect: REVOKE_EFFECT,
-    buttonText: 'Revoke secret',
+    buttonText: REVOKE_SECRET,
     buttonClasses: 'govuk-button--warning',
     backUrl: deploymentUrl(deployment),
     formKey: form.formKey,
@@ -71,7 +73,7 @@ function failedView(h, deployment, secret, credentialId) {
 
   return pageView(h, 'admin/credential-failed', deployment, heading, {
     titleText: heading,
-    crumb: 'Revoke secret',
+    crumb: REVOKE_SECRET,
     doneText: null,
     retryUrl: revokeUrl(deployment, credentialId)
   }).code(statusCodes.badGateway)

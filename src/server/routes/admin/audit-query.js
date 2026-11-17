@@ -151,15 +151,19 @@ function selectErrors(filters) {
 function dateErrors(from, to) {
   const errors = [from.error, to.error].filter(Boolean)
 
-  if (errors.length === 0 && from.date && to.date) {
-    if (dayNumber(from.date) > dayNumber(to.date)) {
-      errors.push({
-        name: 'to',
-        text: 'To date must be the same as or after the From date',
-        parts: DATE_PARTS,
-        anchor: 'day'
-      })
-    }
+  const backwards =
+    errors.length === 0 &&
+    from.date &&
+    to.date &&
+    dayNumber(from.date) > dayNumber(to.date)
+
+  if (backwards) {
+    errors.push({
+      name: 'to',
+      text: 'To date must be the same as or after the From date',
+      parts: DATE_PARTS,
+      anchor: 'day'
+    })
   }
 
   return errors

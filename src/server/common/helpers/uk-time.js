@@ -29,6 +29,9 @@ const timeFormat = new Intl.DateTimeFormat('en-GB', {
 })
 
 const MS_PER_SECOND = 1000
+const LAST_HOUR = 23
+const LAST_MINUTE_OR_SECOND = 59
+const LAST_MILLISECOND = 999
 
 // How far UK time is ahead of UTC at an instant, in milliseconds.
 function ukOffsetMs(instantMs) {
@@ -72,7 +75,12 @@ export function startOfUkDay(date) {
  * @returns {string}
  */
 export function endOfUkDay(date) {
-  return ukInstant(date, [23, 59, 59, 999])
+  return ukInstant(date, [
+    LAST_HOUR,
+    LAST_MINUTE_OR_SECOND,
+    LAST_MINUTE_OR_SECOND,
+    LAST_MILLISECOND
+  ])
 }
 
 /**

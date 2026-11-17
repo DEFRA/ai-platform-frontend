@@ -45,6 +45,7 @@ const NONE_CHOSEN_TEXT = 'Choose at least one environment to unlock'
 // (S2), so the note does not offer it as a way to stop calls.
 const KEEPS_WORKING = 'Its credentials keep working.'
 const BACK_TO_TEAM = 'Back to the team'
+const DISABLE_TEAM = 'Disable team'
 
 function disableUrl(team, suffix = '') {
   return `${adminTeamUrl(team)}/disable${suffix}`
@@ -121,7 +122,7 @@ function chooseView(h, team, copy, { ticked, problem }) {
 
 function disableChoice(team) {
   return {
-    heading: 'Disable team',
+    heading: DISABLE_TEAM,
     offered: offeredToDisable(team),
     hintText:
       'Optional. Environments you do not tick stay usable. You can choose none.',
@@ -161,10 +162,10 @@ function reasonView(h, team, form) {
       : ''
   const error = form.error ? { text: form.error } : null
 
-  return pageView(h, 'admin/credential-reason', team, 'Disable team', {
+  return pageView(h, 'admin/credential-reason', team, DISABLE_TEAM, {
     effect: `People in ${team.name} can view it but not change it${where}. The team is not told why.`,
     note: KEEPS_WORKING,
-    buttonText: 'Disable team',
+    buttonText: DISABLE_TEAM,
     buttonClasses: 'govuk-button--secondary',
     backUrl: withEnvironments(disableUrl(team), form.environments),
     formKey: form.formKey,

@@ -15,6 +15,16 @@ import { derivedIdempotencyKey } from '#/server/common/helpers/idempotency-key.j
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// The order `sort()` gives with no function (by UTF-16 code unit), written out
+// so the keys made from a list of environments stay what they were.
+function byCodeUnit(a, b) {
+  if (a < b) {
+    return -1
+  }
+
+  return a > b ? 1 : 0
+}
+
 /**
  * A new key for a page that is shown.
  * @returns {string}
@@ -57,7 +67,7 @@ export function teamDisableKey(
     teamId,
     formKey,
     reason,
-    [...environments].sort()
+    [...environments].sort(byCodeUnit)
   ])
 }
 

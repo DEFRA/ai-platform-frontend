@@ -77,25 +77,49 @@ function modelItems(options, selected) {
   })
 }
 
-function deploymentsView(h, { filters, options, result, errors }) {
-  const { deployments = [], page = 1, pageSize = 0, total = 0 } = result ?? {}
-  const environment = result?.environment ?? filters.environment
-  const first = deployments.length > 0 ? (page - 1) * pageSize + 1 : 0
-  const environmentLabel = environment ? environmentName(environment) : null
-  const clearUrl = deploymentsUrl({ environment })
+// What the page shows of the list before anything has been asked of the backend.
+const NOT_SEARCHED = {
+  searched: false,
+  pastEnd: null,
+  rows: [],
+  total: 0,
+  first: 0,
+  last: 0,
+  pagination: null
+}
 
-  return h.view('admin/deployments', {
-    pageTitle: `${errors ? 'Error: ' : ''}Deployments - Admin`,
-    heading: 'Deployments',
-    breadcrumbs: [
-      { text: 'Home', href: '/' },
-      { text: 'Admin', href: ADMIN_TEAMS_URL },
-      { text: 'Deployments' }
-    ],
-    tabs: adminTabs('deployments'),
-    environmentTabs: environmentTabs(options, environment),
-    environment,
-    environmentLabel,
+// The rows, the count over them and the way to the other pages, or a page that
+// is past the last, from what the backend answered.
+function listingView(result, filters, environment) {
+  if (result === undefined) {
+    return NOT_SEARCHED
+  }
+
+  const { deployments, page, pageSize, total } = result
+  const first = deployments.length > 0 ? (page - 1) * pageSize + 1 : 0
+  const href = (number) => deploymentsUrl({ ...filters, environment }, number)
+
+  return {
+    searched: true,
+    pastEnd: pastEnd({
+      shown: deployments.length,
+      page,
+      pageSize,
+      total,
+      nouns: ['deployment', 'deployments'],
+      href
+    }),
+    rows: deployments.map(buildDeploymentRow),
+    total,
+    first,
+    last: first === 0 ? 0 : first + deployments.length - 1,
+    pagination: buildPagination(result, href)
+  }
+}
+
+// The filter form's choices, each with the one the person made selected.
+function filterView(options, filters) {
+  return {
     values: { search: filters.search },
     modelItems: modelItems(options, filters.model),
     statusItems: selectItems({
@@ -110,28 +134,29 @@ function deploymentsView(h, { filters, options, result, errors }) {
       selected: filters.credential,
       unknownText: (value) => value
     }),
-    filtered: FILTER_FIELDS.some((field) => filters[field]),
-    clearUrl,
-    searched: result !== undefined,
-    pastEnd: result
-      ? pastEnd({
-          shown: deployments.length,
-          page,
-          pageSize,
-          total,
-          nouns: ['deployment', 'deployments'],
-          href: (number) => deploymentsUrl({ ...filters, environment }, number)
-        })
-      : null,
-    rows: deployments.map(buildDeploymentRow),
-    total,
-    first,
-    last: first === 0 ? 0 : first + deployments.length - 1,
-    pagination: result
-      ? buildPagination(result, (number) =>
-          deploymentsUrl({ ...filters, environment }, number)
-        )
-      : null,
+    filtered: FILTER_FIELDS.some((field) => filters[field])
+  }
+}
+
+function deploymentsView(h, { filters, options, result, errors }) {
+  const environment = result?.environment ?? filters.environment
+  const environmentLabel = environment ? environmentName(environment) : null
+
+  return h.view('admin/deployments', {
+    pageTitle: `${errors ? 'Error: ' : ''}Deployments - Admin`,
+    heading: 'Deployments',
+    breadcrumbs: [
+      { text: 'Home', href: '/' },
+      { text: 'Admin', href: ADMIN_TEAMS_URL },
+      { text: 'Deployments' }
+    ],
+    tabs: adminTabs('deployments'),
+    environmentTabs: environmentTabs(options, environment),
+    environment,
+    environmentLabel,
+    ...filterView(options, filters),
+    clearUrl: deploymentsUrl({ environment }),
+    ...listingView(result, filters, environment),
     errorSummary: errors?.errorSummary ?? null,
     fieldErrors: errors?.fieldErrors ?? {}
   })
@@ -162,9 +187,8 @@ async function showDeployments(request, h) {
   }
 
   try {
-    const result = await apiClient(request).get(
-      `${LIST_API}${apiQuery ? `?${apiQuery}` : ''}`
-    )
+    const apiUrl = apiQuery ? `${LIST_API}?${apiQuery}` : LIST_API
+    const result = await apiClient(request).get(apiUrl)
 
     return deploymentsView(h, { filters, options: result.options, result })
   } catch (error) {

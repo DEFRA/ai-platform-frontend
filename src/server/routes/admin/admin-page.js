@@ -14,6 +14,8 @@ export const ADMIN_TEAMS_URL = '/admin/teams'
 export const ADMIN_DEPLOYMENTS_URL = '/admin/deployments'
 export const ADMIN_AUDIT_URL = '/admin/audit'
 
+const ERROR_VIEW = 'error/index'
+
 /**
  * Whether the backend could not do a call, or refused it for a reason a
  * repeat may put right (it failed, or the key was used for another request),
@@ -70,7 +72,7 @@ export function adminTabs(current) {
  */
 export function platformAdminRequiredView(h) {
   return h
-    .view('error/index', {
+    .view(ERROR_VIEW, {
       pageTitle: 'Only a Platform Admin can use this page',
       heading: 'Only a Platform Admin can use this page',
       message:
@@ -88,7 +90,7 @@ export function platformAdminRequiredView(h) {
  */
 export function adminTeamNotFoundView(h) {
   return h
-    .view('error/index', {
+    .view(ERROR_VIEW, {
       pageTitle: 'Team not found',
       heading: 'Team not found',
       message: 'This team does not exist.',
@@ -106,7 +108,7 @@ export function adminTeamNotFoundView(h) {
  */
 export function adminUnavailableView(request, h) {
   return h
-    .view('error/index', {
+    .view(ERROR_VIEW, {
       pageTitle: 'Service unavailable',
       heading: 'We could not load this page',
       message:

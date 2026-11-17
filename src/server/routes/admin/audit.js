@@ -182,9 +182,8 @@ async function showAuditLog(request, h) {
   }
 
   try {
-    const result = await apiClient(request).get(
-      `${AUDIT_API}${apiQuery ? `?${apiQuery}` : ''}`
-    )
+    const apiUrl = apiQuery ? `${AUDIT_API}?${apiQuery}` : AUDIT_API
+    const result = await apiClient(request).get(apiUrl)
 
     return auditView(h, { filters, options: result.options, result })
   } catch (error) {
