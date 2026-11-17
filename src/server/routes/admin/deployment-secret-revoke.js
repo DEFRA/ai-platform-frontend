@@ -43,9 +43,10 @@ function endingText({ keyHint }) {
 
 // What revoking does and does not do (design F, "When it bites"): the gateway
 // cannot tell which secret a token came from, so a token already issued keeps
-// working until it expires; Disable credentials is the immediate stop.
+// working until it expires. Disable credentials has no gateway effect until the
+// second ship (S2), so the page does not offer it as a way to stop calls.
 const REVOKE_EFFECT =
-  'Revoking cannot be undone. No new token can be made with this secret. A token already issued with it keeps working until it expires, up to 2 hours. To stop calls now, also use Disable credentials on this deployment. The team’s other secrets are not changed. The team is not told why.'
+  'Revoking cannot be undone. No new token can be made with this secret. A token already issued with it keeps working until it expires, up to 2 hours. The team’s other secrets are not changed. The team is not told why.'
 
 function reasonView(h, deployment, secret, form) {
   const heading = `Revoke the secret ${endingText(secret)}`

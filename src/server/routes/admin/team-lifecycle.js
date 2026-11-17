@@ -41,9 +41,9 @@ const NOT_OFFERED_TEXT = 'Choose environments from the list'
 const NONE_CHOSEN_TEXT = 'Choose at least one environment to unlock'
 
 // Disable team writes the team record only, so nothing at the gateway changes
-// (design F): the way to stop calls is Disable credentials.
-const KEEPS_WORKING =
-  'Its credentials keep working. To stop calls, disable its credentials on the Deployments tab.'
+// (design F). Disable credentials has no gateway effect until the second ship
+// (S2), so the note does not offer it as a way to stop calls.
+const KEEPS_WORKING = 'Its credentials keep working.'
 const BACK_TO_TEAM = 'Back to the team'
 
 function disableUrl(team, suffix = '') {

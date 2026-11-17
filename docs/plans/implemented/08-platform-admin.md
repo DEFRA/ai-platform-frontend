@@ -110,9 +110,10 @@ only client secrets are acted on: federated applications are listed, not changed
 - **Revoke one client secret** (`.../credentials/{credentialId}/revoke`, `deployment-secret-revoke.js`): the Revoke link
   beside an active secret opens a reason page that is also the confirmation (red button). There is **no
   whole-environment Revoke** (removed 17 Nov 2026, R-D5): Entra cannot disable one secret, so Disable credentials is the
-  reversible stop and Revoke is for one secret, for good. The page says the truth of design F: no new token can be made
-  with the secret, a token already issued keeps working until it expires, up to 2 hours, and Disable credentials is the immediate
-  stop (true once S2's gateway effect lands; see Known gaps). Success returns to the detail page with "Revoked the secret
+  reversible stop and Revoke is for one secret, for good. The page says the truth of design F as built in S1: no new token
+  can be made with the secret, a token already issued keeps working until it expires, up to 2 hours, and the team's other
+  secrets are not changed. It does not advise Disable credentials as a way to stop calls, because that has no gateway
+  effect until S2 (T12 restores the advice then). Success returns to the detail page with "Revoked the secret
   ending {last four}." A secret that is not active is sent back to the deployment with a notice.
 - **One call for each environment** (Disable), each with its own `Idempotency-Key` (an HMAC of session, team, action,
   environment, the form's key and the reason, as the add-member keys are, so a retry sends the same key and another
@@ -128,8 +129,9 @@ only client secrets are acted on: federated applications are listed, not changed
   tag for a secret cannot show; a federation request or change is not refused while credentials are disabled, and the
   team's own pages have no credentials-disabled view (the frontend does not map a backend `409 credentials-disabled`, so
   it reaches the generic error handling).
-  The secret-revoke page and the Disable team page say "Disable credentials" is how to stop calls; that is true once S2
-  lands. All of these are S2 or the owner's decision (remaining-plan risk).
+  The secret-revoke page, the remove-member warning and the Disable team note do not say Disable credentials is how to
+  stop calls, because that is true only once S2 lands (T12 restores the advice then). All of these are S2 or the owner's
+  decision (remaining-plan risk).
 - Environment names come from the existing `common/helpers/environment-names.js`, unchanged.
 
 ## Disable and enable a team

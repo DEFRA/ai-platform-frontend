@@ -294,7 +294,7 @@ remove pages over the admin routes. Adding yourself is refused ("You cannot add 
 copy." Allowed for a team in any status. Built in [08 Platform admin](../../plans/implemented/08-platform-admin.md).
 Since 17 Nov 2026 the warning reads: "Removing someone does not change the team’s credentials. If this person had a copy of
 a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works until
-it expires, up to 2 hours, and Disable credentials stops calls now. A Platform Admin cannot rotate a secret." with the
+it expires, up to 2 hours. A Platform Admin cannot rotate a secret." with the
 link "View the
 team’s deployments" under it.
 

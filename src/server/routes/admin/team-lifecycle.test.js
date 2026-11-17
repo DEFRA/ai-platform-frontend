@@ -465,8 +465,10 @@ describe('#admin disable and enable a team', () => {
         'People in Flood Risk Team can view it but not change it, and cannot change anything in Development. The team is not told why.'
       )
       expect(text($('[data-testid="credentials-note"]'))).toBe(
-        '! Warning Its credentials keep working. To stop calls, disable its credentials on the Deployments tab.'
+        '! Warning Its credentials keep working.'
       )
+      expect($('main').text()).not.toContain('To stop calls')
+      expect($('main').text()).not.toMatch(/disable its credentials/i)
       expect($('main').text()).not.toMatch(/revoke/i)
       expect(
         $('textarea[name="reason"]').attr('data-maxlength') ??
@@ -739,8 +741,10 @@ describe('#admin disable and enable a team', () => {
       expect(text($('.govuk-panel__title'))).toBe('Team disabled')
       expect(text($('.govuk-panel__body'))).toBe('Development also disabled')
       expect(text($('[data-testid="credentials-effect"]'))).toBe(
-        'Its credentials keep working. To stop calls, disable its credentials on the Deployments tab.'
+        'Its credentials keep working.'
       )
+      expect($('main').text()).not.toContain('To stop calls')
+      expect($('main').text()).not.toMatch(/disable its credentials/i)
       expect($('main').text()).not.toMatch(/revoke/i)
       expect(text($('[data-testid="credentials-back"]'))).toBe(
         'Back to the team'
