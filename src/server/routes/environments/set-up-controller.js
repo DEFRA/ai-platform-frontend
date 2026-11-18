@@ -17,6 +17,7 @@ import {
   getSessionUser,
   setPendingAccess
 } from '#/server/common/helpers/session.js'
+import { lockedPage } from '#/server/common/helpers/team-lock.js'
 import {
   MAX_MODELS_PER_REQUEST,
   teamJourneyOf
@@ -185,6 +186,20 @@ async function loadSetUp(request, h) {
 
   if (!loaded) {
     return { page: teamNotFoundView(h) }
+  }
+
+  // Setting up an environment is a team-wide change; one that is disabled
+  // cannot be changed at all.
+  const back = {
+    href: environmentPageUrl(loaded.team.slug, target.environment),
+    text: `Back to ${target.registryName}`
+  }
+  const locked =
+    lockedPage(h, loaded.lock, { back }) ??
+    lockedPage(h, loaded.lock, { environment: target.environment, back })
+
+  if (locked) {
+    return { page: locked }
   }
 
   const source = teamEnvironmentList().find(

@@ -272,6 +272,86 @@ role." Button "Save role". Link "Remove yourself from this team" or "Remove {nam
 `/teams/{slug}/members/{memberId}/remove`: H1 "Remove {name} from {team}?", warning "Removing someone does not change the
 client secret. Rotate it if they had a copy.", the same last-admin rule, warning button "Remove {name}", link "Cancel".
 
+### 9a. Platform Admin: Teams (design F5, B31)
+
+Admin link in the service navigation after Teams, shown when `PUT /v1/users/me` said `isPlatformAdmin` (a hint only: every
+page below asks the backend, which refuses anyone else with the 403 page "Only a Platform Admin can use this page").
+
+**`/admin` → `/admin/teams`**: caption "Admin", H1 "Teams", sub-navigation Teams. GET form: "Search by team name", "Status"
+(All statuses, Active, Disabled, Pending removal), button "Search", "Clear filters" when filtered. Table Team (link) |
+Status (tag) | Environments | Members, 10 to a page, pagination; "No teams match your search" with "Clear filters".
+
+**`/admin/teams/{id}`**: caption "Team", H1 team name. Summary list Status (tag), Service code, Environments (each file's
+status, and "Can be removed from {date}" when pending removal), and a Disabled tag on a disabled environment; H2
+"Members", button "Add a member", the members table with "Remove". The buttons "Disable team" (secondary, team active)
+and "Enable team" (team disabled or an environment disabled) and a warning while disabled lead to
+`/admin/teams/{id}/disable`, `/disable/reason`, `/disabled` and `/enable` (built 16 Nov 2026; see
+[08](../../plans/implemented/08-platform-admin.md#disable-and-enable-a-team)). Delete and Restore are a later change.
+
+**`/admin/teams/{id}/members/add`** (and `/add/people`) and **`.../members/{memberId}/remove`**: the team's own add and
+remove pages over the admin routes. Adding yourself is refused ("You cannot add yourself to a team"). Warning on remove:
+"Removing someone does not change the team's credentials. Ask a team admin to rotate or revoke them if this person had a
+copy." Allowed for a team in any status. Built in [08 Platform admin](../../plans/implemented/08-platform-admin.md).
+Since 17 Nov 2026 the warning reads: "Removing someone does not change the team’s credentials. If this person had a copy of
+a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works until
+it expires, up to 2 hours. A Platform Admin cannot rotate a secret." with the
+link "View the
+team’s deployments" under it.
+
+### 9a-2. Platform Admin: Audit log (design F7, B31)
+
+**`/admin/audit`**: caption "Admin", H1 "Audit log", sub-navigation Teams and Audit log (current marked). GET form "Filter
+the audit log": selects Team, Environment, Action, Actor type (Platform Admin, Team Admin, Team member, Person with no team
+role, System); text "Person" (hint "Part of a name"); date inputs "From date" and "To date" (UK days, inclusive); button
+"Apply filters", "Clear filters" when filtered. Table When (UK time) | Who (name, actor type) | Action (plain label; person
+affected and reason beneath) | Team | Environment | Outcome (tag Done, Failed or Refused), 10 to a page, newest first, in a
+focusable scroll region with a hidden caption; "Showing x to y of z events. Events are kept for N days."; pagination keeps the
+filters. No match: "No events match", the days kept, "Clear filters". A wrong filter: error summary, inline errors, title
+"Error: ...". The team page links to it with "View audit log" (`/admin/audit?team={id}`). Credential events carry no team
+until B18 passes it (deferred, DF1). The labels cover `admin.credentials.disable`, `.enable` and `admin.credential.revoke`
+(one secret).
+
+### 9a-3. Platform Admin: Deployments (design F6, B31)
+
+Third tab of the Admin area (Teams, Deployments, Audit log), built 13 Nov 2026; secrets and federations listed and one
+secret revocable since 16 and 17 Nov 2026. Client secrets only: federated credentials are listed, not changed.
+
+**`/admin/deployments?environment=`**: caption "Admin", H1 "Deployments", environment nav of links (current marked
+`aria-current`). GET form "Filter the deployments in {environment}": "Team name" (hint "Enter at least 2 characters"),
+selects Model, Status (All statuses, Ready, Setting up, Waiting, Removing, Needs attention) and Credential (All
+credentials, Active, Disabled, Revoked, None), button "Apply filters", "Clear filters" when filtered. Table Team (link) |
+Models | Status (tag) | Credential (tag) | Last change (UK time), 10 to a page, in a focusable scroll region with a hidden
+caption; "Showing x to y of z deployments in {environment}"; pagination keeps the filters. No match: "No deployments
+match" with Clear filters. A wrong filter: error summary, inline errors, title "Error: ...".
+
+**`/admin/deployments/{teamId}/{environment}`**: caption environment, H1 team name, status tag. Summary list Credential
+(tag; "Disabled on {date}"), Members (count and View team), Team status. Buttons "Disable credentials" (secondary) or
+"Enable credentials", only where offered; "View activity" to `/admin/audit?team={id}&environment={env}`. H2 "Client
+secrets" (id ending, expiry, status; a "Revoke" link beside each active secret) and, when the team has any, H2 "Federated
+credentials" (name, kind, status; read only, with the note "Disable and Enable credentials change client secrets only.
+They do not change these."). H2 "Deployment health": table Model | Status | Detail | Updated | Actions
+("Reconcile {model}", "Retry {model}" only when the backend says it can be retried; "The team must request this model
+again." for `checks-failed`, differing from F6 note 3). A success banner after Reconcile or Retry; a refused Retry shows
+the detail page with an error summary. "This team in each environment" links the other environments. There is no
+whole-environment "Revoke credentials": Entra cannot disable one secret, so Disable credentials is the reversible stop
+and a Platform Admin revokes one secret at a time (R-D5, 17 Nov 2026).
+
+**`.../credentials/disable` and `/enable`**: H1 "Disable credentials" or "Enable credentials"; "Which environments?"
+checkboxes (current ticked; the choice is in the address `?environments=`); none ticked: error summary "Choose at least
+one environment". Disable continues to **`.../reason`**: H1 "Disable credentials in {environments}", the effect ("The team
+cannot create new credentials or view or rotate its secrets in these environments. The team is not told why."), character
+count "Reason" (500; hint "This is saved in the audit log. The team cannot see it."), warning "Do not include names or
+contact details.", button "Disable credentials" (secondary), "Cancel". Then **`.../disabled`**: panel "Credentials
+disabled". Enable acts at once and returns to the detail page with a banner. If one environment fails: H1 "We could not
+disable the credentials in {environments}", what did complete, "Try again". Design F's "within 60 seconds" copy returns
+with the gateway effect (the next ship, S2).
+
+**`.../credentials/{credentialId}/revoke`**: H1 "Revoke the secret ending {last four}", a reason page that is also the
+confirmation (500 characters, the same warning, red button "Revoke secret", "Cancel"). It says revoking cannot be undone,
+that no new token can be made with the secret, that a token already issued keeps working until it expires, up to 2 hours, and that
+the team's other secrets are not changed. Success returns to the detail page with the banner "Revoked the secret ending
+{last four}."
+
 ### 10. Details and create a team (16, 17, 18)
 
 **18 `/teams/{slug}/details`**: sub-navigation. Summary list: Team name; Team ID `{slug}`, hint "Part of your team's

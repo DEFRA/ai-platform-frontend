@@ -1,6 +1,7 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { apiClient } from '#/server/common/helpers/api-client.js'
 import {
+  defaultTeamEnvironment,
   environmentFromAddress,
   environmentPageUrl,
   teamEnvironmentsUrl
@@ -10,6 +11,10 @@ import {
   setEnvironmentsTeam,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
+import {
+  isDeployLocked,
+  lockContext
+} from '#/server/common/helpers/team-lock.js'
 import {
   statusFragmentResponse,
   statusFragmentUnavailable,
@@ -22,15 +27,22 @@ import {
   isUnavailable,
   readTeamEnvironment,
   readTeamEnvironments,
-  readTeamOperations
+  readTeamOperations,
+  readTeamStatusChanges
 } from './environments-api.js'
 import {
   buildCards,
   buildEnvironmentPage,
   buildRecent,
-  deployUrl
+  deployUrl,
+  isDisabled
 } from './environment-view.js'
 import { buildOperationItem } from './operation-view.js'
+import {
+  RECENT_CHANGES,
+  buildStatusChangeRows,
+  mergeRecent
+} from './recent-changes.js'
 import { environmentHasRoom } from './federation-view.js'
 import { federateUrl } from './federation-urls.js'
 
@@ -39,7 +51,7 @@ const OVERVIEW_STATUS = 'environments/partials/overview-status'
 const ENVIRONMENT_STATUS = 'environments/partials/environment-status'
 // The most open changes one read returns (the backend's own limit).
 const MOST_OPEN_CHANGES = 50
-const RECENT_CHANGES = 10
+const NO_LOCK = { teamDisabled: false, disabledEnvironments: [] }
 
 function unavailable(h, { what, backHref }) {
   return h
@@ -149,32 +161,41 @@ async function loadOverview(request) {
   const environments = await readTeamEnvironments(request, slug)
   const { team } = environments
   const client = apiClient(request)
-  const [open, recent, catalogue, teams] = await Promise.all([
-    settled(
-      readTeamOperations(request, slug, {
-        status: 'open',
-        limit: MOST_OPEN_CHANGES
-      })
-    ),
-    settled(
-      readTeamOperations(request, slug, {
-        status: 'recent',
-        limit: RECENT_CHANGES
-      })
-    ),
-    settled(client.get('/v1/models?includeIneligible=true')),
-    settled(client.get('/v1/teams'))
-  ])
+  const [open, recent, statusChanges, catalogue, teams, loaded] =
+    await Promise.all([
+      settled(
+        readTeamOperations(request, slug, {
+          status: 'open',
+          limit: MOST_OPEN_CHANGES
+        })
+      ),
+      settled(
+        readTeamOperations(request, slug, {
+          status: 'recent',
+          limit: RECENT_CHANGES
+        })
+      ),
+      settled(readTeamStatusChanges(request, slug, { limit: RECENT_CHANGES })),
+      settled(client.get('/v1/models?includeIneligible=true')),
+      settled(client.get('/v1/teams')),
+      settled(loadTeamForView(request, slug))
+    ])
 
   warnOnFailure(
     request,
-    [open, recent, catalogue, teams],
+    [open, recent, statusChanges, catalogue, teams, loaded],
     'Could not read part of the environments overview'
   )
 
   const modelNames = modelNamesOf(catalogue)
   const openItems = itemsOf(open)
-  const changesUnavailable = openItems === null || itemsOf(recent) === null
+  const changesUnavailable =
+    openItems === null ||
+    itemsOf(recent) === null ||
+    itemsOf(statusChanges) === null
+  // A team whose lock could not be read is shown as it was before the lock:
+  // the backend refuses a locked change whatever the page offered.
+  const lock = loaded.status === 'fulfilled' ? loaded.value.lock : NO_LOCK
   const withLink = (item) => ({
     ...item,
     href: environmentPageUrl(team.slug, item.environment)
@@ -182,23 +203,49 @@ async function loadOverview(request) {
 
   return {
     team,
+    ...lockContext(lock),
     teamSwitcher: teamSwitcher(itemsOf(teams), team),
-    federateUrl: environments.environments.some(environmentHasRoom)
-      ? federateUrl(team.slug)
-      : null,
+    ...federateOffer(team, environments.environments, lock),
+    deployLocked: isDeployLocked(
+      lock,
+      defaultTeamEnvironment(),
+      environments.environments.find(
+        ({ environment }) => environment === defaultTeamEnvironment()
+      )
+    ),
     cards: buildCards({
       team,
       summaries: environments.environments,
-      modelNames
+      modelNames,
+      lock
     }),
     changes: (openItems ?? []).map((operation) =>
       withLink(buildOperationItem(operation, { modelNames }))
     ),
-    recent: buildRecent(itemsOf(recent) ?? [], { modelNames }),
+    recent: mergeRecent(
+      buildRecent(itemsOf(recent) ?? [], { modelNames }),
+      buildStatusChangeRows(itemsOf(statusChanges) ?? []),
+      RECENT_CHANGES
+    ),
     changesUnavailable,
     inProgress:
       (openItems?.length ?? 0) > 0 ||
       environments.environments.some(({ inProgress }) => inProgress)
+  }
+}
+
+// "Create Passwordless Credential" on the overview: a link while some
+// environment with room is not disabled, a greyed button when every one with
+// room is, and nothing when none has room.
+function federateOffer(team, summaries, lock) {
+  const withRoom = summaries.filter(environmentHasRoom)
+  const open = withRoom.filter(
+    (summary) => !isDisabled(lock, summary.environment, summary)
+  )
+
+  return {
+    federateUrl: open.length > 0 ? federateUrl(team.slug) : null,
+    federateLocked: withRoom.length > 0 && open.length === 0
   }
 }
 
@@ -213,7 +260,7 @@ async function loadEnvironment(request, environment) {
   const filters = { environment: environment.environment }
   // The detail has been answered, so the person is a member: the rest is read
   // together. The team is needed to know whether they are an admin.
-  const [loaded, open, recent, catalogue] = await Promise.all([
+  const [loaded, open, recent, statusChanges, catalogue] = await Promise.all([
     loadTeamForView(request, slug),
     settled(
       readTeamOperations(request, slug, {
@@ -229,28 +276,44 @@ async function loadEnvironment(request, environment) {
         limit: RECENT_CHANGES
       })
     ),
+    settled(
+      readTeamStatusChanges(request, slug, {
+        ...filters,
+        limit: RECENT_CHANGES
+      })
+    ),
     settled(client.get('/v1/models?includeIneligible=true'))
   ])
 
   warnOnFailure(
     request,
-    [open, recent, catalogue],
+    [open, recent, statusChanges, catalogue],
     'Could not read part of an environment page'
   )
 
-  const { team, isAdmin } = loaded
-  const changesUnavailable = itemsOf(open) === null || itemsOf(recent) === null
+  const { team, isAdmin, lock } = loaded
+  const changesUnavailable =
+    itemsOf(open) === null ||
+    itemsOf(recent) === null ||
+    itemsOf(statusChanges) === null
+  const page = buildEnvironmentPage({
+    team,
+    isAdmin,
+    environment,
+    detail,
+    operations: { open: itemsOf(open) ?? [], recent: itemsOf(recent) ?? [] },
+    modelNames: modelNamesOf(catalogue),
+    catalogue: modelsBySlug(catalogue),
+    lock
+  })
 
   return {
-    ...buildEnvironmentPage({
-      team,
-      isAdmin,
-      environment,
-      detail,
-      operations: { open: itemsOf(open) ?? [], recent: itemsOf(recent) ?? [] },
-      modelNames: modelNamesOf(catalogue),
-      catalogue: modelsBySlug(catalogue)
-    }),
+    ...page,
+    recent: mergeRecent(
+      page.recent,
+      buildStatusChangeRows(itemsOf(statusChanges) ?? []),
+      RECENT_CHANGES
+    ),
     team,
     changesUnavailable
   }

@@ -5,8 +5,13 @@ import { DEPLOYMENT_REMOVED_STATUS } from '#/server/common/helpers/deployment-st
 import {
   environmentName,
   environmentPageUrl,
+  environmentRegistryName,
   teamEnvironmentsUrl
 } from '#/server/common/helpers/environment-names.js'
+import {
+  isTeamDisabledError,
+  lockedPage
+} from '#/server/common/helpers/team-lock.js'
 import { isNotFound, loadTeamForView } from './team-view.js'
 
 const ACTIVE_STATUS = 'active'
@@ -122,6 +127,18 @@ export const removeModelController = {
         return modelNotFound(h, slug)
       }
 
+      const locked = lockedPage(h, loaded.lock, {
+        environment: deployment.environment,
+        back: {
+          href: environmentPageUrl(loaded.team.slug, deployment.environment),
+          text: `Back to the ${environmentRegistryName(deployment.environment)} page`
+        }
+      })
+
+      if (locked) {
+        return locked
+      }
+
       const name = await modelDisplayName(request, deployment.modelSlug)
       const environment = environmentName(deployment.environment)
 
@@ -164,6 +181,7 @@ export const removeModelController = {
         // fault goes to the error page like everywhere else.
         if (
           !(error instanceof ApiError) ||
+          isTeamDisabledError(error) ||
           error.statusCode >= statusCodes.internalServerError
         ) {
           throw error

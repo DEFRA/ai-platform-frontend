@@ -74,6 +74,20 @@ export function putTeamLimits(
 }
 
 /**
+ * When the platform team disabled or enabled a team, newest first: what
+ * changed and when, never why or by whom.
+ * @param {import('@hapi/hapi').Request} request
+ * @param {string} teamRef
+ * @param {{environment?: string, limit?: number}} filters
+ * @returns {Promise<{items: Array<{change: 'disabled' | 'enabled', environments: string[], at: string}>}>}
+ */
+export function readTeamStatusChanges(request, teamRef, filters) {
+  const query = new URLSearchParams(filters).toString()
+
+  return apiClient(request).get(`${teamPath(teamRef)}/status-changes?${query}`)
+}
+
+/**
  * Adds a client secret to the team's registration in one environment (an
  * admin): 201 with the credential and the secret, shown once, or 200 with the
  * credential alone when the key was used for this request already. The key

@@ -53,8 +53,9 @@ function expiryText(secret) {
 }
 
 // Only a secret still working can be viewed, rotated or revoked, and only by
-// an admin; the pages behind the links decide it again.
-function actionsFor(secret, { team, isAdmin }) {
+// an admin; the pages behind the links decide it again. In a disabled
+// environment viewing and rotating are plain text (no link): revoking stays.
+function actionsFor(secret, { team, isAdmin, locked }) {
   if (!isAdmin || secret.status !== ACTIVE) {
     return []
   }
@@ -62,8 +63,8 @@ function actionsFor(secret, { team, isAdmin }) {
   const base = `${teamUrl(team)}/client-secrets/${encodeURIComponent(secret.id)}`
 
   return [
-    { text: 'View', href: `${base}/view` },
-    { text: 'Rotate', href: `${base}/rotate` },
+    { text: 'View', href: locked ? null : `${base}/view` },
+    { text: 'Rotate', href: locked ? null : `${base}/rotate` },
     { text: 'Revoke', href: `${base}/revoke` }
   ]
 }
@@ -101,6 +102,52 @@ export function secretCount({ used, limit }) {
   }
 }
 
+function notAllowedSecrets(registryName, detail) {
+  return {
+    state: SECRET_STATE.notAllowed,
+    message: `Client secrets are not available in ${registryName}. Applications there use a passwordless credential.`,
+    applicationsHref:
+      detail.setUp && detail.applications ? '#applications' : null,
+    addUrl: null,
+    items: []
+  }
+}
+
+function notSetUpSecrets(registryName) {
+  return {
+    state: SECRET_STATE.notSetUp,
+    message: `Deploy a model in ${registryName} first. You can add a client secret once it is set up.`,
+    addUrl: null,
+    items: []
+  }
+}
+
+function allowedSecrets({
+  team,
+  environment,
+  registryName,
+  summary,
+  isAdmin,
+  locked
+}) {
+  const count = secretCount(summary)
+  const context = { team, isAdmin, locked }
+  const addable = isAdmin && !count.full
+
+  return {
+    state: SECRET_STATE.allowed,
+    ...count,
+    intro: `${count.countText}. Each lasts at most three months. Use one for local development; your deployed applications should use a passwordless credential.`,
+    fullMessage: count.full
+      ? `${registryName} holds ${summary.limit} client secrets, the most one environment can. Revoke one, or wait for one to expire, to add another.`
+      : null,
+    addUrl:
+      addable && !locked ? clientSecretAddUrl(team.slug, environment) : null,
+    addLocked: addable && locked,
+    items: (summary.items ?? []).map((secret) => secretRow(secret, context))
+  }
+}
+
 /**
  * The Client secrets section of an environment's page, or null when the
  * backend gave no read of them. Where they are not allowed the section says
@@ -112,6 +159,7 @@ export function secretCount({ used, limit }) {
  * @param {string} params.registryName
  * @param {object} params.detail - The backend's environment read.
  * @param {boolean} params.isAdmin
+ * @param {boolean} [params.locked] - The environment is disabled: nothing can be added, viewed or rotated.
  * @returns {object | null}
  */
 export function buildClientSecrets({
@@ -119,7 +167,8 @@ export function buildClientSecrets({
   environment,
   registryName,
   detail,
-  isAdmin
+  isAdmin,
+  locked = false
 }) {
   const summary = detail.clientSecrets
 
@@ -128,41 +177,21 @@ export function buildClientSecrets({
   }
 
   if (!summary.allowed) {
-    return {
-      state: SECRET_STATE.notAllowed,
-      message: `Client secrets are not available in ${registryName}. Applications there use a passwordless credential.`,
-      applicationsHref:
-        detail.setUp && detail.applications ? '#applications' : null,
-      addUrl: null,
-      items: []
-    }
+    return notAllowedSecrets(registryName, detail)
   }
 
   if (!detail.setUp) {
-    return {
-      state: SECRET_STATE.notSetUp,
-      message: `Deploy a model in ${registryName} first. You can add a client secret once it is set up.`,
-      addUrl: null,
-      items: []
-    }
+    return notSetUpSecrets(registryName)
   }
 
-  const count = secretCount(summary)
-  const context = { team, isAdmin }
-
-  return {
-    state: SECRET_STATE.allowed,
-    ...count,
-    intro: `${count.countText}. Each lasts at most three months. Use one for local development; your deployed applications should use a passwordless credential.`,
-    fullMessage: count.full
-      ? `${registryName} holds ${summary.limit} client secrets, the most one environment can. Revoke one, or wait for one to expire, to add another.`
-      : null,
-    addUrl:
-      isAdmin && !count.full
-        ? clientSecretAddUrl(team.slug, environment)
-        : null,
-    items: (summary.items ?? []).map((secret) => secretRow(secret, context))
-  }
+  return allowedSecrets({
+    team,
+    environment,
+    registryName,
+    summary,
+    isAdmin,
+    locked
+  })
 }
 
 /**

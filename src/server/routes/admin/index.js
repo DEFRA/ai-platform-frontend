@@ -1,0 +1,159 @@
+import { adminAuditController } from './audit.js'
+import { adminController } from './controller.js'
+import { adminDeploymentController } from './deployment.js'
+import { adminCredentialsController } from './deployment-credentials.js'
+import { adminSecretRevokeController } from './deployment-secret-revoke.js'
+import { adminDeploymentsController } from './deployments.js'
+import {
+  adminAddMemberController,
+  adminPeopleSearchController,
+  adminRemoveMemberController
+} from './members.js'
+import { adminTeamLifecycleController } from './team-lifecycle.js'
+
+const team = '/admin/teams/{id}'
+const deployment = '/admin/deployments/{teamId}/{environment}'
+
+// The pages of the credential actions: which environments, a reason (Disable)
+// and the confirmation after.
+function credentialRoutes() {
+  const { disable, disableReason, disabled, enable } =
+    adminCredentialsController
+  const pages = [
+    { path: 'disable', page: disable },
+    { path: 'disable/reason', page: disableReason },
+    { path: 'enable', page: enable }
+  ]
+
+  return [
+    ...pages.flatMap(({ path, page }) => [
+      {
+        method: 'GET',
+        path: `${deployment}/credentials/${path}`,
+        handler: page.get.handler
+      },
+      {
+        method: 'POST',
+        path: `${deployment}/credentials/${path}`,
+        handler: page.post.handler
+      }
+    ]),
+    {
+      method: 'GET',
+      path: `${deployment}/credentials/disabled`,
+      handler: disabled.handler
+    }
+  ]
+}
+
+// The pages that disable and enable a team: which environments, a reason (to
+// disable) and the confirmation after.
+function lifecycleRoutes() {
+  const { disable, disableReason, disabled, enable } =
+    adminTeamLifecycleController
+  const pages = [
+    { path: 'disable', page: disable },
+    { path: 'disable/reason', page: disableReason },
+    { path: 'enable', page: enable }
+  ]
+
+  return [
+    ...pages.flatMap(({ path, page }) => [
+      { method: 'GET', path: `${team}/${path}`, handler: page.get.handler },
+      { method: 'POST', path: `${team}/${path}`, handler: page.post.handler }
+    ]),
+    { method: 'GET', path: `${team}/disabled`, handler: disabled.handler }
+  ]
+}
+
+const routes = [
+  ...credentialRoutes(),
+  {
+    method: 'GET',
+    path: `${deployment}/credentials/{credentialId}/revoke`,
+    handler: adminSecretRevokeController.get.handler
+  },
+  {
+    method: 'POST',
+    path: `${deployment}/credentials/{credentialId}/revoke`,
+    handler: adminSecretRevokeController.post.handler
+  },
+  ...lifecycleRoutes(),
+  { method: 'GET', path: '/admin', handler: adminController.index.handler },
+  {
+    method: 'GET',
+    path: '/admin/teams',
+    handler: adminController.teams.handler
+  },
+  { method: 'GET', path: team, handler: adminController.team.handler },
+  {
+    method: 'GET',
+    path: '/admin/deployments',
+    handler: adminDeploymentsController.handler
+  },
+  {
+    method: 'GET',
+    path: deployment,
+    handler: adminDeploymentController.get.handler
+  },
+  {
+    method: 'POST',
+    path: `${deployment}/models/{entryId}/reconcile`,
+    handler: adminDeploymentController.reconcile.handler
+  },
+  {
+    method: 'POST',
+    path: `${deployment}/models/{entryId}/retry`,
+    handler: adminDeploymentController.retry.handler
+  },
+  {
+    method: 'GET',
+    path: '/admin/audit',
+    handler: adminAuditController.handler
+  },
+  {
+    method: 'GET',
+    path: `${team}/members/add`,
+    handler: adminAddMemberController.get.handler
+  },
+  {
+    method: 'POST',
+    path: `${team}/members/add`,
+    options: adminAddMemberController.post.options,
+    handler: adminAddMemberController.post.handler
+  },
+  {
+    method: 'POST',
+    path: `${team}/members/add/people`,
+    options: adminPeopleSearchController.options,
+    handler: adminPeopleSearchController.handler
+  },
+  {
+    method: 'GET',
+    path: `${team}/members/{memberId}/remove`,
+    handler: adminRemoveMemberController.get.handler
+  },
+  {
+    method: 'POST',
+    path: `${team}/members/{memberId}/remove`,
+    handler: adminRemoveMemberController.post.handler
+  }
+]
+
+/**
+ * Sets up the Platform Admin area (B31): the Teams tab (every team, a team's
+ * page, adding and removing its members, disabling and enabling it), the Deployments tab (each team's
+ * deployment in an environment, its health and its credentials) and the Audit
+ * log tab. Protected by the global
+ * sign-in gate (src/server/plugins/require-sign-in-globally.js); who may use
+ * a page is the backend's decision, asked on every request.
+ * These routes are registered in src/server/plugins/router.js.
+ */
+export const admin = {
+  plugin: {
+    name: 'admin',
+    register(server) {
+      server.route(routes)
+    }
+  }
+}

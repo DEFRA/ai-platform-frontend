@@ -1,4 +1,5 @@
 import { config } from '#/config/config.js'
+import { derivedIdempotencyKey } from '#/server/common/helpers/idempotency-key.js'
 
 import {
   carryAddKey,
@@ -115,6 +116,30 @@ describe('#add-member-keys', () => {
       expect(first).toMatch(UUID)
       expect(first).not.toBe(key)
       expect(keyForAdd(request, TEAM, person, key, NOW)).toBe(first)
+    })
+
+    test('derives both kinds of key with the shared Idempotency-Key helper', () => {
+      const choice = `${OID}|user`
+      const formKey = issueAddKey(request, TEAM, NOW)
+
+      expect(keyForAdd(request, TEAM, person, formKey, NOW)).toBe(
+        derivedIdempotencyKey([
+          'add-member-form-key',
+          request.yar.id,
+          TEAM,
+          formKey,
+          choice
+        ])
+      )
+      expect(keyForAdd(request, TEAM, person, undefined, NOW)).toBe(
+        derivedIdempotencyKey([
+          'add-member-key',
+          request.yar.id,
+          TEAM,
+          choice,
+          0
+        ])
+      )
     })
 
     test('treats the same oid in another case as the same person', () => {

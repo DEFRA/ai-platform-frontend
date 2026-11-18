@@ -121,6 +121,7 @@ describe('#environmentsController', () => {
       [`GET ${TEAM_PATH}/environments`]: environmentsRead(),
       [`GET ${TEAM_PATH}/environments/infradev`]: detail(),
       [`GET ${TEAM_PATH}/operations`]: operationsAnswer(),
+      [`GET ${TEAM_PATH}/status-changes`]: { items: [] },
       ...routes
     })
   }
@@ -238,6 +239,7 @@ describe('#environmentsController', () => {
         expect(
           path === '/v1/teams' ||
             path === '/v1/models' ||
+            path === TEAM_PATH ||
             path.startsWith(`${TEAM_PATH}/`)
         ).toBe(true)
       }

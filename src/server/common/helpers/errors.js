@@ -1,6 +1,11 @@
 import { statusCodes } from '../constants/status-codes.js'
 import { ApiError, wasUnauthorised } from './api-error.js'
 import { getSessionUser, resetSession } from './session.js'
+import {
+  isTeamDisabledError,
+  teamDisabledBack,
+  teamDisabledPage
+} from './team-lock.js'
 
 function statusCodeMessage(statusCode) {
   switch (statusCode) {
@@ -50,6 +55,12 @@ export function catchAll(request, h) {
     resetSession(request)
 
     return h.redirect(signInAddress(request))
+  }
+
+  // The backend refused a change to a disabled team: the person is told the
+  // team can be viewed but not changed, wherever in a journey it was tried.
+  if (isTeamDisabledError(response)) {
+    return teamDisabledPage(h, teamDisabledBack(request))
   }
 
   if (!('isBoom' in response)) {

@@ -144,6 +144,29 @@ describe('#loadTeamForView', () => {
     expect(result.environments).toEqual(environments)
   })
 
+  test('says what is locked: nothing for a team with no lock fields, the team and its environments for a disabled one', async () => {
+    respondWith([admin()])
+    expect((await loadTeamForView(requestFor('user-1'), 'x')).lock).toEqual({
+      teamDisabled: false,
+      disabledEnvironments: []
+    })
+
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        team: {
+          ...team,
+          status: 'disabled',
+          disabledEnvironments: ['infradev']
+        },
+        members: [admin()]
+      })
+    )
+    expect((await loadTeamForView(requestFor('user-1'), 'x')).lock).toEqual({
+      teamDisabled: true,
+      disabledEnvironments: ['infradev']
+    })
+  })
+
   test('says an active admin is one, and a member or a removed admin is not', async () => {
     respondWith([admin()])
     expect((await loadTeamForView(requestFor('user-1'), 'x')).isAdmin).toBe(

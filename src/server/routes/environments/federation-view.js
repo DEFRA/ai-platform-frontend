@@ -26,21 +26,48 @@ const STATUS_TAGS = {
   [FAILED]: { text: 'Failed', tagClass: 'govuk-tag--red' }
 }
 
-function tagFor(status) {
+/**
+ * The words for where an application runs.
+ * @param {string} host
+ * @returns {string}
+ */
+export function federationKind(host) {
+  return HOSTS[host] ?? host
+}
+
+/**
+ * The tag for an application's state.
+ * @param {string} status
+ * @returns {{text: string, tagClass: string}}
+ */
+export function federationTag(status) {
   return STATUS_TAGS[status] ?? { text: status, tagClass: 'govuk-tag--grey' }
 }
 
 // Only an admin changes or removes an application, because that can cut off a
 // running service. An application being set up or removed is left alone until
 // it settles; one that failed can only be cleared away.
-function actionsFor(application, { team, environment, isAdmin }) {
+function actionsFor(application, { team, environment, isAdmin, locked }) {
   const { id, status } = application
   const url = (action) => applicationUrl(team.slug, environment, id, action)
+  const changeable = isAdmin && status === READY
+  const removable = isAdmin && (status === READY || status === FAILED)
+
+  // In a disabled environment the actions are still shown, as plain text.
+  if (locked) {
+    return {
+      changeUrl: null,
+      removeUrl: null,
+      lockedActions: [changeable && 'Change', removable && 'Remove'].filter(
+        Boolean
+      )
+    }
+  }
 
   return {
-    changeUrl: isAdmin && status === READY ? url('change') : null,
-    removeUrl:
-      isAdmin && (status === READY || status === FAILED) ? url('remove') : null
+    changeUrl: changeable ? url('change') : null,
+    removeUrl: removable ? url('remove') : null,
+    lockedActions: []
   }
 }
 
@@ -48,8 +75,8 @@ function applicationRow(application, context) {
   return {
     id: application.id,
     name: application.name,
-    kind: HOSTS[application.host] ?? application.host,
-    tag: tagFor(application.status),
+    kind: federationKind(application.host),
+    tag: federationTag(application.status),
     reason:
       application.status === FAILED
         ? (application.failureReason ?? null)
@@ -81,6 +108,7 @@ export function environmentHasRoom(summary) {
  * @param {string} params.registryName
  * @param {object} params.detail - The backend's environment read.
  * @param {boolean} params.isAdmin
+ * @param {boolean} [params.locked] - The environment is disabled: nothing can be created, changed or removed.
  * @returns {object | null}
  */
 export function buildApplications({
@@ -88,7 +116,8 @@ export function buildApplications({
   environment,
   registryName,
   detail,
-  isAdmin
+  isAdmin,
+  locked = false
 }) {
   if (!detail.setUp || !detail.applications) {
     return null
@@ -96,7 +125,7 @@ export function buildApplications({
 
   const { used, limit, items = [] } = detail.applications
   const full = used >= limit
-  const context = { team, environment, isAdmin }
+  const context = { team, environment, isAdmin, locked }
 
   return {
     used,
@@ -106,7 +135,9 @@ export function buildApplications({
     fullMessage: full
       ? `${registryName} holds ${limit} applications, the most one environment can. Remove one to create another passwordless credential here.`
       : null,
-    federateUrl: full ? null : federateUrl(team.slug, '', { environment }),
+    federateUrl:
+      full || locked ? null : federateUrl(team.slug, '', { environment }),
+    federateLocked: locked && !full,
     items: items.map((application) => applicationRow(application, context))
   }
 }

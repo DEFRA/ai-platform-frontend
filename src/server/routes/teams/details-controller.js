@@ -10,6 +10,7 @@ import {
   setAccountNotification,
   takeAccountNotification
 } from '#/server/common/helpers/session.js'
+import { lockContext } from '#/server/common/helpers/team-lock.js'
 import { adminRequiredView, loadAdminTeam } from './admin-team.js'
 import { descriptionField, serviceCodeField } from './team-fields.js'
 import {
@@ -169,7 +170,7 @@ export const detailsController = {
         throw error
       }
 
-      const { team, isAdmin } = loaded
+      const { team, isAdmin, lock } = loaded
 
       return h.view('teams/details', {
         pageTitle: `${team.name} details`,
@@ -177,6 +178,7 @@ export const detailsController = {
         team,
         tabs: teamTabs(team, 'details'),
         notification: takeAccountNotification(request),
+        ...lockContext(lock),
         isAdmin,
         serviceCodeChecked: Boolean(team.verified),
         serviceCodeUrl: `${detailsUrl(team)}/${CHANGES.serviceCode.path}`,

@@ -13,6 +13,7 @@ import { connect } from '../routes/connect/index.js'
 import { manage } from '../routes/manage/index.js'
 import { teams } from '../routes/teams/index.js'
 import { environments } from '../routes/environments/index.js'
+import { admin } from '../routes/admin/index.js'
 import { serveStaticFiles } from './serve-static-files.js'
 import { registerViteAssets } from './vite-assets.js'
 import { config } from '#/config/config.js'
@@ -39,7 +40,8 @@ export const router = {
         connect,
         manage,
         teams,
-        environments
+        environments,
+        admin
       ])
 
       // Static assets

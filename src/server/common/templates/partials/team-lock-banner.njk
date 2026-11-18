@@ -1,0 +1,23 @@
+{#
+  The banner a team's pages show while the team is disabled (or, on an
+  environment's page, while that environment is): what people can do, never
+  why or who. Context: lockBanner, { heading, message } or null. Shown above
+  the heading, beside the notification of a change just made.
+#}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% if lockBanner %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% set lockHtml %}
+        <h3 class="govuk-notification-banner__heading">{{ lockBanner.heading }}</h3>
+        <p class="govuk-body">{{ lockBanner.message }}</p>
+      {% endset %}
+      {{ govukNotificationBanner({
+        html: lockHtml,
+        titleId: "team-lock-banner-title",
+        attributes: { "data-testid": "team-lock-banner" }
+      }) }}
+    </div>
+  </div>
+{% endif %}

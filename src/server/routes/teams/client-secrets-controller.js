@@ -12,6 +12,10 @@ import {
 } from '#/server/common/helpers/govuk-errors.js'
 import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 import {
+  isTeamDisabledError,
+  lockedPage
+} from '#/server/common/helpers/team-lock.js'
+import {
   revealSchema,
   revokeConfirmSchema
 } from '#/server/common/helpers/credential-schemas.js'
@@ -89,7 +93,19 @@ async function loadClientSecret(request) {
     return null
   }
 
-  return { team, credential }
+  return { team, credential, lock: loaded.lock }
+}
+
+// The page that says the client secret's environment is disabled, for the
+// pages that show or rotate it (revoking stays open). Null when it is not.
+function lockedSecretPage(h, page) {
+  return lockedPage(h, page.lock, {
+    environment: page.credential.environment,
+    back: {
+      href: backUrlFor(page.team.slug, page.credential),
+      text: backTextFor(page.credential)
+    }
+  })
 }
 
 // The models the secret covers, named, for the pages that confirm what a
@@ -115,19 +131,22 @@ async function coveredModelNames(request, credential) {
 // stops the request there; a client secret that is not the person's to
 // change stays the not found page.
 function takeoverFailure(view) {
-  const response =
-    view.statusCode === statusCodes.notFound
-      ? view
-      : view.code(statusCodes.badRequest)
+  const response = [statusCodes.notFound, statusCodes.conflict].includes(
+    view.statusCode
+  )
+    ? view
+    : view.code(statusCodes.badRequest)
 
   return response.takeover()
 }
 
 // A refusal the person can read becomes a banner on the environment page; a
-// backend fault goes to the error page like everywhere else.
+// backend fault goes to the error page like everywhere else, and so does a
+// disabled team, which has a page of its own.
 function failAsBanner(request, h, error, message, backUrl) {
   if (
     !(error instanceof ApiError) ||
+    isTeamDisabledError(error) ||
     error.statusCode >= statusCodes.internalServerError
   ) {
     throw error
@@ -153,6 +172,12 @@ async function revealView(request, h, { error, values } = {}) {
 
   if (!page) {
     return clientSecretNotFound(h, request.params.slug)
+  }
+
+  const locked = lockedSecretPage(h, page)
+
+  if (locked) {
+    return locked
   }
 
   const heading = `View the ${credentialEnvironmentName(page.credential)} ${SECRET_NAME} for ${page.team.name}`
@@ -301,6 +326,12 @@ export const clientSecretsController = {
 
         if (!page) {
           return clientSecretNotFound(h, request.params.slug)
+        }
+
+        const locked = lockedSecretPage(h, page)
+
+        if (locked) {
+          return locked
         }
 
         return h.view('teams/rotate', {

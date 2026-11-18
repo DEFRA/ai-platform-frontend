@@ -319,7 +319,8 @@ describe('environment-view', () => {
         tokensPerMinute: '1,000',
         requestsPerMinute: '60',
         pending: null,
-        changeUrl: '/environments/flood-risk-team/infradev/limits'
+        changeUrl: '/environments/flood-risk-team/infradev/limits',
+        changeLocked: false
       })
       expect(page({ isAdmin: false }).limits.changeUrl).toBeNull()
     })
@@ -413,6 +414,233 @@ describe('environment-view', () => {
       ).toBeNull()
     })
   })
+
+  describe('with the team disabled', () => {
+    const disabledTeam = { teamDisabled: true, disabledEnvironments: [] }
+    const infradevLocked = {
+      teamDisabled: true,
+      disabledEnvironments: ['infradev']
+    }
+    const federated = {
+      used: 1,
+      limit: 20,
+      items: [
+        {
+          id: 'app-1',
+          name: 'flood-api',
+          host: 'cdp',
+          service: 'flood-api',
+          status: 'ready'
+        }
+      ]
+    }
+
+    function page(lock, overrides = {}) {
+      return buildEnvironmentPage({
+        team,
+        isAdmin: true,
+        environment: {
+          environment: 'infradev',
+          registryName: 'Infradev',
+          name: 'Development'
+        },
+        detail: {
+          ...summary(),
+          applications: federated,
+          clientSecrets: clientSecretsOf([clientSecretItem()]),
+          models: [deployment()],
+          limitBounds: {
+            tokensPerMinute: { min: 1, max: 5000 },
+            requestsPerMinute: { min: 1, max: 300 }
+          },
+          pendingLimits: null
+        },
+        operations: { open: [], recent: [] },
+        modelNames,
+        lock,
+        now: NOW,
+        ...overrides
+      })
+    }
+
+    test('tags a disabled environment Disabled where it said Available, and ahead of Paused', () => {
+      expect(page(infradevLocked).tag).toEqual({
+        text: 'Disabled',
+        tagClass: 'govuk-tag--grey'
+      })
+      expect(
+        page(infradevLocked, {
+          detail: {
+            ...summary({ paused: true }),
+            models: [],
+            limitBounds: null
+          }
+        }).tag.text
+      ).toBe('Disabled')
+    })
+
+    test('believes the environment read when it says the environment is disabled, though the team lists none', () => {
+      const view = page(disabledTeam, {
+        detail: { ...summary({ disabled: true }), models: [deployment()] }
+      })
+
+      expect(view.tag.text).toBe('Disabled')
+      expect(view.models[0].removeLocked).toBe(true)
+      expect(view.lockBanner).toEqual({
+        heading: 'This team is disabled',
+        message: 'You can view it but you cannot change it.'
+      })
+    })
+
+    test('greys every environment action of a disabled environment, and keeps Revoke', () => {
+      const view = page(infradevLocked)
+
+      expect(view.models[0]).toMatchObject({
+        removeUrl: null,
+        removeLocked: true
+      })
+      expect(view.clientSecrets).toMatchObject({
+        addUrl: null,
+        addLocked: true
+      })
+      expect(view.clientSecrets.items[0].actions).toEqual([
+        { text: 'View', href: null },
+        { text: 'Rotate', href: null },
+        {
+          text: 'Revoke',
+          href: '/teams/flood-risk-team/client-secrets/cred-1/revoke'
+        }
+      ])
+      expect(view.limits).toMatchObject({
+        changeUrl: null,
+        changeLocked: true
+      })
+      expect(view.applications).toMatchObject({
+        federateUrl: null,
+        federateLocked: true
+      })
+      expect(view.applications.items[0]).toMatchObject({
+        changeUrl: null,
+        removeUrl: null,
+        lockedActions: ['Change', 'Remove']
+      })
+      expect(view.deployLocked).toBe(true)
+    })
+
+    test('leaves an environment the admin did not tick usable, with the team banner and only the team-wide action greyed', () => {
+      const view = page(disabledTeam)
+
+      expect(view.tag.text).toBe('Available')
+      expect(view.models[0].removeUrl).toBe(
+        '/teams/flood-risk-team/models/deployment-1/remove'
+      )
+      expect(view.models[0].removeLocked).toBe(false)
+      expect(view.clientSecrets.addLocked).toBe(false)
+      expect(
+        view.clientSecrets.items[0].actions.every(({ href }) => href)
+      ).toBe(true)
+      expect(view.limits.changeUrl).toBe(
+        '/environments/flood-risk-team/infradev/limits'
+      )
+      expect(view.applications.items[0].changeUrl).toContain('/change')
+      expect(view.deployLocked).toBe(false)
+      expect(view.teamLocked).toBe(true)
+      expect(view.lockBanner.heading).toBe('This team is disabled')
+    })
+
+    test('says on the page of a disabled environment of an active team that the environment is disabled', () => {
+      const view = page({
+        teamDisabled: false,
+        disabledEnvironments: ['infradev']
+      })
+
+      expect(view.lockBanner.heading).toBe('This environment is disabled')
+      expect(view.teamLocked).toBe(false)
+    })
+
+    test('has no banner and nothing greyed for a team that is not disabled', () => {
+      const view = page({ teamDisabled: false, disabledEnvironments: [] })
+
+      expect(view.lockBanner).toBeNull()
+      expect(view.deployLocked).toBe(false)
+      expect(view.models[0].removeLocked).toBe(false)
+    })
+
+    test('shows no greyed action to a member, who has none', () => {
+      const view = page(infradevLocked, { isAdmin: false })
+
+      expect(view.models[0].removeLocked).toBe(false)
+      expect(view.limits.changeLocked).toBe(false)
+      expect(view.applications.items[0].lockedActions).toEqual([])
+    })
+
+    test('greys deploying where the environment is not set up and the team is disabled, because that sets it up', () => {
+      config.set('teamEnvironments', ['infradev', 'qa'])
+
+      const view = buildEnvironmentPage({
+        team,
+        isAdmin: true,
+        environment: { environment: 'qa', registryName: 'QA', name: 'Test' },
+        detail: { ...summary({ environment: 'qa', setUp: false }), models: [] },
+        operations: { open: [], recent: [] },
+        modelNames,
+        lock: disabledTeam,
+        now: NOW
+      })
+
+      expect(view.deployLocked).toBe(true)
+      expect(view.setUpUrl).toBeNull()
+      expect(view.setUpLocked).toBe(true)
+    })
+
+    test('has the overview card of a disabled environment tagged Disabled, and of one the team lists, whatever the environment read says', () => {
+      const [fromRead] = buildCards({
+        team,
+        summaries: [summary({ disabled: true })],
+        modelNames,
+        now: NOW
+      })
+      const [fromTeam] = buildCards({
+        team,
+        summaries: [summary()],
+        modelNames,
+        lock: infradevLocked,
+        now: NOW
+      })
+
+      expect(fromRead.tag.text).toBe('Disabled')
+      expect(fromTeam.tag.text).toBe('Disabled')
+    })
+
+    test('greys setting up another environment on the cards while the team is disabled, but not for the first', () => {
+      config.set('teamEnvironments', ['infradev', 'qa'])
+
+      const notSetUp = {
+        setUp: false,
+        limits: null,
+        models: { count: 0, items: [] }
+      }
+      const [infradev, qa] = buildCards({
+        team,
+        summaries: [
+          summary(notSetUp),
+          summary({ environment: 'qa', ...notSetUp })
+        ],
+        modelNames,
+        lock: disabledTeam,
+        now: NOW
+      })
+
+      expect(infradev.setUpLocked).toBe(false)
+      expect(qa).toMatchObject({
+        setUpUrl: null,
+        setUpText: 'Set up QA',
+        setUpLocked: true
+      })
+      expect(qa.tag.text).toBe('Available')
+    })
+  })
+
   describe('what the cards and the page leave unsaid', () => {
     test('says a latest change with no time without one', () => {
       const [infradev] = buildCards({

@@ -66,6 +66,15 @@ describe('Application stylesheet', () => {
     )
   })
 
+  test('Should give a scrolling table a focus indicator with a dark boundary beside the yellow, as GOV.UK focus does, so it is visible on white (WCAG 1.4.11)', () => {
+    const focus = declarationsOf(css, '.app-table-scroll:focus')
+
+    expect(focus).toMatch(/outline:\s*3px solid transparent/)
+    expect(focus).toMatch(
+      /box-shadow:\s*0 0 0 4px var\(--govuk-focus-colour,\s*#ffdd00\),\s*0 0 0 8px var\(--govuk-focus-text-colour,\s*#0b0c0c\)/i
+    )
+  })
+
   test('Should let an environment card’s rows use its whole width instead of GOV.UK’s 30, 50 and 20 percent columns', () => {
     const row = declarationsOf(
       css,

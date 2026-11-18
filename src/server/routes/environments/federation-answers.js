@@ -116,7 +116,9 @@ const REFUSALS = {
   'environment-not-set-up': ({ environmentName }) =>
     `${environmentName} is not set up yet. Deploy a model there first`,
   'environment-not-available': ({ environmentName }) =>
-    `${environmentName} is not available yet`
+    `${environmentName} is not available yet`,
+  'team-disabled': ({ environmentName }) =>
+    `${environmentName} is disabled. You can view it but not change it`
 }
 
 /**

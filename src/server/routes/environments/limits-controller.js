@@ -14,6 +14,10 @@ import {
   setPendingLimits
 } from '#/server/common/helpers/session.js'
 import { isNotFound, loadTeamForView } from '#/server/routes/teams/team-view.js'
+import {
+  lockedPage,
+  withDisabledEnvironment
+} from '#/server/common/helpers/team-lock.js'
 import { environmentNotFound, errorPage, teamNotFound } from './error-views.js'
 import {
   isUnavailable,
@@ -119,6 +123,24 @@ async function load(request, h) {
 
   if (!loaded.isAdmin) {
     return { page: adminRequired(h, { slug, environment }) }
+  }
+
+  const locked = lockedPage(
+    h,
+    detail.disabled
+      ? withDisabledEnvironment(loaded.lock, environment.environment)
+      : loaded.lock,
+    {
+      environment: environment.environment,
+      back: {
+        href: environmentPageUrl(slug, environment.environment),
+        text: `Back to ${environment.registryName}`
+      }
+    }
+  )
+
+  if (locked) {
+    return { page: locked }
   }
 
   if (!detail.limitBounds) {

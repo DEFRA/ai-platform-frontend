@@ -6,6 +6,10 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { cdpTrustText } from '#/server/common/helpers/cdp-environments.js'
 import {
+  TEAM_DISABLED,
+  teamDisabledPage
+} from '#/server/common/helpers/team-lock.js'
+import {
   changeQuerySchema,
   isChange
 } from '#/server/routes/connect/team-journey.js'
@@ -34,6 +38,7 @@ import {
   readTeamEnvironments
 } from './environments-api.js'
 import { environmentHasRoom } from './federation-view.js'
+import { isDisabled } from './environment-view.js'
 
 const querySchema = { query: changeQuerySchema }
 const SELECT_FROM_LIST = 'Select environments from the list'
@@ -41,7 +46,8 @@ const SELECT_FROM_LIST = 'Select environments from the list'
 const NOT_OFFERED = new Set([
   'environment-not-available',
   'environment-not-set-up',
-  'federation-limit-reached'
+  'federation-limit-reached',
+  TEAM_DISABLED
 ])
 
 function redirectTo(h, url) {
@@ -72,20 +78,31 @@ function isNamed(pending) {
 
 // The environments the team can use with room for another application, from
 // what the team's environments say: all that can be known before the
-// application is named.
-async function choicesFromSummaries(request, team) {
+// application is named. A disabled one is not offered, as the dry run does.
+async function choicesFromSummaries(request, team, lock) {
   const { environments } = await readTeamEnvironments(request, team.slug)
-  const offered = teamEnvironmentList()
+  const withRoom = teamEnvironmentList()
     .filter(({ available }) => available)
     .map(({ environment }) => environment)
-    .filter((environment) =>
-      environments.some(
+    .map((environment) => ({
+      environment,
+      summary: environments.find(
         (summary) =>
           summary.environment === environment && environmentHasRoom(summary)
       )
-    )
+    }))
+    .filter(({ summary }) => summary)
+  const locked = withRoom.filter(({ environment, summary }) =>
+    isDisabled(lock, environment, summary)
+  )
+  const offered = withRoom
+    .filter((choice) => !locked.includes(choice))
+    .map(({ environment }) => environment)
+  const codes = new Map(
+    locked.map(({ environment }) => [environment, TEAM_DISABLED])
+  )
 
-  return { codes: new Map(), known: new Set(offered), offered }
+  return { codes, known: new Set(offered), offered }
 }
 
 /**
@@ -119,10 +136,10 @@ async function choicesFromDryRun(request, team, pending) {
 
 // The environments to offer: from the dry run once the application is named,
 // else from what the team's environments hold.
-function loadChoices(request, team, pending) {
+function loadChoices(request, team, pending, lock) {
   return isNamed(pending)
     ? choicesFromDryRun(request, team, pending)
-    : choicesFromSummaries(request, team)
+    : choicesFromSummaries(request, team, lock)
 }
 
 // A refusal's words for each environment, as an error summary linked to the
@@ -201,9 +218,9 @@ function nothingOffered(h, team, pending) {
 
 // The choices, or the page to show instead when the backend could not give
 // them: a 404 reads the same as an unknown team, a failure as unavailable.
-async function choicesOrPage(request, h, { team, pending }) {
+async function choicesOrPage(request, h, { team, pending, lock }) {
   try {
-    return await loadChoices(request, team, pending)
+    return await loadChoices(request, team, pending, lock)
   } catch (error) {
     if (isNotFound(error)) {
       return { page: teamNotFound(h) }
@@ -367,7 +384,18 @@ export const federateEnvironments = {
       const { team, pending, offered, codes } = step
 
       if (offered.length === 0) {
-        return nothingOffered(h, team, pending)
+        // Every environment that could take it is disabled: the page says so
+        // rather than that there is no room.
+        return [...codes.values()].includes(TEAM_DISABLED)
+          ? teamDisabledPage(
+              h,
+              {
+                href: teamEnvironmentsUrl(team.slug),
+                text: 'Back to all environments'
+              },
+              { environment: true }
+            )
+          : nothingOffered(h, team, pending)
       }
 
       const refusals = refusalsOf(offered, codes)

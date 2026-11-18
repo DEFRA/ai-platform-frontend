@@ -4,6 +4,10 @@ import {
   environmentPageUrl
 } from '#/server/common/helpers/environment-names.js'
 import { setAccountNotification } from '#/server/common/helpers/session.js'
+import {
+  lockedPage,
+  withDisabledEnvironment
+} from '#/server/common/helpers/team-lock.js'
 import { isNotFound } from '#/server/routes/teams/team-view.js'
 import { environmentNotFound, errorPage, teamNotFound } from './error-views.js'
 import {
@@ -103,7 +107,7 @@ async function load(request, h) {
     return context
   }
 
-  const { team, isAdmin } = context
+  const { team, isAdmin, lock } = context
 
   if (!isAdmin) {
     return { page: adminRequired(h, { team, environment }) }
@@ -121,6 +125,19 @@ async function load(request, h) {
     return {
       page: readFailed(request, h, error, { team, slug, environment })
     }
+  }
+
+  // Changing or removing an application is locked in a disabled environment.
+  const locked = lockedPage(
+    h,
+    detail.disabled
+      ? withDisabledEnvironment(lock, environment.environment)
+      : lock,
+    { environment: environment.environment, back: backTo(team, environment) }
+  )
+
+  if (locked) {
+    return { page: locked }
   }
 
   const application = detail.applications?.items?.find((item) => item.id === id)
