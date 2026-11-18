@@ -61,9 +61,21 @@ describe('Application stylesheet', () => {
     expect(rule).toMatch(/max-height:\s*20rem/)
     expect(rule).toMatch(/overflow-y:\s*auto/)
     expect(rule).toMatch(/overflow-x:\s*hidden/)
-    expect(declarationsOf(css, '.app-section-card__scroll:focus')).toMatch(
-      /outline:\s*3px solid var\(--govuk-focus-colour/
-    )
+  })
+
+  test('Should give the scroll region of a card and an environment card’s summary a dark boundary beside the yellow focus, so it is visible on white (WCAG 1.4.11)', () => {
+    const darkBoundary =
+      /box-shadow:\s*0 0 0 4px var\(--govuk-focus-colour,\s*#ffdd00\),\s*0 0 0 8px var\(--govuk-focus-text-colour,\s*#0b0c0c\)/i
+
+    for (const selector of [
+      '.app-section-card__scroll:focus',
+      '.app-environment-card__summary:focus-visible'
+    ]) {
+      const focus = declarationsOf(css, selector)
+
+      expect(focus).toMatch(/outline:\s*3px solid transparent/)
+      expect(focus).toMatch(darkBoundary)
+    }
   })
 
   test('Should give a scrolling table a focus indicator with a dark boundary beside the yellow, as GOV.UK focus does, so it is visible on white (WCAG 1.4.11)', () => {

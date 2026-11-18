@@ -38,8 +38,7 @@ $app-stage-colours: (
   }
 
   &:focus-visible {
-    outline: $govuk-focus-width solid $govuk-focus-colour;
-    outline-offset: 0;
+    @include govuk-focused-box;
   }
 
   &:hover .app-environment-card__title-wrapper {
@@ -159,7 +158,11 @@ $app-stage-colours: (
 }
 
 .app-environment-card__status--green {
-  background-color: color.mix(govuk-colour('white'), govuk-colour('green'), 80%);
+  background-color: color.mix(
+    govuk-colour('white'),
+    govuk-colour('green'),
+    80%
+  );
   color: color.mix(govuk-colour('black'), govuk-colour('green'), 40%);
 }
 

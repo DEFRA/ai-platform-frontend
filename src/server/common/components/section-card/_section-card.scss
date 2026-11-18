@@ -1,6 +1,6 @@
-@use "sass:color";
-@use "govuk-frontend" as *;
-@use "variables/colours" as *;
+@use 'sass:color';
+@use 'govuk-frontend' as *;
+@use 'variables/colours' as *;
 
 $app-chevron-size: 10px;
 
@@ -34,8 +34,8 @@ $app-chevron-size: 10px;
 
   &:hover {
     background-color: color.mix(
-      govuk-colour("black"),
-      govuk-colour("light-grey"),
+      govuk-colour('black'),
+      govuk-colour('light-grey'),
       6%
     );
   }
@@ -55,7 +55,7 @@ $app-chevron-size: 10px;
   height: $app-chevron-size;
   margin: 0 govuk-spacing(1) 0 auto;
   transform: rotate(-135deg);
-  border: solid govuk-colour("black");
+  border: solid govuk-colour('black');
   border-width: 0 2px 2px 0;
   transition: transform 0.15s ease-in-out;
 }
@@ -96,8 +96,7 @@ $app-chevron-size: 10px;
   overflow-wrap: anywhere;
 
   &:focus {
-    outline: $govuk-focus-width solid $govuk-focus-colour;
-    outline-offset: 0;
+    @include govuk-focused-box;
   }
 
   > :last-child {
