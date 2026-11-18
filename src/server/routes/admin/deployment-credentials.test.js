@@ -413,7 +413,7 @@ describe('#admin deployment credentials', () => {
         'Do not include names or contact details'
       )
       expect(text($('[data-testid="credentials-effect"]'))).toContain(
-        'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.'
+        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.'
       )
       expect($('textarea#reason').attr('name')).toBe('reason')
       expect(
@@ -738,7 +738,7 @@ describe('#admin deployment credentials', () => {
       )
       expect(text($('.govuk-panel__body'))).toBe('in Development and Test')
       expect(text($('[data-testid="credentials-effect"]'))).toBe(
-        'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.'
+        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.'
       )
       expect($('[data-testid="credentials-back"]').attr('href')).toBe(PAGE)
     })
@@ -818,14 +818,150 @@ describe('#admin deployment credentials', () => {
 
   describe('Enable', () => {
     const ENABLE = `${PAGE}/credentials/enable`
-    const disabled = () =>
+    const disabledAt = (servicePrincipalDisabledAt) => ({
+      credential: { status: 'disabled' },
+      servicePrincipalDisabledAt
+    })
+    const disabled = (infradevAt = null, qaAt = null) =>
       detail({
         credential: { status: 'disabled' },
         environments: [
-          { environment: 'infradev', credential: { status: 'disabled' } },
-          { environment: 'qa', credential: { status: 'disabled' } }
+          { environment: 'infradev', ...disabledAt(infradevAt) },
+          { environment: 'qa', ...disabledAt(qaAt) }
         ]
       })
+
+    describe('the moment no earlier token can work again', () => {
+      const notes = ($) =>
+        $('[data-testid="enable-moment"] p')
+          .map((_, paragraph) => text($(paragraph)))
+          .get()
+      const SAFE_AFTER_INFRADEV =
+        'Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in Development can work again if you enable them before 1:31am BST on 16 July 2026. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.'
+      const NO_RECORD_INFRADEV =
+        'There is no record of when the service principal for Development was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.'
+      const NO_RECORD_QA =
+        'There is no record of when the service principal for Test was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.'
+
+      test('shows when the service principal was disabled plus 2 hours and 60 seconds, as a UK date and time', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled(
+            '2026-07-15T22:30:00.000Z',
+            '2026-07-15T22:30:00.000Z'
+          )
+        })
+
+        const { statusCode, result } = await get(ENABLE)
+
+        expect(statusCode).toBe(statusCodes.ok)
+        expect(notes(load(result))[0]).toBe(SAFE_AFTER_INFRADEV)
+      })
+
+      test('rounds the moment up to the next whole minute, so it is never earlier than the token limit', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled('2026-07-15T22:30:45.500Z', null)
+        })
+
+        const { result } = await get(ENABLE)
+
+        expect(notes(load(result))[0]).toContain(
+          'before 1:32am BST on 16 July 2026'
+        )
+      })
+
+      test.each([
+        // Disabled at 22:29 UTC: 00:30 UTC is 1:30am BST, before the clocks go back.
+        ['2026-10-24T22:29:00.000Z', 'before 1:30am BST on 25 October 2026'],
+        // Disabled at 23:29 UTC: 01:30 UTC is 1:30am GMT, the repeated hour.
+        ['2026-10-24T23:29:00.000Z', 'before 1:30am GMT on 25 October 2026'],
+        ['2026-01-10T12:00:00.000Z', 'before 2:01pm GMT on 10 January 2026']
+      ])(
+        'names the time zone, so the repeated autumn hour is not ambiguous (%s)',
+        async (disabledAtUtc, expected) => {
+          mockApi(fetchMock, {
+            [`GET ${DETAIL}`]: disabled(disabledAtUtc, null)
+          })
+
+          const { result } = await get(ENABLE)
+
+          expect(notes(load(result))[0]).toContain(expected)
+        }
+      )
+
+      test('rounds up across midnight, so the date follows the rounded moment', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled('2026-07-15T20:58:00.001Z', null)
+        })
+
+        const { result } = await get(ENABLE)
+
+        expect(notes(load(result))[0]).toContain(
+          'before 12:00am BST on 16 July 2026'
+        )
+      })
+
+      test('gives each environment its own moment, and says plainly that no time can be shown where none was recorded', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled('2026-07-15T22:30:00.000Z', null)
+        })
+
+        const $ = load((await get(ENABLE)).result)
+
+        expect(notes($)).toEqual([SAFE_AFTER_INFRADEV, NO_RECORD_QA])
+        expect($('[data-testid="enable-moment"]').text()).not.toContain('NaN')
+      })
+
+      test('does not give one environment the time of another', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled(null, '2026-07-15T22:30:00.000Z')
+        })
+
+        const [first, second] = notes(load((await get(ENABLE)).result))
+
+        expect(first).toBe(NO_RECORD_INFRADEV)
+        expect(second).toContain('in Test can work again')
+        expect(second).toContain('before 1:31am BST on 16 July 2026')
+      })
+
+      test('says nothing of an environment whose credentials are not disabled', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: detail({
+            credential: { status: 'active' },
+            environments: [
+              {
+                environment: 'infradev',
+                credential: { status: 'active' },
+                servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z'
+              },
+              { environment: 'qa', ...disabledAt('2026-07-15T22:30:00.000Z') }
+            ]
+          })
+        })
+
+        const found = notes(load((await get(ENABLE)).result))
+
+        expect(found).toHaveLength(1)
+        expect(found[0]).toContain('in Test can work again')
+      })
+
+      test('has no note when no environment is disabled', async () => {
+        mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
+
+        const $ = load((await get(ENABLE)).result)
+
+        expect($('[data-testid="enable-moment"]')).toHaveLength(0)
+      })
+
+      test('is on the Enable page only, not on Disable', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled('2026-07-15T22:30:00.000Z')
+        })
+
+        const $ = load((await get(`${PAGE}/credentials/disable`)).result)
+
+        expect($('[data-testid="enable-moment"]')).toHaveLength(0)
+      })
+    })
 
     test('acts at once, with no reason, key or confirmation page, and returns with a notification', async () => {
       mockApi(fetchMock, {

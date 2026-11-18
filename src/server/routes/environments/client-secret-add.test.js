@@ -324,6 +324,13 @@ describe('#clientSecretAddController', () => {
         {},
         'Infradev has the most client secrets it can',
         'Revoke one, or wait for one to expire, to add another.'
+      ],
+      [
+        'while the team’s credentials are disabled',
+        clientSecretsOf([clientSecretItem()]),
+        { credentialsDisabled: true },
+        'Credentials are disabled in Infradev',
+        'You cannot add a client secret in Infradev while your team’s credentials are disabled there.'
       ]
     ])(
       'is 409, with no form, %s',
@@ -591,6 +598,10 @@ describe('#clientSecretAddController', () => {
       [
         'idempotency-key-reused',
         'That request could not be used to add a client secret in Infradev. Try adding it again.'
+      ],
+      [
+        'credentials-disabled',
+        'You cannot add a client secret in Infradev while your team’s credentials are disabled there.'
       ]
     ])(
       'says %s in words, as a banner on the environment’s page',

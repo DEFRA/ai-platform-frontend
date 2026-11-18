@@ -190,7 +190,8 @@ export function buildClientSecrets({
     registryName,
     summary,
     isAdmin,
-    locked
+    // Adding, viewing and rotating stop with the environment or its credentials.
+    locked: locked || Boolean(detail.credentialsDisabled)
   })
 }
 
@@ -209,6 +210,10 @@ export function addableSecret(detail) {
 
   if (!detail.setUp) {
     return { code: 'environment-not-set-up' }
+  }
+
+  if (detail.credentialsDisabled) {
+    return { code: 'credentials-disabled' }
   }
 
   const count = secretCount(summary)

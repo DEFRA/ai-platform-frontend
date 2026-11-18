@@ -10,6 +10,7 @@ import { formatUkDateTime } from '#/server/common/helpers/uk-time.js'
 import {
   ADMIN_AUDIT_URL,
   adminDeploymentUrl,
+  adminOperationUrl,
   adminTabs,
   adminTeamUrl
 } from './admin-page.js'
@@ -33,7 +34,7 @@ import {
   loadDeployment
 } from './deployment-page.js'
 
-const ACTION_NAMES = { reconcile: 'Reconcile', retry: 'Retry' }
+export const ACTION_NAMES = { reconcile: 'Reconcile', retry: 'Retry' }
 const CHECKS_FAILED = 'checks-failed'
 const HEALTH_ANCHOR = '#health'
 
@@ -58,6 +59,27 @@ function modelRows(deployment) {
       : null,
     needsNewRequest: model.status === CHECKS_FAILED
   }))
+}
+
+// The latest change that holds only limits, while it needs attention: a row of
+// the health table, since it has no model.
+function limitsRow({ team, environment, limitsOperation }) {
+  if (!limitsOperation) {
+    return null
+  }
+
+  const { id, state, failureReason, updatedAt, retryable } = limitsOperation
+
+  return {
+    status: modelStatusTag(state),
+    detail: failureReason,
+    at: updatedAt,
+    updated: formatUkDateTime(updatedAt),
+    reconcileUrl: adminOperationUrl(team.id, environment, id, 'reconcile'),
+    retryUrl: retryable
+      ? adminOperationUrl(team.id, environment, id, 'retry')
+      : null
+  }
 }
 
 function credentialButtons(deployment) {
@@ -123,6 +145,7 @@ export function deploymentView(
     teamUrl: adminTeamUrl(team),
     activityUrl: `${ADMIN_AUDIT_URL}?team=${encodeURIComponent(team.id)}&environment=${encodeURIComponent(environment)}`,
     models: modelRows(deployment),
+    limits: limitsRow(deployment),
     buttons: credentialButtons(deployment),
     clientSecrets: clientSecretsSection(deployment),
     federations: federationRows(deployment)

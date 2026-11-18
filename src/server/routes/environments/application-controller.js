@@ -5,6 +5,7 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { setAccountNotification } from '#/server/common/helpers/session.js'
 import {
+  credentialsDisabledPage,
   lockedPage,
   withDisabledEnvironment
 } from '#/server/common/helpers/team-lock.js'
@@ -93,7 +94,7 @@ function readFailed(request, h, error, { team, slug, environment }) {
  * removes an application, because that can cut off a running service; the
  * backend refuses a member too.
  */
-async function load(request, h) {
+async function load(request, h, { change = false } = {}) {
   const { slug, id } = request.params
   const environment = environmentFromAddress(request.params.environment)
 
@@ -138,6 +139,14 @@ async function load(request, h) {
 
   if (locked) {
     return { page: locked }
+  }
+
+  // Changing an application stops with the team's credentials; removing it
+  // does not.
+  if (change && detail.credentialsDisabled) {
+    return {
+      page: credentialsDisabledPage(h, backTo(team, environment))
+    }
   }
 
   const application = detail.applications?.items?.find((item) => item.id === id)
@@ -233,7 +242,7 @@ function canRemove({ status }) {
 export const applicationController = {
   change: {
     async handler(request, h) {
-      const result = await load(request, h)
+      const result = await load(request, h, { change: true })
 
       if (result.page) {
         return result.page

@@ -441,6 +441,29 @@ describe('#clientSecretsController', () => {
       expect(calledWith('POST', '/rotate')).toBe(false)
     })
 
+    test.each([
+      ['rotate', `POST ${CREDENTIAL_PATH}/rotate`],
+      ['view', `POST ${CREDENTIAL_PATH}/reveal`]
+    ])(
+      'shows the Credentials are disabled page, not a banner, when the backend refuses to %s a secret with credentials-disabled',
+      async (step, route) => {
+        backend({
+          [route]: reply(409, {
+            code: 'credentials-disabled',
+            message: 'Credentials are disabled.'
+          })
+        })
+
+        const { statusCode, result } = await post(`${SECRET_URL}/${step}`, {
+          reason: 'Debugging a failed call'
+        })
+
+        expect(statusCode).toBe(statusCodes.conflict)
+        expect(result).toContain('Credentials are disabled')
+        expect(result).toContain('href="/environments/flood-risk-team"')
+      }
+    )
+
     test('does not show a rotated secret on another client secret’s address', async () => {
       backend({
         [`POST ${CREDENTIAL_PATH}/rotate`]: {

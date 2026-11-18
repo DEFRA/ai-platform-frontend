@@ -11,6 +11,7 @@ import { teamEnvironmentsUrl } from './environment-names.js'
 // first. Nothing here says why: the team is never told.
 
 export const TEAM_DISABLED = 'team-disabled'
+export const CREDENTIALS_DISABLED = 'credentials-disabled'
 
 const DISABLED_STATUS = 'disabled'
 const CANNOT_CHANGE_HEADING = 'You cannot change this team'
@@ -18,6 +19,10 @@ const CANNOT_CHANGE_MESSAGE =
   'This team is disabled. You can view it but not change it.'
 const ENVIRONMENT_LOCKED_MESSAGE =
   'This environment is disabled. You can view it but not change it.'
+const CREDENTIALS_HEADING = 'Credentials are disabled'
+const CREDENTIALS_MESSAGE =
+  'Your team’s credentials are disabled here. You cannot add, view or rotate a client secret, or create or change a passwordless credential. You can still revoke a client secret'
+const CREDENTIALS_REMOVE = ' and remove an application.'
 
 /**
  * What is locked for a team, from what the backend gave of it.
@@ -83,6 +88,68 @@ export function isDeployLocked(lock, environment, summary) {
  */
 export function isTeamDisabledError(error) {
   return error instanceof ApiError && error.code === TEAM_DISABLED
+}
+
+/**
+ * Whether an error is the backend's refusal of a credential action while the
+ * team's credentials are disabled in the environment.
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export function isCredentialsDisabledError(error) {
+  return error instanceof ApiError && error.code === CREDENTIALS_DISABLED
+}
+
+/**
+ * The banner an environment's page shows while a Platform Admin has disabled
+ * the team's credentials there: what can and cannot be done, never why.
+ * @param {boolean | undefined} credentialsDisabled - From the backend's environment read.
+ * @param {{locked?: boolean}} [options] - `locked`: the environment is disabled too, so removing an application is not offered.
+ * @returns {{heading: string, message: string} | null}
+ */
+export function credentialsBanner(
+  credentialsDisabled,
+  { locked = false } = {}
+) {
+  return credentialsDisabled
+    ? {
+        heading: CREDENTIALS_HEADING,
+        message: `${CREDENTIALS_MESSAGE}${locked ? '.' : CREDENTIALS_REMOVE}`
+      }
+    : null
+}
+
+/**
+ * The page for a credential action refused while the team's credentials are
+ * disabled: 409, with a way back.
+ * @param {import('@hapi/hapi').ResponseToolkit} h
+ * @param {{href: string, text: string}} back
+ * @returns {import('@hapi/hapi').ResponseObject}
+ */
+export function credentialsDisabledPage(h, back) {
+  return h
+    .view('error/index', {
+      pageTitle: CREDENTIALS_HEADING,
+      heading: CREDENTIALS_HEADING,
+      message: `${CREDENTIALS_MESSAGE}${CREDENTIALS_REMOVE}`,
+      actionHref: back.href,
+      actionText: back.text
+    })
+    .code(statusCodes.conflict)
+}
+
+/**
+ * Where a refused credential action goes back to: the environments of the team
+ * in the address, or the list of teams.
+ * @param {import('@hapi/hapi').Request} request
+ * @returns {{href: string, text: string}}
+ */
+export function credentialsDisabledBack(request) {
+  const slug = request.params?.slug ?? request.params?.teamId
+
+  return slug
+    ? { href: teamEnvironmentsUrl(slug), text: 'Back to all environments' }
+    : { href: '/teams', text: 'Go to your teams' }
 }
 
 /**

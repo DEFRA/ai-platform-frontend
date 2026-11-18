@@ -3,6 +3,10 @@
 // every call.
 
 import { environmentName } from '#/server/common/helpers/environment-names.js'
+import {
+  formatUkDate,
+  formatUkTimeWithZone
+} from '#/server/common/helpers/uk-time.js'
 import { credentialStatus } from './deployment-labels.js'
 
 const RULES = {
@@ -55,7 +59,7 @@ export const CREDENTIAL_ACTIONS = {
     needsReason: true,
     buttonClasses: 'govuk-button--secondary',
     effect:
-      'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.',
+      'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.',
     done: 'Credentials disabled',
     past: 'disabled',
     verbing: 'disabling',
@@ -90,6 +94,47 @@ export function credentialIn(deployment, environment) {
     entry?.credential ??
     (environment === deployment.environment ? deployment.credential : null)
   )
+}
+
+const MS_PER_SECOND = 1000
+const MS_PER_MINUTE = 60 * MS_PER_SECOND
+const SECONDS_PER_HOUR = 3600
+const CLOCK_SKEW_SECONDS = 60
+// The longest the gateway accepts a token Entra issued: 2 hours from `iat` to
+// `exp` and 60 seconds of clock skew (design F, "Enable after a leak").
+const TOKEN_LIMIT_MS =
+  (2 * SECONDS_PER_HOUR + CLOCK_SKEW_SECONDS) * MS_PER_SECOND
+
+/**
+ * What the Enable page says about tokens issued before the Disable in one
+ * environment: the moment from which none can work again, or that none is
+ * recorded. Nothing is said when Enable is not offered for the environment.
+ * @param {object} deployment - What the backend gave for the page.
+ * @param {string} environment
+ * @returns {string | null}
+ */
+export function enableNote(deployment, environment) {
+  if (!isOffered('enable', credentialIn(deployment, environment))) {
+    return null
+  }
+
+  const { servicePrincipalDisabledAt } =
+    deployment.environments?.find(
+      (candidate) => candidate.environment === environment
+    ) ?? {}
+  const where = environmentName(environment)
+
+  if (!servicePrincipalDisabledAt) {
+    return `There is no record of when the service principal for ${where} was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.`
+  }
+
+  const moment = new Date(
+    Math.ceil(
+      (Date.parse(servicePrincipalDisabledAt) + TOKEN_LIMIT_MS) / MS_PER_MINUTE
+    ) * MS_PER_MINUTE
+  ).toISOString()
+
+  return `Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in ${where} can work again if you enable them before ${formatUkTimeWithZone(moment)} on ${formatUkDate(moment)}. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.`
 }
 
 // Why Disable is still offered where there is nothing to disable.

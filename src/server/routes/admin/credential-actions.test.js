@@ -66,9 +66,9 @@ describe('#CREDENTIAL_ACTIONS', () => {
     expect(CREDENTIAL_ACTIONS.enable.needsReason).toBe(false)
   })
 
-  test('says what is true for Disable, and that the team is not told why', () => {
+  test('says what is true for Disable, calls stopping within 60 seconds, and that the team is not told why', () => {
     expect(CREDENTIAL_ACTIONS.disable.effect).toBe(
-      'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.'
+      'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.'
     )
   })
 

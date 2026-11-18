@@ -5,6 +5,7 @@ import { adminDeploymentUrl, adminTabs, isCallFailure } from './admin-page.js'
 import {
   CREDENTIAL_ACTIONS,
   credentialIn,
+  enableNote,
   environmentChoices,
   isDone,
   readEnvironments,
@@ -98,6 +99,10 @@ function chooseView(h, deployment, action, { ticked, problem }) {
     buttonClasses: copy.needsReason ? '' : copy.buttonClasses,
     backUrl: deploymentUrl(deployment),
     nothingToDo: items.length === 0,
+    enableNotes:
+      action === 'enable'
+        ? items.map(({ value }) => enableNote(deployment, value))
+        : [],
     nothingText: {
       disable: 'Every environment already has its credentials disabled.',
       enable: 'No environment has its credentials disabled.'

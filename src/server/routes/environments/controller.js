@@ -240,7 +240,9 @@ async function loadOverview(request) {
 function federateOffer(team, summaries, lock) {
   const withRoom = summaries.filter(environmentHasRoom)
   const open = withRoom.filter(
-    (summary) => !isDisabled(lock, summary.environment, summary)
+    (summary) =>
+      !isDisabled(lock, summary.environment, summary) &&
+      !summary.credentialsDisabled
   )
 
   return {

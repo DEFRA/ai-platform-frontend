@@ -201,6 +201,10 @@ describe('federation answers', () => {
       [
         'team-disabled',
         'Infradev is disabled. You can view it but not change it'
+      ],
+      [
+        'credentials-disabled',
+        'Infradev: credentials are disabled, so you cannot create a passwordless credential there'
       ]
     ])('says what %s means for an environment', (code, expected) => {
       expect(refusalText(code, context)).toBe(expected)

@@ -2,6 +2,8 @@ import { adminAuditController } from './audit.js'
 import { adminController } from './controller.js'
 import { adminDeploymentController } from './deployment.js'
 import { adminCredentialsController } from './deployment-credentials.js'
+import { adminFederationRemoveController } from './deployment-federation-remove.js'
+import { adminOperationController } from './deployment-operations.js'
 import { adminSecretRevokeController } from './deployment-secret-revoke.js'
 import { adminDeploymentsController } from './deployments.js'
 import {
@@ -78,6 +80,16 @@ const routes = [
     path: `${deployment}/credentials/{credentialId}/revoke`,
     handler: adminSecretRevokeController.post.handler
   },
+  {
+    method: 'GET',
+    path: `${deployment}/federations/{federationId}/remove`,
+    handler: adminFederationRemoveController.get.handler
+  },
+  {
+    method: 'POST',
+    path: `${deployment}/federations/{federationId}/remove`,
+    handler: adminFederationRemoveController.post.handler
+  },
   ...lifecycleRoutes(),
   { method: 'GET', path: '/admin', handler: adminController.index.handler },
   {
@@ -105,6 +117,16 @@ const routes = [
     method: 'POST',
     path: `${deployment}/models/{entryId}/retry`,
     handler: adminDeploymentController.retry.handler
+  },
+  {
+    method: 'POST',
+    path: `${deployment}/operations/{operationId}/reconcile`,
+    handler: adminOperationController.reconcile.handler
+  },
+  {
+    method: 'POST',
+    path: `${deployment}/operations/{operationId}/retry`,
+    handler: adminOperationController.retry.handler
   },
   {
     method: 'GET',

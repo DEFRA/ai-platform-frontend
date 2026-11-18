@@ -7,6 +7,10 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { cdpTrustText } from '#/server/common/helpers/cdp-environments.js'
 import {
+  isCredentialsDisabledError,
+  credentialsDisabledPage
+} from '#/server/common/helpers/team-lock.js'
+import {
   addRequestedFederation,
   clearPendingFederation,
   getSessionUser,
@@ -305,6 +309,10 @@ async function failed(request, h, error, { team, pending }) {
 
 function otherRefusal(request, h, error, { team, pending }) {
   const back = environmentBack(team, pending)
+
+  if (isCredentialsDisabledError(error)) {
+    return credentialsDisabledPage(h, back)
+  }
 
   if (error.code === 'idempotency-key-reused') {
     clearPendingFederation(request)

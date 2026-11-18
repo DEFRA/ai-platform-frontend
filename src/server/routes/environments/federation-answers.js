@@ -118,7 +118,9 @@ const REFUSALS = {
   'environment-not-available': ({ environmentName }) =>
     `${environmentName} is not available yet`,
   'team-disabled': ({ environmentName }) =>
-    `${environmentName} is disabled. You can view it but not change it`
+    `${environmentName} is disabled. You can view it but not change it`,
+  'credentials-disabled': ({ environmentName }) =>
+    `${environmentName}: credentials are disabled, so you cannot create a passwordless credential there`
 }
 
 /**

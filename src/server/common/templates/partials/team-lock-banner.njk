@@ -21,3 +21,19 @@
     </div>
   </div>
 {% endif %}
+
+{% if credentialsBanner %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% set credentialsHtml %}
+        <h3 class="govuk-notification-banner__heading">{{ credentialsBanner.heading }}</h3>
+        <p class="govuk-body">{{ credentialsBanner.message }}</p>
+      {% endset %}
+      {{ govukNotificationBanner({
+        html: credentialsHtml,
+        titleId: "credentials-disabled-banner-title",
+        attributes: { "data-testid": "credentials-disabled-banner" }
+      }) }}
+    </div>
+  </div>
+{% endif %}

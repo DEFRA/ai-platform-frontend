@@ -203,6 +203,58 @@ describe('#catchAll a change the backend refused because the team is disabled', 
   })
 })
 
+describe('#catchAll a change the backend refused because credentials are disabled', () => {
+  test('shows the "Credentials are disabled" page with a 409 and a way back to the environments of the team in the address', () => {
+    const request = {
+      response: Boom.boomify(
+        new ApiError({
+          statusCode: statusCodes.conflict,
+          code: 'credentials-disabled',
+          message: 'Credentials are disabled.'
+        })
+      ),
+      path: '/teams/flood-risk-team/client-secrets/cred-1/rotate',
+      params: { slug: 'flood-risk-team' },
+      method: 'post',
+      yar: { get: () => ({ id: 'user-1' }) }
+    }
+    const h = { view: vi.fn().mockReturnThis(), code: vi.fn().mockReturnThis() }
+
+    catchAll(request, h)
+
+    expect(h.view).toHaveBeenCalledWith(
+      'error/index',
+      expect.objectContaining({
+        heading: 'Credentials are disabled',
+        actionHref: '/environments/flood-risk-team'
+      })
+    )
+    expect(h.code).toHaveBeenCalledWith(statusCodes.conflict)
+  })
+
+  test('is shown for the error a thrown handler really makes, never as a 500', async () => {
+    const server = await createServer()
+    server.route({
+      method: 'GET',
+      path: '/test-credentials-disabled',
+      options: { app: { public: true } },
+      handler() {
+        throw new ApiError({ statusCode: 409, code: 'credentials-disabled' })
+      }
+    })
+    await server.initialize()
+
+    const { statusCode, result } = await server.inject({
+      method: 'GET',
+      url: '/test-credentials-disabled'
+    })
+    await server.stop({ timeout: 0 })
+
+    expect(statusCode).toBe(statusCodes.conflict)
+    expect(result).toContain('Credentials are disabled')
+  })
+})
+
 describe('#catchAll', () => {
   const mockErrorLogger = vi.fn()
   const mockStack = 'Mock error stack'
