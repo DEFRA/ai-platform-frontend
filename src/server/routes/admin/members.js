@@ -26,11 +26,10 @@ import {
 // Says what is true now (plan D13): the credentials stay as they are, and a
 // Platform Admin cannot rotate a team's secrets, so revoking the secret the
 // person had is the way to stop it making new tokens. A token already issued
-// works until it expires, up to 2 hours. Disable credentials has no gateway effect
-// until the second ship (S2), so the warning does not offer it as a way to stop
-// calls. The deployments are where to revoke the secret.
+// works until it expires, up to 2 hours; Disable credentials stops calls at once (design
+// F, "When it bites"). The deployments are where to do either.
 const REMOVE_WARNING =
-  'Removing someone does not change the team’s credentials. If this person had a copy of a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works until it expires, up to 2 hours. A Platform Admin cannot rotate a secret.'
+  'Removing someone does not change the team’s credentials. If this person had a copy of a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works until it expires, up to 2 hours, and Disable credentials stops calls now. A Platform Admin cannot rotate a secret.'
 
 // A link to where the team's credentials are managed: its deployment in the
 // first environment it is still in. A team in none has no credentials, so

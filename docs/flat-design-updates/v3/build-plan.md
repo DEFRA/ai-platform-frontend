@@ -294,7 +294,7 @@ remove pages over the admin routes. Adding yourself is refused ("You cannot add 
 copy." Allowed for a team in any status. Built in [08 Platform admin](../../plans/implemented/08-platform-admin.md).
 Since 17 Nov 2026 the warning reads: "Removing someone does not change the team’s credentials. If this person had a copy of
 a client secret, revoke that secret on the team’s deployment. That stops new tokens only: one already issued works until
-it expires, up to 2 hours. A Platform Admin cannot rotate a secret." with the
+it expires, up to 2 hours, and Disable credentials stops calls now. A Platform Admin cannot rotate a secret." with the
 link "View the
 team’s deployments" under it.
 
@@ -338,17 +338,19 @@ and a Platform Admin revokes one secret at a time (R-D5, 17 Nov 2026).
 
 **`.../credentials/disable` and `/enable`**: H1 "Disable credentials" or "Enable credentials"; "Which environments?"
 checkboxes (current ticked; the choice is in the address `?environments=`); none ticked: error summary "Choose at least
-one environment". Disable continues to **`.../reason`**: H1 "Disable credentials in {environments}", the effect ("The team
-cannot create new credentials or view or rotate its secrets in these environments. The team is not told why."), character
+one environment". Disable continues to **`.../reason`**: H1 "Disable credentials in {environments}", the effect ("Calls
+using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or
+rotate its secrets there. The team is not told why."), character
 count "Reason" (500; hint "This is saved in the audit log. The team cannot see it."), warning "Do not include names or
 contact details.", button "Disable credentials" (secondary), "Cancel". Then **`.../disabled`**: panel "Credentials
-disabled". Enable acts at once and returns to the detail page with a banner. If one environment fails: H1 "We could not
-disable the credentials in {environments}", what did complete, "Try again". Design F's "within 60 seconds" copy returns
-with the gateway effect (the next ship, S2).
+disabled". Enable acts at once and returns to the detail page with a banner; its page first shows inset text with the
+moment from which no token issued before the Disable can work again (the service principal's confirmed disable time plus
+2 hours and 60 seconds, UK time; "There is no record of when ..." when none). If one environment fails: H1 "We could not
+disable the credentials in {environments}", what did complete, "Try again" (a 502 `upstream-unavailable` is one).
 
 **`.../credentials/{credentialId}/revoke`**: H1 "Revoke the secret ending {last four}", a reason page that is also the
 confirmation (500 characters, the same warning, red button "Revoke secret", "Cancel"). It says revoking cannot be undone,
-that no new token can be made with the secret, that a token already issued keeps working until it expires, up to 2 hours, and that
+that no new token can be made with the secret, that a token already issued keeps working until it expires, up to 2 hours, that to stop calls now the admin also uses Disable credentials, and that
 the team's other secrets are not changed. Success returns to the detail page with the banner "Revoked the secret ending
 {last four}."
 

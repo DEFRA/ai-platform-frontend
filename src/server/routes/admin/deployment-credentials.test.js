@@ -413,7 +413,7 @@ describe('#admin deployment credentials', () => {
         'Do not include names or contact details'
       )
       expect(text($('[data-testid="credentials-effect"]'))).toContain(
-        'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.'
+        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.'
       )
       expect($('textarea#reason').attr('name')).toBe('reason')
       expect(
@@ -738,7 +738,7 @@ describe('#admin deployment credentials', () => {
       )
       expect(text($('.govuk-panel__body'))).toBe('in Development and Test')
       expect(text($('[data-testid="credentials-effect"]'))).toBe(
-        'The team cannot create new credentials or view or rotate its secrets in these environments. The team is not told why.'
+        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.'
       )
       expect($('[data-testid="credentials-back"]').attr('href')).toBe(PAGE)
     })
@@ -826,6 +826,73 @@ describe('#admin deployment credentials', () => {
           { environment: 'qa', credential: { status: 'disabled' } }
         ]
       })
+
+    describe('the moment no earlier token can work again', () => {
+      const note = ($) => text($('[data-testid="enable-moment"]'))
+
+      test('shows when the service principal was disabled plus 2 hours and 60 seconds, as a UK date and time', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: {
+            ...disabled(),
+            servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z'
+          }
+        })
+
+        const { statusCode, result } = await get(ENABLE)
+        const $ = load(result)
+
+        expect(statusCode).toBe(statusCodes.ok)
+        expect(note($)).toBe(
+          'Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in Development can work again if you enable them before 1:31am on 16 July 2026. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.'
+        )
+      })
+
+      test('says plainly that no time can be shown when none was recorded', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: {
+            ...disabled(),
+            servicePrincipalDisabledAt: null
+          }
+        })
+
+        const $ = load((await get(ENABLE)).result)
+
+        expect(note($)).toBe(
+          'There is no record of when the service principal for Development was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.'
+        )
+        expect($('[data-testid="enable-moment"]').text()).not.toContain('NaN')
+      })
+
+      test('says nothing of it when the environment of the page is not disabled', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: detail({
+            credential: { status: 'active' },
+            servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z',
+            environments: [
+              { environment: 'infradev', credential: { status: 'active' } },
+              { environment: 'qa', credential: { status: 'disabled' } }
+            ]
+          })
+        })
+
+        const $ = load((await get(ENABLE)).result)
+
+        expect($('[data-testid="enable-moment"]')).toHaveLength(0)
+      })
+
+      test('is on the Enable page only, not on Disable', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: {
+            ...detail(),
+            servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z'
+          }
+        })
+
+        const $ = load((await get(`${PAGE}/credentials/disable`)).result)
+
+        expect($('[data-testid="enable-moment"]')).toHaveLength(0)
+      })
+    })
 
     test('acts at once, with no reason, key or confirmation page, and returns with a notification', async () => {
       mockApi(fetchMock, {

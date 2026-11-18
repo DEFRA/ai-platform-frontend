@@ -106,14 +106,19 @@ only client secrets are acted on: federated applications are listed, not changed
   and the API. Disable goes on to `.../reason`: a character count (500) "This is saved in the audit log. The team cannot
   see it.", the warning "Do not include names or contact details", the text shown as typed (escaped) and kept on an
   error, the error summary linked to the field and the title "Error: ". Disable's button is secondary. Enable has no
-  reason and no confirmation page: it acts and returns to the detail page with a banner.
+  reason and no confirmation page: it acts and returns to the detail page with a banner. The Enable page shows, as inset
+  text, the moment from which no token issued before the Disable can work again: the backend's
+  `servicePrincipalDisabledAt` for the page's environment plus 2 hours and 60 seconds, in UK time (`enableNote` in
+  `credential-actions.js`; design F, "Enable after a leak"); when none is recorded it says so. The read gives the time
+  for the page's environment only, so nothing is said when that environment is not disabled. A 502
+  `upstream-unavailable` from Disable or Enable shows the failure page with Try again, and the block stays.
 - **Revoke one client secret** (`.../credentials/{credentialId}/revoke`, `deployment-secret-revoke.js`): the Revoke link
   beside an active secret opens a reason page that is also the confirmation (red button). There is **no
   whole-environment Revoke** (removed 17 Nov 2026, R-D5): Entra cannot disable one secret, so Disable credentials is the
   reversible stop and Revoke is for one secret, for good. The page says the truth of design F as built in S1: no new token
-  can be made with the secret, a token already issued keeps working until it expires, up to 2 hours, and the team's other
-  secrets are not changed. It does not advise Disable credentials as a way to stop calls, because that has no gateway
-  effect until S2 (T12 restores the advice then). Success returns to the detail page with "Revoked the secret
+  can be made with the secret, a token already issued keeps working until it expires, up to 2 hours, to stop calls now
+  also use Disable credentials on this deployment, and the team's other
+  secrets are not changed. Success returns to the detail page with "Revoked the secret
   ending {last four}." A secret that is not active is sent back to the deployment with a notice.
 - **One call for each environment** (Disable), each with its own `Idempotency-Key` (an HMAC of session, team, action,
   environment, the form's key and the reason, as the add-member keys are, so a retry sends the same key and another
@@ -121,16 +126,15 @@ only client secrets are acted on: federated applications are listed, not changed
   what did complete, and links "Try again" for the failed ones; no success is shown. Otherwise PRG to "Credentials
   disabled" (`.../disabled`, checked against the team's environments).
 - What the actions do (backend B1): Disable blocks new credentials, reveal and rotate for the team in that environment
-  in the backend; **it does not yet stop calls**, because nothing at the gateway or in Entra changes (the backend's
-  `credentialsAccessChanged` hook is empty until S2 adds the access window and service principal effects). The page says
-  only what is built: the team cannot create new credentials or view or rotate its secrets. Revoke one secret removes
+  in the backend and, with the backend's access window and service principal effects (S2), stops calls: the page says
+  calls stop within 60 seconds (design F, "When it bites"; the 60 seconds is not yet measured). Revoke one secret removes
   that secret, so no new token can be made with it. Neither tells the team why.
 - **Known gaps (S1)**: a revoked secret is not listed (the backend lists active and expired ones), so the page's Revoked
   tag for a secret cannot show; a federation request or change is not refused while credentials are disabled, and the
   team's own pages have no credentials-disabled view (the frontend does not map a backend `409 credentials-disabled`, so
   it reaches the generic error handling).
-  The secret-revoke page, the remove-member warning and the Disable team note do not say Disable credentials is how to
-  stop calls, because that is true only once S2 lands (T12 restores the advice then). All of these are S2 or the owner's
+  The secret-revoke page, the remove-member warning and the Disable team note say Disable credentials is how to stop
+  calls (restored by T12, S2). All of these are S2 or the owner's
   decision (remaining-plan risk).
 - Environment names come from the existing `common/helpers/environment-names.js`, unchanged.
 
@@ -139,8 +143,8 @@ only client secrets are acted on: federated applications are listed, not changed
 Built 16 Nov 2026 (run `2026-11-16-disable-team`) against the backend's `POST /v1/admin/teams/{id}/disable` and
 `/enable`. A disabled team is **view-only in the portal**: its status is `disabled`, optionally with some environments
 (`disabledEnvironments`) also disabled. Nothing reaches the gateway: credentials and models keep working, no GitOps
-operation is queued. To stop calls an admin will use Disable credentials on the deployment (above), which stops them only
-once S2 adds the gateway effect; revoking one secret stops new tokens only. The people never see a reason or
+operation is queued. To stop calls an admin uses Disable credentials on the deployment (above); revoking one secret
+stops new tokens only. The people never see a reason or
 an admin's name.
 
 - **Admin pages** (`admin/team-lifecycle.js`, choices in `team-lifecycle-choices.js`; they reuse the credential flow's
