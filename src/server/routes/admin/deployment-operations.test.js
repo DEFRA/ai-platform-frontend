@@ -281,22 +281,30 @@ describe('#admin Retry and Reconcile a change by its operation', () => {
       )
     })
 
-    test('shows the error page when the dispatch fails', async () => {
-      mockApi(fetchMock, {
-        [`GET ${DETAIL}`]: detail(),
-        'POST /v1/admin/operations/op-f1/retry': answer(
-          502,
-          'upstream-unavailable'
+    test.each(['retry', 'reconcile'])(
+      'shows an error page for %s when the dispatch fails, linking back to the deployment page, not to the POST-only address',
+      async (action) => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: detail(),
+          [`POST /v1/admin/operations/op-f1/${action}`]: answer(
+            502,
+            'upstream-unavailable'
+          )
+        })
+
+        const { statusCode, result } = await post(
+          `${PAGE}/operations/op-f1/${action}`
         )
-      })
+        const $ = load(result)
+        const link = $('main .govuk-button')
 
-      const { statusCode, result } = await post(
-        `${PAGE}/operations/op-f1/retry`
-      )
-
-      expect(statusCode).toBe(statusCodes.badGateway)
-      expect(load(result)('h1').text()).toBe('We could not load this page')
-    })
+        expect(statusCode).toBe(statusCodes.badGateway)
+        expect($('h1').text()).toBe('We could not do that')
+        expect(link.attr('href')).toBe(PAGE)
+        expect(link.text().trim()).toBe('Back to the deployment')
+        expect((await get(link.attr('href'))).statusCode).toBe(statusCodes.ok)
+      }
+    )
 
     test('shows the 403 page for a person who is not a Platform Admin, and calls nothing', async () => {
       mockApi(fetchMock, {

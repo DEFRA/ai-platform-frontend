@@ -6,7 +6,9 @@ import {
 } from '#/server/common/helpers/environment-names.js'
 import { cdpTrustText } from '#/server/common/helpers/cdp-environments.js'
 import {
+  CREDENTIALS_DISABLED,
   TEAM_DISABLED,
+  credentialsDisabledPage,
   teamDisabledPage
 } from '#/server/common/helpers/team-lock.js'
 import {
@@ -78,7 +80,8 @@ function isNamed(pending) {
 
 // The environments the team can use with room for another application, from
 // what the team's environments say: all that can be known before the
-// application is named. A disabled one is not offered, as the dry run does.
+// application is named. A disabled one, or one with its credentials disabled,
+// is not offered, as the dry run does.
 async function choicesFromSummaries(request, team, lock) {
   const { environments } = await readTeamEnvironments(request, team.slug)
   const withRoom = teamEnvironmentList()
@@ -92,14 +95,20 @@ async function choicesFromSummaries(request, team, lock) {
       )
     }))
     .filter(({ summary }) => summary)
-  const locked = withRoom.filter(({ environment, summary }) =>
-    isDisabled(lock, environment, summary)
-  )
+  const refusalOf = ({ environment, summary }) => {
+    if (isDisabled(lock, environment, summary)) {
+      return TEAM_DISABLED
+    }
+
+    return summary.credentialsDisabled ? CREDENTIALS_DISABLED : null
+  }
   const offered = withRoom
-    .filter((choice) => !locked.includes(choice))
+    .filter((choice) => !refusalOf(choice))
     .map(({ environment }) => environment)
   const codes = new Map(
-    locked.map(({ environment }) => [environment, TEAM_DISABLED])
+    withRoom
+      .filter((choice) => refusalOf(choice))
+      .map((choice) => [choice.environment, refusalOf(choice)])
   )
 
   return { codes, known: new Set(offered), offered }
@@ -385,16 +394,19 @@ export const federateEnvironments = {
 
       if (offered.length === 0) {
         // Every environment that could take it is disabled: the page says so
-        // rather than that there is no room.
-        return [...codes.values()].includes(TEAM_DISABLED)
-          ? teamDisabledPage(
-              h,
-              {
-                href: teamEnvironmentsUrl(team.slug),
-                text: 'Back to all environments'
-              },
-              { environment: true }
-            )
+        // rather than that there is no room. A team lock comes first.
+        const back = {
+          href: teamEnvironmentsUrl(team.slug),
+          text: 'Back to all environments'
+        }
+        const refused = [...codes.values()]
+
+        if (refused.includes(TEAM_DISABLED)) {
+          return teamDisabledPage(h, back, { environment: true })
+        }
+
+        return refused.includes(CREDENTIALS_DISABLED)
+          ? credentialsDisabledPage(h, back)
           : nothingOffered(h, team, pending)
       }
 

@@ -270,6 +270,51 @@ describe('#environments with the team’s credentials disabled', () => {
   })
 
   describe('the Federate journey', () => {
+    describe('the environments question straight after the host', () => {
+      function offeredEnvironments($) {
+        return $('input[name="environments"]')
+          .map((_, input) => $(input).val())
+          .get()
+      }
+
+      test('does not offer or accept an environment whose credentials are disabled while another is open', async () => {
+        config.set('teamEnvironments', ['infradev', 'qa'])
+        backend({
+          [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+            summary({ credentialsDisabled: true }),
+            summary({ environment: 'qa' })
+          ])
+        })
+        await post(FEDERATE_URL, { host: 'cdp' })
+
+        const { response, $ } = await get(`${FEDERATE_URL}/environments`)
+
+        expect(response.statusCode).toBe(statusCodes.ok)
+        expect(offeredEnvironments($)).toEqual(['qa'])
+
+        const posted = await post(`${FEDERATE_URL}/environments`, {
+          environments: ['infradev']
+        })
+
+        expect(posted.response.statusCode).toBe(statusCodes.badRequest)
+        expect(text(posted.$, '.govuk-error-summary')).toContain(
+          'Select environments from the list'
+        )
+      })
+
+      test('shows the Credentials are disabled 409 page when every environment with room has its credentials disabled', async () => {
+        backend()
+        await post(FEDERATE_URL, { host: 'cdp' })
+
+        const { response, $ } = await get(`${FEDERATE_URL}/environments`)
+
+        expect(response.statusCode).toBe(statusCodes.conflict)
+        expect(text($, 'h1')).toBe(HEADING)
+        expect($('input[name="environments"]')).toHaveLength(0)
+        expect($(`main a[href="${OVERVIEW_URL}"]`)).toHaveLength(1)
+      })
+    })
+
     test('names the environment in words, as an error on the environments question, when the backend refuses it on confirming', async () => {
       backend({
         [`POST ${FEDERATIONS_PATH}`]: reply(409, {

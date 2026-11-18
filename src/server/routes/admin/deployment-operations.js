@@ -72,6 +72,28 @@ function isRefusal(error) {
   )
 }
 
+function isBackendFailure(error) {
+  return (
+    error instanceof ApiError &&
+    error.statusCode >= statusCodes.internalServerError
+  )
+}
+
+// The operation's address takes only a POST, so the way on is the deployment
+// page, where Retry and Reconcile are offered again.
+function failedView(h, { teamId, environment }) {
+  return h
+    .view('error/index', {
+      pageTitle: 'Service unavailable',
+      heading: 'We could not do that',
+      message:
+        'The platform service did not answer. Try again in a few minutes.',
+      actionHref: adminDeploymentUrl(teamId, environment),
+      actionText: 'Back to the deployment'
+    })
+    .code(statusCodes.badGateway)
+}
+
 async function runAction(request, h, action) {
   const { teamId, environment, operationId } = request.params
   const deployment = await loadDeployment(request, teamId, environment)
@@ -109,7 +131,9 @@ function actionController(action) {
       try {
         return await runAction(request, h, action)
       } catch (error) {
-        return deploymentRefusalView(request, h, error)
+        return isBackendFailure(error)
+          ? failedView(h, request.params)
+          : deploymentRefusalView(request, h, error)
       }
     }
   }

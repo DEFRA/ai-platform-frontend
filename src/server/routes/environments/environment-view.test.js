@@ -473,6 +473,19 @@ describe('environment-view', () => {
       )
     })
 
+    test('does not offer removing an application when the environment is disabled too', () => {
+      const view = page(
+        {},
+        { teamDisabled: true, disabledEnvironments: ['infradev'] }
+      )
+
+      expect(view.credentialsBanner.message).toContain('revoke a client secret')
+      expect(view.credentialsBanner.message).not.toContain(
+        'remove an application'
+      )
+      expect(view.applications.items[0].removeUrl).toBeNull()
+    })
+
     test('greys add, view, rotate, Federate and Change, and keeps Revoke and Remove', () => {
       const view = page()
 

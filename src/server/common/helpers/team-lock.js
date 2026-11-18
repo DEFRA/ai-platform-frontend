@@ -21,7 +21,8 @@ const ENVIRONMENT_LOCKED_MESSAGE =
   'This environment is disabled. You can view it but not change it.'
 const CREDENTIALS_HEADING = 'Credentials are disabled'
 const CREDENTIALS_MESSAGE =
-  'Your team’s credentials are disabled here. You cannot add, view or rotate a client secret, or create or change a passwordless credential. You can still revoke a client secret and remove an application.'
+  'Your team’s credentials are disabled here. You cannot add, view or rotate a client secret, or create or change a passwordless credential. You can still revoke a client secret'
+const CREDENTIALS_REMOVE = ' and remove an application.'
 
 /**
  * What is locked for a team, from what the backend gave of it.
@@ -103,11 +104,18 @@ export function isCredentialsDisabledError(error) {
  * The banner an environment's page shows while a Platform Admin has disabled
  * the team's credentials there: what can and cannot be done, never why.
  * @param {boolean | undefined} credentialsDisabled - From the backend's environment read.
+ * @param {{locked?: boolean}} [options] - `locked`: the environment is disabled too, so removing an application is not offered.
  * @returns {{heading: string, message: string} | null}
  */
-export function credentialsBanner(credentialsDisabled) {
+export function credentialsBanner(
+  credentialsDisabled,
+  { locked = false } = {}
+) {
   return credentialsDisabled
-    ? { heading: CREDENTIALS_HEADING, message: CREDENTIALS_MESSAGE }
+    ? {
+        heading: CREDENTIALS_HEADING,
+        message: `${CREDENTIALS_MESSAGE}${locked ? '.' : CREDENTIALS_REMOVE}`
+      }
     : null
 }
 
@@ -123,7 +131,7 @@ export function credentialsDisabledPage(h, back) {
     .view('error/index', {
       pageTitle: CREDENTIALS_HEADING,
       heading: CREDENTIALS_HEADING,
-      message: CREDENTIALS_MESSAGE,
+      message: `${CREDENTIALS_MESSAGE}${CREDENTIALS_REMOVE}`,
       actionHref: back.href,
       actionText: back.text
     })

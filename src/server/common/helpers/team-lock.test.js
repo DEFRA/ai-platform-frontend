@@ -183,6 +183,13 @@ describe('#credentialsBanner', () => {
     expect(JSON.stringify(banner)).not.toMatch(/reason|because/i)
   })
 
+  test('leaves out removing an application when the environment is disabled too', () => {
+    const banner = credentialsBanner(true, { locked: true })
+
+    expect(banner.message).toContain('revoke a client secret')
+    expect(banner.message).not.toContain('remove an application')
+  })
+
   test('is nothing while credentials are enabled', () => {
     expect(credentialsBanner(false)).toBeNull()
     expect(credentialsBanner(undefined)).toBeNull()

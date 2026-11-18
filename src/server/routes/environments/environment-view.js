@@ -358,7 +358,9 @@ export function buildEnvironmentPage({
     strip: buildStrip(team.slug, environment),
     tag: statusTag({ disabled: locked, paused: detail.paused }),
     ...lockContext(pageLock, environment),
-    credentialsBanner: credentialsBanner(detail.credentialsDisabled),
+    credentialsBanner: credentialsBanner(detail.credentialsDisabled, {
+      locked
+    }),
     pausedNote: detail.paused
       ? `Changes wait here until the platform team resumes ${registryName}.`
       : null,
