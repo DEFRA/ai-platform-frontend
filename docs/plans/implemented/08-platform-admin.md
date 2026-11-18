@@ -6,20 +6,23 @@ backend's `GET /v1/admin/audit` (backend A1, same PR group). The Deployments tab
 backend's `/v1/admin/team-deployments` routes (backend B1, same PR group; see [Deployments tab](#deployments-tab)).
 Platform Admin stays the database role `platform-admin`.
 
-| Feature                                                                      | Built       |
-| ---------------------------------------------------------------------------- | ----------- |
-| Admin link, `/admin`, the Teams list and a team's page                       | 12 Nov 2026 |
-| Add and remove a team's members as a Platform Admin                          | 12 Nov 2026 |
-| Audit log tab: filters, table, paging, link from a team                      | 13 Nov 2026 |
-| Deployments tab: list, detail, Reconcile, Retry, credentials (non-federated) | 13 Nov 2026 |
-| Deployments tab: client secrets and federations listed, Revoke one secret    | 17 Nov 2026 |
-| Disable team and Enable team, and the team's view-only display               | 16 Nov 2026 |
-| Remove a federated application; Retry and Reconcile by operation             | 18 Nov 2026 |
+| Feature                                                                       | Built       |
+| ----------------------------------------------------------------------------- | ----------- |
+| Admin link, `/admin`, the Teams list and a team's page                        | 12 Nov 2026 |
+| Add and remove a team's members as a Platform Admin                           | 12 Nov 2026 |
+| Audit log tab: filters, table, paging, link from a team                       | 13 Nov 2026 |
+| Deployments tab: list, detail, Reconcile, Retry, credentials (non-federated)  | 13 Nov 2026 |
+| Deployments tab: client secrets and federations listed, Revoke one secret     | 17 Nov 2026 |
+| Disable team and Enable team, and the team's view-only display                | 16 Nov 2026 |
+| Remove a federated application; Retry and Reconcile by operation              | 18 Nov 2026 |
+| Disable credentials says calls stop within 60 seconds; Enable shows when safe | 18 Nov 2026 |
+| A team sees its credentials are disabled on the environment page              | 18 Nov 2026 |
 
-Built on the branch `feat/platform-admin-teams` and shipped in two parts. **This ship (S1)** is everything on this page.
-**S2** (next, on new branches) adds the effects of Disable credentials beyond the portal (the access window and the
-service principal), Remove a federated application, refusing a federation request or change while credentials are
-disabled, and what a team sees when its credentials are disabled. See [remaining.md](../remaining.md).
+Shipped in two parts. **S1** is on `feat/platform-admin-teams` (backend #81, frontend #98, journey tests #17). **S2** is
+on `feat/platform-admin-credential-effects`, cut from S1 (18 Nov 2026, not yet pushed): the effects of Disable
+credentials beyond the portal (backend, on mock adapters: [below](#known-gaps)), Remove a federated application, Retry
+and Reconcile by operation, the Enable moment, and what a team sees when its credentials are disabled
+([below](#credentials-disabled-as-the-team-sees-it)). What is left is in [remaining.md](../remaining.md).
 
 ## How it works
 
@@ -41,7 +44,7 @@ disabled, and what a team sees when its credentials are disabled. See [remaining
   environment still in use (none for a team in none). It is an optional `warningLink` of the `remove-member-form`
   component; the team's own remove page passes none and is unchanged.
 - Tables sit in a labelled, focusable `app-table-scroll` region so the page reflows at 320 px.
-- Not built: Delete and Restore of a team (deferred), and everything S2 adds (above). Journey specs for these pages are in
+- Not built: Delete and Restore of a team (deferred). Journey specs for these pages are in
   `ai-platform-journey-tests` (`test/specs/post-signin/admin`). See [remaining.md](../remaining.md).
 
 ## Audit log tab
@@ -150,17 +153,19 @@ only client secrets are acted on by Disable and Enable credentials; a federated 
   reason a new one). If one fails (5xx, 409) the page "We could not disable the credentials in {names}" names it, says
   what did complete, and links "Try again" for the failed ones; no success is shown. Otherwise PRG to "Credentials
   disabled" (`.../disabled`, checked against the team's environments).
-- What the actions do (backend B1): Disable blocks new credentials, reveal and rotate for the team in that environment
-  in the backend and, with the backend's access window and service principal effects (S2), stops calls: the page says
-  calls stop within 60 seconds (design F, "When it bites"; the 60 seconds is not yet measured). Revoke one secret removes
-  that secret, so no new token can be made with it. Neither tells the team why.
-- **Known gaps (S1)**: a revoked secret is not listed (the backend lists active and expired ones), so the page's Revoked
-  tag for a secret cannot show; a federation request or change is not refused while credentials are disabled, and the
-  team's own pages have no credentials-disabled view (the frontend does not map a backend `409 credentials-disabled`, so
-  it reaches the generic error handling).
-  The secret-revoke page, the remove-member warning and the Disable team note say Disable credentials is how to stop
-  calls (restored by T12, S2). All of these are S2 or the owner's
-  decision (remaining-plan risk).
+- What the actions do (backend B1, S2): Disable blocks new credentials, reveal and rotate for the team in that
+  environment, refuses a federation request or change there (removing an application stays allowed), writes the team's
+  access window `suspended` and switches the registration's service principal off, so calls stop; Enable reverses it.
+  The page says calls stop within 60 seconds (design F, "When it bites"; not yet measured). Revoke one secret removes
+  that secret, so no new token can be made with it. Neither tells the team why. The secret-revoke page, the remove-member
+  warning and the Disable team note say Disable credentials is how to stop calls now.
+- <a id="known-gaps"></a>**Known gaps**: the backend's access window and service principal switch are **mock adapters**
+  (the mock is refused in `prod`), so Disable credentials changes nothing at the gateway or in Entra yet; the real
+  Microsoft Graph adapter and the 60-second measurement wait for Entra admin consent (HVE #87), and the API Management
+  role change in `ai-platform-infra` (T20) must be released and pinned first. The Enable moment shows only where the
+  backend has recorded `servicePrincipalDisabledAt` for that environment, otherwise "There is no record ...". A revoked
+  secret is not listed (the backend lists active and expired ones), so the page's Revoked tag for a secret cannot
+  show. See [remaining.md](../remaining.md).
 - Environment names come from the existing `common/helpers/environment-names.js`, unchanged.
 
 ## Disable and enable a team
@@ -199,3 +204,19 @@ an admin's name.
   disabled by the platform team" and "Team enabled by the platform team" newest first within the same 10 rows; a failed
   read shows "We could not read the changes just now".
 - Not built: Delete and Restore of a team (see [remaining.md](../remaining.md)).
+
+## Credentials disabled, as the team sees it
+
+Built 18 Nov 2026 (S2, T13) against the backend's `credentialsDisabled` on the team's environment read. It is separate
+from the team lock above: the environment stays Available and the team is never told why.
+
+- **Environment page** (`environment-view.js`, `credentialsBanner` in `common/helpers/team-lock.js`, the
+  `team-lock-banner` partial): a notification banner "Credentials are disabled" says what cannot be done (add, view or
+  rotate a client secret; create or change a passwordless credential) and what still can (revoke a secret, remove an
+  application). Add, View, Rotate, Federate and Change are greyed (plain text, nothing linked); Revoke and Remove stay
+  links. On the team's overview, "Create Passwordless Credential" is greyed when every environment with room has its
+  credentials disabled (or is locked).
+- **A refused action** (`409 credentials-disabled`, from a stale page or a typed address): the shared error handling
+  shows "Credentials are disabled" with a 409 and a link back to the team's environments (`errors.js`,
+  `credentialsDisabledPage`). The change-application page and the add-secret page refuse the same way before calling
+  the backend.
