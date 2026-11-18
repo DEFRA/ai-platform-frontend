@@ -314,7 +314,8 @@ until B18 passes it (deferred, DF1). The labels cover `admin.credentials.disable
 ### 9a-3. Platform Admin: Deployments (design F6, B31)
 
 Third tab of the Admin area (Teams, Deployments, Audit log), built 13 Nov 2026; secrets and federations listed and one
-secret revocable since 16 and 17 Nov 2026. Client secrets only: federated credentials are listed, not changed.
+secret revocable since 16 and 17 Nov 2026; a federated application can be removed, and a failed or held change
+retried or reconciled, since 18 Nov 2026.
 
 **`/admin/deployments?environment=`**: caption "Admin", H1 "Deployments", environment nav of links (current marked
 `aria-current`). GET form "Filter the deployments in {environment}": "Team name" (hint "Enter at least 2 characters"),
@@ -328,13 +329,23 @@ match" with Clear filters. A wrong filter: error summary, inline errors, title "
 (tag; "Disabled on {date}"), Members (count and View team), Team status. Buttons "Disable credentials" (secondary) or
 "Enable credentials", only where offered; "View activity" to `/admin/audit?team={id}&environment={env}`. H2 "Client
 secrets" (id ending, expiry, status; a "Revoke" link beside each active secret) and, when the team has any, H2 "Federated
-credentials" (name, kind, status; read only, with the note "Disable credentials also stops these federated
-applications; Enable credentials restores them."). H2 "Deployment health": table Model | Status | Detail | Updated | Actions
-("Reconcile {model}", "Retry {model}" only when the backend says it can be retried; "The team must request this model
-again." for `checks-failed`, differing from F6 note 3). A success banner after Reconcile or Retry; a refused Retry shows
+credentials" (name, kind, status, actions: "Remove" beside an application that is ready or failed, and "Reconcile"
+or "Retry" for its operation when the backend says it failed or is retryable; the note "Disable credentials also stops
+these federated applications; Enable credentials restores them."). H2 "Deployment health": table Model | Status |
+Detail | Updated | Actions ("Reconcile {model}", "Retry {model}" only when the backend says it can be retried; "The
+team must request this model again." for `checks-failed`, differing from F6 note 3), and a "Limits change" row with
+Reconcile and Retry while a limits-only change has failed, timed out or is held. A success banner after Reconcile or Retry; a refused Retry shows
 the detail page with an error summary. "This team in each environment" links the other environments. There is no
 whole-environment "Revoke credentials": Entra cannot disable one secret, so Disable credentials is the reversible stop
 and a Platform Admin revokes one secret at a time (R-D5, 17 Nov 2026).
+
+**`.../federations/{federationId}/remove`**: a reason page that is also the confirmation (H1 naming the application,
+the reason in a character count of 500, red "Remove" button, "Cancel"). It says removal cannot be undone, the
+application gets no new token, a token already issued works until it expires (up to 2 hours), and Disable credentials
+is the immediate stop. Success returns to the deployment with a banner and the row shows Removing; a refusal returns
+with a notice or the failure page. **`.../operations/{operationId}/retry` and `/reconcile`** are POST buttons that
+return to the deployment with a banner, or its error summary on a refusal. Built 18 Nov 2026; see
+[08](../../plans/implemented/08-platform-admin.md#deployments-tab).
 
 **`.../credentials/disable` and `/enable`**: H1 "Disable credentials" or "Enable credentials"; "Which environments?"
 checkboxes (current ticked; the choice is in the address `?environments=`); none ticked: error summary "Choose at least

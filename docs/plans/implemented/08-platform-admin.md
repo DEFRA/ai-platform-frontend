@@ -83,9 +83,9 @@ and Reconcile by operation, the Enable moment, and what a team sees when its cre
 ## Deployments tab
 
 Built 13 Nov 2026 against the backend's `/v1/admin/team-deployments` routes (backend B1). Every page asks the backend,
-which refuses anyone without the role with the 403 page, as the other tabs do. The page changes no team-facing page, and
-only client secrets are acted on by Disable and Enable credentials; a federated application is removed one at a time
-(below).
+which refuses anyone without the role with the 403 page, as the other tabs do. The page changes no team-facing page.
+Disable and Enable credentials also stop and restore the team's federated applications (the service principal switch,
+a mock until Entra admin consent: [known gaps](#known-gaps)); a federated application is removed one at a time (below).
 
 - **`/admin/deployments`** is the second tab (`adminTabs`: Teams, Deployments, Audit log). An environment nav of links
   (`?environment=`, `aria-current` on the one shown) shows one environment at a time; changing it starts the filters
@@ -98,8 +98,8 @@ only client secrets are acted on by Disable and Enable credentials; a federated 
 - **`/admin/deployments/{teamId}/{environment}`**: team name as the H1, the environment as the caption and in the
   breadcrumb, the worst-state tag, a summary list (Credential status with "Disabled on {date}", Members with View team,
   Team status), the Client secrets list (id ending, expiry, status; a Revoke link beside each active secret only), the
-  Federated credentials table (name, kind, status, actions; shown only when the team has any, with a note that Disable
-  and Enable credentials do not change them), buttons Disable credentials (secondary) or Enable credentials, only where
+  Federated credentials table (name, kind, status, actions; shown only when the team has any, with the note "Disable
+  credentials also stops these federated applications; Enable credentials restores them."), buttons Disable credentials (secondary) or Enable credentials, only where
   offered; View activity
   (`/admin/audit?team=&environment=`); the Deployment health table (Model, Status, Detail, Updated, Actions); and the
   team's other environments. An unknown team or environment is the 404 page.
