@@ -55,18 +55,42 @@ function actionsFor(
 ) {
   const { id, status } = application
   const url = (action) => applicationUrl(team.slug, environment, id, action)
-  const changeable = isAdmin && status === READY
-  const removable = isAdmin && (status === READY || status === FAILED)
+  const changeable = canChange(isAdmin, status)
+  const removable = canRemove(isAdmin, status)
   const changeBlocked = locked || credentialsDisabled
 
   return {
     changeUrl: changeable && !changeBlocked ? url('change') : null,
     removeUrl: removable && !locked ? url('remove') : null,
-    lockedActions: [
-      changeable && changeBlocked && 'Change',
-      removable && locked && 'Remove'
-    ].filter(Boolean)
+    lockedActions: lockedActionsFor({
+      changeable,
+      removable,
+      changeBlocked,
+      locked
+    })
   }
+}
+
+function lockedActionsFor({ changeable, removable, changeBlocked, locked }) {
+  const actions = []
+
+  if (changeable && changeBlocked) {
+    actions.push('Change')
+  }
+
+  if (removable && locked) {
+    actions.push('Remove')
+  }
+
+  return actions
+}
+
+function canChange(isAdmin, status) {
+  return isAdmin && status === READY
+}
+
+function canRemove(isAdmin, status) {
+  return isAdmin && (status === READY || status === FAILED)
 }
 
 function applicationRow(application, context) {
