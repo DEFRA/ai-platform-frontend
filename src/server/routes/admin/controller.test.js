@@ -143,7 +143,7 @@ describe('#admin teams', () => {
             })
           ],
           page: 1,
-          pageSize: 25,
+          pageSize: 10,
           total: 2
         }
       })
@@ -201,7 +201,7 @@ describe('#admin teams', () => {
         'GET /v1/admin/teams': {
           teams: [listItem()],
           page: 1,
-          pageSize: 25,
+          pageSize: 10,
           total: 1
         }
       })
@@ -233,8 +233,8 @@ describe('#admin teams', () => {
         'GET /v1/admin/teams?search=flood&status=disabled&page=2': {
           teams: [listItem({ status: 'disabled' })],
           page: 2,
-          pageSize: 25,
-          total: 26
+          pageSize: 10,
+          total: 11
         }
       })
 
@@ -250,7 +250,7 @@ describe('#admin teams', () => {
       expect($('#search').attr('value')).toBe('flood')
       expect($('#status option:selected').attr('value')).toBe('disabled')
       expect($('[data-testid="teams-count"]').text()).toBe(
-        'Showing 26 to 26 of 26 teams'
+        'Showing 11 to 11 of 11 teams'
       )
       expect($('[data-testid="teams-clear"]').attr('href')).toBe('/admin/teams')
     })
@@ -260,7 +260,7 @@ describe('#admin teams', () => {
         'GET /v1/admin/teams': {
           teams: [listItem()],
           page: 1,
-          pageSize: 25,
+          pageSize: 10,
           total: 1
         }
       })
@@ -272,23 +272,23 @@ describe('#admin teams', () => {
       )
     })
 
-    test('pages through 30 teams, 25 to a page, keeping the filters in the links', async () => {
+    test('pages through 30 teams, 10 to a page, keeping the filters in the links', async () => {
       mockApi(fetchMock, {
         'GET /v1/admin/teams?search=team': {
-          teams: Array.from({ length: 25 }, (_, index) =>
+          teams: Array.from({ length: 10 }, (_, index) =>
             listItem({ id: `t${index}`, name: `Team ${index}` })
           ),
           page: 1,
-          pageSize: 25,
+          pageSize: 10,
           total: 30
         }
       })
 
       const $ = load((await get('/admin/teams?search=team')).result)
 
-      expect($('[data-testid="team-row"]')).toHaveLength(25)
+      expect($('[data-testid="team-row"]')).toHaveLength(10)
       expect($('[data-testid="teams-count"]').text()).toBe(
-        'Showing 1 to 25 of 30 teams'
+        'Showing 1 to 10 of 30 teams'
       )
       expect($('.govuk-pagination__next a').attr('href')).toBe(
         '/admin/teams?search=team&page=2'
@@ -304,7 +304,7 @@ describe('#admin teams', () => {
         'GET /v1/admin/teams': {
           teams: [listItem()],
           page: 1,
-          pageSize: 25,
+          pageSize: 10,
           total: 1
         }
       })
@@ -319,8 +319,8 @@ describe('#admin teams', () => {
         'GET /v1/admin/teams?search=team&status=active&page=9': {
           teams: [],
           page: 9,
-          pageSize: 25,
-          total: 30
+          pageSize: 10,
+          total: 20
         }
       })
 
@@ -330,7 +330,7 @@ describe('#admin teams', () => {
       const past = $('[data-testid="teams-past-end"]')
 
       expect(past.find('h2').text()).toBe('There is no page 9')
-      expect(past.text()).toContain('There are 30 teams on 2 pages.')
+      expect(past.text()).toContain('There are 20 teams on 2 pages.')
       expect(
         past
           .find('a')
@@ -351,7 +351,7 @@ describe('#admin teams', () => {
         'GET /v1/admin/teams?search=zzz&status=active': {
           teams: [],
           page: 1,
-          pageSize: 25,
+          pageSize: 10,
           total: 0
         }
       })
@@ -371,7 +371,7 @@ describe('#admin teams', () => {
 
     test('says there are no teams when there are none and nothing was asked for', async () => {
       mockApi(fetchMock, {
-        'GET /v1/admin/teams': { teams: [], page: 1, pageSize: 25, total: 0 }
+        'GET /v1/admin/teams': { teams: [], page: 1, pageSize: 10, total: 0 }
       })
 
       const $ = load((await get('/admin/teams')).result)

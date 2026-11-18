@@ -26,7 +26,7 @@ disabled, and what a team sees when its credentials are disabled. See [remaining
   (`isSessionPlatformAdmin`, after Teams). Every `/admin/**` handler calls the backend, so a person without the role, or
   with a stale link, gets the 403 page "Only a Platform Admin can use this page" (the backend records the refusal) and
   the link goes. Nothing in the frontend reads a token or a role.
-- **`/admin/teams`**: a GET form (name search, status filter), 25 teams to a page, tags for Active, Disabled and Pending
+- **`/admin/teams`**: a GET form (name search, status filter), 10 teams to a page, tags for Active, Disabled and Pending
   removal. The page sends only `search`, `status` and `page`; a 400 `invalid-query` is shown as an error on the field.
 - **`/admin/teams/{id}`**: status tag, service code, each environment's file status with its removal date (linked to
   that environment's deployment unless removed), and the members with a Remove link. Disable team and Enable team are
@@ -50,7 +50,7 @@ disabled, and what a team sees when its credentials are disabled. See [remaining
   Reading the log writes no event.
 - **Table**: When (UK time, `Intl` with `Europe/London`, so winter and summer both show right), Who (name, and the actor
   type beneath), Action (a plain label from `audit-labels.js`; the person affected and the reason beneath, escaped and
-  as the backend gave it), Team, Environment, and Outcome as a tag (Done, Failed, Refused). 25 a page, newest first,
+  as the backend gave it), Team, Environment, and Outcome as a tag (Done, Failed, Refused). 10 a page, newest first,
   with "Showing x to y of z events. Events are kept for N days." (N from the backend's `retentionDays`). An action with
   no label yet shows as its code. A person or team the backend cannot name shows "Unknown person", "System" or "Team no
   longer exists". The page reads no email address, object ID or user ID; a reason is shown as typed (plan D7).
@@ -85,7 +85,7 @@ only client secrets are acted on: federated applications are listed, not changed
   again. A GET form (works without JavaScript) filters by team name (2 to 100 characters), model, status (Ready,
   Setting up, Waiting, Removing, Needs attention) and credential (Active, Disabled, Revoked, None). The table (in the
   `app-table-scroll` region, hidden caption) has Team (link), Models, Status tag, Credential tag and Last change (UK
-  time), 25 a page, "Showing x to y of z deployments in {environment}", paging that keeps the filters. No match shows
+  time), 10 a page, "Showing x to y of z deployments in {environment}", paging that keeps the filters. No match shows
   "No deployments match" with Clear filters; a page past the last says so with links (`past-end.js`); a bad filter or a
   400 `invalid-query` gives the error summary and a 400. `req.query.search` is redacted from the request log.
 - **`/admin/deployments/{teamId}/{environment}`**: team name as the H1, the environment as the caption and in the

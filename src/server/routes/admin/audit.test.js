@@ -78,7 +78,7 @@ function listing(events = [event()], overrides = {}) {
   return {
     events,
     page: 1,
-    pageSize: 25,
+    pageSize: 10,
     total: events.length,
     retentionDays: 30,
     options: OPTIONS,
@@ -577,19 +577,19 @@ describe('#admin audit log', () => {
   })
 
   describe('paging and the empty state', () => {
-    test('pages through 30 events, 25 to a page, keeping the filters in the links', async () => {
+    test('pages through 30 events, 10 to a page, keeping the filters in the links', async () => {
       mockApi(fetchMock, {
         [`GET ${AUDIT}?person=Jo`]: listing(
-          Array.from({ length: 25 }, (_, index) => event({ id: `e${index}` })),
+          Array.from({ length: 10 }, (_, index) => event({ id: `e${index}` })),
           { total: 30 }
         )
       })
 
       const $ = load((await get('/admin/audit?person=Jo')).result)
 
-      expect($('[data-testid="audit-row"]')).toHaveLength(25)
+      expect($('[data-testid="audit-row"]')).toHaveLength(10)
       expect($('[data-testid="audit-count"]').text()).toBe(
-        'Showing 1 to 25 of 30 events. Events are kept for 30 days.'
+        'Showing 1 to 10 of 30 events. Events are kept for 30 days.'
       )
       expect($('.govuk-pagination__next a').attr('href')).toBe(
         '/admin/audit?person=Jo&page=2'
@@ -599,13 +599,13 @@ describe('#admin audit log', () => {
 
     test('asks for the page and shows where it is', async () => {
       mockApi(fetchMock, {
-        [`GET ${AUDIT}?page=2`]: listing([event()], { page: 2, total: 26 })
+        [`GET ${AUDIT}?page=2`]: listing([event()], { page: 2, total: 11 })
       })
 
       const $ = load((await get('/admin/audit?page=2')).result)
 
       expect($('[data-testid="audit-count"]').text()).toContain(
-        'Showing 26 to 26 of 26 events'
+        'Showing 11 to 11 of 11 events'
       )
       expect($('.govuk-pagination__prev a').attr('href')).toBe('/admin/audit')
     })
@@ -646,14 +646,14 @@ describe('#admin audit log', () => {
 
     test('says a page past the last does not exist, with no count and no table, and links to the first and last pages, keeping the filters', async () => {
       mockApi(fetchMock, {
-        [`GET ${AUDIT}?person=Jo&page=9`]: listing([], { page: 9, total: 30 })
+        [`GET ${AUDIT}?person=Jo&page=9`]: listing([], { page: 9, total: 20 })
       })
 
       const $ = load((await get('/admin/audit?person=Jo&page=9')).result)
       const past = $('[data-testid="audit-past-end"]')
 
       expect(past.find('h2').text()).toBe('There is no page 9')
-      expect(past.text()).toContain('There are 30 events on 2 pages.')
+      expect(past.text()).toContain('There are 20 events on 2 pages.')
       expect(
         past
           .find('a')

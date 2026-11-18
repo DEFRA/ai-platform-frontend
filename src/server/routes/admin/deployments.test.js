@@ -76,7 +76,7 @@ function listing(deployments = [row()], overrides = {}) {
   return {
     deployments,
     page: 1,
-    pageSize: 25,
+    pageSize: 10,
     total: deployments.length,
     environment: 'infradev',
     options: OPTIONS,
@@ -315,7 +315,7 @@ describe('#admin deployments list', () => {
       mockApi(fetchMock, {
         [`GET ${LIST}?environment=infradev&search=flood&page=2`]: listing(
           [row()],
-          { page: 2, total: 51 }
+          { page: 2, total: 21 }
         )
       })
 
@@ -328,7 +328,7 @@ describe('#admin deployments list', () => {
       )
 
       expect($('[data-testid="deployments-count"]').text()).toBe(
-        'Showing 26 to 26 of 51 deployments in Development'
+        'Showing 11 to 11 of 21 deployments in Development'
       )
       expect(
         $('.govuk-pagination__link')
@@ -386,14 +386,14 @@ describe('#admin deployments list', () => {
 
     test('says where the pages are when the page asked for is past the last', async () => {
       mockApi(fetchMock, {
-        [`GET ${LIST}?page=9`]: listing([], { page: 9, total: 51 })
+        [`GET ${LIST}?page=9`]: listing([], { page: 9, total: 21 })
       })
 
       const $ = load((await get('/admin/deployments?page=9')).result)
       const past = $('[data-testid="deployments-past-end"]')
 
       expect(past.text()).toContain('There is no page 9')
-      expect(past.text()).toContain('There are 51 deployments on 3 pages.')
+      expect(past.text()).toContain('There are 21 deployments on 3 pages.')
       expect(
         past
           .find('a')

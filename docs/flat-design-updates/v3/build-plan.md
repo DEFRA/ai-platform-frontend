@@ -279,7 +279,7 @@ page below asks the backend, which refuses anyone else with the 403 page "Only a
 
 **`/admin` → `/admin/teams`**: caption "Admin", H1 "Teams", sub-navigation Teams. GET form: "Search by team name", "Status"
 (All statuses, Active, Disabled, Pending removal), button "Search", "Clear filters" when filtered. Table Team (link) |
-Status (tag) | Environments | Members, 25 to a page, pagination; "No teams match your search" with "Clear filters".
+Status (tag) | Environments | Members, 10 to a page, pagination; "No teams match your search" with "Clear filters".
 
 **`/admin/teams/{id}`**: caption "Team", H1 team name. Summary list Status (tag), Service code, Environments (each file's
 status, and "Can be removed from {date}" when pending removal), and a Disabled tag on a disabled environment; H2
@@ -304,7 +304,7 @@ team’s deployments" under it.
 the audit log": selects Team, Environment, Action, Actor type (Platform Admin, Team Admin, Team member, Person with no team
 role, System); text "Person" (hint "Part of a name"); date inputs "From date" and "To date" (UK days, inclusive); button
 "Apply filters", "Clear filters" when filtered. Table When (UK time) | Who (name, actor type) | Action (plain label; person
-affected and reason beneath) | Team | Environment | Outcome (tag Done, Failed or Refused), 25 to a page, newest first, in a
+affected and reason beneath) | Team | Environment | Outcome (tag Done, Failed or Refused), 10 to a page, newest first, in a
 focusable scroll region with a hidden caption; "Showing x to y of z events. Events are kept for N days."; pagination keeps the
 filters. No match: "No events match", the days kept, "Clear filters". A wrong filter: error summary, inline errors, title
 "Error: ...". The team page links to it with "View audit log" (`/admin/audit?team={id}`). Credential events carry no team
@@ -320,7 +320,7 @@ secret revocable since 16 and 17 Nov 2026. Client secrets only: federated creden
 `aria-current`). GET form "Filter the deployments in {environment}": "Team name" (hint "Enter at least 2 characters"),
 selects Model, Status (All statuses, Ready, Setting up, Waiting, Removing, Needs attention) and Credential (All
 credentials, Active, Disabled, Revoked, None), button "Apply filters", "Clear filters" when filtered. Table Team (link) |
-Models | Status (tag) | Credential (tag) | Last change (UK time), 25 to a page, in a focusable scroll region with a hidden
+Models | Status (tag) | Credential (tag) | Last change (UK time), 10 to a page, in a focusable scroll region with a hidden
 caption; "Showing x to y of z deployments in {environment}"; pagination keeps the filters. No match: "No deployments
 match" with Clear filters. A wrong filter: error summary, inline errors, title "Error: ...".
 
