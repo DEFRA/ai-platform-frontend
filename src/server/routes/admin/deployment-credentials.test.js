@@ -818,62 +818,91 @@ describe('#admin deployment credentials', () => {
 
   describe('Enable', () => {
     const ENABLE = `${PAGE}/credentials/enable`
-    const disabled = () =>
+    const disabledAt = (servicePrincipalDisabledAt) => ({
+      credential: { status: 'disabled' },
+      servicePrincipalDisabledAt
+    })
+    const disabled = (infradevAt = null, qaAt = null) =>
       detail({
         credential: { status: 'disabled' },
         environments: [
-          { environment: 'infradev', credential: { status: 'disabled' } },
-          { environment: 'qa', credential: { status: 'disabled' } }
+          { environment: 'infradev', ...disabledAt(infradevAt) },
+          { environment: 'qa', ...disabledAt(qaAt) }
         ]
       })
 
     describe('the moment no earlier token can work again', () => {
-      const note = ($) => text($('[data-testid="enable-moment"]'))
+      const notes = ($) =>
+        $('[data-testid="enable-moment"] p')
+          .map((_, paragraph) => text($(paragraph)))
+          .get()
+      const SAFE_AFTER_INFRADEV =
+        'Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in Development can work again if you enable them before 1:31am on 16 July 2026. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.'
+      const NO_RECORD_INFRADEV =
+        'There is no record of when the service principal for Development was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.'
+      const NO_RECORD_QA =
+        'There is no record of when the service principal for Test was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.'
 
       test('shows when the service principal was disabled plus 2 hours and 60 seconds, as a UK date and time', async () => {
         mockApi(fetchMock, {
-          [`GET ${DETAIL}`]: {
-            ...disabled(),
-            servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z'
-          }
+          [`GET ${DETAIL}`]: disabled(
+            '2026-07-15T22:30:00.000Z',
+            '2026-07-15T22:30:00.000Z'
+          )
         })
 
         const { statusCode, result } = await get(ENABLE)
-        const $ = load(result)
 
         expect(statusCode).toBe(statusCodes.ok)
-        expect(note($)).toBe(
-          'Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in Development can work again if you enable them before 1:31am on 16 July 2026. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.'
-        )
+        expect(notes(load(result))[0]).toBe(SAFE_AFTER_INFRADEV)
       })
 
-      test('says plainly that no time can be shown when none was recorded', async () => {
+      test('gives each environment its own moment, and says plainly that no time can be shown where none was recorded', async () => {
         mockApi(fetchMock, {
-          [`GET ${DETAIL}`]: {
-            ...disabled(),
-            servicePrincipalDisabledAt: null
-          }
+          [`GET ${DETAIL}`]: disabled('2026-07-15T22:30:00.000Z', null)
         })
 
         const $ = load((await get(ENABLE)).result)
 
-        expect(note($)).toBe(
-          'There is no record of when the service principal for Development was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.'
-        )
+        expect(notes($)).toEqual([SAFE_AFTER_INFRADEV, NO_RECORD_QA])
         expect($('[data-testid="enable-moment"]').text()).not.toContain('NaN')
       })
 
-      test('says nothing of it when the environment of the page is not disabled', async () => {
+      test('does not give one environment the time of another', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled(null, '2026-07-15T22:30:00.000Z')
+        })
+
+        const [first, second] = notes(load((await get(ENABLE)).result))
+
+        expect(first).toBe(NO_RECORD_INFRADEV)
+        expect(second).toContain('in Test can work again')
+        expect(second).toContain('before 1:31am on 16 July 2026')
+      })
+
+      test('says nothing of an environment whose credentials are not disabled', async () => {
         mockApi(fetchMock, {
           [`GET ${DETAIL}`]: detail({
             credential: { status: 'active' },
-            servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z',
             environments: [
-              { environment: 'infradev', credential: { status: 'active' } },
-              { environment: 'qa', credential: { status: 'disabled' } }
+              {
+                environment: 'infradev',
+                credential: { status: 'active' },
+                servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z'
+              },
+              { environment: 'qa', ...disabledAt('2026-07-15T22:30:00.000Z') }
             ]
           })
         })
+
+        const found = notes(load((await get(ENABLE)).result))
+
+        expect(found).toHaveLength(1)
+        expect(found[0]).toContain('in Test can work again')
+      })
+
+      test('has no note when no environment is disabled', async () => {
+        mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
 
         const $ = load((await get(ENABLE)).result)
 
@@ -882,10 +911,7 @@ describe('#admin deployment credentials', () => {
 
       test('is on the Enable page only, not on Disable', async () => {
         mockApi(fetchMock, {
-          [`GET ${DETAIL}`]: {
-            ...detail(),
-            servicePrincipalDisabledAt: '2026-07-15T22:30:00.000Z'
-          }
+          [`GET ${DETAIL}`]: disabled('2026-07-15T22:30:00.000Z')
         })
 
         const $ = load((await get(`${PAGE}/credentials/disable`)).result)

@@ -189,6 +189,21 @@ describe('#environments with the team’s credentials disabled', () => {
       )
     })
 
+    test('puts the greyed Change before the Remove link', async () => {
+      backend()
+
+      const { $ } = await get(INFRADEV_URL)
+      const actions = $('[data-testid="application-row"] .app-button-group')
+        .children()
+        .map((_, element) => $(element).attr('data-testid'))
+        .get()
+
+      expect(actions).toEqual([
+        'application-change-locked',
+        'application-remove'
+      ])
+    })
+
     test('leaves models and limits open', async () => {
       backend()
 

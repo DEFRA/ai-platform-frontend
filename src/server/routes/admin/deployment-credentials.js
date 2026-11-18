@@ -99,7 +99,10 @@ function chooseView(h, deployment, action, { ticked, problem }) {
     buttonClasses: copy.needsReason ? '' : copy.buttonClasses,
     backUrl: deploymentUrl(deployment),
     nothingToDo: items.length === 0,
-    enableNote: action === 'enable' ? enableNote(deployment) : null,
+    enableNotes:
+      action === 'enable'
+        ? items.map(({ value }) => enableNote(deployment, value))
+        : [],
     nothingText: {
       disable: 'Every environment already has its credentials disabled.',
       enable: 'No environment has its credentials disabled.'

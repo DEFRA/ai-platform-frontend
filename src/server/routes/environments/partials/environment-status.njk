@@ -169,13 +169,14 @@
                 <div class="app-button-group govuk-!-margin-bottom-0">
                   {% if application.changeUrl %}
                     <a class="govuk-link" href="{{ application.changeUrl }}" data-testid="application-change">Change<span class="govuk-visually-hidden"> {{ application.name }} in {{ heading }}</span></a>
+                  {% elif "Change" in application.lockedActions %}
+                    <span class="app-secondary-text" data-testid="application-change-locked">Change<span class="govuk-visually-hidden"> {{ application.name }} in {{ heading }}</span></span>
                   {% endif %}
                   {% if application.removeUrl %}
                     <a class="govuk-link" href="{{ application.removeUrl }}" data-testid="application-remove">Remove<span class="govuk-visually-hidden"> {{ application.name }} from {{ heading }}</span></a>
+                  {% elif "Remove" in application.lockedActions %}
+                    <span class="app-secondary-text" data-testid="application-remove-locked">Remove<span class="govuk-visually-hidden"> {{ application.name }} from {{ heading }}</span></span>
                   {% endif %}
-                  {% for text in application.lockedActions %}
-                    <span class="app-secondary-text" data-testid="application-{{ text | lower }}-locked">{{ text }}<span class="govuk-visually-hidden"> {{ application.name }} {{ "in" if text == "Change" else "from" }} {{ heading }}</span></span>
-                  {% endfor %}
                 </div>
               </dd>
             {% endif %}

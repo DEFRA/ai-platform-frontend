@@ -102,21 +102,22 @@ const TOKEN_LIMIT_MS =
   (2 * SECONDS_PER_HOUR + CLOCK_SKEW_SECONDS) * MS_PER_SECOND
 
 /**
- * What the Enable page says about tokens issued before the Disable, for the
- * environment the page is for: the moment from which none can work again, or
- * that none is recorded. The deployment read gives the time for that
- * environment only, so nothing is said when it is not one Enable is offered
- * for.
+ * What the Enable page says about tokens issued before the Disable in one
+ * environment: the moment from which none can work again, or that none is
+ * recorded. Nothing is said when Enable is not offered for the environment.
  * @param {object} deployment - What the backend gave for the page.
+ * @param {string} environment
  * @returns {string | null}
  */
-export function enableNote(deployment) {
-  const { environment, servicePrincipalDisabledAt } = deployment
-
+export function enableNote(deployment, environment) {
   if (!isOffered('enable', credentialIn(deployment, environment))) {
     return null
   }
 
+  const { servicePrincipalDisabledAt } =
+    deployment.environments?.find(
+      (candidate) => candidate.environment === environment
+    ) ?? {}
   const where = environmentName(environment)
 
   if (!servicePrincipalDisabledAt) {

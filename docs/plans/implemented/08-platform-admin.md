@@ -111,10 +111,10 @@ only client secrets are acted on by Disable and Enable credentials; a federated 
   see it.", the warning "Do not include names or contact details", the text shown as typed (escaped) and kept on an
   error, the error summary linked to the field and the title "Error: ". Disable's button is secondary. Enable has no
   reason and no confirmation page: it acts and returns to the detail page with a banner. The Enable page shows, as inset
-  text, the moment from which no token issued before the Disable can work again: the backend's
-  `servicePrincipalDisabledAt` for the page's environment plus 2 hours and 60 seconds, in UK time (`enableNote` in
-  `credential-actions.js`; design F, "Enable after a leak"); when none is recorded it says so. The read gives the time
-  for the page's environment only, so nothing is said when that environment is not disabled. A 502
+  text, a sentence for each environment it lists: the moment from which no token issued before the Disable can work
+  again, the `servicePrincipalDisabledAt` of that environment's entry in the backend's read plus 2 hours and 60
+  seconds, in UK time (`enableNote` in `credential-actions.js`; design F, "Enable after a leak"); where none is
+  recorded it says so. A 502
   `upstream-unavailable` from Disable or Enable shows the failure page with Try again, and the block stays.
 - **Revoke one client secret** (`.../credentials/{credentialId}/revoke`, `deployment-secret-revoke.js`): the Revoke link
   beside an active secret opens a reason page that is also the confirmation (red button). There is **no
