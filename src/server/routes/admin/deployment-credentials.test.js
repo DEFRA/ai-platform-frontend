@@ -857,6 +857,30 @@ describe('#admin deployment credentials', () => {
         expect(notes(load(result))[0]).toBe(SAFE_AFTER_INFRADEV)
       })
 
+      test('rounds the moment up to the next whole minute, so it is never earlier than the token limit', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled('2026-07-15T22:30:45.500Z', null)
+        })
+
+        const { result } = await get(ENABLE)
+
+        expect(notes(load(result))[0]).toContain(
+          'before 1:32am on 16 July 2026'
+        )
+      })
+
+      test('rounds up across midnight, so the date follows the rounded moment', async () => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: disabled('2026-07-15T20:58:00.001Z', null)
+        })
+
+        const { result } = await get(ENABLE)
+
+        expect(notes(load(result))[0]).toContain(
+          'before 12:00am on 16 July 2026'
+        )
+      })
+
       test('gives each environment its own moment, and says plainly that no time can be shown where none was recorded', async () => {
         mockApi(fetchMock, {
           [`GET ${DETAIL}`]: disabled('2026-07-15T22:30:00.000Z', null)

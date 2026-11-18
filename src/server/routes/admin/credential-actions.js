@@ -94,6 +94,7 @@ export function credentialIn(deployment, environment) {
 }
 
 const MS_PER_SECOND = 1000
+const MS_PER_MINUTE = 60 * MS_PER_SECOND
 const SECONDS_PER_HOUR = 3600
 const CLOCK_SKEW_SECONDS = 60
 // The longest the gateway accepts a token Entra issued: 2 hours from `iat` to
@@ -125,7 +126,9 @@ export function enableNote(deployment, environment) {
   }
 
   const moment = new Date(
-    Date.parse(servicePrincipalDisabledAt) + TOKEN_LIMIT_MS
+    Math.ceil(
+      (Date.parse(servicePrincipalDisabledAt) + TOKEN_LIMIT_MS) / MS_PER_MINUTE
+    ) * MS_PER_MINUTE
   ).toISOString()
 
   return `Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in ${where} can work again if you enable them before ${formatUkTime(moment)} on ${formatUkDate(moment)}. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.`
