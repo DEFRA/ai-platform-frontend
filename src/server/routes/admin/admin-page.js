@@ -52,6 +52,19 @@ export function adminDeploymentUrl(teamId, environment) {
 }
 
 /**
+ * Where a team's deployment in one environment runs Retry or Reconcile on a
+ * change by its operation.
+ * @param {string} teamId
+ * @param {string} environment - The environment code.
+ * @param {string} operationId
+ * @param {'retry'|'reconcile'} action
+ * @returns {string}
+ */
+export function adminOperationUrl(teamId, environment, operationId, action) {
+  return `${adminDeploymentUrl(teamId, environment)}/operations/${encodeURIComponent(operationId)}/${action}`
+}
+
+/**
  * The Admin area's sub navigation: Teams, Deployments and Audit log, with the
  * current one marked.
  * @param {'teams'|'deployments'|'audit'} current

@@ -101,6 +101,35 @@ export function secretRevokeKey(
 }
 
 /**
+ * The `Idempotency-Key` for removing one federated application: made from the
+ * session, the team, the environment, the application, the page's key and the
+ * reason, so a retry of the same form sends the same key and another
+ * application or reason has a key of its own.
+ * @param {import('@hapi/hapi').Request} request
+ * @param {object} operation
+ * @param {string} operation.teamId
+ * @param {string} operation.environment
+ * @param {string} operation.federationId
+ * @param {string} operation.formKey - The key the page was issued with.
+ * @param {string} operation.reason - The reason, as sent.
+ * @returns {string}
+ */
+export function federationRemoveKey(
+  request,
+  { teamId, environment, federationId, formKey, reason }
+) {
+  return derivedIdempotencyKey([
+    'admin-federation-remove',
+    request.yar.id,
+    teamId,
+    environment,
+    federationId,
+    formKey,
+    reason
+  ])
+}
+
+/**
  * The `Idempotency-Key` for one environment of a disable.
  * @param {import('@hapi/hapi').Request} request
  * @param {object} operation

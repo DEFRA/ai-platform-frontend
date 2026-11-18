@@ -28,6 +28,9 @@ const ACTION_LABELS = {
   'admin.credentials.disable': 'Disabled a team’s credentials',
   'admin.credentials.enable': 'Enabled a team’s credentials',
   'admin.credential.revoke': 'Revoked a team’s secret',
+  'admin.federation.remove': 'Removed a team’s federated application',
+  'admin.operation.retry': 'Retried a team’s change',
+  'admin.operation.reconcile': 'Reconciled a team’s change',
   'admin.team.disable': 'Disabled a team',
   'admin.team.enable': 'Enabled a team',
   'access.denied': 'Access refused'

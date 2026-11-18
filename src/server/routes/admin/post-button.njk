@@ -1,0 +1,7 @@
+{#- A button that posts to the page's own routes, named for a screen reader. #}
+{% macro postButton(url, text, subject, crumb, testid) %}
+  <form method="post" action="{{ url }}" novalidate{% if testid %} data-testid="{{ testid }}"{% endif %}>
+    <input type="hidden" name="crumb" value="{{ crumb }}">
+    <button type="submit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-2" data-module="govuk-button" data-prevent-double-click="true">{{ text }}<span class="govuk-visually-hidden"> {{ subject }}</span></button>
+  </form>
+{% endmacro %}

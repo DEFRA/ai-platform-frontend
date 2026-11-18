@@ -14,6 +14,7 @@ Platform Admin stays the database role `platform-admin`.
 | Deployments tab: list, detail, Reconcile, Retry, credentials (non-federated) | 13 Nov 2026 |
 | Deployments tab: client secrets and federations listed, Revoke one secret    | 17 Nov 2026 |
 | Disable team and Enable team, and the team's view-only display               | 16 Nov 2026 |
+| Remove a federated application; Retry and Reconcile by operation             | 18 Nov 2026 |
 
 Built on the branch `feat/platform-admin-teams` and shipped in two parts. **This ship (S1)** is everything on this page.
 **S2** (next, on new branches) adds the effects of Disable credentials beyond the portal (the access window and the
@@ -72,13 +73,16 @@ disabled, and what a team sees when its credentials are disabled. See [remaining
   work (and backend #77) is done, so the Team and Environment filters do not find them; the Action filter does.
 - The action labels include `admin.credentials.disable` ("Disabled a team’s credentials"), `admin.credentials.enable`
   ("Enabled a team’s credentials") and `admin.credential.revoke` ("Revoked a team’s secret", since 17 Nov 2026; the
-  whole-environment `admin.credentials.revoke` is no longer written and has no label), so the Action filter offers them.
+  whole-environment `admin.credentials.revoke` is no longer written and has no label), `admin.federation.remove`
+  ("Removed a team’s federated application"), `admin.operation.retry` ("Retried a team’s change") and
+  `admin.operation.reconcile` ("Reconciled a team’s change"), so the Action filter offers them.
 
 ## Deployments tab
 
 Built 13 Nov 2026 against the backend's `/v1/admin/team-deployments` routes (backend B1). Every page asks the backend,
 which refuses anyone without the role with the 403 page, as the other tabs do. The page changes no team-facing page, and
-only client secrets are acted on: federated applications are listed, not changed (Remove a federated application is S2).
+only client secrets are acted on by Disable and Enable credentials; a federated application is removed one at a time
+(below).
 
 - **`/admin/deployments`** is the second tab (`adminTabs`: Teams, Deployments, Audit log). An environment nav of links
   (`?environment=`, `aria-current` on the one shown) shows one environment at a time; changing it starts the filters
@@ -91,7 +95,7 @@ only client secrets are acted on: federated applications are listed, not changed
 - **`/admin/deployments/{teamId}/{environment}`**: team name as the H1, the environment as the caption and in the
   breadcrumb, the worst-state tag, a summary list (Credential status with "Disabled on {date}", Members with View team,
   Team status), the Client secrets list (id ending, expiry, status; a Revoke link beside each active secret only), the
-  Federated credentials table (name, kind, status; shown only when the team has any, read only, with a note that Disable
+  Federated credentials table (name, kind, status, actions; shown only when the team has any, with a note that Disable
   and Enable credentials do not change them), buttons Disable credentials (secondary) or Enable credentials, only where
   offered; View activity
   (`/admin/audit?team=&environment=`); the Deployment health table (Model, Status, Detail, Updated, Actions); and the
@@ -120,6 +124,27 @@ only client secrets are acted on: federated applications are listed, not changed
   also use Disable credentials on this deployment, and the team's other
   secrets are not changed. Success returns to the detail page with "Revoked the secret
   ending {last four}." A secret that is not active is sent back to the deployment with a notice.
+- **Remove a federated application** (`.../federations/{federationId}/remove`, `deployment-federation-remove.js`, T11):
+  a Remove link beside each application that is ready or failed (not one being set up or removed) opens a reason page
+  that is also the confirmation (red button, the same `credential-reason` view as Revoke one secret). It posts the
+  reason to `POST /v1/admin/team-deployments/{teamId}/{environment}/federations/{federationId}/remove` with an
+  `Idempotency-Key` from the shared helper (session, team, environment, application, the form's key and the reason). The
+  page says it cannot be undone, that the application gets no new token, that a token already issued works until it
+  expires (up to 2 hours), that Disable credentials is the immediate stop, and that the team's other applications and
+  secrets are unchanged. 202 or 200 returns to the deployment with a banner ("Removal requested for {name}. The table
+  shows where it is.", or "already removed"), and the row shows Removing. 400 `reason-required` and `reason-too-long`
+  are shown on the field; 404 `federation-not-found` and 409 `federation-in-progress` return to the deployment with a
+  notice; a 5xx or another 409 (a reused key) is the failure page "We could not remove the application {name}" with
+  Try again. The reason is never in the page or a log.
+- **Retry and Reconcile by operation** (`.../operations/{operationId}/{retry,reconcile}`, `deployment-operations.js`,
+  T11): the Actions column of the federated credentials table shows Reconcile beside an application whose change failed
+  or that the backend says is `retryable` (a failed apply, a timed-out or held change), and Retry only when `retryable`.
+  The Deployment health table gets a "Limits change" row while the backend gives `limitsOperation` (a limits-only change
+  that failed, timed out or is held; the table shows even when the team has no models), with Reconcile and, when
+  `retryable`, Retry. The page offers and accepts only operations the deployment lists (`federations[].operationId` and
+  `limitsOperation.id`), and the backend decides the rest: 202 returns with a banner; 409 `operation-not-retryable` and
+  other 409s, and 404 `operation-not-found`, show the detail page again with the reason in the error summary, linked to
+  the table; a 502 is the error page.
 - **One call for each environment** (Disable), each with its own `Idempotency-Key` (an HMAC of session, team, action,
   environment, the form's key and the reason, as the add-member keys are, so a retry sends the same key and another
   reason a new one). If one fails (5xx, 409) the page "We could not disable the credentials in {names}" names it, says

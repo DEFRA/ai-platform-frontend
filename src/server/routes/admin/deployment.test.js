@@ -593,12 +593,191 @@ describe('#admin deployment detail', () => {
         .get()
 
       expect(rows).toEqual([
-        'beta-api CDP service Ready to use',
-        'beta-job Azure managed identity Failed The identity was not found'
+        'beta-api CDP service Ready to use Remove application beta-api',
+        'beta-job Azure managed identity Failed The identity was not found Remove application beta-job'
       ])
       expect($('[data-testid="federations-note"]').text()).toContain(
         'client secrets only'
       )
+    })
+
+    test('offers Remove beside a ready or failed application, named for a screen reader, and not beside one being set up or removed', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          federations: [
+            { id: 'f1', name: 'beta-api', host: 'cdp', status: 'ready' },
+            { id: 'f2', name: 'beta-job', host: 'azure', status: 'failed' },
+            { id: 'f3', name: 'beta-new', host: 'cdp', status: 'setting-up' },
+            { id: 'f4', name: 'beta-old', host: 'cdp', status: 'removing' }
+          ]
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const links = $('[data-testid="remove-federation"]')
+
+      expect(links.map((_, link) => $(link).attr('href')).get()).toEqual([
+        `${PAGE}/federations/f1/remove`,
+        `${PAGE}/federations/f2/remove`
+      ])
+      expect(links.first().text().replace(/\s+/g, ' ').trim()).toBe(
+        'Remove application beta-api'
+      )
+      expect(
+        $('[data-testid="federations-table"] th')
+          .map((_, th) => $(th).text().trim())
+          .get()
+      ).toEqual(['Application', 'Type', 'Status', 'Actions'])
+    })
+
+    test('offers Retry and Reconcile beside an application whose change can be retried, and Reconcile alone beside a failed one that cannot', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          federations: [
+            {
+              id: 'f1',
+              name: 'beta-api',
+              host: 'cdp',
+              status: 'failed',
+              operationId: 'op-f1',
+              retryable: true
+            },
+            {
+              id: 'f2',
+              name: 'beta-job',
+              host: 'azure',
+              status: 'failed',
+              operationId: 'op-f2',
+              retryable: false
+            },
+            {
+              id: 'f3',
+              name: 'beta-new',
+              host: 'cdp',
+              status: 'setting-up',
+              operationId: 'op-f3',
+              retryable: true
+            },
+            {
+              id: 'f4',
+              name: 'beta-ok',
+              host: 'cdp',
+              status: 'ready',
+              operationId: 'op-f4',
+              retryable: false
+            },
+            {
+              id: 'f5',
+              name: 'beta-bare',
+              host: 'cdp',
+              status: 'failed',
+              operationId: null,
+              retryable: false
+            }
+          ]
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const actions = (testid) =>
+        $(`[data-testid="${testid}"]`)
+          .map((_, form) => $(form).attr('action'))
+          .get()
+
+      expect(actions('retry-federation')).toEqual([
+        `${PAGE}/operations/op-f1/retry`,
+        `${PAGE}/operations/op-f3/retry`
+      ])
+      expect(actions('reconcile-federation')).toEqual([
+        `${PAGE}/operations/op-f1/reconcile`,
+        `${PAGE}/operations/op-f2/reconcile`,
+        `${PAGE}/operations/op-f3/reconcile`
+      ])
+      expect(
+        $('[data-testid="retry-federation"] button')
+          .first()
+          .text()
+          .replace(/\s+/g, ' ')
+          .trim()
+      ).toBe('Retry beta-api')
+      expect(
+        $('[data-testid="federation-row"]').eq(3).find('form')
+      ).toHaveLength(0)
+      expect(
+        $('[data-testid="federation-row"]').eq(4).find('form')
+      ).toHaveLength(0)
+      expect(
+        $('[data-testid="federation-row"] input[name="crumb"]')
+      ).toHaveLength(5)
+    })
+
+    test('shows a limits change that needs attention as a row of the health table, with Reconcile and, when it can be retried, Retry', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          limitsOperation: {
+            id: 'op-l1',
+            state: 'deploy-failed',
+            failureReason: 'apply-failed',
+            updatedAt: '2026-10-30T16:00:00.000Z',
+            retryable: true
+          }
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const row = $('[data-testid="limits-row"]')
+
+      expect(row).toHaveLength(1)
+      expect(row.text().replace(/\s+/g, ' ')).toContain(
+        'Limits change Setup failed apply-failed 30 October 2026'
+      )
+      expect(
+        $('[data-testid="health-table"] tbody tr').last().attr('data-testid')
+      ).toBe('limits-row')
+      expect(
+        row
+          .find('form')
+          .map((_, f) => $(f).attr('action'))
+          .get()
+      ).toEqual([
+        `${PAGE}/operations/op-l1/reconcile`,
+        `${PAGE}/operations/op-l1/retry`
+      ])
+      expect(row.find('input[name="crumb"]')).toHaveLength(2)
+    })
+
+    test('offers Reconcile alone for a limits change that cannot be retried, and shows the health table when the team has no models', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          deployments: [],
+          limitsOperation: {
+            id: 'op-l2',
+            state: 'checks-failed',
+            failureReason: null,
+            updatedAt: '2026-10-30T16:00:00.000Z',
+            retryable: false
+          }
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const row = $('[data-testid="limits-row"]')
+
+      expect($('[data-testid="no-models"]')).toHaveLength(0)
+      expect(
+        row
+          .find('form')
+          .map((_, f) => $(f).attr('action'))
+          .get()
+      ).toEqual([`${PAGE}/operations/op-l2/reconcile`])
+    })
+
+    test('shows no limits row when the backend gives no limits change', async () => {
+      mockApi(fetchMock, { [`GET ${DETAIL}`]: detail() })
+
+      const $ = load((await get(PAGE)).result)
+
+      expect($('[data-testid="limits-row"]')).toHaveLength(0)
     })
 
     test('shows no federated credentials table, or its note, when the team has none', async () => {

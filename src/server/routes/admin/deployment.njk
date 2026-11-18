@@ -5,6 +5,7 @@
 {% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
 {% from "govuk/components/tag/macro.njk" import govukTag %}
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
+{% from "admin/post-button.njk" import postButton %}
 
 {% block content %}
   {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
@@ -126,6 +127,7 @@
                 <th class="govuk-table__header" scope="col">Application</th>
                 <th class="govuk-table__header" scope="col">Type</th>
                 <th class="govuk-table__header" scope="col">Status</th>
+                <th class="govuk-table__header" scope="col">Actions</th>
               </tr>
             </thead>
             <tbody class="govuk-table__body">
@@ -137,6 +139,17 @@
                     {{ govukTag({ text: federation.status.text, classes: federation.status.classes }) }}
                     {% if federation.reason %}<p class="govuk-hint govuk-!-margin-top-1 govuk-!-margin-bottom-0">{{ federation.reason }}</p>{% endif %}
                   </td>
+                  <td class="govuk-table__cell">
+                    {% if federation.reconcileUrl %}
+                      {{ postButton(federation.reconcileUrl, "Reconcile", federation.name, crumb, "reconcile-federation") }}
+                    {% endif %}
+                    {% if federation.retryUrl %}
+                      {{ postButton(federation.retryUrl, "Retry", federation.name, crumb, "retry-federation") }}
+                    {% endif %}
+                    {% if federation.removeUrl %}
+                      <a class="govuk-link" href="{{ federation.removeUrl }}" data-testid="remove-federation">Remove<span class="govuk-visually-hidden"> application {{ federation.name }}</span></a>
+                    {% endif %}
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -147,7 +160,7 @@
 
       <h2 class="govuk-heading-l" id="health" tabindex="-1">Deployment health</h2>
 
-      {% if models.length == 0 %}
+      {% if models.length == 0 and not limits %}
         <p class="govuk-body" data-testid="no-models">This team has no models in {{ environmentLabel }}.</p>
       {% else %}
         <div class="app-table-scroll" role="region" tabindex="0" aria-label="Deployment health in {{ environmentLabel }}">
@@ -186,6 +199,20 @@
                 </td>
               </tr>
             {% endfor %}
+            {% if limits %}
+              <tr class="govuk-table__row" data-testid="limits-row">
+                <td class="govuk-table__cell">Limits change</td>
+                <td class="govuk-table__cell">{{ govukTag({ text: limits.status.text, classes: limits.status.classes }) }}</td>
+                <td class="govuk-table__cell">{{ limits.detail }}</td>
+                <td class="govuk-table__cell"><time datetime="{{ limits.at }}">{{ limits.updated }}</time></td>
+                <td class="govuk-table__cell">
+                  {{ postButton(limits.reconcileUrl, "Reconcile", "the limits change", crumb) }}
+                  {% if limits.retryUrl %}
+                    {{ postButton(limits.retryUrl, "Retry", "the limits change", crumb) }}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endif %}
           </tbody>
         </table>
         </div>
