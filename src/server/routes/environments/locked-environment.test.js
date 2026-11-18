@@ -669,6 +669,68 @@ describe('#environments of a disabled team', () => {
       expect(text($, 'main')).toContain('This environment is disabled')
     })
 
+    describe('the environments question straight after the host, before the application is named', () => {
+      function offeredEnvironments($) {
+        return $('input[name="environments"]')
+          .map((_, input) => $(input).val())
+          .get()
+      }
+
+      async function afterHost() {
+        await post(FEDERATE_URL, { host: 'cdp' })
+
+        return get(`${FEDERATE_URL}/environments`)
+      }
+
+      test.each([
+        [
+          'the environment read says it is disabled',
+          ACTIVE,
+          [summary({ disabled: true }), summary({ environment: 'qa' })]
+        ],
+        [
+          'the team lists it as disabled',
+          INFRADEV_ONLY,
+          [summary(), summary({ environment: 'qa' })]
+        ]
+      ])(
+        'does not offer or accept an environment when %s',
+        async (_, read, summaries) => {
+          backend(read, {
+            [`GET ${TEAM_PATH}/environments`]: environmentsRead(summaries)
+          })
+
+          const { response, $ } = await afterHost()
+
+          expect(response.statusCode).toBe(statusCodes.ok)
+          expect(offeredEnvironments($)).toEqual(['qa'])
+
+          const posted = await post(`${FEDERATE_URL}/environments`, {
+            environments: ['infradev']
+          })
+
+          expect(posted.response.statusCode).toBe(statusCodes.badRequest)
+          expect(text(posted.$, '.govuk-error-summary')).toContain(
+            'Select environments from the list'
+          )
+        }
+      )
+
+      test('says the environment is disabled, as the 409 page, when every environment with room is', async () => {
+        backend(INFRADEV_DISABLED, {
+          [`GET ${TEAM_PATH}/environments`]: environmentsRead([
+            summary({ disabled: true })
+          ])
+        })
+
+        const { response, $ } = await afterHost()
+
+        expect(response.statusCode).toBe(statusCodes.conflict)
+        expect(text($, 'h1')).toBe(CANNOT_CHANGE)
+        expect(text($, 'main')).toContain('This environment is disabled')
+      })
+    })
+
     test('names a disabled environment in words when the backend refuses it on confirming', async () => {
       backend(ACTIVE, {
         [`POST ${FEDERATIONS_PATH}`]: reply(409, {
