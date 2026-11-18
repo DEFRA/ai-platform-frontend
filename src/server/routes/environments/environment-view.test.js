@@ -415,6 +415,120 @@ describe('environment-view', () => {
     })
   })
 
+  describe('with credentials disabled', () => {
+    const NOT_LOCKED = { teamDisabled: false, disabledEnvironments: [] }
+
+    function page(detailOverrides = {}, lock = NOT_LOCKED) {
+      return buildEnvironmentPage({
+        team,
+        isAdmin: true,
+        environment: {
+          environment: 'infradev',
+          registryName: 'Infradev',
+          name: 'Development'
+        },
+        detail: {
+          ...summary(),
+          credentialsDisabled: true,
+          applications: {
+            used: 1,
+            limit: 20,
+            items: [
+              {
+                id: 'app-1',
+                name: 'flood-api',
+                host: 'cdp',
+                service: 'flood-api',
+                status: 'ready'
+              }
+            ]
+          },
+          clientSecrets: clientSecretsOf([clientSecretItem()]),
+          models: [deployment()],
+          limitBounds: {
+            tokensPerMinute: { min: 1, max: 5000 },
+            requestsPerMinute: { min: 1, max: 300 }
+          },
+          pendingLimits: null,
+          ...detailOverrides
+        },
+        operations: { open: [], recent: [] },
+        modelNames,
+        lock,
+        now: NOW
+      })
+    }
+
+    test('says credentials are disabled, leaves the environment Available and never says why', () => {
+      const view = page()
+
+      expect(view.credentialsBanner).toEqual({
+        heading: 'Credentials are disabled',
+        message: expect.stringContaining('remove an application')
+      })
+      expect(view.tag.text).toBe('Available')
+      expect(view.lockBanner).toBeNull()
+      expect(JSON.stringify(view.credentialsBanner)).not.toMatch(
+        /reason|because/i
+      )
+    })
+
+    test('greys add, view, rotate, Federate and Change, and keeps Revoke and Remove', () => {
+      const view = page()
+
+      expect(view.clientSecrets).toMatchObject({
+        addUrl: null,
+        addLocked: true
+      })
+      expect(view.clientSecrets.items[0].actions).toEqual([
+        { text: 'View', href: null },
+        { text: 'Rotate', href: null },
+        {
+          text: 'Revoke',
+          href: '/teams/flood-risk-team/client-secrets/cred-1/revoke'
+        }
+      ])
+      expect(view.applications).toMatchObject({
+        federateUrl: null,
+        federateLocked: true
+      })
+      expect(view.applications.items[0]).toMatchObject({
+        changeUrl: null,
+        removeUrl: expect.stringContaining('/applications/app-1/remove'),
+        lockedActions: ['Change']
+      })
+    })
+
+    test('leaves models, limits and Deploy a model open', () => {
+      const view = page()
+
+      expect(view.deployLocked).toBe(false)
+      expect(view.limits.changeUrl).toEqual(expect.any(String))
+      expect(view.models[0].removeLocked).toBe(false)
+    })
+
+    test('shows nothing of it while credentials are enabled', () => {
+      const view = page({ credentialsDisabled: false })
+
+      expect(view.credentialsBanner).toBeNull()
+      expect(view.clientSecrets.addLocked).toBe(false)
+      expect(view.applications.federateLocked).toBe(false)
+      expect(view.applications.items[0].lockedActions).toEqual([])
+    })
+
+    test('keeps a disabled environment greyed whole when both apply', () => {
+      const view = page(
+        {},
+        { teamDisabled: false, disabledEnvironments: ['infradev'] }
+      )
+
+      expect(view.applications.items[0]).toMatchObject({
+        removeUrl: null,
+        lockedActions: ['Change', 'Remove']
+      })
+    })
+  })
+
   describe('with the team disabled', () => {
     const disabledTeam = { teamDisabled: true, disabledEnvironments: [] }
     const infradevLocked = {

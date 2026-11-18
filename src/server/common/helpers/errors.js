@@ -2,6 +2,9 @@ import { statusCodes } from '../constants/status-codes.js'
 import { ApiError, wasUnauthorised } from './api-error.js'
 import { getSessionUser, resetSession } from './session.js'
 import {
+  credentialsDisabledBack,
+  credentialsDisabledPage,
+  isCredentialsDisabledError,
   isTeamDisabledError,
   teamDisabledBack,
   teamDisabledPage
@@ -61,6 +64,10 @@ export function catchAll(request, h) {
   // team can be viewed but not changed, wherever in a journey it was tried.
   if (isTeamDisabledError(response)) {
     return teamDisabledPage(h, teamDisabledBack(request))
+  }
+
+  if (isCredentialsDisabledError(response)) {
+    return credentialsDisabledPage(h, credentialsDisabledBack(request))
   }
 
   if (!('isBoom' in response)) {

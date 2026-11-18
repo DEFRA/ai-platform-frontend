@@ -46,28 +46,26 @@ export function federationTag(status) {
 
 // Only an admin changes or removes an application, because that can cut off a
 // running service. An application being set up or removed is left alone until
-// it settles; one that failed can only be cleared away.
-function actionsFor(application, { team, environment, isAdmin, locked }) {
+// it settles; one that failed can only be cleared away. In a disabled
+// environment the actions are still shown, as plain text; with the team's
+// credentials disabled only Change is, since Remove stays open.
+function actionsFor(
+  application,
+  { team, environment, isAdmin, locked, credentialsDisabled }
+) {
   const { id, status } = application
   const url = (action) => applicationUrl(team.slug, environment, id, action)
   const changeable = isAdmin && status === READY
   const removable = isAdmin && (status === READY || status === FAILED)
-
-  // In a disabled environment the actions are still shown, as plain text.
-  if (locked) {
-    return {
-      changeUrl: null,
-      removeUrl: null,
-      lockedActions: [changeable && 'Change', removable && 'Remove'].filter(
-        Boolean
-      )
-    }
-  }
+  const changeBlocked = locked || credentialsDisabled
 
   return {
-    changeUrl: changeable ? url('change') : null,
-    removeUrl: removable ? url('remove') : null,
-    lockedActions: []
+    changeUrl: changeable && !changeBlocked ? url('change') : null,
+    removeUrl: removable && !locked ? url('remove') : null,
+    lockedActions: [
+      changeable && changeBlocked && 'Change',
+      removable && locked && 'Remove'
+    ].filter(Boolean)
   }
 }
 
@@ -125,7 +123,9 @@ export function buildApplications({
 
   const { used, limit, items = [] } = detail.applications
   const full = used >= limit
-  const context = { team, environment, isAdmin, locked }
+  const credentialsDisabled = Boolean(detail.credentialsDisabled)
+  const context = { team, environment, isAdmin, locked, credentialsDisabled }
+  const federateBlocked = locked || credentialsDisabled
 
   return {
     used,
@@ -136,8 +136,10 @@ export function buildApplications({
       ? `${registryName} holds ${limit} applications, the most one environment can. Remove one to create another passwordless credential here.`
       : null,
     federateUrl:
-      full || locked ? null : federateUrl(team.slug, '', { environment }),
-    federateLocked: locked && !full,
+      full || federateBlocked
+        ? null
+        : federateUrl(team.slug, '', { environment }),
+    federateLocked: federateBlocked && !full,
     items: items.map((application) => applicationRow(application, context))
   }
 }

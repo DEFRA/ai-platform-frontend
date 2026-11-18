@@ -12,6 +12,7 @@ import {
 } from '#/server/common/helpers/govuk-errors.js'
 import { isPlaceholderCredential } from '#/server/common/helpers/placeholder-credential.js'
 import {
+  isCredentialsDisabledError,
   isTeamDisabledError,
   lockedPage
 } from '#/server/common/helpers/team-lock.js'
@@ -141,12 +142,13 @@ function takeoverFailure(view) {
 }
 
 // A refusal the person can read becomes a banner on the environment page; a
-// backend fault goes to the error page like everywhere else, and so does a
-// disabled team, which has a page of its own.
+// backend fault goes to the error page like everywhere else, and so do a
+// disabled team and disabled credentials, which have pages of their own.
 function failAsBanner(request, h, error, message, backUrl) {
   if (
     !(error instanceof ApiError) ||
     isTeamDisabledError(error) ||
+    isCredentialsDisabledError(error) ||
     error.statusCode >= statusCodes.internalServerError
   ) {
     throw error

@@ -1,6 +1,10 @@
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError } from './api-error.js'
 import {
+  credentialsBanner,
+  credentialsDisabledBack,
+  credentialsDisabledPage,
+  isCredentialsDisabledError,
   isDeployLocked,
   isEnvironmentLocked,
   isTeamDisabledError,
@@ -144,6 +148,82 @@ describe('#isTeamDisabledError', () => {
       )
     ).toBe(false)
     expect(isTeamDisabledError(new Error('team-disabled'))).toBe(false)
+  })
+})
+
+describe('#isCredentialsDisabledError', () => {
+  test('is true only for the backend refusal with the credentials-disabled code', () => {
+    expect(
+      isCredentialsDisabledError(
+        new ApiError({
+          statusCode: 409,
+          code: 'credentials-disabled',
+          message: 'x'
+        })
+      )
+    ).toBe(true)
+    expect(
+      isCredentialsDisabledError(
+        new ApiError({ statusCode: 409, code: 'team-disabled', message: 'x' })
+      )
+    ).toBe(false)
+    expect(isCredentialsDisabledError(new Error('credentials-disabled'))).toBe(
+      false
+    )
+  })
+})
+
+describe('#credentialsBanner', () => {
+  test('says what can and cannot be done, and never why', () => {
+    const banner = credentialsBanner(true)
+
+    expect(banner.heading).toBe('Credentials are disabled')
+    expect(banner.message).toContain('revoke a client secret')
+    expect(banner.message).toContain('remove an application')
+    expect(JSON.stringify(banner)).not.toMatch(/reason|because/i)
+  })
+
+  test('is nothing while credentials are enabled', () => {
+    expect(credentialsBanner(false)).toBeNull()
+    expect(credentialsBanner(undefined)).toBeNull()
+  })
+})
+
+describe('#credentialsDisabledPage', () => {
+  test('is a 409 page that says credentials are disabled, with the way back', () => {
+    const { h, calls } = fakeToolkit()
+
+    credentialsDisabledPage(h, BACK)
+
+    expect(calls[0]).toEqual({
+      template: 'error/index',
+      context: {
+        pageTitle: 'Credentials are disabled',
+        heading: 'Credentials are disabled',
+        message: expect.stringContaining('revoke a client secret'),
+        actionHref: '/teams/flood',
+        actionText: 'Back to the team'
+      },
+      statusCode: statusCodes.conflict
+    })
+  })
+})
+
+describe('#credentialsDisabledBack', () => {
+  test('goes back to the environments of the team in the address, else to the teams', () => {
+    expect(
+      credentialsDisabledBack({
+        params: { slug: 'flood' },
+        path: '/teams/flood'
+      })
+    ).toEqual({
+      href: '/environments/flood',
+      text: 'Back to all environments'
+    })
+    expect(credentialsDisabledBack({ params: {}, path: '/teams' })).toEqual({
+      href: '/teams',
+      text: 'Go to your teams'
+    })
   })
 })
 

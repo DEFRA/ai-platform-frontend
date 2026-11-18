@@ -23,6 +23,7 @@ import { buildClientSecrets } from './client-secrets-view.js'
 import { buildOperationItem } from './operation-view.js'
 import { buildApplications, buildConnection } from './federation-view.js'
 import {
+  credentialsBanner,
   isDeployLocked,
   isEnvironmentLocked,
   lockContext,
@@ -357,6 +358,7 @@ export function buildEnvironmentPage({
     strip: buildStrip(team.slug, environment),
     tag: statusTag({ disabled: locked, paused: detail.paused }),
     ...lockContext(pageLock, environment),
+    credentialsBanner: credentialsBanner(detail.credentialsDisabled),
     pausedNote: detail.paused
       ? `Changes wait here until the platform team resumes ${registryName}.`
       : null,

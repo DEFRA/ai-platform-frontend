@@ -303,7 +303,8 @@ describe('changing and removing an application', () => {
         'environment-not-set-up',
         statusCodes.conflict,
         'This environment is not set up yet'
-      ]
+      ],
+      ['credentials-disabled', statusCodes.conflict, 'Credentials are disabled']
     ])('says %s in words', async (code, status, heading) => {
       backend({
         [`PATCH ${APPLICATION_PATH}`]: reply(status, { code, message: 'No' })

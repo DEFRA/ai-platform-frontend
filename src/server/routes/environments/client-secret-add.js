@@ -77,6 +77,10 @@ const REFUSALS = {
     heading: 'You cannot add a client secret',
     message: `Only a team admin can add a client secret in ${name}.`
   }),
+  'credentials-disabled': (name) => ({
+    heading: `Credentials are disabled in ${name}`,
+    message: `You cannot add a client secret in ${name} while your team’s credentials are disabled there.`
+  }),
   'idempotency-key-reused': (name) => ({
     heading: 'Try adding the client secret again',
     message: `That request could not be used to add a client secret in ${name}. Try adding it again.`
