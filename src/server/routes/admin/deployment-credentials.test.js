@@ -837,7 +837,7 @@ describe('#admin deployment credentials', () => {
           .map((_, paragraph) => text($(paragraph)))
           .get()
       const SAFE_AFTER_INFRADEV =
-        'Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in Development can work again if you enable them before 1:31am on 16 July 2026. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.'
+        'Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in Development can work again if you enable them before 1:31am BST on 16 July 2026. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.'
       const NO_RECORD_INFRADEV =
         'There is no record of when the service principal for Development was disabled, so no time can be shown. A token issued before the credentials were disabled can work again once you enable them.'
       const NO_RECORD_QA =
@@ -865,9 +865,28 @@ describe('#admin deployment credentials', () => {
         const { result } = await get(ENABLE)
 
         expect(notes(load(result))[0]).toContain(
-          'before 1:32am on 16 July 2026'
+          'before 1:32am BST on 16 July 2026'
         )
       })
+
+      test.each([
+        // Disabled at 22:29 UTC: 00:30 UTC is 1:30am BST, before the clocks go back.
+        ['2026-10-24T22:29:00.000Z', 'before 1:30am BST on 25 October 2026'],
+        // Disabled at 23:29 UTC: 01:30 UTC is 1:30am GMT, the repeated hour.
+        ['2026-10-24T23:29:00.000Z', 'before 1:30am GMT on 25 October 2026'],
+        ['2026-01-10T12:00:00.000Z', 'before 2:01pm GMT on 10 January 2026']
+      ])(
+        'names the time zone, so the repeated autumn hour is not ambiguous (%s)',
+        async (disabledAtUtc, expected) => {
+          mockApi(fetchMock, {
+            [`GET ${DETAIL}`]: disabled(disabledAtUtc, null)
+          })
+
+          const { result } = await get(ENABLE)
+
+          expect(notes(load(result))[0]).toContain(expected)
+        }
+      )
 
       test('rounds up across midnight, so the date follows the rounded moment', async () => {
         mockApi(fetchMock, {
@@ -877,7 +896,7 @@ describe('#admin deployment credentials', () => {
         const { result } = await get(ENABLE)
 
         expect(notes(load(result))[0]).toContain(
-          'before 12:00am on 16 July 2026'
+          'before 12:00am BST on 16 July 2026'
         )
       })
 
@@ -901,7 +920,7 @@ describe('#admin deployment credentials', () => {
 
         expect(first).toBe(NO_RECORD_INFRADEV)
         expect(second).toContain('in Test can work again')
-        expect(second).toContain('before 1:31am on 16 July 2026')
+        expect(second).toContain('before 1:31am BST on 16 July 2026')
       })
 
       test('says nothing of an environment whose credentials are not disabled', async () => {

@@ -3,7 +3,10 @@
 // every call.
 
 import { environmentName } from '#/server/common/helpers/environment-names.js'
-import { formatUkDate, formatUkTime } from '#/server/common/helpers/uk-time.js'
+import {
+  formatUkDate,
+  formatUkTimeWithZone
+} from '#/server/common/helpers/uk-time.js'
 import { credentialStatus } from './deployment-labels.js'
 
 const RULES = {
@@ -131,7 +134,7 @@ export function enableNote(deployment, environment) {
     ) * MS_PER_MINUTE
   ).toISOString()
 
-  return `Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in ${where} can work again if you enable them before ${formatUkTime(moment)} on ${formatUkDate(moment)}. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.`
+  return `Enabling does not undo what happened before the Disable. A token issued before the credentials were disabled in ${where} can work again if you enable them before ${formatUkTimeWithZone(moment)} on ${formatUkDate(moment)}. From then on, none can. After a leaked secret, revoke the secret and enable after that time. After a mistaken Disable, you can enable at once.`
 }
 
 // Why Disable is still offered where there is nothing to disable.

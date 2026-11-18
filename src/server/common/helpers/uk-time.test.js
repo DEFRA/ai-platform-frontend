@@ -3,6 +3,7 @@ import {
   formatUkDate,
   formatUkDateTime,
   formatUkTime,
+  formatUkTimeWithZone,
   startOfUkDay
 } from './uk-time.js'
 
@@ -42,6 +43,16 @@ describe('UK time display', () => {
   test('Should say midday and midnight in the same way as other times', () => {
     expect(formatUkTime('2026-01-10T12:00:00.000Z')).toBe('12:00pm')
     expect(formatUkTime('2026-01-10T00:09:00.000Z')).toBe('12:09am')
+  })
+
+  test.each([
+    ['2026-01-10T12:00:00.000Z', '12:00pm GMT'],
+    ['2026-07-15T13:05:00.000Z', '2:05pm BST'],
+    // The hour from 01:00 to 02:00 BST is repeated when the clocks go back.
+    ['2026-10-25T00:30:00.000Z', '1:30am BST'],
+    ['2026-10-25T01:30:00.000Z', '1:30am GMT']
+  ])('Should name the zone of %s as %s', (iso, expected) => {
+    expect(formatUkTimeWithZone(iso)).toBe(expected)
   })
 
   test('Should give the date and time together', () => {

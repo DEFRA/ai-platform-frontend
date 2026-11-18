@@ -28,6 +28,11 @@ const timeFormat = new Intl.DateTimeFormat('en-GB', {
   hour12: true
 })
 
+const zoneFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: UK,
+  timeZoneName: 'short'
+})
+
 const MS_PER_SECOND = 1000
 const LAST_HOUR = 23
 const LAST_MINUTE_OR_SECOND = 59
@@ -102,6 +107,20 @@ export function formatUkTime(iso) {
   const part = (type) => parts.find((p) => p.type === type).value
 
   return `${part('hour')}:${part('minute')}${part('dayPeriod').toLowerCase()}`
+}
+
+/**
+ * The UK time of an instant with its zone, such as "1:30am GMT", for a time
+ * the clocks can show twice.
+ * @param {string} iso
+ * @returns {string}
+ */
+export function formatUkTimeWithZone(iso) {
+  const zone = zoneFormat
+    .formatToParts(new Date(iso))
+    .find((p) => p.type === 'timeZoneName').value
+
+  return `${formatUkTime(iso)} ${zone}`
 }
 
 /**
