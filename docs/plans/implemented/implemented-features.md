@@ -46,8 +46,8 @@ Last updated: 18 Nov 2026.
 
 Team client secrets (B18, with the real Entra apply), the Graph switch-on for directory search, limits (B17), usage and
 chargeback (B19), observability (B20 to B22), the rest of the Platform Admin area (B31: the real Microsoft Graph service
-principal and gateway access window adapters behind Disable credentials and the 60-second measurement, both waiting on
-Entra admin consent; Delete and Restore team), research-tier
+principal adapter and the 60-second measurement, waiting on Entra admin consent; API Management permissions and rollout;
+restoring access on Enable once B18 supplies an ordinary window; Delete and Restore team), research-tier
 journey tests and the liveness reconcile, the
 delivery-quality work, and B28's journey tests and end-to-end check. See [remaining.md](../remaining.md).
 
