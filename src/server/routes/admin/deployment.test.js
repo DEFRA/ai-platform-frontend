@@ -571,7 +571,7 @@ describe('#admin deployment detail', () => {
       expect($('#client-secrets')).toHaveLength(0)
     })
 
-    test('lists the federated credentials, with what failed, and says the actions do not change them', async () => {
+    test('lists the federated credentials, with what failed, and says Disable credentials also stops them', async () => {
       mockApi(fetchMock, {
         [`GET ${DETAIL}`]: detail({
           federations: [
@@ -596,8 +596,8 @@ describe('#admin deployment detail', () => {
         'beta-api CDP service Ready to use Remove application beta-api',
         'beta-job Azure managed identity Failed The identity was not found Remove application beta-job'
       ])
-      expect($('[data-testid="federations-note"]').text()).toContain(
-        'client secrets only'
+      expect($('[data-testid="federations-note"]').text()).toBe(
+        'Disable credentials also stops these federated applications; Enable credentials restores them.'
       )
     })
 

@@ -328,8 +328,8 @@ match" with Clear filters. A wrong filter: error summary, inline errors, title "
 (tag; "Disabled on {date}"), Members (count and View team), Team status. Buttons "Disable credentials" (secondary) or
 "Enable credentials", only where offered; "View activity" to `/admin/audit?team={id}&environment={env}`. H2 "Client
 secrets" (id ending, expiry, status; a "Revoke" link beside each active secret) and, when the team has any, H2 "Federated
-credentials" (name, kind, status; read only, with the note "Disable and Enable credentials change client secrets only.
-They do not change these."). H2 "Deployment health": table Model | Status | Detail | Updated | Actions
+credentials" (name, kind, status; read only, with the note "Disable credentials also stops these federated
+applications; Enable credentials restores them."). H2 "Deployment health": table Model | Status | Detail | Updated | Actions
 ("Reconcile {model}", "Retry {model}" only when the backend says it can be retried; "The team must request this model
 again." for `checks-failed`, differing from F6 note 3). A success banner after Reconcile or Retry; a refused Retry shows
 the detail page with an error summary. "This team in each environment" links the other environments. There is no
