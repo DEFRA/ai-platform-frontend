@@ -1,6 +1,17 @@
-@use "govuk-frontend" as *;
+@use 'govuk-frontend' as *;
 
 // Plain words in a cell where there is nothing to do: not a tag, not a link.
 .app-model-table__unavailable {
   color: $govuk-secondary-text-colour;
+}
+
+// The "Not available yet" list under the models table.
+.app-model-not-available {
+  color: $govuk-secondary-text-colour;
+  font-size: 1rem;
+
+  .govuk-summary-list__key,
+  .govuk-summary-list__value {
+    font-size: 1rem;
+  }
 }

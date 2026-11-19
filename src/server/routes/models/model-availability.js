@@ -84,6 +84,20 @@ export function canTry(model) {
 }
 
 /**
+ * Whether a person can do anything with the model: it is approved, and it can
+ * be tried on their own or added to a team (UK or EU). Only these models are in
+ * the main list; the rest are under "Not available yet".
+ * @param {{eligible?: boolean, researchAvailable?: boolean, skus?: object[], regions?: string[]}} model
+ * @returns {boolean}
+ */
+export function isAvailable(model) {
+  return (
+    isEligible(model) &&
+    (canTry(model) || teamAvailability(model) === TEAM_AVAILABILITY.inRegions)
+  )
+}
+
+/**
  * What a team is told about a model. A SKU with no regions of its own takes
  * the model's.
  * - "Runs in the UK or EU": a SKU offered to the team tier that is not a
@@ -132,10 +146,22 @@ export function isCapacityDuplicate(model) {
 }
 
 /**
+ * Why a model is under "Not available yet": the catalogue's reason when it is
+ * not approved (for example embeddings), else that no route is open to it.
+ * @param {{lifecycle?: {status?: string}, eligibilityReason?: string, eligible?: boolean}} model
+ * @returns {string}
+ */
+export function notAvailableReason(model) {
+  return isEligible(model)
+    ? 'Not available to try on your own or add to a team yet.'
+    : unavailableReason(model)
+}
+
+/**
  * Splits a catalogue list for the Models page: capacity duplicates are
- * dropped, eligible models say whether they can be tried and what teams are
- * told, and ineligible ones (for example embeddings) go under "Not available
- * yet" with their `eligibilityReason`.
+ * dropped. A model is available (in the main list, with whether it can be
+ * tried and what teams are told) when it is approved and can be tried or added
+ * to a team; every other model goes under "Not available yet" with its reason.
  * @param {object[]} models
  * @returns {{available: object[], notAvailable: object[]}}
  */
@@ -143,16 +169,16 @@ export function groupModels(models) {
   const listed = models.filter((model) => !isCapacityDuplicate(model))
 
   return {
-    available: listed.filter(isEligible).map((model) => ({
+    available: listed.filter(isAvailable).map((model) => ({
       ...model,
       canTry: canTry(model),
       teamAvailability: teamAvailability(model)
     })),
     notAvailable: listed
-      .filter((model) => !isEligible(model))
+      .filter((model) => !isAvailable(model))
       .map((model) => ({
         ...model,
-        reason: unavailableReason(model)
+        reason: notAvailableReason(model)
       }))
   }
 }

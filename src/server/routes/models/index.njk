@@ -45,7 +45,7 @@
 
       {% if notAvailableRows.length > 0 %}
         <h2 class="govuk-heading-l" id="models-not-available-heading" data-testid="models-not-available-heading">Not available yet</h2>
-        {{ govukSummaryList({ rows: notAvailableRows, attributes: { "data-testid": "models-not-available" } }) }}
+        {{ govukSummaryList({ rows: notAvailableRows, classes: "app-model-not-available", attributes: { "data-testid": "models-not-available" } }) }}
         {% set tablePage = notAvailablePage %}
         {% set tableNoun = "models that are not available yet" %}
         {% include "partials/table-pagination.njk" %}

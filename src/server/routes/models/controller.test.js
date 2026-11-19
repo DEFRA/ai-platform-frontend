@@ -355,22 +355,22 @@ describe('#modelsController', () => {
       expect(row).not.toContain('/connect/team/start')
     })
 
-    test('says "Not in the UK or EU yet" with no link for a model whose team SKU is in the US', async () => {
+    test('moves a model whose team SKU is in the US, and that research has not deployed, under "Not available yet"', async () => {
       const { result } = await getModels()
-      const row = rowFor(result, 'GPT-4.1 mini')
 
-      expect(row).toContain('Not in the UK or EU yet')
-      expect(row).not.toContain('/connect/team/start')
+      expect(rowFor(result, 'GPT-4.1 mini')).toBeUndefined()
+      expect(result).toMatch(
+        /govuk-summary-list__key[^>]*>\s*GPT-4\.1 mini\s*<\/dt>\s*<dd[^>]*>\s*Not available to try on your own or add to a team yet\./
+      )
     })
 
-    test('offers a model with only a worldwide SKU to nobody, and says "Not available" to try it', async () => {
+    test('moves a model with only a worldwide SKU, that research has not deployed, under "Not available yet"', async () => {
       const { result } = await getModels()
-      const row = rowFor(result, 'GPT-5 nano')
 
-      expect(row).toContain('Not available')
-      expect(row).not.toContain('/connect/shared/start')
-      expect(row).toContain('Not in the UK or EU yet')
-      expect(row).not.toContain('/connect/team/start')
+      expect(rowFor(result, 'GPT-5 nano')).toBeUndefined()
+      expect(result).toMatch(
+        /govuk-summary-list__key[^>]*>\s*GPT-5 nano\s*<\/dt>\s*<dd[^>]*>\s*Not available to try on your own or add to a team yet\./
+      )
     })
 
     test('hides a capacity duplicate', async () => {
@@ -383,8 +383,11 @@ describe('#modelsController', () => {
       const { result } = await getModels()
 
       expect(result).toContain('>Not available yet</h2>')
+      expect(result).toContain(
+        'class="govuk-summary-list app-model-not-available"'
+      )
       expect(result).toMatch(
-        /govuk-summary-list__key[^>]*>\s*text-embedding-ada-002\s*<\/dt>\s*<dd[^>]*>\s*Embeddings are not supported on the platform yet\./
+        /govuk-summary-list__key[^>]*>\s*text-embedding-ada-002\s*<\/dt>\s*<dd class="govuk-summary-list__value app-model-table__unavailable">\s*Embeddings are not supported on the platform yet\./
       )
       expect(result).not.toContain('>text-embedding-ada-002</a>')
     })

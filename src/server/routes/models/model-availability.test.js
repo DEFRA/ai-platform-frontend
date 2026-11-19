@@ -199,6 +199,23 @@ describe('model-availability', () => {
         slug: 'gpt-4-1-nano',
         researchAvailable: false,
         tiers: ['team'],
+        skus: [{ ...UK_TEAM_SKU, regions: ['swedencentral'] }]
+      })
+      const { available } = groupModels([model(), nano])
+
+      expect(
+        available.map((item) => [item.slug, item.canTry, item.teamAvailability])
+      ).toEqual([
+        ['gpt-4o', true, 'Runs in the UK or EU'],
+        ['gpt-4-1-nano', false, 'Runs in the UK or EU']
+      ])
+    })
+
+    test('leaves out an approved model that no route can reach, under not available', () => {
+      const nano = model({
+        slug: 'gpt-4-1-nano',
+        researchAvailable: false,
+        tiers: ['team'],
         skus: [{ ...UK_TEAM_SKU, regions: ['eastus'] }]
       })
       const worldwideOnly = model({
@@ -206,15 +223,28 @@ describe('model-availability', () => {
         researchAvailable: false,
         skus: [{ ...WORLDWIDE_SKU, regions: ['uksouth'] }]
       })
-      const { available } = groupModels([model(), nano, worldwideOnly])
-
-      expect(
-        available.map((item) => [item.slug, item.canTry, item.teamAvailability])
-      ).toEqual([
-        ['gpt-4o', true, 'Runs in the UK or EU'],
-        ['gpt-4-1-nano', false, 'Not in the UK or EU yet'],
-        ['gpt-5-nano', false, 'Not in the UK or EU yet']
+      const { available, notAvailable } = groupModels([
+        model(),
+        nano,
+        worldwideOnly
       ])
+
+      expect(available.map((item) => item.slug)).toEqual(['gpt-4o'])
+      expect(notAvailable.map((item) => [item.slug, item.reason])).toEqual([
+        [
+          'gpt-4-1-nano',
+          'Not available to try on your own or add to a team yet.'
+        ],
+        ['gpt-5-nano', 'Not available to try on your own or add to a team yet.']
+      ])
+    })
+
+    test('keeps an approved model in the main list when only a team can reach it', () => {
+      const teamOnly = model({ slug: 'team-only', researchAvailable: false })
+      const { available, notAvailable } = groupModels([teamOnly])
+
+      expect(available.map((item) => item.slug)).toEqual(['team-only'])
+      expect(notAvailable).toEqual([])
     })
 
     test('puts ineligible models under not available with their reason', () => {

@@ -36,7 +36,7 @@
             <a class="govuk-link" href="{{ tryUrl }}" data-testid="model-try-on-your-own">Try it on your own</a>
           {% endif %}
         </div>
-      {% elif not eligible %}
+      {% elif not available %}
         <p class="govuk-body" data-testid="model-not-available">Not available yet. {{ statusReason }}</p>
       {% endif %}
 

@@ -13,10 +13,11 @@ import {
   canTry,
   filterByShow,
   groupModels,
+  isAvailable,
   isEligible,
+  notAvailableReason,
   teamAvailability,
   teamRegion,
-  unavailableReason,
   useCasesList,
   useCasesSentence
 } from './model-availability.js'
@@ -160,7 +161,10 @@ export const modelsController = {
           show === 'all'
             ? notAvailable.map((model) => ({
                 key: { text: model.displayName },
-                value: { text: model.reason }
+                value: {
+                  text: model.reason,
+                  classes: 'app-model-table__unavailable'
+                }
               }))
             : [],
           {
@@ -214,21 +218,22 @@ export const modelsController = {
           throw error
         }
 
-        const eligible = isEligible(model)
         const tryable = {
           ...model,
           researchAvailable: await researchAvailableOf(request, slug)
         }
+        const available = isAvailable(tryable)
 
         return h.view('models/detail', {
           pageTitle: model.displayName,
           heading: model.displayName,
           provider: formatLabel(model.provider),
           goodFor: useCasesSentence(model.useCases),
-          eligible,
-          statusReason: eligible ? undefined : unavailableReason(model),
+          available,
+          statusReason: available ? undefined : notAvailableReason(model),
           canAddToTeam:
-            eligible && teamAvailability(model) === TEAM_AVAILABILITY.inRegions,
+            isEligible(model) &&
+            teamAvailability(model) === TEAM_AVAILABILITY.inRegions,
           addToTeamUrl: teamStartUrl(model.slug),
           canTry: canTry(tryable),
           tryUrl: sharedStartUrl(model.slug),

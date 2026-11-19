@@ -142,8 +142,10 @@ One pull request per step, each green and merged before the next. Steps 1 to 3 (
   Sweden Central, North Europe or West Europe, in any case. Team wording: "Runs in the UK or EU" (a usable team SKU),
   "Not in the UK or EU yet" (team SKUs, none usable) or "Not for teams yet" (no team SKU). `canTry` is eligible and the
   backend's `researchAvailable` (research availability comes from the backend, deployed models only; no research SKU
-  logic in the frontend); hide slugs ending `-2` (capacity duplicates); ineligible models (for example
-  embeddings) go under "Not available yet" with their `eligibilityReason`.
+  logic in the frontend); hide slugs ending `-2` (capacity duplicates). A model is in the main list only when it is
+  eligible and can be tried on your own or added to a team (UK or EU); every other model goes under "Not available yet",
+  with its `eligibilityReason` when it is ineligible (for example embeddings), else "Not available to try on your own or
+  add to a team yet.". The model page uses the same rule.
 - **Step list** component (`common/components/step-list`): vertical circles joined by a line; done is a green circle with
   a white tick, current a blue ring spinner with a bold label, waiting a grey ring with a grey label; an optional hint
   under each label; a visually hidden "Done", "In progress" or "Not started" before each label.
