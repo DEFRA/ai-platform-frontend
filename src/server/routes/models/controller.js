@@ -5,6 +5,7 @@ import { RESEARCH_CREDENTIAL_DAYS } from '#/server/common/constants/research-acc
 import { apiClient, ApiError } from '#/server/common/helpers/api-client.js'
 import { buildGatewayRequest } from '#/server/common/helpers/gateway-request.js'
 import { researchEnvironment } from '#/server/common/helpers/environment-names.js'
+import { pageOfRows } from '#/server/common/helpers/pagination.js'
 import { formatLabel } from '#/config/nunjucks/filters/format-label.js'
 import {
   SHOW_OPTIONS,
@@ -105,6 +106,31 @@ async function researchAvailableOf(request, slug) {
   return items.find((item) => item.slug === slug)?.researchAvailable
 }
 
+// The address of a page of one of the two lists, keeping the choice in "Show"
+// and the page of the other list.
+function listUrl({ show, page, notAvailablePage }, changes) {
+  const query = new URLSearchParams({
+    show,
+    page,
+    notAvailablePage,
+    ...changes
+  })
+
+  for (const [name, value] of [...query]) {
+    if (
+      value === '1' ||
+      value === 'undefined' ||
+      (name === 'show' && value === 'all')
+    ) {
+      query.delete(name)
+    }
+  }
+
+  const text = query.toString()
+
+  return text ? `/models?${text}` : '/models'
+}
+
 export const modelsController = {
   list: {
     get: {
@@ -117,20 +143,42 @@ export const modelsController = {
           '/v1/models?includeIneligible=true'
         )
         const { available, notAvailable } = groupModels(items)
+        const asked = {
+          show,
+          page: request.query.page,
+          notAvailablePage: request.query.notAvailablePage
+        }
+        const modelsPage = pageOfRows(
+          filterByShow(available, show).map(buildModelRow),
+          {
+            page: asked.page,
+            href: (page) =>
+              `${listUrl(asked, { page: String(page) })}#models-table`
+          }
+        )
+        const notAvailablePageOfRows = pageOfRows(
+          show === 'all'
+            ? notAvailable.map((model) => ({
+                key: { text: model.displayName },
+                value: { text: model.reason }
+              }))
+            : [],
+          {
+            page: asked.notAvailablePage,
+            href: (page) =>
+              `${listUrl(asked, { notAvailablePage: String(page) })}#models-not-available-heading`
+          }
+        )
 
         return h.view('models/index', {
           pageTitle: 'Model catalogue',
           heading: 'Model catalogue',
           researchDays: RESEARCH_CREDENTIAL_DAYS,
           showItems: buildShowItems(show),
-          models: filterByShow(available, show).map(buildModelRow),
-          notAvailableRows:
-            show === 'all'
-              ? notAvailable.map((model) => ({
-                  key: { text: model.displayName },
-                  value: { text: model.reason }
-                }))
-              : []
+          models: modelsPage.rows,
+          modelsPage,
+          notAvailableRows: notAvailablePageOfRows.rows,
+          notAvailablePage: notAvailablePageOfRows
         })
       }
     }
