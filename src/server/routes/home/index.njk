@@ -30,7 +30,7 @@
           </ul>
         {% endif %}
 
-        <h2 class="govuk-heading-m">Your teams</h2>
+        <h2 class="govuk-heading-m" id="your-teams">Your teams</h2>
         {% if teams === null %}
           <p class="govuk-body" data-testid="home-teams-unavailable">We could not check your teams just now.</p>
         {% elif teams.length == 0 %}
@@ -53,6 +53,9 @@
               {% endfor %}
             </tbody>
           </table>
+          {% set tablePage = teamsPage %}
+          {% set tableNoun = "teams" %}
+          {% include "partials/table-pagination.njk" %}
         {% endif %}
 
         <h2 class="govuk-heading-m">Your own keys</h2>

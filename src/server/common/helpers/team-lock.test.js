@@ -119,9 +119,9 @@ describe('#isDeployLocked', () => {
     ).toBe(true)
   })
 
-  test('is locked for a disabled team where the environment is not set up, because that sets one up', () => {
-    expect(isDeployLocked(disabledTeam, 'qa', { setUp: false })).toBe(true)
-    expect(isDeployLocked(disabledTeam, 'qa', undefined)).toBe(true)
+  test('is open for a disabled team, even where the environment is not set up, because a disabled team can still deploy', () => {
+    expect(isDeployLocked(disabledTeam, 'qa', { setUp: false })).toBe(false)
+    expect(isDeployLocked(disabledTeam, 'qa', undefined)).toBe(false)
   })
 
   test('is open in an environment that is set up and not ticked, even for a disabled team', () => {
@@ -235,9 +235,22 @@ describe('#credentialsDisabledBack', () => {
 })
 
 describe('#lockBanner', () => {
-  test('says the team is disabled and that it can be viewed but not changed', () => {
+  test('says the team is disabled and that its details and members can be viewed but not changed', () => {
     expect(lockBanner(teamLockOf({ status: 'disabled' }))).toEqual({
       heading: 'This team is disabled',
+      message: 'You can view it but you cannot change its details or members.'
+    })
+  })
+
+  test('says nothing of the team on an environment’s page, where only the environment’s lock counts', () => {
+    const lock = teamLockOf({
+      status: 'disabled',
+      disabledEnvironments: ['qa']
+    })
+
+    expect(lockBanner(lock, 'infradev')).toBeNull()
+    expect(lockBanner(lock, 'qa')).toEqual({
+      heading: 'This environment is disabled',
       message: 'You can view it but you cannot change it.'
     })
   })
@@ -284,7 +297,8 @@ describe('#teamDisabledPage', () => {
       context: {
         pageTitle: 'You cannot change this team',
         heading: 'You cannot change this team',
-        message: 'This team is disabled. You can view it but not change it.',
+        message:
+          'This team is disabled. You can view it but not change its details or members.',
         actionHref: '/teams/flood',
         actionText: 'Back to the team'
       },
@@ -338,7 +352,7 @@ describe('#lockedPage', () => {
     expect(
       lockedPage(h, lock, { environment: 'infradev', back: BACK })
     ).toBeTruthy()
-    expect(calls[0].context.message).toContain('This team is disabled')
+    expect(calls[0].context.message).toContain('This environment is disabled')
   })
 
   test('says "environment" when the team is active and only the environment is locked', () => {

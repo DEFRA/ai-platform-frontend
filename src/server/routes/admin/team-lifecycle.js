@@ -9,213 +9,85 @@ import {
   isCallFailure,
   loadAdminTeam
 } from './admin-page.js'
-import { readEnvironments } from './credential-actions.js'
 import {
   carryFormKey,
   issueFormKey,
   teamDisableKey
 } from './credential-keys.js'
 import { readReason, REASON_CODES } from './credential-reason.js'
-import { environmentList } from './deployment-page.js'
-import {
-  canEnable,
-  disabledEnvironmentsOf,
-  enableMessage,
-  knownEnvironments,
-  offeredToDisable,
-  resolveTeamEnvironments,
-  teamEnvironmentChoices
-} from './team-lifecycle-choices.js'
 
-// The pages that disable a team (which environments to disable as well, a
-// reason, then one call to the backend) and enable it (which disabled
-// environments to unlock, then one call). The call is for the whole team, so
-// the backend does it once or not at all and a repeat with the same key is the
-// same request. Nothing here decides who may: every page asks the backend for
-// the team first, and the backend refuses anyone who is not a Platform Admin.
+// The pages that disable a team (a reason, then one call to the backend) and
+// the button that enables it (one call). A team is environment-agnostic, so
+// neither asks about environments and neither changes one: an environment is
+// disabled only by Disable credentials on the Deployments tab. The call is for
+// the whole team, so the backend does it once or not at all and a repeat with
+// the same key is the same request. Nothing here decides who may: every page
+// asks the backend for the team first, and the backend refuses anyone who is
+// not a Platform Admin.
 
 const TEAMS_API = '/v1/admin/teams'
-const ENVIRONMENTS_ANCHOR = '#environments'
 const REASON_ANCHOR = '#reason'
-const NOT_OFFERED_TEXT = 'Choose environments from the list'
-const NONE_CHOSEN_TEXT = 'Choose at least one environment to unlock'
-
-// Disable team writes the team record only, so nothing at the gateway changes
-// (design F): the way to stop calls is Disable credentials.
-const KEEPS_WORKING =
-  'Its credentials keep working. To stop calls, disable its credentials on the Deployments tab.'
 const BACK_TO_TEAM = 'Back to the team'
 const DISABLE_TEAM = 'Disable team'
+const ACTIVE = 'active'
+const DISABLED = 'disabled'
 
-function disableUrl(team, suffix = '') {
-  return `${adminTeamUrl(team)}/disable${suffix}`
+// Disable team writes the team record only, so nothing at the gateway or in an
+// environment changes (design F).
+const KEEPS_WORKING =
+  'Its models, credentials and environments keep working: the team can still deploy models and create credentials. To stop an environment, disable its credentials on the Deployments tab.'
+
+function disableUrl(team) {
+  return `${adminTeamUrl(team)}/disable`
 }
 
-function enableUrl(team) {
-  return `${adminTeamUrl(team)}/enable`
+function breadcrumbsOf(team) {
+  return [
+    { text: 'Home', href: '/' },
+    { text: 'Admin', href: ADMIN_TEAMS_URL },
+    { text: 'Teams', href: ADMIN_TEAMS_URL },
+    { text: team.name, href: adminTeamUrl(team) },
+    { text: DISABLE_TEAM }
+  ]
 }
 
-function disabledUrl(team) {
-  return `${adminTeamUrl(team)}/disabled`
-}
-
-// The address of a page for some environments, named in the address and
-// checked again by the page.
-function withEnvironments(url, environments) {
-  return environments.length > 0
-    ? `${url}?environments=${environments.map(encodeURIComponent).join(',')}`
-    : url
-}
-
-function pageView(h, template, team, heading, context) {
-  return h.view(template, {
-    pageTitle: `${context.errorSummary ? 'Error: ' : ''}${context.titleText ?? heading} - ${team.name} - Admin`,
-    heading,
-    caption: team.name,
-    breadcrumbs: [
-      { text: 'Home', href: '/' },
-      { text: 'Admin', href: ADMIN_TEAMS_URL },
-      { text: 'Teams', href: ADMIN_TEAMS_URL },
-      { text: team.name, href: adminTeamUrl(team) },
-      { text: context.crumb ?? heading }
-    ],
-    tabs: adminTabs('teams'),
-    deploymentUrl: adminTeamUrl(team),
-    backText: BACK_TO_TEAM,
-    errorSummary: null,
-    ...context
-  })
-}
-
-function environmentNotFoundView(h, team) {
-  return h
-    .view('error/index', {
-      pageTitle: 'Environment not found',
-      heading: 'Environment not found',
-      message: `${team.name} has no such environment.`,
-      actionHref: adminTeamUrl(team),
-      actionText: BACK_TO_TEAM
-    })
-    .code(statusCodes.notFound)
-}
-
-// "Which environments?", for Disable (optional, may be none) and Enable.
-// `problem` is the error to show on the field, if any.
-function chooseView(h, team, copy, { ticked, problem }) {
-  const error = problem ? { text: problem } : null
-
-  return pageView(h, 'admin/credential-environments', team, copy.heading, {
-    items: teamEnvironmentChoices(copy.offered, ticked),
-    hintText: copy.hintText,
-    noItemsText: copy.noItemsText,
-    buttonText: copy.buttonText,
-    buttonClasses: copy.buttonClasses,
-    backUrl: adminTeamUrl(team),
-    nothingToDo: copy.nothingToDo ?? false,
-    nothingText: copy.nothingText,
-    errorSummary: error
-      ? [{ text: error.text, href: ENVIRONMENTS_ANCHOR }]
-      : null,
-    fieldError: error
-  }).code(problem ? statusCodes.badRequest : statusCodes.ok)
-}
-
-function disableChoice(team) {
-  return {
-    heading: DISABLE_TEAM,
-    offered: offeredToDisable(team),
-    hintText:
-      'Optional. Environments you do not tick stay usable. You can choose none.',
-    noItemsText:
-      disabledEnvironmentsOf(team).length > 0
-        ? 'Every environment is already disabled. You can still disable the team.'
-        : 'There are no models to disable. You can still disable the team.',
-    buttonText: 'Continue',
-    buttonClasses: ''
-  }
-}
-
-function enableChoice(team) {
-  const teamDisabled = team.status === 'disabled'
-
-  return {
-    heading: 'Enable team',
-    offered: disabledEnvironmentsOf(team),
-    hintText: teamDisabled
-      ? 'The team is enabled whatever you choose. Environments you do not tick stay disabled.'
-      : 'The team is already enabled. Tick the environments to unlock. Environments you do not tick stay disabled.',
-    noItemsText:
-      'No environment is disabled. Enabling the team lets its people change it again.',
-    buttonText: 'Enable team',
-    buttonClasses: '',
-    nothingToDo: !canEnable(team),
-    nothingText: 'This team is not disabled, and none of its environments are.'
-  }
-}
-
-// The reason page, which is also the confirm step. The text is shown as it was
-// typed (escaped by the template).
-function reasonView(h, team, form) {
-  const where =
-    form.environments.length > 0
-      ? `, and cannot change anything in ${environmentList(form.environments)}`
-      : ''
+function reasonPageView(h, team, form) {
   const error = form.error ? { text: form.error } : null
 
-  return pageView(h, 'admin/credential-reason', team, DISABLE_TEAM, {
-    effect: `People in ${team.name} can view it but not change it${where}. The team is not told why.`,
-    note: KEEPS_WORKING,
-    buttonText: DISABLE_TEAM,
-    buttonClasses: 'govuk-button--secondary',
-    backUrl: withEnvironments(disableUrl(team), form.environments),
-    formKey: form.formKey,
-    reasonText: form.text ?? '',
-    errorSummary: error ? [{ text: error.text, href: REASON_ANCHOR }] : null,
-    fieldError: error
-  }).code(error ? statusCodes.badRequest : statusCodes.ok)
+  return h
+    .view('admin/credential-reason', {
+      pageTitle: `${error ? 'Error: ' : ''}${DISABLE_TEAM} - ${team.name} - Admin`,
+      heading: DISABLE_TEAM,
+      caption: team.name,
+      breadcrumbs: breadcrumbsOf(team),
+      tabs: adminTabs('teams'),
+      deploymentUrl: adminTeamUrl(team),
+      backUrl: adminTeamUrl(team),
+      effect: `People in ${team.name} can view it but not change its details or its members. The team is not told why.`,
+      note: KEEPS_WORKING,
+      buttonText: DISABLE_TEAM,
+      buttonClasses: 'govuk-button--secondary',
+      formKey: form.formKey,
+      reasonText: form.text ?? '',
+      errorSummary: error ? [{ text: error.text, href: REASON_ANCHOR }] : null,
+      fieldError: error
+    })
+    .code(error ? statusCodes.badRequest : statusCodes.ok)
 }
 
-function doneView(h, team, environments) {
-  return pageView(h, 'admin/credential-done', team, 'Team disabled', {
-    titleText: 'Team disabled',
-    environmentsText:
-      environments.length > 0
-        ? `${environmentList(environments)} also disabled`
-        : '',
-    effect: KEEPS_WORKING
-  })
-}
-
-function failedView(h, team, { heading, retryUrl }) {
-  return pageView(h, 'admin/credential-failed', team, heading, {
-    titleText: heading,
-    doneText: null,
-    retryUrl
-  }).code(statusCodes.badGateway)
-}
-
-// The environments a page is for, or the page to show instead: the 404 page
-// for one the team does not have, the choice again for one not offered.
-function environmentsOrPage(h, team, copy, requested) {
-  const resolved = resolveTeamEnvironments(requested, {
-    known: knownEnvironments(team),
-    offered: copy.offered
-  })
-
-  if (resolved.problem === 'unknown') {
-    return { page: environmentNotFoundView(h, team) }
-  }
-
-  if (resolved.problem) {
-    return {
-      page: chooseView(h, team, copy, {
-        ticked: requested,
-        problem: NOT_OFFERED_TEXT
-      })
-    }
-  }
-
-  return { environments: resolved.environments }
+function failedView(h, team) {
+  return h
+    .view('admin/credential-failed', {
+      pageTitle: `We could not disable ${team.name} - Admin`,
+      heading: `We could not disable ${team.name}`,
+      breadcrumbs: breadcrumbsOf(team),
+      tabs: adminTabs('teams'),
+      deploymentUrl: adminTeamUrl(team),
+      backText: BACK_TO_TEAM,
+      doneText: null,
+      retryUrl: disableUrl(team)
+    })
+    .code(statusCodes.badGateway)
 }
 
 async function loadTeam(request) {
@@ -236,211 +108,116 @@ function guarded(handler) {
   }
 }
 
-function pair({ get, post }) {
-  return { get: { handler: guarded(get) }, post: { handler: guarded(post) } }
-}
-
-const disableController = {
-  async get(request, h) {
-    const team = await loadTeam(request)
-    const asked = readEnvironments(request.query.environments)
-
-    return chooseView(h, team, disableChoice(team), { ticked: asked })
-  },
-  async post(request, h) {
-    const team = await loadTeam(request)
-    const copy = disableChoice(team)
-    const { environments, page } = environmentsOrPage(
-      h,
-      team,
-      copy,
-      readEnvironments(request.payload?.environments)
-    )
-
-    return (
-      page ??
-      h
-        .redirect(withEnvironments(disableUrl(team, '/reason'), environments))
-        .code(statusCodes.seeOther)
-    )
-  }
+function toTeam(h, team) {
+  return h.redirect(adminTeamUrl(team)).code(statusCodes.seeOther)
 }
 
 // What a refused Disable says that the admin can put right on the page.
 function reasonRefusal(h, team, error, form) {
   if (error instanceof ApiError && REASON_CODES[error.code]) {
-    return reasonView(h, team, { ...form, error: REASON_CODES[error.code] })
-  }
-
-  if (error instanceof ApiError && error.code === 'environment-not-found') {
-    return environmentNotFoundView(h, team)
+    return reasonPageView(h, team, { ...form, error: REASON_CODES[error.code] })
   }
 
   if (isCallFailure(error)) {
-    return failedView(h, team, {
-      heading: `We could not disable ${team.name}`,
-      retryUrl: withEnvironments(disableUrl(team, '/reason'), form.environments)
-    })
+    return failedView(h, team)
   }
 
   throw error
 }
 
-const disableReasonController = {
-  async get(request, h) {
-    const team = await loadTeam(request)
-    const { environments, page } = environmentsOrPage(
-      h,
-      team,
-      disableChoice(team),
-      readEnvironments(request.query.environments)
-    )
-
-    return (
-      page ?? reasonView(h, team, { environments, formKey: issueFormKey() })
-    )
-  },
-  async post(request, h) {
-    const team = await loadTeam(request)
-    const { environments, page } = environmentsOrPage(
-      h,
-      team,
-      disableChoice(team),
-      readEnvironments(request.query.environments)
-    )
-
-    if (page) {
-      return page
-    }
-
-    const formKey = carryFormKey(request.payload?.formKey)
-    const { reason, error, text } = readReason(request.payload?.reason)
-    const form = { environments, formKey, text }
-
-    if (error) {
-      return reasonView(h, team, { ...form, error })
-    }
-
-    try {
-      await apiClient(request).post(
-        `${TEAMS_API}/${encodeURIComponent(team.id)}/disable`,
-        { reason, environments },
-        {
-          idempotencyKey: teamDisableKey(request, {
-            teamId: team.id,
-            formKey,
-            reason,
-            environments
-          })
-        }
-      )
-    } catch (apiError) {
-      return reasonRefusal(h, team, apiError, form)
-    }
-
-    return h
-      .redirect(withEnvironments(disabledUrl(team), environments))
-      .code(statusCodes.seeOther)
-  }
-}
-
-// A confirmation says it happened only when the team shows it did: a bookmark
-// or Back lands here too.
-async function disabledPage(request, h) {
+// Only an active team can be disabled; for any other the team page already
+// shows what it is, so the page goes there instead of asking for a reason.
+async function disableGet(request, h) {
   const team = await loadTeam(request)
-  const requested = readEnvironments(request.query.environments)
-  const known = knownEnvironments(team)
 
-  if (requested.some((environment) => !known.includes(environment))) {
-    return environmentNotFoundView(h, team)
-  }
-
-  const disabled = disabledEnvironmentsOf(team)
-  const done =
-    team.status === 'disabled' &&
-    requested.every((environment) => disabled.includes(environment))
-
-  return done
-    ? doneView(h, team, requested)
-    : h.redirect(adminTeamUrl(team)).code(statusCodes.seeOther)
+  return (team.status ?? ACTIVE) === ACTIVE
+    ? reasonPageView(h, team, { formKey: issueFormKey() })
+    : toTeam(h, team)
 }
 
-const enableController = {
-  async get(request, h) {
-    const team = await loadTeam(request)
-    const copy = enableChoice(team)
-    const asked = request.query.environments
-    const ticked = asked === undefined ? copy.offered : readEnvironments(asked)
+async function disablePost(request, h) {
+  const team = await loadTeam(request)
 
-    return chooseView(h, team, copy, { ticked })
-  },
-  async post(request, h) {
-    const team = await loadTeam(request)
-    const copy = enableChoice(team)
+  if ((team.status ?? ACTIVE) !== ACTIVE) {
+    return toTeam(h, team)
+  }
 
-    if (copy.nothingToDo) {
-      return chooseView(h, team, copy, { ticked: [] })
-    }
+  const formKey = carryFormKey(request.payload?.formKey)
+  const { reason, error, text } = readReason(request.payload?.reason)
+  const form = { formKey, text }
 
-    const { environments, page } = environmentsOrPage(
-      h,
-      team,
-      copy,
-      readEnvironments(request.payload?.environments)
-    )
+  if (error) {
+    return reasonPageView(h, team, { ...form, error })
+  }
 
-    if (page) {
-      return page
-    }
-
-    // A team that is already enabled has only an environment to unlock: with
-    // none chosen nothing would change, so it is not shown as done.
-    if (team.status !== 'disabled' && environments.length === 0) {
-      return chooseView(h, team, copy, {
-        ticked: [],
-        problem: NONE_CHOSEN_TEXT
-      })
-    }
-
-    try {
-      await apiClient(request).post(
-        `${TEAMS_API}/${encodeURIComponent(team.id)}/enable`,
-        { environments }
-      )
-    } catch (error) {
-      if (!isCallFailure(error)) {
-        throw error
+  try {
+    await apiClient(request).post(
+      `${TEAMS_API}/${encodeURIComponent(team.id)}/disable`,
+      { reason },
+      {
+        idempotencyKey: teamDisableKey(request, {
+          teamId: team.id,
+          formKey,
+          reason
+        })
       }
+    )
+  } catch (apiError) {
+    return reasonRefusal(h, team, apiError, form)
+  }
 
-      return failedView(h, team, {
-        heading: `We could not enable ${team.name}`,
-        retryUrl: enableUrl(team)
-      })
+  setAccountNotification(request, {
+    type: 'success',
+    message: `${team.name} is disabled. Its people can view it but not change its details or members.`
+  })
+
+  return toTeam(h, team)
+}
+
+// Enable is one button on the team page, so it is a POST with nothing to ask.
+// A team that is not disabled has nothing to enable, so the page shows it as
+// it is.
+async function enablePost(request, h) {
+  const team = await loadTeam(request)
+
+  if (team.status !== DISABLED) {
+    return toTeam(h, team)
+  }
+
+  try {
+    await apiClient(request).post(
+      `${TEAMS_API}/${encodeURIComponent(team.id)}/enable`,
+      {}
+    )
+  } catch (error) {
+    if (!isCallFailure(error)) {
+      throw error
     }
 
     setAccountNotification(request, {
-      type: 'success',
-      message: enableMessage(
-        environments,
-        copy.offered.filter(
-          (environment) => !environments.includes(environment)
-        ),
-        { teamWasDisabled: team.status === 'disabled' }
-      )
+      type: 'error',
+      heading: `We could not enable ${team.name}`,
+      message: 'Try again. What was already done is not done twice.'
     })
 
-    return h.redirect(adminTeamUrl(team)).code(statusCodes.seeOther)
+    return toTeam(h, team)
   }
+
+  setAccountNotification(request, {
+    type: 'success',
+    message: `${team.name} is enabled.`
+  })
+
+  return toTeam(h, team)
 }
 
 /**
- * The Platform Admin's pages that disable a team (which environments to
- * disable as well, then the reason, then the confirmation) and enable it
- * (which disabled environments to unlock).
+ * The Platform Admin's pages that disable a team (the reason, then the
+ * team's page says it is disabled) and the button that enables it. Neither
+ * touches an environment.
  */
 export const adminTeamLifecycleController = {
-  disable: pair(disableController),
-  disableReason: pair(disableReasonController),
-  disabled: { handler: guarded(disabledPage) },
-  enable: pair(enableController)
+  disable: { get: { handler: guarded(disableGet) } },
+  disablePost: { handler: guarded(disablePost) },
+  enable: { handler: guarded(enablePost) }
 }

@@ -11,6 +11,7 @@ import {
   environmentName,
   teamEnvironmentList
 } from '#/server/common/helpers/environment-names.js'
+import { pageOfRows } from '#/server/common/helpers/pagination.js'
 import { buildKeyRows } from '#/server/routes/manage/access-view.js'
 import { joinNames } from '#/server/routes/connect/team-model-choices.js'
 import { requestUrl } from '#/server/routes/environments/environment-view.js'
@@ -19,6 +20,11 @@ import { teamUrl } from '#/server/routes/teams/team-view.js'
 const ACTIVE_STATUS = 'active'
 // A personal key this close to running out is called out on the page.
 const RENEWAL_WARNING_DAYS = 3
+
+// A page of "Your teams", which keeps its place on the home page.
+function homeTeamsPageUrl(page) {
+  return `/?page=${page}#your-teams`
+}
 
 function isFailed({ status }) {
   return DEPLOYMENT_FAILURE_STATUSES.includes(status)
@@ -233,6 +239,14 @@ export async function loadHomeView(request) {
   const keyRows = credentialsRead.value
     ? buildKeyRows(credentialsRead.value.items, modelNames)
     : null
+  // Every team is read (what needs attention looks across all of them); the
+  // table shows 10 to a page.
+  const teamsPage = teams
+    ? pageOfRows(
+        teamReads.map((teamRead) => buildTeamRow(teamRead, modelNames)),
+        { page: request.query?.page, href: homeTeamsPageUrl }
+      )
+    : null
 
   return {
     attention: buildAttention(
@@ -240,9 +254,8 @@ export async function loadHomeView(request) {
       keyRows ?? [],
       modelNames
     ),
-    teams: teams
-      ? teamReads.map((teamRead) => buildTeamRow(teamRead, modelNames))
-      : null,
+    teams: teamsPage?.rows ?? null,
+    teamsPage,
     keys: keyRows ? buildKeysSummary(keyRows) : null
   }
 }

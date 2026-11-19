@@ -1,0 +1,12 @@
+{#
+  The "Showing 11 to 20 of 23 teams" line and the GOV.UK pagination under a
+  table the portal pages itself, 10 rows to a page. Context: tablePage (from
+  `pageOfRows`) and tableNoun (what the rows are, plural). Says nothing when
+  one page holds every row.
+#}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
+
+{% if tablePage and tablePage.pagination %}
+  <p class="govuk-body" data-testid="table-pagination-summary">Showing {{ tablePage.first }} to {{ tablePage.last }} of {{ tablePage.total }} {{ tableNoun }}</p>
+  {{ govukPagination(tablePage.pagination) }}
+{% endif %}

@@ -51,8 +51,6 @@
     <p class="govuk-body" data-testid="no-models">No models in {{ heading }}.</p>
     {% if setUpUrl %}
       <p class="govuk-body"><a class="govuk-link" href="{{ setUpUrl }}" data-testid="set-up-environment">Set up {{ heading }}</a></p>
-    {% elif setUpLocked %}
-      <p class="govuk-body app-secondary-text" data-testid="set-up-environment-locked">Set up {{ heading }}</p>
     {% endif %}
   {% endif %}
   {% endcall %}

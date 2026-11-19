@@ -14,7 +14,7 @@ import {
 } from './admin-page.js'
 import { environmentList } from './deployment-page.js'
 import { pastEnd } from './past-end.js'
-import { canEnable, disabledEnvironmentsOf } from './team-lifecycle-choices.js'
+import { disabledEnvironmentsOf } from './team-lifecycle-choices.js'
 import {
   buildPagination,
   listQuery,
@@ -121,24 +121,44 @@ function environmentRows(team) {
   )
 }
 
-const KEEPS_WORKING = 'Its credentials keep working.'
-
 // What the page warns of while the team or any of its environments is
-// disabled: the people can view but not change, and the credentials still work.
+// disabled. They are separate: a disabled team's people can view it but not
+// change its details or members, and its environments carry on; a disabled
+// environment (its credentials are disabled) is view-only for the team there.
 function disabledWarning(team) {
   const disabled = disabledEnvironmentsOf(team)
+  const sentences = []
 
   if (team.status === 'disabled') {
-    return `This team is disabled. Its people can view it but not change it. ${KEEPS_WORKING}`
+    sentences.push(
+      'This team is disabled. Its people can view it but not change its details or members. Its environments, models and credentials are not affected.'
+    )
   }
 
-  if (disabled.length === 0) {
-    return null
+  if (disabled.length > 0) {
+    const one = disabled.length === 1
+
+    sentences.push(
+      `${environmentList(disabled)} ${one ? 'is' : 'are'} disabled: the team’s credentials are disabled there and its people can view ${one ? 'it' : 'them'} but not deploy models, add or rotate secrets or change anything else.`
+    )
   }
 
-  const one = disabled.length === 1
+  return sentences.length > 0 ? sentences.join(' ') : null
+}
 
-  return `${environmentList(disabled)} ${one ? 'is' : 'are'} disabled. The team’s people can view ${one ? 'it' : 'them'} but not change ${one ? 'it' : 'them'}. ${KEEPS_WORKING}`
+// The one lifecycle action the team's page offers: Disable for an active team,
+// Enable for a disabled one, and none for a team waiting to be removed. The
+// page shows at most this one button, never both.
+function lifecycleActionOf(team) {
+  const status = team.status ?? 'active'
+
+  if (status === 'active') {
+    return { name: 'disable', url: `${adminTeamUrl(team)}/disable` }
+  }
+
+  return status === 'disabled'
+    ? { name: 'enable', url: `${adminTeamUrl(team)}/enable` }
+    : null
 }
 
 function memberRows(team, members) {
@@ -215,10 +235,7 @@ export const adminController = {
         team,
         status: teamStatusTag(team.status),
         warning: disabledWarning(team),
-        canDisable: (team.status ?? 'active') === 'active',
-        canEnable: canEnable(team),
-        disableUrl: `${adminTeamUrl(team)}/disable`,
-        enableUrl: `${adminTeamUrl(team)}/enable`,
+        lifecycle: lifecycleActionOf(team),
         environments: environmentRows(team),
         members: memberRows(team, members),
         addMemberUrl: `${adminTeamUrl(team)}/members/add`,

@@ -98,7 +98,7 @@ describe('#homeController', () => {
     fetchMock.resetMocks()
   })
 
-  async function signedInHome(routes) {
+  async function signedInHome(routes, url = '/') {
     const cookies = await signInViaOidc(server, fetchMock)
 
     mockApi(fetchMock, {
@@ -110,7 +110,7 @@ describe('#homeController', () => {
 
     const { result, statusCode } = await server.inject({
       method: 'GET',
-      url: '/',
+      url,
       headers: { cookie: cookieHeader(cookies) }
     })
 
@@ -321,6 +321,78 @@ describe('#homeController', () => {
       })
 
       expect(text($, 'home-keys')).toBe('You have no keys of your own.')
+    })
+  })
+
+  describe('Your teams, 10 to a page', () => {
+    const many = Array.from({ length: 23 }, (_, index) => ({
+      _id: `team-${index + 1}`,
+      slug: `team-${index + 1}`,
+      name: `Team ${String(index + 1).padStart(2, '0')}`,
+      role: 'user'
+    }))
+    const routes = {
+      'GET /v1/teams': { items: many },
+      ...Object.fromEntries(
+        many.map(({ slug }) => [
+          `GET /v1/teams/${slug}/deployments`,
+          { items: [] }
+        ])
+      )
+    }
+    const names = ($) =>
+      $('[data-testid="home-team"] a')
+        .map((_, link) => $(link).text())
+        .get()
+
+    test('shows the first 10 teams with a count, and the pagination to the others', async () => {
+      const { $ } = await signedInHome(routes)
+
+      expect(names($)).toHaveLength(10)
+      expect(names($)[0]).toBe('Team 01')
+      expect(names($)[9]).toBe('Team 10')
+      expect(text($, 'table-pagination-summary')).toBe(
+        'Showing 1 to 10 of 23 teams'
+      )
+      expect($('.govuk-pagination__next a').attr('href')).toBe(
+        '/?page=2#your-teams'
+      )
+      expect($('.govuk-pagination__prev')).toHaveLength(0)
+    })
+
+    test('shows the page asked for, and a shorter last page', async () => {
+      const second = await signedInHome(routes, '/?page=2')
+      const last = await signedInHome(routes, '/?page=3')
+
+      expect(names(second.$)[0]).toBe('Team 11')
+      expect(names(last.$)).toEqual(['Team 21', 'Team 22', 'Team 23'])
+      expect(text(last.$, 'table-pagination-summary')).toBe(
+        'Showing 21 to 23 of 23 teams'
+      )
+      expect(last.$('.govuk-pagination__next')).toHaveLength(0)
+      expect(last.$('.govuk-pagination__prev a').attr('href')).toBe(
+        '/?page=2#your-teams'
+      )
+    })
+
+    test.each([['0'], ['abc']])(
+      'shows the first page for page=%s',
+      async (page) => {
+        const { $ } = await signedInHome(routes, `/?page=${page}`)
+
+        expect(names($)[0]).toBe('Team 01')
+      }
+    )
+
+    test('has no pagination for 10 teams or fewer', async () => {
+      const { $ } = await signedInHome({
+        ...routes,
+        'GET /v1/teams': { items: many.slice(0, 10) }
+      })
+
+      expect(names($)).toHaveLength(10)
+      expect($('.govuk-pagination')).toHaveLength(0)
+      expect($('[data-testid="table-pagination-summary"]')).toHaveLength(0)
     })
   })
 

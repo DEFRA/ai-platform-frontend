@@ -15,16 +15,6 @@ import { derivedIdempotencyKey } from '#/server/common/helpers/idempotency-key.j
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// The order `sort()` gives with no function (by UTF-16 code unit), written out
-// so the keys made from a list of environments stay what they were.
-function byCodeUnit(a, b) {
-  if (a < b) {
-    return -1
-  }
-
-  return a > b ? 1 : 0
-}
-
 /**
  * A new key for a page that is shown.
  * @returns {string}
@@ -46,28 +36,21 @@ export function carryFormKey(offered) {
 
 /**
  * The `Idempotency-Key` for a Disable team: one call for the whole team, so
- * the key is made from the session, the team, the page's key, the reason and
- * the environments chosen (another choice from the same page is another
- * request, as the backend sees it).
+ * the key is made from the session, the team, the page's key and the reason.
  * @param {import('@hapi/hapi').Request} request
  * @param {object} operation
  * @param {string} operation.teamId
  * @param {string} operation.formKey - The key the reason page was issued with.
  * @param {string} operation.reason - The reason, as sent.
- * @param {string[]} operation.environments - The environments chosen.
  * @returns {string}
  */
-export function teamDisableKey(
-  request,
-  { teamId, formKey, reason, environments }
-) {
+export function teamDisableKey(request, { teamId, formKey, reason }) {
   return derivedIdempotencyKey([
     'admin-team-disable',
     request.yar.id,
     teamId,
     formKey,
-    reason,
-    [...environments].sort(byCodeUnit)
+    reason
   ])
 }
 

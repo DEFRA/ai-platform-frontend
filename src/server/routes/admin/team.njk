@@ -58,22 +58,24 @@
         ]
       }) }}
 
-      {% if canDisable or canEnable %}
+      {% if lifecycle %}
         <div class="govuk-button-group" data-testid="team-lifecycle-actions">
-          {% if canDisable %}
+          {% if lifecycle.name == "disable" %}
             {{ govukButton({
               text: "Disable team",
-              href: disableUrl,
+              href: lifecycle.url,
               classes: "govuk-button--secondary",
               attributes: { "data-testid": "disable-team" }
             }) }}
-          {% endif %}
-          {% if canEnable %}
-            {{ govukButton({
-              text: "Enable team",
-              href: enableUrl,
-              attributes: { "data-testid": "enable-team" }
-            }) }}
+          {% else %}
+            <form method="post" action="{{ lifecycle.url }}" novalidate>
+              <input type="hidden" name="crumb" value="{{ crumb }}">
+              {{ govukButton({
+                text: "Enable team",
+                preventDoubleClick: true,
+                attributes: { "data-testid": "enable-team" }
+              }) }}
+            </form>
           {% endif %}
         </div>
       {% endif %}

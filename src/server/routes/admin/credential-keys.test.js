@@ -51,23 +51,20 @@ describe('#teamDisableKey', () => {
   const disable = {
     teamId: 'team-1',
     formKey: issueFormKey(),
-    reason: 'Suspected misuse',
-    environments: ['infradev', 'qa']
+    reason: 'Suspected misuse'
   }
 
-  test('is a version 4 UUID, the same for a retry of the same form, reason and choice, whatever the order of the environments', () => {
+  test('is a version 4 UUID, the same for a retry of the same form and reason', () => {
     expect(teamDisableKey(request, disable)).toMatch(UUID_V4)
     expect(teamDisableKey(request, disable)).toBe(
-      teamDisableKey(request, { ...disable, environments: ['qa', 'infradev'] })
+      teamDisableKey(request, { ...disable })
     )
   })
 
   test.each([
     ['team', { teamId: 'team-2' }],
     ['form', { formKey: issueFormKey() }],
-    ['reason', { reason: 'Another reason' }],
-    ['environments', { environments: ['infradev'] }],
-    ['choice of none', { environments: [] }]
+    ['reason', { reason: 'Another reason' }]
   ])('is another key when the %s is another', (_name, change) => {
     expect(teamDisableKey(request, { ...disable, ...change })).not.toBe(
       teamDisableKey(request, disable)
@@ -81,14 +78,6 @@ describe('#teamDisableKey', () => {
     expect(teamDisableKey(request, disable)).not.toBe(
       credentialKey(request, operation)
     )
-  })
-
-  test('does not change the order of the list it is given', () => {
-    const environments = ['qa', 'infradev']
-
-    teamDisableKey(request, { ...disable, environments })
-
-    expect(environments).toEqual(['qa', 'infradev'])
   })
 })
 

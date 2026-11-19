@@ -675,8 +675,12 @@ describe('#admin teams', () => {
 
         expect($tag.text().trim()).toBe(text)
         expect($tag.attr('class')).toContain(classes)
-        expect($('main button')).toHaveLength(0)
-        expect($('main form')).toHaveLength(0)
+        expect($('main button:not([data-testid="enable-team"])')).toHaveLength(
+          0
+        )
+        expect(
+          $('main form:not(:has([data-testid="enable-team"]))')
+        ).toHaveLength(0)
       }
     )
 

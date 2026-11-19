@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import createFetchMock from 'vitest-fetch-mock'
 
 import { createServer } from '#/server/server.js'
@@ -194,6 +195,80 @@ describe('#modelsController', () => {
       headers: cookies ? { cookie: cookieHeader(cookies) } : {}
     })
   }
+
+  describe('GET /models, 10 to a page', () => {
+    const many = (count, prefix, extra) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...sampleModel,
+        slug: `${prefix.toLowerCase()}-${String(index + 1).padStart(2, '0')}`,
+        displayName: `${prefix} ${String(index + 1).padStart(2, '0')}`,
+        ...extra
+      }))
+    const big = {
+      items: [
+        ...many(23, 'Chat', {}),
+        ...many(14, 'Later', { eligible: false, eligibilityReason: 'Soon' })
+      ]
+    }
+    const get = (url) => {
+      fetchMock.mockResponseOnce(JSON.stringify(big))
+
+      return server.inject({ method: 'GET', url })
+    }
+    const names = (html) =>
+      [
+        ...html.matchAll(
+          /data-testid="model-table-row"[\s\S]*?>(Chat \d\d)<\/a>/g
+        )
+      ].map((match) => match[1])
+
+    test('shows the first 10 available models with a count, and the pagination to the rest', async () => {
+      const { result } = await get('/models')
+      const $ = load(result)
+
+      expect(names(result)).toHaveLength(10)
+      expect(names(result)[0]).toBe('Chat 01')
+      expect($('[data-testid="table-pagination-summary"]').first().text()).toBe(
+        'Showing 1 to 10 of 23 models'
+      )
+      expect($('.govuk-pagination__next a').first().attr('href')).toBe(
+        '/models?page=2#models-table'
+      )
+    })
+
+    test('shows the page asked for, and keeps the Show choice in the links', async () => {
+      const { result } = await get('/models?page=3')
+      const second = load((await get('/models?show=team&page=2')).result)
+
+      expect(names(result)).toEqual(['Chat 21', 'Chat 22', 'Chat 23'])
+      expect(
+        second('.govuk-pagination__next a').first().attr('href')
+      ).toContain('show=team')
+    })
+
+    test('pages the not available list on its own, 10 to a page, without moving the models', async () => {
+      const first = load((await get('/models')).result)
+      const second = load((await get('/models?notAvailablePage=2')).result)
+      const rows = ($) =>
+        $('[data-testid="models-not-available"] .govuk-summary-list__row')
+
+      expect(rows(first)).toHaveLength(10)
+      expect(rows(second)).toHaveLength(4)
+      expect(
+        first('[data-testid="table-pagination-summary"]').last().text()
+      ).toBe('Showing 1 to 10 of 14 models that are not available yet')
+      expect(first('.govuk-pagination__next a').last().attr('href')).toBe(
+        '/models?notAvailablePage=2#models-not-available-heading'
+      )
+      expect(names(second.html())).toHaveLength(10)
+    })
+
+    test('shows the first page for a page that is not a number', async () => {
+      const { result } = await get('/models?page=abc')
+
+      expect(names(result)[0]).toBe('Chat 01')
+    })
+  })
 
   describe('GET /models', () => {
     test('is public and has the heading, lead and both ways in', async () => {

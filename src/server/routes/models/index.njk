@@ -36,11 +36,19 @@
         </div>
       </form>
 
-      {{ appModelTable({ models: models }) }}
+      <div id="models-table">
+        {{ appModelTable({ models: models }) }}
+      </div>
+      {% set tablePage = modelsPage %}
+      {% set tableNoun = "models" %}
+      {% include "partials/table-pagination.njk" %}
 
       {% if notAvailableRows.length > 0 %}
-        <h2 class="govuk-heading-l" data-testid="models-not-available-heading">Not available yet</h2>
+        <h2 class="govuk-heading-l" id="models-not-available-heading" data-testid="models-not-available-heading">Not available yet</h2>
         {{ govukSummaryList({ rows: notAvailableRows, attributes: { "data-testid": "models-not-available" } }) }}
+        {% set tablePage = notAvailablePage %}
+        {% set tableNoun = "models that are not available yet" %}
+        {% include "partials/table-pagination.njk" %}
       {% endif %}
     </div>
   </div>

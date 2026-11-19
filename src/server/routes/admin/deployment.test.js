@@ -266,7 +266,7 @@ describe('#admin deployment detail', () => {
       expect(rows).toContainEqual(['Team status', 'Disabled'])
       expect(rows).toContainEqual([
         'In the portal',
-        'Disabled The team can view Development but not change it. Its credentials keep working.'
+        'Disabled The team can view Development but cannot deploy models, add or rotate secrets or change anything else there. Enable credentials lifts this.'
       ])
       expect($('[data-testid="disable-credentials"]')).toHaveLength(1)
       expect($('[data-testid="revoke-credentials"]')).toHaveLength(0)
@@ -487,6 +487,58 @@ describe('#admin deployment detail', () => {
         expect($(`a[href="${PAGE}/credentials/revoke"]`)).toHaveLength(0)
       }
     )
+
+    test.each([
+      ['active', 'active', 'disable-credentials'],
+      ['revoked', 'revoked', 'disable-credentials'],
+      ['none', 'none', 'disable-credentials'],
+      ['disabled over an active credential', 'disabled', 'enable-credentials']
+    ])(
+      'offers exactly one of Disable credentials and Enable credentials, never both, for %s',
+      async (_name, status, expected) => {
+        mockApi(fetchMock, {
+          [`GET ${DETAIL}`]: detail({
+            credential: { status, held: 'active' },
+            environmentDisabled: status === 'disabled'
+          })
+        })
+
+        const $ = load((await get(PAGE)).result)
+        const group = $('[data-testid="credential-actions"]')
+
+        expect(group.find('.govuk-button')).toHaveLength(1)
+        expect(group.find(`[data-testid="${expected}"]`)).toHaveLength(1)
+        expect(
+          $(
+            '[data-testid="disable-credentials"], [data-testid="enable-credentials"]'
+          )
+        ).toHaveLength(1)
+      }
+    )
+
+    test('keeps the credential actions between the summary and the activity link, and a disabled environment still shows Enable credentials alone', async () => {
+      mockApi(fetchMock, {
+        [`GET ${DETAIL}`]: detail({
+          credential: { status: 'disabled', held: 'active' },
+          environmentDisabled: true
+        })
+      })
+
+      const $ = load((await get(PAGE)).result)
+      const order = $(
+        '[data-testid="deployment-summary"], [data-testid="credential-actions"], [data-testid="view-activity"]'
+      )
+        .map((_, element) => $(element).attr('data-testid'))
+        .get()
+
+      expect(order).toEqual([
+        'deployment-summary',
+        'credential-actions',
+        'view-activity'
+      ])
+      expect($('[data-testid="disable-credentials"]')).toHaveLength(0)
+      expect($('[data-testid="enable-credentials"]')).toHaveLength(1)
+    })
 
     test('links each credential action to its page, Disable secondary and Enable green', async () => {
       mockApi(fetchMock, {

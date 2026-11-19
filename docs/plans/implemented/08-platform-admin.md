@@ -177,22 +177,21 @@ operation is queued. To stop calls an admin uses Disable credentials on the depl
 stops new tokens only. The people never see a reason or
 an admin's name.
 
-- **Admin pages** (`admin/team-lifecycle.js`, choices in `team-lifecycle-choices.js`; they reuse the credential flow's
-  templates, reason rule, form key and error codes): the team page has a secondary **Disable team** (team active) and
-  **Enable team** (team disabled or any environment disabled), a warning while disabled and a Disabled tag on each
-  disabled environment. `/admin/teams/{id}/disable`: optional "Which environments?" (zero allowed; only the team's
-  environments not already disabled; "Environments you do not tick stay usable"), then `/disable/reason` (1 to 500
-  characters, the warning "Its credentials keep working…"), one call with an `Idempotency-Key` (HMAC of session, team,
-  form key, reason and environments), then `/disabled` ("Team disabled"; back to the team unless it is done). A failed
-  call is the page "We could not disable {team}" with Try again. `/enable` lists the disabled environments, all ticked;
-  zero ticked still lifts the team lock of a disabled team (a team that is already enabled must tick at least one
-  environment); no reason; a success notification names what was unlocked ("Team enabled and Development unlocked.";
-  for a team that was already enabled only "Development unlocked.", since the action did not enable the team). 403 page for
-  non-admins, CSRF crumb on every POST. The audit log labels `admin.team.disable` ("Disabled a team") and
-  `admin.team.enable` ("Enabled a team") and the refusal code `team-disabled`. The admin deployment page shows the
-  team Disabled and "In the portal: Disabled" while still offering the credential actions.
-- **Team pages** (`common/helpers/team-lock.js`; `loadTeamForView` adds `lock`): a banner on the team's tabs and the
-  Environments pages ("This team is disabled. You can view it but you cannot change it."), the team Disabled, and a
+- **Admin pages** (`admin/team-lifecycle.js`; they reuse the credential flow's templates, reason rule, form key and error
+  codes). **A team is environment-agnostic, so Disable team and Enable team never touch an environment** (19 Nov 2026,
+  hve #85): an environment is disabled only by Disable credentials, which lists it in the team's
+  `disabledEnvironments` (and Enable credentials removes it). The team page offers exactly one of a secondary **Disable
+  team** (team active) and a primary **Enable team** (team disabled, whatever its environments), and none for a team
+  waiting to be removed. Disable team goes straight to `/admin/teams/{id}/disable` (1 to 500 characters; no environment
+  choice), makes one call with an `Idempotency-Key` (HMAC of session, team, form key and reason) and returns to the team
+  page with a success notification, which now shows Enable team. Enable team is a POST button on the team page with a
+  CSRF crumb, one call, no reason; a failure is an error notification on the team page. A failed Disable is the page "We
+  could not disable {team}" with Try again. 403 page for non-admins. The team page warns separately of a disabled team
+  ("view it but not change its details or members; its environments, models and credentials are not affected") and of a
+  disabled environment (its credentials are disabled and the team cannot deploy, add or rotate secrets or change
+  anything else there). The audit log labels `admin.team.disable` and `admin.team.enable` and the refusal code
+  `team-disabled`. The admin deployment page shows exactly one of Disable credentials and Enable credentials.- **Team pages** (`common/helpers/team-lock.js`; `loadTeamForView` adds `lock`): a banner on the team's tabs and the
+  team's tabs ("This team is disabled. You can view it but you cannot change its details or members."); an environment's page says "This environment is disabled" only when the environment is, the team Disabled, and a
   disabled environment tagged Disabled (ahead of Paused). **Team-wide** actions (details, add, change and remove a
   member, set up an environment) are greyed while the team is disabled, with nothing ticked; **environment** actions
   (deploy and remove a model, limits, view and rotate the client secret, create, change and remove an application) only
