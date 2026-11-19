@@ -2,11 +2,13 @@ import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { ApiError } from './api-error.js'
 import { teamEnvironmentsUrl } from './environment-names.js'
 
-// The view-only lock a Platform Admin puts on a team (disable team). While the
-// team's status is `disabled` its people can read every page but change none
-// of the team-wide things (details, members, new environments); in each
-// environment the admin also ticked (`disabledEnvironments`) they cannot change
-// its models, limits, client secrets or applications either. The backend
+// The view-only locks a Platform Admin can put on a team's pages. Disable team
+// is about the team alone: while its status is `disabled` its people can read
+// every page but change none of the team's own things (details, members). An
+// environment is disabled only by Disable credentials, which lists it in
+// `disabledEnvironments`: there they cannot change models, limits, client
+// secrets or applications either. A disabled team can still deploy models and
+// create credentials in an environment that is not disabled. The backend
 // enforces it with `409 team-disabled`; these helpers only say it in the pages
 // first. Nothing here says why: the team is never told.
 
@@ -16,7 +18,7 @@ export const CREDENTIALS_DISABLED = 'credentials-disabled'
 const DISABLED_STATUS = 'disabled'
 const CANNOT_CHANGE_HEADING = 'You cannot change this team'
 const CANNOT_CHANGE_MESSAGE =
-  'This team is disabled. You can view it but not change it.'
+  'This team is disabled. You can view it but not change its details or members.'
 const ENVIRONMENT_LOCKED_MESSAGE =
   'This environment is disabled. You can view it but not change it.'
 const CREDENTIALS_HEADING = 'Credentials are disabled'
@@ -65,20 +67,16 @@ export function withDisabledEnvironment(lock, environment) {
 }
 
 /**
- * Whether deploying a model in an environment is locked: the environment is
- * disabled, or the team is disabled and the environment is not set up yet
- * (setting one up is a team-wide change).
+ * Whether deploying a model in an environment is locked: only when the
+ * environment is disabled. A disabled team can still deploy, and set up an
+ * environment.
  * @param {{teamDisabled: boolean, disabledEnvironments: string[]}} lock
  * @param {string} environment
- * @param {{setUp?: boolean} | null | undefined} summary - The environment as read.
+ * @param {{disabled?: boolean} | null | undefined} summary - The environment as read.
  * @returns {boolean}
  */
 export function isDeployLocked(lock, environment, summary) {
-  return (
-    isEnvironmentLocked(lock, environment) ||
-    Boolean(summary?.disabled) ||
-    (lock.teamDisabled && !summary?.setUp)
-  )
+  return isEnvironmentLocked(lock, environment) || Boolean(summary?.disabled)
 }
 
 /**
@@ -153,25 +151,28 @@ export function credentialsDisabledBack(request) {
 }
 
 /**
- * The banner a team's pages show while the team is disabled (or, on an
- * environment's page, while that environment is): what people can do, never
- * why.
+ * The banner a team's pages show while the team is disabled, or an
+ * environment's page while that environment is: what people can do, never
+ * why. The two are separate: on an environment's page only the environment's
+ * lock is said, because a disabled team still changes its environments.
  * @param {{teamDisabled: boolean, disabledEnvironments: string[]}} lock
  * @param {string} [environment] - The environment code of the page, if any.
  * @returns {{heading: string, message: string} | null}
  */
 export function lockBanner(lock, environment) {
-  if (lock.teamDisabled) {
-    return {
-      heading: 'This team is disabled',
-      message: 'You can view it but you cannot change it.'
-    }
+  if (environment) {
+    return isEnvironmentLocked(lock, environment)
+      ? {
+          heading: 'This environment is disabled',
+          message: 'You can view it but you cannot change it.'
+        }
+      : null
   }
 
-  return environment && isEnvironmentLocked(lock, environment)
+  return lock.teamDisabled
     ? {
-        heading: 'This environment is disabled',
-        message: 'You can view it but you cannot change it.'
+        heading: 'This team is disabled',
+        message: 'You can view it but you cannot change its details or members.'
       }
     : null
 }
@@ -222,7 +223,7 @@ export function teamDisabledPage(h, back, { environment = false } = {}) {
 export function lockedPage(h, lock, { environment, back }) {
   if (environment) {
     return isEnvironmentLocked(lock, environment)
-      ? teamDisabledPage(h, back, { environment: !lock.teamDisabled })
+      ? teamDisabledPage(h, back, { environment: true })
       : null
   }
 

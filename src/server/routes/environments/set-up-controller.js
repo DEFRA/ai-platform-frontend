@@ -188,15 +188,16 @@ async function loadSetUp(request, h) {
     return { page: teamNotFoundView(h) }
   }
 
-  // Setting up an environment is a team-wide change; one that is disabled
+  // A disabled team can still set an environment up; one that is disabled
   // cannot be changed at all.
   const back = {
     href: environmentPageUrl(loaded.team.slug, target.environment),
     text: `Back to ${target.registryName}`
   }
-  const locked =
-    lockedPage(h, loaded.lock, { back }) ??
-    lockedPage(h, loaded.lock, { environment: target.environment, back })
+  const locked = lockedPage(h, loaded.lock, {
+    environment: target.environment,
+    back
+  })
 
   if (locked) {
     return { page: locked }

@@ -81,11 +81,14 @@ export const teamsController = {
   list: {
     get: {
       async handler(request, h) {
+        const { rows, listing } = await loadTeamRows(request)
+
         return h.view('teams/index', {
           pageTitle: 'Teams',
           heading: 'Teams',
           notification: takeAccountNotification(request),
-          teams: await loadTeamRows(request)
+          teams: rows,
+          teamsPage: listing
         })
       }
     }

@@ -413,7 +413,7 @@ describe('#admin deployment credentials', () => {
         'Do not include names or contact details'
       )
       expect(text($('[data-testid="credentials-effect"]'))).toContain(
-        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.'
+        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials, view or rotate its secrets, deploy models or change anything else there, and can only view the environment. The team is not told why.'
       )
       expect($('textarea#reason').attr('name')).toBe('reason')
       expect(
@@ -738,7 +738,7 @@ describe('#admin deployment credentials', () => {
       )
       expect(text($('.govuk-panel__body'))).toBe('in Development and Test')
       expect(text($('[data-testid="credentials-effect"]'))).toBe(
-        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.'
+        'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials, view or rotate its secrets, deploy models or change anything else there, and can only view the environment. The team is not told why.'
       )
       expect($('[data-testid="credentials-back"]').attr('href')).toBe(PAGE)
     })

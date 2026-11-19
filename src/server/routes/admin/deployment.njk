@@ -51,7 +51,7 @@
       {% set teamStatusHtml %}{{ govukTag({ text: team.statusTag.text, classes: team.statusTag.classes }) }}{% endset %}
       {% set portalHtml %}
         {{ govukTag({ text: "Disabled", classes: "govuk-tag--grey", attributes: { "data-testid": "environment-disabled" } }) }}
-        <p class="govuk-body-s govuk-!-margin-top-1 govuk-!-margin-bottom-0">The team can view {{ environmentLabel }} but not change it. Its credentials keep working.</p>
+        <p class="govuk-body-s govuk-!-margin-top-1 govuk-!-margin-bottom-0">The team can view {{ environmentLabel }} but cannot deploy models, add or rotate secrets or change anything else there. Enable credentials lifts this.</p>
       {% endset %}
 
       {% set summaryRows = [

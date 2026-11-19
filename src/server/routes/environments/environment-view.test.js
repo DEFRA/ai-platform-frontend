@@ -614,7 +614,7 @@ describe('environment-view', () => {
       expect(view.tag.text).toBe('Disabled')
       expect(view.models[0].removeLocked).toBe(true)
       expect(view.lockBanner).toEqual({
-        heading: 'This team is disabled',
+        heading: 'This environment is disabled',
         message: 'You can view it but you cannot change it.'
       })
     })
@@ -654,7 +654,7 @@ describe('environment-view', () => {
       expect(view.deployLocked).toBe(true)
     })
 
-    test('leaves an environment the admin did not tick usable, with the team banner and only the team-wide action greyed', () => {
+    test('leaves an environment that is not disabled fully usable for a disabled team, with no banner of the team on its page', () => {
       const view = page(disabledTeam)
 
       expect(view.tag.text).toBe('Available')
@@ -672,7 +672,7 @@ describe('environment-view', () => {
       expect(view.applications.items[0].changeUrl).toContain('/change')
       expect(view.deployLocked).toBe(false)
       expect(view.teamLocked).toBe(true)
-      expect(view.lockBanner.heading).toBe('This team is disabled')
+      expect(view.lockBanner).toBeNull()
     })
 
     test('says on the page of a disabled environment of an active team that the environment is disabled', () => {
@@ -701,7 +701,7 @@ describe('environment-view', () => {
       expect(view.applications.items[0].lockedActions).toEqual([])
     })
 
-    test('greys deploying where the environment is not set up and the team is disabled, because that sets it up', () => {
+    test('lets a disabled team set up an environment and deploy in it, because a disabled team still deploys', () => {
       config.set('teamEnvironments', ['infradev', 'qa'])
 
       const view = buildEnvironmentPage({
@@ -715,9 +715,9 @@ describe('environment-view', () => {
         now: NOW
       })
 
-      expect(view.deployLocked).toBe(true)
-      expect(view.setUpUrl).toBeNull()
-      expect(view.setUpLocked).toBe(true)
+      expect(view.deployLocked).toBe(false)
+      expect(view.setUpUrl).toBe('/environments/flood-risk-team/qa/set-up')
+      expect(view).not.toHaveProperty('setUpLocked')
     })
 
     test('has the overview card of a disabled environment tagged Disabled, and of one the team lists, whatever the environment read says', () => {
@@ -739,7 +739,7 @@ describe('environment-view', () => {
       expect(fromTeam.tag.text).toBe('Disabled')
     })
 
-    test('greys setting up another environment on the cards while the team is disabled, but not for the first', () => {
+    test('lets a disabled team set up another environment from the cards, as for the first', () => {
       config.set('teamEnvironments', ['infradev', 'qa'])
 
       const notSetUp = {
@@ -758,12 +758,12 @@ describe('environment-view', () => {
         now: NOW
       })
 
-      expect(infradev.setUpLocked).toBe(false)
+      expect(infradev).not.toHaveProperty('setUpLocked')
       expect(qa).toMatchObject({
-        setUpUrl: null,
-        setUpText: 'Set up QA',
-        setUpLocked: true
+        setUpUrl: '/environments/flood-risk-team/qa/set-up',
+        setUpText: 'Set up QA'
       })
+      expect(qa).not.toHaveProperty('setUpLocked')
       expect(qa.tag.text).toBe('Available')
     })
   })

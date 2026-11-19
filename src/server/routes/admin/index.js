@@ -48,23 +48,15 @@ function credentialRoutes() {
   ]
 }
 
-// The pages that disable and enable a team: which environments, a reason (to
-// disable) and the confirmation after.
+// The pages that disable a team (a reason) and the button that enables it.
+// Neither asks about environments: a team is environment-agnostic.
 function lifecycleRoutes() {
-  const { disable, disableReason, disabled, enable } =
-    adminTeamLifecycleController
-  const pages = [
-    { path: 'disable', page: disable },
-    { path: 'disable/reason', page: disableReason },
-    { path: 'enable', page: enable }
-  ]
+  const { disable, disablePost, enable } = adminTeamLifecycleController
 
   return [
-    ...pages.flatMap(({ path, page }) => [
-      { method: 'GET', path: `${team}/${path}`, handler: page.get.handler },
-      { method: 'POST', path: `${team}/${path}`, handler: page.post.handler }
-    ]),
-    { method: 'GET', path: `${team}/disabled`, handler: disabled.handler }
+    { method: 'GET', path: `${team}/disable`, handler: disable.get.handler },
+    { method: 'POST', path: `${team}/disable`, handler: disablePost.handler },
+    { method: 'POST', path: `${team}/enable`, handler: enable.handler }
   ]
 }
 

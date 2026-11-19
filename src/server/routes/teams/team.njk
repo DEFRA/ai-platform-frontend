@@ -2,6 +2,7 @@
 
 {% from "sub-navigation/macro.njk" import appSubNavigation %}
 {% from "section-card/macro.njk" import appSectionCard %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
 
 {% block content %}
   {% include "partials/team-notification.njk" %}
@@ -32,7 +33,15 @@
       {% endif %}
       {% endcall %}
 
-      {% call appSectionCard({ title: "Environments and deployments", collapsible: false, attributes: { "data-testid": "section-team-environments" } }) %}
+      {% set environmentsActionHtml %}
+        {{ govukButton({
+          text: "View Deployments and Environments",
+          href: environmentsUrl,
+          classes: "govuk-!-margin-bottom-0",
+          attributes: { "data-testid": "view-environments" }
+        }) }}
+      {% endset %}
+      {% call appSectionCard({ title: "Environments and deployments", collapsible: false, actionsHtml: environmentsActionHtml, attributes: { "data-testid": "section-team-environments" } }) %}
       {% if not unavailable %}
         <dl class="govuk-summary-list app-summary-list--table">
           {% for environment in environments %}
@@ -43,9 +52,6 @@
           {% endfor %}
         </dl>
       {% endif %}
-      <p class="govuk-body govuk-!-margin-top-4">
-        <a class="govuk-link" href="{{ environmentsUrl }}" data-testid="view-environments">View environments and deployments</a>
-      </p>
       {% endcall %}
     </div>
   </div>

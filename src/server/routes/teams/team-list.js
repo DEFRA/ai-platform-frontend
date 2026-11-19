@@ -5,6 +5,7 @@ import {
   DEPLOYMENT_REMOVING_STATUS,
   isDeploymentInProgress
 } from '#/server/common/helpers/deployment-status.js'
+import { pageOfRows } from '#/server/common/helpers/pagination.js'
 import { teamUrl } from './team-view.js'
 
 const REMOVED_MEMBER_STATUS = 'removed'
@@ -84,18 +85,24 @@ export function buildTeamRow(team, { members, deployments }, modelNames) {
 }
 
 /**
- * The Teams table: each team of the person's with its members and models.
- * One read of the team and one of its deployments per team (D9); a read that
- * fails leaves its cells saying so rather than taking the page down.
- * @param {import('@hapi/hapi').Request} request
- * @returns {Promise<object[]>}
+ * The Teams table: one page (10 teams) of the person's teams, each with its
+ * members and models. One read of the team and one of its deployments per team
+ * shown (D9); a read that fails leaves its cells saying so rather than taking
+ * the page down.
+ * @param {import('@hapi/hapi').Request} request - `?page=` says which page.
+ * @returns {Promise<{rows: object[], listing: ReturnType<typeof pageOfRows>}>}
  */
 export async function loadTeamRows(request) {
   const client = apiClient(request)
-  const { items: teams } = await client.get('/v1/teams')
+  const { items } = await client.get('/v1/teams')
+  const listing = pageOfRows(items, {
+    page: request.query?.page,
+    href: (page) => `/teams?page=${page}`
+  })
+  const teams = listing.rows
 
   if (teams.length === 0) {
-    return []
+    return { rows: [], listing }
   }
 
   const [catalogue, ...reads] = await Promise.allSettled([
@@ -119,7 +126,7 @@ export async function loadTeamRows(request) {
     )
   }
 
-  return teams.map((team, index) => {
+  const rows = teams.map((team, index) => {
     const [detail, deployments] = reads.slice(index * 2, index * 2 + 2)
 
     for (const failed of [detail, deployments]) {
@@ -141,4 +148,6 @@ export async function loadTeamRows(request) {
       modelNames
     )
   })
+
+  return { rows, listing }
 }

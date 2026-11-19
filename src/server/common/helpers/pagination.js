@@ -57,3 +57,38 @@ export function isBadPage(page) {
 
   return !Number.isInteger(number) || number < 1
 }
+
+/** How many rows every table of the portal shows on one page. */
+export const TABLE_PAGE_SIZE = 10
+
+/**
+ * One page of rows held in memory, for a table the portal builds itself (the
+ * Platform Admin lists are paged by the backend and use the same size). A page
+ * that is not a whole number of 1 or more is the first, and one past the last
+ * is the last, so a table never shows an empty page.
+ * @param {unknown[]} rows - Every row of the table.
+ * @param {{page?: string, href: (page: number) => string, pageSize?: number}} options - `href` is the address of a page of the table.
+ * @returns {{rows: unknown[], page: number, pageSize: number, total: number, first: number, last: number, pagination: object | null}}
+ */
+export function pageOfRows(
+  rows,
+  { page: requested, href, pageSize = TABLE_PAGE_SIZE }
+) {
+  const total = rows.length
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  const page = isBadPage(requested)
+    ? 1
+    : Math.min(Number(requested ?? 1), pages)
+  const start = (page - 1) * pageSize
+  const shown = rows.slice(start, start + pageSize)
+
+  return {
+    rows: shown,
+    page,
+    pageSize,
+    total,
+    first: shown.length > 0 ? start + 1 : 0,
+    last: start + shown.length,
+    pagination: buildPagination({ page, pageSize, total }, href)
+  }
+}

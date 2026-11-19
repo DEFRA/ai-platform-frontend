@@ -59,7 +59,7 @@ export const CREDENTIAL_ACTIONS = {
     needsReason: true,
     buttonClasses: 'govuk-button--secondary',
     effect:
-      'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials or view or rotate its secrets there. The team is not told why.',
+      'Calls using the team’s credentials in these environments stop within 60 seconds. The team cannot create new credentials, view or rotate its secrets, deploy models or change anything else there, and can only view the environment. The team is not told why.',
     done: 'Credentials disabled',
     past: 'disabled',
     verbing: 'disabling',

@@ -176,7 +176,9 @@ describe('#teams of a disabled team', () => {
     expect(response.statusCode).toBe(statusCodes.conflict)
     expect(text($, 'h1')).toBe(CANNOT_CHANGE)
     expect($('title').text()).toContain(CANNOT_CHANGE)
-    expect(text($, 'main')).toContain('You can view it but not change it.')
+    expect(text($, 'main')).toMatch(
+      /You can view it but not change (it|its details or members)\./
+    )
     expect(
       $(backHref ? `main a[href="${backHref}"]` : 'main a')
     ).not.toHaveLength(0)
@@ -202,7 +204,7 @@ describe('#teams of a disabled team', () => {
           'This team is disabled'
         )
         expect(text($, '[data-testid="team-lock-banner"]')).toContain(
-          'You can view it but you cannot change it.'
+          'You can view it but you cannot change its details or members.'
         )
         expect(text($, '[data-testid="team-lock-banner"]')).not.toMatch(
           /reason|platform|admin|@/i

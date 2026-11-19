@@ -198,6 +198,73 @@ describe('#teamsController', () => {
       expect(rows[1]).toContain('GPT-4o<strong>, could not be set up</strong>')
     })
 
+    describe('10 teams to a page', () => {
+      const many = Array.from({ length: 23 }, (_, index) => ({
+        _id: `team-${index + 1}`,
+        slug: `team-${index + 1}`,
+        name: `Team ${String(index + 1).padStart(2, '0')}`,
+        role: 'user'
+      }))
+      const routes = {
+        'GET /v1/teams': { items: many },
+        'GET /v1/models': { items: catalogue },
+        ...Object.fromEntries(
+          many.flatMap(({ slug }) => [
+            [`GET /v1/teams/${slug}`, { team: {}, members: [] }],
+            [`GET /v1/teams/${slug}/deployments`, { items: [] }]
+          ])
+        )
+      }
+      const names = ($) =>
+        $('[data-testid="team-row"] a')
+          .map((_, link) => $(link).text())
+          .get()
+
+      test('shows the first 10, a count and the pagination, and reads only the teams shown', async () => {
+        mockApi(fetchMock, routes)
+
+        const $ = load((await get('/teams')).result)
+
+        expect(names($)).toHaveLength(10)
+        expect(names($)[0]).toBe('Team 01')
+        expect($('[data-testid="table-pagination-summary"]').text()).toBe(
+          'Showing 1 to 10 of 23 teams'
+        )
+        expect($('.govuk-pagination__next a').attr('href')).toBe(
+          '/teams?page=2'
+        )
+        expect(
+          fetchMock.mock.calls.filter(([url]) => url.includes('/deployments'))
+        ).toHaveLength(10)
+      })
+
+      test('shows the page asked for and a shorter last page, and the first for a page that is not a number', async () => {
+        mockApi(fetchMock, routes)
+
+        const last = load((await get('/teams?page=3')).result)
+        const bad = load((await get('/teams?page=abc')).result)
+
+        expect(names(last)).toEqual(['Team 21', 'Team 22', 'Team 23'])
+        expect(last('.govuk-pagination__next')).toHaveLength(0)
+        expect(last('.govuk-pagination__prev a').attr('href')).toBe(
+          '/teams?page=2'
+        )
+        expect(names(bad)[0]).toBe('Team 01')
+      })
+
+      test('has no pagination for 10 teams or fewer', async () => {
+        mockApi(fetchMock, {
+          ...routes,
+          'GET /v1/teams': { items: many.slice(0, 10) }
+        })
+
+        const $ = load((await get('/teams')).result)
+
+        expect(names($)).toHaveLength(10)
+        expect($('.govuk-pagination')).toHaveLength(0)
+      })
+    })
+
     test('says so in a cell that could not be read, rather than failing the page', async () => {
       mockApi(fetchMock, {
         'GET /v1/teams': { items: [sampleTeam] },
@@ -516,11 +583,36 @@ describe('#teamsController', () => {
         'PROD Production Not available yet'
       ])
       expect($('a[data-testid="view-environments"]').text().trim()).toBe(
-        'View environments and deployments'
+        'View Deployments and Environments'
       )
       expect($('a[data-testid="view-environments"]').attr('href')).toBe(
         `/environments/${sampleTeam.slug}`
       )
+    })
+
+    test('has the View Deployments and Environments button as a green button in the Environments and deployments card, ahead of its rows, and nowhere else', async () => {
+      backend()
+
+      const $ = load((await get(TEAM_URL)).result)
+      const card = $('[data-testid="section-team-environments"]')
+      const button = card.find(
+        '.app-section-card__actions a[data-testid="view-environments"]'
+      )
+
+      expect($('[data-testid="view-environments"]')).toHaveLength(1)
+      expect(button).toHaveLength(1)
+      expect(button.attr('class')).toContain('govuk-button')
+      expect(button.attr('class')).not.toContain('govuk-button--secondary')
+      expect(button.attr('class')).not.toContain('govuk-button--warning')
+      expect(
+        card.find('.app-section-card__actions').nextAll().first()[0].name
+      ).toBe('dl')
+      expect(
+        $(
+          '[data-testid="section-team-models"] [data-testid="view-environments"]'
+        )
+      ).toHaveLength(0)
+      expect(card.find('p a[data-testid="view-environments"]')).toHaveLength(0)
     })
 
     test('puts the models and the environments each in a summary card under its heading', async () => {

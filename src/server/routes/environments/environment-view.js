@@ -165,7 +165,6 @@ function availableCard(slot, summary, { team, modelNames, now, lock }) {
     setUp: Boolean(summary?.setUp),
     setUpUrl: null,
     setUpText: null,
-    setUpLocked: false,
     notSetUp: null,
     pausedNote: summary?.paused
       ? `Changes wait here until the platform team resumes ${slot.name}.`
@@ -186,13 +185,9 @@ function availableCard(slot, summary, { team, modelNames, now, lock }) {
       notSetUp: isFirst
         ? `Not set up yet. Deploy a model to set up ${slot.name}.`
         : 'Not set up yet.',
-      // Setting up an environment is a team-wide change, locked with the team.
-      setUpUrl:
-        isFirst || lock.teamDisabled
-          ? null
-          : environmentSetUpUrl(team.slug, slot.code),
-      setUpText: isFirst ? null : `Set up ${slot.name}`,
-      setUpLocked: !isFirst && lock.teamDisabled
+      // A disabled team can still set up an environment.
+      setUpUrl: isFirst ? null : environmentSetUpUrl(team.slug, slot.code),
+      setUpText: isFirst ? null : `Set up ${slot.name}`
     }
   }
 
@@ -351,16 +346,20 @@ export function buildEnvironmentPage({
     modelRow(deployment, { team, isAdmin, modelNames, locked })
   )
 
+  const credentials = credentialsBanner(detail.credentialsDisabled, { locked })
+  const lockState = lockContext(pageLock, environment)
+
   return {
     heading: registryName,
     caption: team.name,
     displayName: name,
     strip: buildStrip(team.slug, environment),
     tag: statusTag({ disabled: locked, paused: detail.paused }),
-    ...lockContext(pageLock, environment),
-    credentialsBanner: credentialsBanner(detail.credentialsDisabled, {
-      locked
-    }),
+    ...lockState,
+    // Disabled credentials are what disable an environment, so one banner says
+    // it, the more specific one, rather than two saying the same thing.
+    lockBanner: credentials ? null : lockState.lockBanner,
+    credentialsBanner: credentials,
     pausedNote: detail.paused
       ? `Changes wait here until the platform team resumes ${registryName}.`
       : null,
@@ -368,15 +367,9 @@ export function buildEnvironmentPage({
     deployLocked: isDeployLocked(pageLock, environment, detail),
     setUp: Boolean(detail.setUp),
     setUpUrl:
-      !detail.setUp &&
-      environment !== defaultTeamEnvironment() &&
-      !lock.teamDisabled
+      !detail.setUp && environment !== defaultTeamEnvironment()
         ? environmentSetUpUrl(team.slug, environment)
         : null,
-    setUpLocked:
-      !detail.setUp &&
-      environment !== defaultTeamEnvironment() &&
-      lock.teamDisabled,
     changes: operations.open.map((operation) =>
       buildOperationItem(operation, { modelNames })
     ),

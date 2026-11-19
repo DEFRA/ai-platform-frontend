@@ -55,6 +55,9 @@
             {% endfor %}
           </tbody>
         </table>
+        {% set tablePage = teamsPage %}
+        {% set tableNoun = "teams" %}
+        {% include "partials/table-pagination.njk" %}
       {% endif %}
     </div>
   </div>

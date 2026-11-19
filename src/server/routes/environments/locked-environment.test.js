@@ -252,7 +252,7 @@ describe('#environments of a disabled team', () => {
       expect(open.is('a')).toBe(true)
     })
 
-    test('greys setting up another environment as plain text while the team is disabled, with no environment ticked', async () => {
+    test('still offers setting up another environment as a link while the team is disabled, because a disabled team can still set one up', async () => {
       const notSetUp = {
         environment: 'qa',
         setUp: false,
@@ -269,10 +269,10 @@ describe('#environments of a disabled team', () => {
 
       const { $ } = await get(OVERVIEW_URL)
 
-      expect($('a[data-testid="set-up-environment"]')).toHaveLength(0)
-      expect(text($, '[data-testid="set-up-environment-locked"]')).toBe(
-        'Set up QA'
+      expect($('a[data-testid="set-up-environment"]').attr('href')).toBe(
+        QA_SET_UP_URL
       )
+      expect($('[data-testid="set-up-environment-locked"]')).toHaveLength(0)
     })
 
     test('offers setting up an environment as a link when the team is not disabled', async () => {
@@ -423,7 +423,7 @@ describe('#environments of a disabled team', () => {
       expect(response.statusCode).toBe(statusCodes.ok)
       expect(text($, '[data-testid="environment-tag"]')).toBe('Disabled')
       expect(text($, '[data-testid="team-lock-banner"]')).toContain(
-        'This team is disabled'
+        'This environment is disabled'
       )
 
       const deploy = $('[data-testid="deploy-a-model"]')
@@ -473,15 +473,13 @@ describe('#environments of a disabled team', () => {
       expect($('[data-testid="team-status"]')).toHaveLength(0)
     })
 
-    test('leaves an environment the admin did not tick Available and usable, with the banner for the team', async () => {
+    test('leaves an environment that is not disabled fully usable for a disabled team, with no banner of the team on its page', async () => {
       backendFor(DISABLED)
 
       const { $ } = await get(INFRADEV_URL)
 
       expect(text($, '[data-testid="environment-tag"]')).toBe('Available')
-      expect(text($, '[data-testid="team-lock-banner"]')).toContain(
-        'This team is disabled'
-      )
+      expect($('[data-testid="team-lock-banner"]')).toHaveLength(0)
       expect($('a[data-testid="deploy-a-model"]')).toHaveLength(1)
       expect($('a[data-testid="model-remove"]')).toHaveLength(2)
       expect($('a[data-testid="change-limits"]')).toHaveLength(1)
@@ -541,10 +539,12 @@ describe('#environments of a disabled team', () => {
       )
     })
 
-    test('shows setting up an environment as the 409 page while the team is disabled, whatever was ticked', async () => {
+    test('does not refuse setting up an environment while the team is disabled: a disabled team can still set one up', async () => {
       backend(DISABLED)
 
-      expectCannotChange(await get(QA_SET_UP_URL), `${OVERVIEW_URL}/qa`)
+      const { response } = await get(QA_SET_UP_URL)
+
+      expect(response.statusCode).not.toBe(statusCodes.conflict)
     })
 
     test('shows setting up an environment that is itself disabled as the 409 page', async () => {
