@@ -120,7 +120,7 @@ switch-on. Read its start-up log counts (teams without an Admin, `credentialsOrp
 
 ### B19 Team usage and chargeback
 
-- **Built on 26 and 27 Nov 2026, in open pull requests** (backend #103, frontend #124, cdp-app-config #5436; HVE board #52): a team member reads their team's usage in one environment and a Platform Admin reads every team's, from the gateway log through a real Log Analytics reader, with every cost an estimate. See [07](implemented/07-environments-and-deployments.md). **Left:** carbon (method not agreed; the page is built and hidden until it is switched on), a cost from an agreed tariff and period, and figures from real calls, which wait on successful model calls and the team credentials in HVE board #102. Budgets are HVE board #103.
+- **Built on 26 Nov 2026, in open pull requests** (backend #103, frontend #124, cdp-app-config #5436; HVE board #52): a team member reads their team's usage in one environment and a Platform Admin reads every team's, from the gateway log through a real Log Analytics reader, with every cost an estimate. See [07](implemented/07-environments-and-deployments.md). **Left:** carbon (method not agreed; the page is built and hidden until it is switched on), a cost from an agreed tariff and period, and figures from real calls, which wait on successful model calls and the team credentials in HVE board #102. Budgets are HVE board #103.
 
 - A usage query joining the gateway log to the team file by team, model, environment and service code; a team usage page
   (Members see it, only Admins export it).
