@@ -173,9 +173,15 @@ describe('#keyUsageRowOf', () => {
 })
 
 describe('#keyUsageOf', () => {
-  test('is null when there is no working key', () => {
-    expect(keyUsageOf([], [], {})).toBeNull()
-    expect(keyUsageOf([{ ...row, expired: true }], [null], {})).toBeNull()
+  test('has no rows, and says why, when there is no working key', () => {
+    expect(keyUsageOf([], [], {})).toMatchObject({
+      rows: [],
+      empty: { text: expect.stringContaining('do not have a key yet') }
+    })
+    expect(keyUsageOf([{ ...row, expired: true }], [null], {})).toMatchObject({
+      rows: [],
+      empty: { text: expect.stringContaining('has expired') }
+    })
   })
 
   test('is a row for each working key, in order, with the limits of its model', () => {

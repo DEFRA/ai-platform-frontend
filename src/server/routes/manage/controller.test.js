@@ -1020,13 +1020,23 @@ describe('#manageController', () => {
       expect($('[data-testid="key-allowance-key"]')).toHaveLength(1)
     })
 
-    test('leaves the section out when the person has no working key', async () => {
+    test('says what it will show, and where to get a key, when the person has none', async () => {
       const $ = await getManage({ 'GET /v1/credentials': { items: [] } })
 
-      expect($('[data-testid="key-usage-heading"]')).toHaveLength(0)
+      expect($('[data-testid="key-usage-heading"]').text()).toBe(
+        'Your allowance and usage'
+      )
+      expect(text($, '[data-testid="key-usage-empty"]')).toContain(
+        'You do not have a key yet'
+      )
+      expect($('[data-testid="key-usage-empty"] a').attr('href')).toBe(
+        '/connect/shared/start'
+      )
+      expect($('[data-testid="key-allowance"]')).toHaveLength(0)
+      expect($('[data-testid="filter-bar"]')).toHaveLength(0)
     })
 
-    test('leaves an expired key out of the section', async () => {
+    test('says the key has expired, and shows no allowance for it', async () => {
       const $ = await getManage({
         'GET /v1/credentials': {
           items: [
@@ -1035,7 +1045,10 @@ describe('#manageController', () => {
         }
       })
 
-      expect($('[data-testid="key-usage-heading"]')).toHaveLength(0)
+      expect(text($, '[data-testid="key-usage-empty"]')).toContain(
+        'Your key has expired'
+      )
+      expect($('[data-testid="key-allowance"]')).toHaveLength(0)
     })
   })
 

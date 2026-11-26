@@ -7,7 +7,11 @@
 {% from "section-card/macro.njk" import appSectionCard %}
 
 <h2 class="govuk-heading-m" id="your-usage" data-testid="key-usage-heading">Your allowance and usage</h2>
-{% include "partials/filter-bar.njk" %}
+{% if keyUsage.empty %}
+  <p class="govuk-body" data-testid="key-usage-empty">{{ keyUsage.empty.text }} <a class="govuk-link" href="{{ keyUsage.empty.href }}">{{ keyUsage.empty.linkText }}</a></p>
+{% else %}
+  {% include "partials/filter-bar.njk" %}
+{% endif %}
 
 {% if keyUsage.isMock %}
   <p class="govuk-body" data-testid="key-usage-example">These figures are examples, not real use.</p>

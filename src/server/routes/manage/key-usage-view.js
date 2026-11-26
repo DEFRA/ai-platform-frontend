@@ -180,7 +180,8 @@ export function keyUsageRowOf(row, usage, limits, days) {
 
 /**
  * Personal access's "Your allowance and usage" section, for the keys that are
- * still working. Null when there are none to show.
+ * still working. With none, `rows` is empty and `empty` says why and where to
+ * get one, so the section is always on the page.
  * @param {object[]} keyRows - from `buildKeyRows`.
  * @param {Array<object | null>} usages - one reading per key row, or null.
  * @param {Record<string, {tokensPerDay?: number, requestsPerMinute?: number}>} limits - the default limits by model slug.
@@ -194,14 +195,22 @@ export function keyUsageOf(keyRows, usages, limits, days = KEY_USAGE_DAYS) {
       keyUsageRowOf(row, usage, limits[row.modelSlug] ?? {}, days)
     )
 
-  if (rows.length === 0) {
-    return null
-  }
-
   return {
     days,
     isMock: rows.some((row) => row.isMock),
     many: rows.length > 1,
-    rows
+    rows,
+    empty: rows.length > 0 ? null : emptyOf(keyRows)
+  }
+}
+
+function emptyOf(keyRows) {
+  return {
+    text:
+      keyRows.length === 0
+        ? 'You do not have a key yet. Once you have one, its allowance and usage show here.'
+        : 'Your key has expired. Once you have a new one, its allowance and usage show here.',
+    linkText: 'Try a model on your own',
+    href: '/connect/shared/start'
   }
 }
