@@ -18,6 +18,10 @@
     captionAbove: true
   }) }}
 
+  <p class="govuk-body-s">
+    <a class="govuk-link" href="{{ pageUrl }}/usage" data-testid="usage-link">See what your team has used in {{ heading }}</a>
+  </p>
+
   <p class="govuk-body-l">
     {{ displayName }}
     {{ govukTag({ text: tag.text, classes: tag.tagClass, attributes: { "data-testid": "environment-tag" } }) }}
@@ -32,11 +36,6 @@
   <div aria-live="polite" data-progress-refresh="{{ statusUrl }}">
     {% include "environments/partials/environment-status.njk" %}
   </div>
-
-  <p class="govuk-body">
-    <a class="govuk-link" href="{{ pageUrl }}/usage" data-testid="usage-link">See what your team has used in {{ heading }}</a>
-  </p>
-
 
   {% include "environments/partials/connection.njk" %}
 {% endblock %}

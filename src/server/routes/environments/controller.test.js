@@ -717,17 +717,24 @@ describe('#environmentsController', () => {
       }
     })
 
-    test('links to what the team has used in this environment', async () => {
+    test('links to what the team has used in this environment, above the environment name, in small text', async () => {
       backend()
 
       const $ = pageOf((await get(INFRADEV_URL)).result)
+      const link = $('[data-testid="usage-link"]')
 
-      expect($('[data-testid="usage-link"]').attr('href')).toBe(
-        `${INFRADEV_URL}/usage`
-      )
+      expect(link.attr('href')).toBe(`${INFRADEV_URL}/usage`)
       expect(text($, '[data-testid="usage-link"]')).toBe(
         'See what your team has used in Infradev'
       )
+      expect(link.parent().hasClass('govuk-body-s')).toBe(true)
+      expect(
+        link
+          .parent()
+          .nextAll('.govuk-body-l')
+          .first()
+          .find('[data-testid="environment-tag"]')
+      ).toHaveLength(1)
     })
 
     test('puts each section in a summary card of its own across the full width, with Deploy a model right aligned in the Models card', async () => {
