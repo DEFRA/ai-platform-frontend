@@ -106,6 +106,10 @@ limits-unchanged`, `409 environment-not-set-up`, `403 admin-required`, `409 idem
   `Idempotency-Key`), sees it once on `/added`, and views, rotates or revokes through the existing client secret pages; a
   Member sees hint and expiry. "Using a client secret" shows the token request and model call where secrets are allowed.
 
+## Usage (B19 in part)
+
+Built on 26 Nov 2026 in an open pull request (frontend #124, with backend #103), not yet merged or deployed. `/environments/{slug}/{environment}/usage` shows a member the team's requests, tokens and an estimated cost in that environment over the last 7, 30 or 90 days, in total, by model and by day (a bar beside each day, with the table giving every figure), and each environment page links to it. The figures come from the gateway log through the backend; the backend's mock source shows an example-data notice. A cost is always labelled an estimate, and a model with no price says "Not available", never 0. Not built: carbon, personal-key usage, the Home summary and budgets (see [remaining](../remaining.md)).
+
 ## Not here
 
 Client secret rules in QA, PREPROD and PROD, the journey tests (P3, P10), usage and costs, approvals, and the earlier

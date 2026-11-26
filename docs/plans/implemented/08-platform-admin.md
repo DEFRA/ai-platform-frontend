@@ -219,3 +219,7 @@ from the team lock above: the environment stays Available and the team is never 
   shows "Credentials are disabled" with a 409 and a link back to the team's environments (`errors.js`,
   `credentialsDisabledPage`). The change-application page and the add-secret page refuse the same way before calling
   the backend.
+
+## Usage tab (B19 in part)
+
+Built on 26 Nov 2026 in an open pull request (frontend #124, with backend #103), not yet merged or deployed. `/admin/usage` lists every team's requests, tokens and estimated cost in one environment over the last 7, 30 or 90 days, busiest first, with the team's service code, and the gateway APIs no team owns (such as the Research tier). Like every Admin page it asks the backend on each request, and the backend decides who may read it. An environment with no usage source says so. Budgets and each team's limits against its usage are not here yet.
