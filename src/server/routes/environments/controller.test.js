@@ -256,12 +256,12 @@ describe('#environmentsController', () => {
       const { result } = await get(OVERVIEW_URL)
       const $ = pageOf(result)
 
-      expect(text($, 'h1')).toBe('Environments and deployments')
+      expect(text($, 'h1')).toBe('Environments, deployments and credentials')
       expect(text($, '[data-testid="app-heading-caption"]')).toBe(
         'Flood Risk Team'
       )
       expect($('title').text()).toContain(
-        'Environments and deployments - Flood Risk Team'
+        'Environments, deployments and credentials - Flood Risk Team'
       )
 
       const infradev = $('[data-testid="environment-card-infradev"]')
