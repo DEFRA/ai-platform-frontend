@@ -12,15 +12,19 @@ import { donut, stackedBars } from '#/server/common/helpers/usage-charts.js'
 import { environmentRegistryName } from '#/server/common/helpers/environment-names.js'
 
 const FORECAST_NOTE = 'at the rate so far this month'
+const NOT_AVAILABLE = 'Not available'
+const COST_LABEL = 'Estimated cost'
+const WHOLE_AMOUNT_FROM = 100
+const DAY_OF_MONTH_FROM = 8
 
 function shortMoney(value, currency) {
   return typeof value === 'number'
     ? new Intl.NumberFormat('en-GB', {
         style: 'currency',
         currency,
-        maximumFractionDigits: value >= 100 ? 0 : 2
+        maximumFractionDigits: value >= WHOLE_AMOUNT_FROM ? 0 : 2
       }).format(value)
-    : 'Not available'
+    : NOT_AVAILABLE
 }
 
 function monthLabel(overview) {
@@ -95,77 +99,56 @@ function environmentLink(slug, environment) {
   return `/environments/${encodeURIComponent(slug)}/${encodeURIComponent(environment)}/usage`
 }
 
-/**
- * The Overview tab: four figures, what needs attention, the tokens of each
- * day, and the shares by model and environment.
- * @param {object} overview - The backend's answer.
- */
-export function overviewViewOf(overview) {
+function overviewCardsOf(overview) {
   const { currency } = overview.costBasis
   const { totals, forecast } = overview.current
+  const slug = encodeURIComponent(overview.teamSlug)
+
+  return [
+    {
+      value: formatTokens(totals.tokens),
+      label: 'Tokens used',
+      href: null,
+      note: untilToday(overview)
+    },
+    {
+      value: shortMoney(totals.cost, currency),
+      label: COST_LABEL,
+      href: `/usage/${slug}/costs`,
+      note:
+        forecast.cost === null
+          ? null
+          : `Forecast ${shortMoney(forecast.cost, currency)} for ${monthLabel(overview).split(' ')[0]}`
+    },
+    {
+      value: formatCount(totals.requests),
+      label: 'Requests',
+      href: null,
+      note: untilToday(overview)
+    },
+    ...(overview.carbonBasis.enabled
+      ? [
+          {
+            value: formatCarbon(totals.carbonKg),
+            label: 'Carbon (CO₂e), estimated',
+            href: `/usage/${slug}/carbon`,
+            note:
+              forecast.carbonKg === null
+                ? null
+                : `Forecast ${formatCarbon(forecast.carbonKg)} ${FORECAST_NOTE}`
+          }
+        ]
+      : [])
+  ]
+}
+
+// The tables beside the charts: tokens by day, then the share of each model
+// and each environment.
+function overviewBreakdownOf(overview) {
+  const { currency } = overview.costBasis
   const environments = overview.current.byEnvironment
-  const seriesOf = new Map(
-    environments.map((environment, index) => [environment.environment, index])
-  )
-  const dayChart = stackedBars({
-    label: `Tokens each day in ${monthLabel(overview)}`,
-    categories: overview.current.byDay.map((day) => ({
-      label: String(Number(day.day.slice(8))),
-      parts: Object.entries(day.byEnvironment).map(([environment, value]) => ({
-        series: seriesOf.get(environment),
-        value
-      }))
-    })),
-    format: formatTokens
-  })
 
   return {
-    ...frameOf(overview, 'overview'),
-    heading: 'Usage',
-    intro: `What ${overview.teamName} has used and what it costs, in every environment.`,
-    estimateNote: overview.carbonBasis.enabled
-      ? 'Costs and carbon are estimates.'
-      : 'Costs are estimates.',
-    cards: [
-      {
-        value: formatTokens(totals.tokens),
-        label: 'Tokens used',
-        href: null,
-        note: untilToday(overview)
-      },
-      {
-        value: shortMoney(totals.cost, currency),
-        label: 'Estimated cost',
-        href: `/usage/${encodeURIComponent(overview.teamSlug)}/costs`,
-        note:
-          forecast.cost === null
-            ? null
-            : `Forecast ${shortMoney(forecast.cost, currency)} for ${monthLabel(overview).split(' ')[0]}`
-      },
-      {
-        value: formatCount(totals.requests),
-        label: 'Requests',
-        href: null,
-        note: untilToday(overview)
-      },
-      ...(overview.carbonBasis.enabled
-        ? [
-            {
-              value: formatCarbon(totals.carbonKg),
-              label: 'Carbon (CO₂e), estimated',
-              href: `/usage/${encodeURIComponent(overview.teamSlug)}/carbon`,
-              note:
-                forecast.carbonKg === null
-                  ? null
-                  : `Forecast ${formatCarbon(forecast.carbonKg)} ${FORECAST_NOTE}`
-            }
-          ]
-        : [])
-    ],
-    attention: overview.attention.map((item) =>
-      attentionOf(item, overview.teamSlug)
-    ),
-    dayChart,
     legend: environments.map((environment, index) => ({
       series: index,
       name: environmentRegistryName(environment.environment),
@@ -191,8 +174,112 @@ export function overviewViewOf(overview) {
       share: formatPercent(environment.share),
       value: environment.share,
       cost: shortMoney(environment.cost, currency)
+    }))
+  }
+}
+
+/**
+ * The Overview tab: four figures, what needs attention, the tokens of each
+ * day, and the shares by model and environment.
+ * @param {object} overview - The backend's answer.
+ */
+export function overviewViewOf(overview) {
+  const environments = overview.current.byEnvironment
+  const seriesOf = new Map(
+    environments.map((environment, index) => [environment.environment, index])
+  )
+  const dayChart = stackedBars({
+    label: `Tokens each day in ${monthLabel(overview)}`,
+    categories: overview.current.byDay.map((day) => ({
+      label: String(Number(day.day.slice(DAY_OF_MONTH_FROM))),
+      parts: Object.entries(day.byEnvironment).map(([environment, value]) => ({
+        series: seriesOf.get(environment),
+        value
+      }))
     })),
-    hasUsage: totals.requests > 0
+    format: formatTokens
+  })
+
+  return {
+    ...frameOf(overview, 'overview'),
+    heading: 'Usage',
+    intro: `What ${overview.teamName} has used and what it costs, in every environment.`,
+    estimateNote: overview.carbonBasis.enabled
+      ? 'Costs and carbon are estimates.'
+      : 'Costs are estimates.',
+    cards: overviewCardsOf(overview),
+    attention: overview.attention.map((item) =>
+      attentionOf(item, overview.teamSlug)
+    ),
+    dayChart,
+    ...overviewBreakdownOf(overview),
+    hasUsage: overview.current.totals.requests > 0
+  }
+}
+
+// A part of a total that may be unknown: 0 when either is missing, never a
+// share of a number nobody worked out.
+function shareOfTotal(part, total) {
+  return total > 0 && part !== null ? part / total : 0
+}
+
+function costsCardsOf(overview) {
+  const { currency } = overview.costBasis
+  const { totals, forecast } = overview.current
+
+  return [
+    {
+      value: shortMoney(totals.cost, currency),
+      label: 'Estimated cost so far',
+      note: untilToday(overview)
+    },
+    {
+      value: shortMoney(forecast.cost, currency),
+      label: `Forecast for ${monthLabel(overview).split(' ')[0]}`,
+      note: FORECAST_NOTE
+    },
+    {
+      value: shortMoney(totals.costPerMillionTokens, currency),
+      label: 'For a million tokens',
+      note: 'Across every model the team uses'
+    }
+  ]
+}
+
+function costsBreakdownOf(overview) {
+  const { currency } = overview.costBasis
+  const { totals } = overview.current
+  const environments = overview.current.byEnvironment
+
+  return {
+    environmentDonut: donut({
+      label: 'Estimated cost by environment',
+      parts: environments.map((environment, index) => ({
+        series: index,
+        value: environment.cost ?? 0
+      })),
+      centre: shortMoney(totals.cost, currency),
+      caption: 'so far'
+    }),
+    byEnvironment: environments.map((environment, index) => ({
+      series: index,
+      name: environmentRegistryName(environment.environment),
+      href: environmentLink(overview.teamSlug, environment.environment),
+      cost: shortMoney(environment.cost, currency),
+      share: formatPercent(shareOfTotal(environment.cost, totals.cost))
+    })),
+    byModel: overview.current.byModel.map((model, index) => ({
+      series: index,
+      name: model.modelSlug,
+      input: formatTokens(model.promptTokens),
+      output: formatTokens(model.completionTokens),
+      price: model.price
+        ? `${shortMoney(model.price.inputPerMillion, currency)} and ${shortMoney(model.price.outputPerMillion, currency)}`
+        : 'No price yet',
+      cost: shortMoney(model.cost, currency),
+      share: formatPercent(shareOfTotal(model.cost, totals.cost)),
+      value: shareOfTotal(model.cost, totals.cost)
+    }))
   }
 }
 
@@ -204,7 +291,6 @@ export function overviewViewOf(overview) {
 export function costsViewOf(overview) {
   const { currency } = overview.costBasis
   const { totals, forecast } = overview.current
-  const environments = overview.current.byEnvironment
   const last = overview.months.length - 1
   const monthChart = stackedBars({
     label: 'Estimated cost each month',
@@ -224,26 +310,10 @@ export function costsViewOf(overview) {
     estimateNote: 'Every cost is an estimate.',
     heading: 'Costs',
     intro: `What ${overview.teamName}'s usage costs.`,
-    cards: [
-      {
-        value: shortMoney(totals.cost, currency),
-        label: 'Estimated cost so far',
-        note: untilToday(overview)
-      },
-      {
-        value: shortMoney(forecast.cost, currency),
-        label: `Forecast for ${monthLabel(overview).split(' ')[0]}`,
-        note: FORECAST_NOTE
-      },
-      {
-        value: shortMoney(totals.costPerMillionTokens, currency),
-        label: 'For a million tokens',
-        note: 'Across every model the team uses'
-      }
-    ],
+    cards: costsCardsOf(overview),
     monthChart,
     monthLegend: [
-      { className: 'app-chart__s0', text: 'Estimated cost' },
+      { className: 'app-chart__s0', text: COST_LABEL },
       {
         className: 'app-chart__forecast',
         text: 'Forecast for the rest of the month'
@@ -253,45 +323,73 @@ export function costsViewOf(overview) {
       label: formatMonthLong(month.key),
       cost: shortMoney(month.cost, currency)
     })),
-    environmentDonut: donut({
-      label: 'Estimated cost by environment',
-      parts: environments.map((environment, index) => ({
-        series: index,
-        value: environment.cost ?? 0
-      })),
-      centre: shortMoney(totals.cost, currency),
-      caption: 'so far'
-    }),
-    byEnvironment: environments.map((environment, index) => ({
-      series: index,
-      name: environmentRegistryName(environment.environment),
-      href: environmentLink(overview.teamSlug, environment.environment),
-      cost: shortMoney(environment.cost, currency),
-      share: formatPercent(
-        totals.cost > 0 && environment.cost !== null
-          ? environment.cost / totals.cost
-          : 0
-      )
-    })),
-    byModel: overview.current.byModel.map((model, index) => ({
-      series: index,
-      name: model.modelSlug,
-      input: formatTokens(model.promptTokens),
-      output: formatTokens(model.completionTokens),
-      price: model.price
-        ? `${shortMoney(model.price.inputPerMillion, currency)} and ${shortMoney(model.price.outputPerMillion, currency)}`
-        : 'No price yet',
-      cost: shortMoney(model.cost, currency),
-      share: formatPercent(
-        totals.cost > 0 && model.cost !== null ? model.cost / totals.cost : 0
-      ),
-      value:
-        totals.cost > 0 && model.cost !== null ? model.cost / totals.cost : 0
-    })),
+    ...costsBreakdownOf(overview),
     totalCost: shortMoney(totals.cost, currency),
     priceVersion: overview.costBasis.priceVersion,
     currency,
     hasUsage: totals.requests > 0
+  }
+}
+
+function carbonCardsOf(overview) {
+  const { totals, forecast } = overview.current
+  const grams = totals.carbonGramsPerMillionTokens
+
+  return [
+    {
+      value: formatCarbon(totals.carbonKg),
+      label: 'Carbon (CO₂e) so far',
+      note: untilToday(overview)
+    },
+    {
+      value: formatCarbon(forecast.carbonKg),
+      label: `Forecast for ${monthLabel(overview).split(' ')[0]}`,
+      note: FORECAST_NOTE
+    },
+    {
+      value: formatElectricity(totals.electricityKwh),
+      label: 'Electricity so far',
+      note: 'Running the models and cooling them'
+    },
+    {
+      value:
+        typeof grams === 'number' ? `${Math.round(grams)} g` : NOT_AVAILABLE,
+      label: 'For a million tokens',
+      note: 'Across every model the team uses'
+    }
+  ]
+}
+
+function carbonBreakdownOf(overview) {
+  const { totals } = overview.current
+  const models = overview.current.byModel
+
+  return {
+    tokensDonut: donut({
+      label: 'Share of tokens by model',
+      parts: models.map((model, index) => ({
+        series: index,
+        value: model.tokens
+      })),
+      centre: formatTokens(totals.tokens)
+    }),
+    carbonDonut: donut({
+      label: 'Share of carbon by model',
+      parts: models.map((model, index) => ({
+        series: index,
+        value: model.carbonKg ?? 0
+      })),
+      centre: formatCarbon(totals.carbonKg)
+    }),
+    byModel: models.map((model, index) => ({
+      series: index,
+      name: model.modelSlug,
+      tokens: formatTokens(model.tokens),
+      tokenShare: formatPercent(model.share),
+      carbon: formatCarbon(model.carbonKg),
+      carbonShare: formatPercent(shareOfTotal(model.carbonKg, totals.carbonKg)),
+      value: shareOfTotal(model.carbonKg, totals.carbonKg)
+    }))
   }
 }
 
@@ -302,7 +400,6 @@ export function costsViewOf(overview) {
 export function carbonViewOf(overview) {
   const { totals, forecast } = overview.current
   const last = overview.months.length - 1
-  const models = overview.current.byModel
   const totalCarbon = totals.carbonKg
   const monthChart = stackedBars({
     label: 'Estimated carbon each month',
@@ -322,31 +419,7 @@ export function carbonViewOf(overview) {
     estimateNote: 'Every figure is an estimate.',
     heading: 'Carbon',
     intro: `An estimate of the carbon from the electricity ${overview.teamName}'s model calls use.`,
-    cards: [
-      {
-        value: formatCarbon(totalCarbon),
-        label: 'Carbon (CO₂e) so far',
-        note: untilToday(overview)
-      },
-      {
-        value: formatCarbon(forecast.carbonKg),
-        label: `Forecast for ${monthLabel(overview).split(' ')[0]}`,
-        note: FORECAST_NOTE
-      },
-      {
-        value: formatElectricity(totals.electricityKwh),
-        label: 'Electricity so far',
-        note: 'Running the models and cooling them'
-      },
-      {
-        value:
-          typeof totals.carbonGramsPerMillionTokens === 'number'
-            ? `${Math.round(totals.carbonGramsPerMillionTokens)} g`
-            : 'Not available',
-        label: 'For a million tokens',
-        note: 'Across every model the team uses'
-      }
-    ],
+    cards: carbonCardsOf(overview),
     monthChart,
     monthLegend: [
       { className: 'app-chart__s0', text: 'Estimated carbon (CO₂e)' },
@@ -359,38 +432,7 @@ export function carbonViewOf(overview) {
       label: formatMonthLong(month.key),
       carbon: formatCarbon(month.carbonKg)
     })),
-    tokensDonut: donut({
-      label: 'Share of tokens by model',
-      parts: models.map((model, index) => ({
-        series: index,
-        value: model.tokens
-      })),
-      centre: formatTokens(totals.tokens)
-    }),
-    carbonDonut: donut({
-      label: 'Share of carbon by model',
-      parts: models.map((model, index) => ({
-        series: index,
-        value: model.carbonKg ?? 0
-      })),
-      centre: formatCarbon(totalCarbon)
-    }),
-    byModel: models.map((model, index) => ({
-      series: index,
-      name: model.modelSlug,
-      tokens: formatTokens(model.tokens),
-      tokenShare: formatPercent(model.share),
-      carbon: formatCarbon(model.carbonKg),
-      carbonShare: formatPercent(
-        totalCarbon > 0 && model.carbonKg !== null
-          ? model.carbonKg / totalCarbon
-          : 0
-      ),
-      value:
-        totalCarbon > 0 && model.carbonKg !== null
-          ? model.carbonKg / totalCarbon
-          : 0
-    })),
+    ...carbonBreakdownOf(overview),
     hasUsage: totals.requests > 0
   }
 }
@@ -476,7 +518,7 @@ export function homeUsageOf(summary) {
             },
             {
               value: shortMoney(first.totals.cost, first.costBasis.currency),
-              label: 'Estimated cost',
+              label: COST_LABEL,
               note:
                 first.forecast.cost === null
                   ? null

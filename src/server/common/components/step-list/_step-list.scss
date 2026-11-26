@@ -1,5 +1,5 @@
-@use "govuk-frontend" as *;
-@use "variables/colours" as *;
+@use 'govuk-frontend' as *;
+@use 'variables/colours' as *;
 
 $app-step-marker-size: 28px;
 $app-step-line-width: 2px;
@@ -34,8 +34,8 @@ $app-step-line-width: 2px;
   bottom: 0;
   left: ($app-step-marker-size - $app-step-line-width) * 0.5;
   width: $app-step-line-width;
-  background-color: govuk-colour("mid-grey");
-  content: "";
+  background-color: govuk-colour('mid-grey');
+  content: '';
 }
 
 .app-step-list__item--done:not(:last-child)::before {
@@ -51,7 +51,7 @@ $app-step-line-width: 2px;
   height: $app-step-marker-size;
   // Dark enough (3:1) to be seen on white: it is the only mark of a step that
   // has not started. The connecting line is decoration and stays light.
-  border: $app-step-line-width solid govuk-colour("dark-grey");
+  border: $app-step-line-width solid govuk-colour('dark-grey');
   border-radius: 50%;
 }
 
@@ -69,22 +69,22 @@ $app-step-line-width: 2px;
   width: 7px;
   height: 13px;
   transform: rotate(45deg);
-  border: solid govuk-colour("white");
+  border: solid govuk-colour('white');
   border-width: 0 3px 3px 0;
-  content: "";
+  content: '';
 }
 
 .app-step-list__item--current .app-step-list__marker {
-  border-color: govuk-colour("mid-grey");
-  border-top-color: govuk-colour("blue");
+  border-color: govuk-colour('mid-grey');
+  border-top-color: govuk-colour('blue');
   animation: app-step-spin 1s linear infinite;
 }
 
 // A failed step is a red circle with a white cross, so it is not told apart by
 // colour alone (the hidden text says "Failed" too).
 .app-step-list__item--failed .app-step-list__marker {
-  border-color: govuk-colour("red");
-  background-color: govuk-colour("red");
+  border-color: govuk-colour('red');
+  background-color: govuk-colour('red');
 }
 
 .app-step-list__item--failed .app-step-list__marker::before,
@@ -95,8 +95,8 @@ $app-step-line-width: 2px;
   box-sizing: border-box;
   width: 2px;
   height: 14px;
-  background-color: govuk-colour("white");
-  content: "";
+  background-color: govuk-colour('white');
+  content: '';
 }
 
 .app-step-list__item--failed .app-step-list__marker::before {
@@ -118,7 +118,7 @@ $app-step-line-width: 2px;
 .app-step-list__label {
   margin: 0;
   padding-top: 2px;
-  color: govuk-colour("black");
+  color: govuk-colour('black');
 }
 
 .app-step-list__item--current .app-step-list__label {
@@ -126,14 +126,14 @@ $app-step-line-width: 2px;
 }
 
 .app-step-list__item--waiting .app-step-list__label {
-  color: govuk-colour("dark-grey");
+  color: govuk-colour('dark-grey');
 }
 
 .app-step-list__hint {
   @include govuk-font($size: 16);
 
   margin: govuk-spacing(1) 0 0;
-  color: govuk-colour("dark-grey");
+  color: govuk-colour('dark-grey');
 }
 
 // From tablet width the steps run across the page: the circles and the line

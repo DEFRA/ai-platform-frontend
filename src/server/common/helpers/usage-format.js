@@ -1,8 +1,12 @@
 const countFormat = new Intl.NumberFormat('en-GB')
 const MS_PER_DAY = 86_400_000
+const NOT_AVAILABLE = 'Not available'
+const DAYS_IN_WEEK = 7
+const DAYS_IN_MONTH = 30
+const DAYS_IN_QUARTER = 90
 
-export const USAGE_DAYS = [7, 30, 90]
-export const DEFAULT_USAGE_DAYS = 30
+export const USAGE_DAYS = [DAYS_IN_WEEK, DAYS_IN_MONTH, DAYS_IN_QUARTER]
+export const DEFAULT_USAGE_DAYS = DAYS_IN_MONTH
 
 /**
  * The number of days a usage address asks for: 7, 30 or 90, and 30 for
@@ -37,7 +41,7 @@ export function formatCost(cost, currency) {
     ? new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(
         cost
       )
-    : 'Not available'
+    : NOT_AVAILABLE
 }
 
 function longDate(milliseconds) {
@@ -76,11 +80,13 @@ export function formatDay(day) {
 const MILLION = 1_000_000
 const BILLION = 1_000_000_000
 const THOUSAND = 1000
+const CARD_DIGITS_FROM = 100
+const SMALL_AMOUNT = 10
 
 function compact(value, divisor, suffix) {
   const scaled = value / divisor
 
-  return `${scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1)}${suffix}`
+  return `${scaled >= CARD_DIGITS_FROM ? scaled.toFixed(0) : scaled.toFixed(1)}${suffix}`
 }
 
 /**
@@ -97,9 +103,11 @@ export function formatTokens(value) {
     return compact(value, MILLION, 'm')
   }
 
-  return value >= THOUSAND
-    ? compact(value, THOUSAND, 'k')
-    : countFormat.format(value)
+  if (value >= THOUSAND) {
+    return compact(value, THOUSAND, 'k')
+  }
+
+  return countFormat.format(value)
 }
 
 /**
@@ -110,12 +118,16 @@ export function formatTokens(value) {
  */
 export function formatCarbon(kilograms) {
   if (typeof kilograms !== 'number') {
-    return 'Not available'
+    return NOT_AVAILABLE
   }
 
-  return kilograms < 1
-    ? `${(kilograms * THOUSAND).toFixed(kilograms * THOUSAND < 10 ? 1 : 0)} g`
-    : `${kilograms.toFixed(1)} kg`
+  if (kilograms >= 1) {
+    return `${kilograms.toFixed(1)} kg`
+  }
+
+  const grams = kilograms * THOUSAND
+
+  return `${grams.toFixed(grams < SMALL_AMOUNT ? 1 : 0)} g`
 }
 
 /**
@@ -124,9 +136,11 @@ export function formatCarbon(kilograms) {
  * @returns {string}
  */
 export function formatElectricity(kilowattHours) {
-  return typeof kilowattHours === 'number'
-    ? `${kilowattHours.toFixed(kilowattHours < 10 ? 1 : 0)} kWh`
-    : 'Not available'
+  if (typeof kilowattHours !== 'number') {
+    return NOT_AVAILABLE
+  }
+
+  return `${kilowattHours.toFixed(kilowattHours < SMALL_AMOUNT ? 1 : 0)} kWh`
 }
 
 /**

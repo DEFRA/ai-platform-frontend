@@ -1,4 +1,4 @@
-@use "govuk-frontend" as *;
+@use 'govuk-frontend' as *;
 
 // The timeout warning: a native modal <dialog>, closed until the script opens it.
 .app-timeout-dialog {
@@ -6,9 +6,9 @@
   width: calc(100% - #{govuk-spacing(6)});
   max-width: 500px;
   padding: govuk-spacing(6);
-  border: govuk-spacing(1) solid govuk-colour("black");
-  color: govuk-colour("black");
-  background: govuk-colour("white");
+  border: govuk-spacing(1) solid govuk-colour('black');
+  color: govuk-colour('black');
+  background: govuk-colour('white');
 
   &::backdrop {
     background: rgb(11, 12, 12, 0.7);

@@ -1,5 +1,5 @@
-@use "govuk-frontend" as *;
-@use "variables/colours" as *;
+@use 'govuk-frontend' as *;
+@use 'variables/colours' as *;
 
 $app-environment-strip-bar: 4px;
 
@@ -30,7 +30,7 @@ $app-environment-strip-bar: 4px;
   flex-direction: column;
   padding: govuk-spacing(3);
   border: 1px solid $govuk-border-colour;
-  border-bottom: $app-environment-strip-bar solid govuk-colour("mid-grey");
+  border-bottom: $app-environment-strip-bar solid govuk-colour('mid-grey');
 }
 
 .app-environment-strip__item--current {
@@ -38,8 +38,8 @@ $app-environment-strip-bar: 4px;
 }
 
 .app-environment-strip__item--unavailable {
-  border: 1px dashed govuk-colour("dark-grey");
-  color: govuk-colour("dark-grey");
+  border: 1px dashed govuk-colour('dark-grey');
+  color: govuk-colour('dark-grey');
 }
 
 .app-environment-strip__link {

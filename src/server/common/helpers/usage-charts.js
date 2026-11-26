@@ -11,6 +11,16 @@ const TOP = 16
 const BOTTOM = 34
 const GAP_RATIO = 0.25
 const SERIES_CLASSES = 6
+const MAX_LABELS = 15
+const GRID_INTERVALS = 4
+const TICK_GAP = 6
+const TICK_DROP = 4
+const LABEL_RISE = 12
+const MARKER_GAP = 6
+const HUNDRED = 100
+const TEN = 10
+// Tidy multiples of a power of ten, as a fraction of it.
+const NICE_STEPS = '1 2 2.5 5 10'.split(' ').map(Number)
 
 function escapeHtml(text) {
   return String(text)
@@ -25,7 +35,7 @@ function seriesClass(index) {
 }
 
 function round(value) {
-  return Math.round(value * 100) / 100
+  return Math.round(value * HUNDRED) / HUNDRED
 }
 
 /**
@@ -34,15 +44,39 @@ function round(value) {
  * @returns {number}
  */
 export function niceMax(value) {
-  if (!(value > 0)) {
+  if (!Number.isFinite(value) || value <= 0) {
     return 1
   }
 
-  const magnitude = 10 ** Math.floor(Math.log10(value))
+  const magnitude = TEN ** Math.floor(Math.log10(value))
   const fraction = value / magnitude
-  const step = [1, 2, 2.5, 5, 10].find((candidate) => fraction <= candidate)
+  const step = NICE_STEPS.find((candidate) => fraction <= candidate)
 
   return step * magnitude
+}
+
+function gridOf({ top, y, format }) {
+  return Array.from(
+    { length: GRID_INTERVALS + 1 },
+    (_, index) => index / GRID_INTERVALS
+  )
+    .map((share) => {
+      const value = top * share
+      const lineY = round(y(value))
+
+      return `<line class="app-chart__grid" x1="${LEFT}" x2="${WIDTH - RIGHT}" y1="${lineY}" y2="${lineY}"/><text class="app-chart__tick" x="${LEFT - TICK_GAP}" y="${lineY + TICK_DROP}" text-anchor="end">${escapeHtml(format(value))}</text>`
+    })
+    .join('')
+}
+
+function markerOf(marker, y) {
+  if (!marker) {
+    return ''
+  }
+
+  const markerY = round(y(marker.value))
+
+  return `<line class="app-chart__marker" x1="${LEFT}" x2="${WIDTH - RIGHT}" y1="${markerY}" y2="${markerY}"/><text class="app-chart__marker-label" x="${LEFT + MARKER_GAP}" y="${markerY - MARKER_GAP}">${escapeHtml(marker.label)}</text>`
 }
 
 /**
@@ -63,15 +97,7 @@ export function stackedBars({ label, categories, format, marker }) {
   const slot = plotWidth / Math.max(categories.length, 1)
   const barWidth = slot * (1 - GAP_RATIO)
   const y = (value) => TOP + plotHeight - (value / top) * plotHeight
-  const labelEvery = Math.max(1, Math.ceil(categories.length / 15))
-  const grid = [0, 0.25, 0.5, 0.75, 1]
-    .map((share) => {
-      const value = top * share
-      const line = round(y(value))
-
-      return `<line class="app-chart__grid" x1="${LEFT}" x2="${WIDTH - RIGHT}" y1="${line}" y2="${line}"/><text class="app-chart__tick" x="${LEFT - 6}" y="${line + 4}" text-anchor="end">${escapeHtml(format(value))}</text>`
-    })
-    .join('')
+  const labelEvery = Math.max(1, Math.ceil(categories.length / MAX_LABELS))
   const bars = categories
     .map((category, index) => {
       const x = LEFT + slot * index + (slot - barWidth) / 2
@@ -94,21 +120,22 @@ export function stackedBars({ label, categories, format, marker }) {
 
       const text =
         index % labelEvery === 0
-          ? `<text class="app-chart__label" x="${round(x + barWidth / 2)}" y="${HEIGHT - 12}" text-anchor="middle">${escapeHtml(category.label)}</text>`
+          ? `<text class="app-chart__label" x="${round(x + barWidth / 2)}" y="${HEIGHT - LABEL_RISE}" text-anchor="middle">${escapeHtml(category.label)}</text>`
           : ''
 
       return rects.join('') + text
     })
     .join('')
-  const line = marker
-    ? `<line class="app-chart__marker" x1="${LEFT}" x2="${WIDTH - RIGHT}" y1="${round(y(marker.value))}" y2="${round(y(marker.value))}"/><text class="app-chart__marker-label" x="${LEFT + 6}" y="${round(y(marker.value)) - 6}">${escapeHtml(marker.label)}</text>`
-    : ''
 
-  return `<svg class="app-chart" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${escapeHtml(label)}. The same figures are in the table below.">${grid}${bars}${line}</svg>`
+  return `<svg class="app-chart" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${escapeHtml(label)}. The same figures are in the table below.">${gridOf({ top, y, format })}${bars}${markerOf(marker, y)}</svg>`
 }
 
 const RADIUS = 40
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+const CENTRE = 50
+const RING_WIDTH = 14
+const FIGURE_Y = 54
+const CAPTION_Y = 63
 
 /**
  * A ring split into parts, with a figure in the middle.
@@ -124,7 +151,7 @@ export function donut({ label, parts, centre, caption = '' }) {
           .filter((part) => part.value > 0)
           .map((part) => {
             const length = (part.value / total) * CIRCUMFERENCE
-            const arc = `<circle class="${seriesClass(part.series)}" cx="50" cy="50" r="${RADIUS}" fill="none" stroke-width="14" stroke-dasharray="${round(length)} ${round(CIRCUMFERENCE - length)}" stroke-dashoffset="${round(-offset)}" transform="rotate(-90 50 50)"/>`
+            const arc = `<circle class="${seriesClass(part.series)}" cx="${CENTRE}" cy="${CENTRE}" r="${RADIUS}" fill="none" stroke-width="${RING_WIDTH}" stroke-dasharray="${round(length)} ${round(CIRCUMFERENCE - length)}" stroke-dashoffset="${round(-offset)}" transform="rotate(-90 ${CENTRE} ${CENTRE})"/>`
 
             offset += length
 
@@ -132,6 +159,10 @@ export function donut({ label, parts, centre, caption = '' }) {
           })
           .join('')
       : ''
+  const figureY = caption ? CENTRE : FIGURE_Y
+  const captionText = caption
+    ? `<text class="app-donut__caption" x="${CENTRE}" y="${CAPTION_Y}" text-anchor="middle">${escapeHtml(caption)}</text>`
+    : ''
 
-  return `<svg class="app-donut" viewBox="0 0 100 100" role="img" aria-label="${escapeHtml(label)}. The same figures are in the table beside it."><circle class="app-donut__track" cx="50" cy="50" r="${RADIUS}" fill="none" stroke-width="14"/>${arcs}<text class="app-donut__centre" x="50" y="${caption ? 50 : 54}" text-anchor="middle">${escapeHtml(centre)}</text>${caption ? `<text class="app-donut__caption" x="50" y="63" text-anchor="middle">${escapeHtml(caption)}</text>` : ''}</svg>`
+  return `<svg class="app-donut" viewBox="0 0 ${HUNDRED} ${HUNDRED}" role="img" aria-label="${escapeHtml(label)}. The same figures are in the table beside it."><circle class="app-donut__track" cx="${CENTRE}" cy="${CENTRE}" r="${RADIUS}" fill="none" stroke-width="${RING_WIDTH}"/>${arcs}<text class="app-donut__centre" x="${CENTRE}" y="${figureY}" text-anchor="middle">${escapeHtml(centre)}</text>${captionText}</svg>`
 }
