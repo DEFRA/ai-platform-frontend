@@ -1,0 +1,123 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+
+{% block beforeContent %}
+  {{ super() }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <span class="govuk-caption-xl" data-testid="app-heading-caption">{{ teamName }}</span>
+      <h1 class="govuk-heading-xl">{{ heading }}</h1>
+
+      <p class="govuk-body" data-testid="usage-period">{{ periodText }}.</p>
+
+      <nav aria-label="Period" class="app-usage-periods" data-testid="usage-periods">
+        <ul class="govuk-list govuk-list--inline">
+          {% for link in periodLinks %}
+            <li>
+              {% if link.current %}
+                <strong aria-current="page">Last {{ link.days }} days</strong>
+              {% else %}
+                <a class="govuk-link" href="{{ link.href }}">Last {{ link.days }} days</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </nav>
+
+      {% if isMock %}
+        {{ govukInsetText({
+          html: "<strong>These figures are examples.</strong> They are made up for testing and are not what your team used.",
+          attributes: { "data-testid": "usage-mock-notice" }
+        }) }}
+      {% endif %}
+
+      {{ govukSummaryList({
+        classes: "govuk-summary-list--no-border",
+        attributes: { "data-testid": "usage-totals" },
+        rows: [
+          { key: { text: "Requests" }, value: { text: totals.requests } },
+          { key: { text: "Tokens used" }, value: { text: totals.tokens } },
+          { key: { text: "Tokens sent to a model" }, value: { text: totals.promptTokens } },
+          { key: { text: "Tokens in the answers" }, value: { text: totals.completionTokens } },
+          { key: { text: "Estimated cost" }, value: { text: totals.cost } }
+        ]
+      }) }}
+
+      {{ govukInsetText({
+        text: "The cost is an estimate from indicative prices. It is not what your team will be charged.",
+        attributes: { "data-testid": "usage-cost-notice" }
+      }) }}
+
+      {% if unpricedModels.length %}
+        <p class="govuk-body" data-testid="usage-unpriced">
+          There is no price for {{ unpricedModels | join(", ") }}, so the estimated cost leaves {{ "it" if unpricedModels.length == 1 else "them" }} out.
+        </p>
+      {% endif %}
+
+      {% if not hasUsage %}
+        <p class="govuk-body" data-testid="usage-empty">Your team has made no requests in this period.</p>
+      {% else %}
+        <h2 class="govuk-heading-l">By model</h2>
+        <table class="govuk-table" data-testid="usage-by-model">
+          <caption class="govuk-table__caption govuk-visually-hidden">Usage by model</caption>
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th scope="col" class="govuk-table__header">Model</th>
+              <th scope="col" class="govuk-table__header govuk-table__header--numeric">Requests</th>
+              <th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens used</th>
+              <th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th>
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for row in byModel %}
+              <tr class="govuk-table__row">
+                <th scope="row" class="govuk-table__header">{{ row.model }}</th>
+                <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.requests }}</td>
+                <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td>
+                <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h2 class="govuk-heading-l">By day</h2>
+        <div class="app-table-scroll" role="region" tabindex="0" aria-label="Usage by day">
+          <table class="govuk-table" data-testid="usage-by-day">
+            <caption class="govuk-table__caption govuk-visually-hidden">Usage by day</caption>
+            <thead class="govuk-table__head">
+              <tr class="govuk-table__row">
+                <th scope="col" class="govuk-table__header">Day</th>
+                <th scope="col" class="govuk-table__header govuk-table__header--numeric">Requests</th>
+                <th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens used</th>
+                <th scope="col" class="govuk-table__header"><span class="govuk-visually-hidden">Compared with the busiest day</span></th>
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for row in byDay %}
+                <tr class="govuk-table__row">
+                  <th scope="row" class="govuk-table__header">{{ row.label }}</th>
+                  <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.requests }}</td>
+                  <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td>
+                  <td class="govuk-table__cell">
+                    {% if row.max > 0 %}
+                      <meter class="app-usage-meter" min="0" max="{{ row.max }}" value="{{ row.value }}" aria-hidden="true">{{ row.tokens }}</meter>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      <p class="govuk-body"><a class="govuk-link" href="{{ backLink }}">Back to {{ environmentName }}</a></p>
+    </div>
+  </div>
+{% endblock %}

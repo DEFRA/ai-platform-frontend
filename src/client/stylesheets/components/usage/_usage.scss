@@ -1,0 +1,14 @@
+@use 'govuk-frontend' as *;
+
+// A bar beside a day's tokens, drawn by the browser's own meter element so it
+// needs no script or inline style. The table already says the figure.
+.app-usage-meter {
+  width: 100%;
+  min-width: 80px;
+  height: govuk-spacing(2);
+  accent-color: govuk-colour('blue');
+}
+
+.app-usage-periods {
+  margin-bottom: govuk-spacing(4);
+}

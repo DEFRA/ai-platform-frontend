@@ -717,6 +717,19 @@ describe('#environmentsController', () => {
       }
     })
 
+    test('links to what the team has used in this environment', async () => {
+      backend()
+
+      const $ = pageOf((await get(INFRADEV_URL)).result)
+
+      expect($('[data-testid="usage-link"]').attr('href')).toBe(
+        `${INFRADEV_URL}/usage`
+      )
+      expect(text($, '[data-testid="usage-link"]')).toBe(
+        'See what your team has used in Infradev'
+      )
+    })
+
     test('puts each section in a summary card of its own across the full width, with Deploy a model right aligned in the Models card', async () => {
       backend()
 

@@ -12,6 +12,7 @@ import {
 
 export const ADMIN_TEAMS_URL = '/admin/teams'
 export const ADMIN_DEPLOYMENTS_URL = '/admin/deployments'
+export const ADMIN_USAGE_URL = '/admin/usage'
 export const ADMIN_AUDIT_URL = '/admin/audit'
 
 const ERROR_VIEW = 'error/index'
@@ -65,15 +66,16 @@ export function adminOperationUrl(teamId, environment, operationId, action) {
 }
 
 /**
- * The Admin area's sub navigation: Teams, Deployments and Audit log, with the
- * current one marked.
- * @param {'teams'|'deployments'|'audit'} current
+ * The Admin area's sub navigation: Teams, Deployments, Usage and Audit log,
+ * with the current one marked.
+ * @param {'teams'|'deployments'|'usage'|'audit'} current
  * @returns {Array<{text: string, href: string, current: boolean}>}
  */
 export function adminTabs(current) {
   return [
     { key: 'teams', text: 'Teams', href: ADMIN_TEAMS_URL },
     { key: 'deployments', text: 'Deployments', href: ADMIN_DEPLOYMENTS_URL },
+    { key: 'usage', text: 'Usage', href: ADMIN_USAGE_URL },
     { key: 'audit', text: 'Audit log', href: ADMIN_AUDIT_URL }
   ].map(({ key, text, href }) => ({ text, href, current: key === current }))
 }

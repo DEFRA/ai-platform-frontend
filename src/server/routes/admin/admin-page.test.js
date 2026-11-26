@@ -24,10 +24,11 @@ describe('#isCallFailure', () => {
 })
 
 describe('#adminTabs', () => {
-  test('Should list Teams, Deployments and Audit log, in that order', () => {
+  test('Should list Teams, Deployments, Usage and Audit log, in that order', () => {
     expect(adminTabs('teams')).toEqual([
       { text: 'Teams', href: '/admin/teams', current: true },
       { text: 'Deployments', href: '/admin/deployments', current: false },
+      { text: 'Usage', href: '/admin/usage', current: false },
       { text: 'Audit log', href: '/admin/audit', current: false }
     ])
   })
@@ -36,7 +37,17 @@ describe('#adminTabs', () => {
     expect(adminTabs('audit').map(({ current }) => current)).toEqual([
       false,
       false,
+      false,
       true
+    ])
+  })
+
+  test('Should mark Usage as the current one on its own page', () => {
+    expect(adminTabs('usage').map(({ current }) => current)).toEqual([
+      false,
+      false,
+      true,
+      false
     ])
   })
 
@@ -44,6 +55,7 @@ describe('#adminTabs', () => {
     expect(adminTabs('deployments').map(({ current }) => current)).toEqual([
       false,
       true,
+      false,
       false
     ])
   })

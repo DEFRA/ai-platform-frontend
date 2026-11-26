@@ -33,5 +33,10 @@
     {% include "environments/partials/environment-status.njk" %}
   </div>
 
+  <p class="govuk-body">
+    <a class="govuk-link" href="{{ pageUrl }}/usage" data-testid="usage-link">See what your team has used in {{ heading }}</a>
+  </p>
+
+
   {% include "environments/partials/connection.njk" %}
 {% endblock %}

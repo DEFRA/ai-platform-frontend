@@ -1,5 +1,6 @@
 import { environmentsController } from './controller.js'
 import { limitsController } from './limits-controller.js'
+import { usageController } from './usage-controller.js'
 import { environmentSetUpController } from './set-up-controller.js'
 import { setUpApplicationsController } from './set-up-applications.js'
 import { federateQuestions } from './federate-questions.js'
@@ -69,6 +70,11 @@ const routes = [
     path: `${limits}/check`,
     options: limitsController.check.post.options,
     handler: limitsController.check.post.handler
+  },
+  {
+    method: 'GET',
+    path: '/environments/{slug}/{environment}/usage',
+    handler: usageController.handler
   },
   {
     method: 'GET',
