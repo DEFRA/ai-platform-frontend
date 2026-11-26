@@ -9,15 +9,17 @@ export const USAGE_DAYS = [DAYS_IN_WEEK, DAYS_IN_MONTH, DAYS_IN_QUARTER]
 export const DEFAULT_USAGE_DAYS = DAYS_IN_MONTH
 
 /**
- * The number of days a usage address asks for: 7, 30 or 90, and 30 for
- * anything else, so a mistyped address still shows a page.
+ * The number of days a usage address asks for: 7, 30 or 90, and `fallback`
+ * (30 unless a page says otherwise) for anything else, so a mistyped address
+ * still shows a page.
  * @param {unknown} value
+ * @param {number} [fallback]
  * @returns {number}
  */
-export function usageDaysOf(value) {
+export function usageDaysOf(value, fallback = DEFAULT_USAGE_DAYS) {
   const days = Number(value)
 
-  return USAGE_DAYS.includes(days) ? days : DEFAULT_USAGE_DAYS
+  return USAGE_DAYS.includes(days) ? days : fallback
 }
 
 /**

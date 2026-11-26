@@ -31,7 +31,7 @@
         {% endif %}
 
         {% if usage and (usage.cards.length or usage.rows.length or usage.unavailable.length) %}
-          <h2 class="govuk-heading-m" data-testid="home-usage-heading">Usage{% if usage.monthName %} in {{ usage.monthName }}{% endif %}</h2>
+          <h2 class="govuk-heading-m" id="home-usage" data-testid="home-usage-heading">Usage{% if usage.monthName %} in {{ usage.monthName }}{% endif %}</h2>
           {% if usage.isMock %}
             <p class="govuk-body" data-testid="home-usage-example">These figures are examples, not real use.</p>
           {% endif %}
@@ -62,6 +62,9 @@
                 {% endfor %}
               </tbody>
             </table>
+            {% set tablePage = usage.rowsPage %}
+            {% set tableNoun = "teams" %}
+            {% include "partials/table-pagination.njk" %}
           {% endif %}
           {% if usage.unavailable.length %}
             <p class="govuk-body" data-testid="home-usage-unavailable">We could not check usage for {{ usage.unavailable | join(', ') }} just now.</p>

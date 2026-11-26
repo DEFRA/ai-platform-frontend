@@ -3,6 +3,7 @@
 
 <span class="govuk-caption-xl" data-testid="app-heading-caption">{{ teamName }}</span>
 <h1 class="govuk-heading-xl">{{ heading }}</h1>
+{% include "partials/filter-bar.njk" %}
 <p class="govuk-body-l">{{ intro }}</p>
 
 {{ appSubNavigation({ items: tabs, label: "Usage" }) }}

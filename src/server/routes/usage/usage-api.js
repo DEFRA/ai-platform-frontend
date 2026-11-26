@@ -15,6 +15,15 @@ export function readUsageOverview(request, teamRef) {
 }
 
 /**
+ * The teams the signed-in person belongs to, for the team drop-down.
+ * @param {import('@hapi/hapi').Request} request
+ * @returns {Promise<{items: Array<{slug: string, name: string}>}>}
+ */
+export function readTeams(request) {
+  return apiClient(request).get('/v1/teams')
+}
+
+/**
  * This month's usage for each team the signed-in person belongs to.
  * @param {import('@hapi/hapi').Request} request
  * @returns {Promise<{items: object[]}>}

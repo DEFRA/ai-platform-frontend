@@ -1,0 +1,34 @@
+{#
+  The selectors that change what a page shows (the team, the period), side by
+  side, each with its title before it. Context: filterBar {action, hidden,
+  hint, selects}; `hidden` keeps the page's other choices (a tab, an
+  environment) when one selector changes, and `selects` are {id, name, label,
+  items}. With script, choosing an option applies it (team-switcher.js); the
+  button is for browsers without it.
+#}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+
+{% if filterBar %}
+  <form class="app-filter-row app-filter-row--inline" method="get" action="{{ filterBar.action }}" data-auto-submit data-switch-hint="{{ filterBar.hint }}" data-testid="filter-bar">
+    {% for field in filterBar.hidden %}
+      <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+    {% endfor %}
+    {% for select in filterBar.selects %}
+      {{ govukSelect({
+        id: select.id,
+        name: select.name,
+        label: { text: select.label, classes: "govuk-label--s" },
+        formGroup: { classes: "app-filter-row__field" },
+        items: select.items
+      }) }}
+    {% endfor %}
+    <noscript>
+      {{ govukButton({
+        text: "Show",
+        classes: "govuk-button--secondary",
+        attributes: { "data-testid": "filter-bar-apply" }
+      }) }}
+    </noscript>
+  </form>
+{% endif %}

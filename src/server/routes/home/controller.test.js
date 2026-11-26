@@ -594,6 +594,46 @@ describe('#homeController', () => {
       expect($('[data-testid="usage-cards"]')).toHaveLength(0)
     })
 
+    describe('the table of teams, 10 to a page', () => {
+      const items = Array.from({ length: 12 }, (_, index) =>
+        teamUsage({
+          slug: `team-${index}`,
+          name: `Team ${String(index).padStart(2, '0')}`
+        })
+      )
+
+      const names = ($) =>
+        $('[data-testid="home-usage-table"] tbody a')
+          .map((_, a) => $(a).text().trim())
+          .get()
+
+      test('shows the first 10 teams, says which, and links to the next page', async () => {
+        const { $ } = await signedInHome({
+          'GET /v1/users/me/usage': { items }
+        })
+
+        expect(names($)).toHaveLength(10)
+        expect(text($, 'table-pagination-summary')).toBe(
+          'Showing 1 to 10 of 12 teams'
+        )
+        expect($('.govuk-pagination__next a').attr('href')).toBe(
+          '/?usagePage=2#home-usage'
+        )
+      })
+
+      test('shows the rest on page 2, and keeps the page of Your teams in its links', async () => {
+        const { $ } = await signedInHome(
+          { 'GET /v1/users/me/usage': { items } },
+          '/?usagePage=2&page=3'
+        )
+
+        expect(names($)).toEqual(['Team 10', 'Team 11'])
+        expect($('.govuk-pagination__prev a').attr('href')).toBe(
+          '/?usagePage=1&page=3#home-usage'
+        )
+      })
+    })
+
     test('adds what a team needs attention for to the list, with a link to that environment’s page', async () => {
       const { $ } = await signedInHome({
         'GET /v1/users/me/usage': {

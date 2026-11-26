@@ -62,6 +62,7 @@
 
       {% if keyUsage %}
         <h2 class="govuk-heading-m" id="your-usage" data-testid="key-usage-heading">Your allowance and usage</h2>
+        {% include "partials/filter-bar.njk" %}
         <p class="govuk-body" data-testid="key-usage-lead">What each key was used for in the last {{ keyUsage.days }} days, against the model’s default daily allowance of tokens. Costs of Personal access are met by the AICE Research cost centre, so no cost is shown.</p>
         {% if keyUsage.isMock %}
           <p class="govuk-body" data-testid="key-usage-example">These figures are examples, not real use.</p>

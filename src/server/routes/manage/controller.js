@@ -24,6 +24,11 @@ import {
   RESEARCH_RENEWAL_CAP
 } from '#/server/common/constants/research-access.js'
 import { readKeyUsage } from '#/server/routes/usage/usage-api.js'
+import {
+  filterBarOf,
+  periodSelectOf
+} from '#/server/common/helpers/filter-bar.js'
+import { usageDaysOf } from '#/server/common/helpers/usage-format.js'
 import { buildKeyRows, notificationBannerParams } from './access-view.js'
 import { KEY_USAGE_DAYS, keyUsageOf } from './key-usage-view.js'
 
@@ -80,12 +85,12 @@ async function readModels(request) {
   }
 }
 
-// Each working key's use over the last week. One that cannot be read is null,
-// so the page says so for that key and still shows the rest.
-async function readKeyUsages(request, keyRows) {
+// Each working key's use over the last `days` days. One that cannot be read is
+// null, so the page says so for that key and still shows the rest.
+async function readKeyUsages(request, keyRows, days) {
   const reads = await Promise.allSettled(
     keyRows.map((row) =>
-      row.expired ? null : readKeyUsage(request, row._id, KEY_USAGE_DAYS)
+      row.expired ? null : readKeyUsage(request, row._id, days)
     )
   )
 
@@ -111,7 +116,8 @@ export const manageController = {
           readModels(request)
         ])
         const keyRows = buildKeyRows(items, models.names)
-        const usages = await readKeyUsages(request, keyRows)
+        const days = usageDaysOf(request.query.days, KEY_USAGE_DAYS)
+        const usages = await readKeyUsages(request, keyRows, days)
 
         return h.view('manage/index', {
           pageTitle: 'Personal access',
@@ -119,7 +125,12 @@ export const manageController = {
           researchDays: RESEARCH_CREDENTIAL_DAYS,
           renewalCap: RESEARCH_RENEWAL_CAP,
           keyRows,
-          keyUsage: keyUsageOf(keyRows, usages, models.allowances),
+          keyUsage: keyUsageOf(keyRows, usages, models.allowances, days),
+          filterBar: filterBarOf({
+            action: '/manage#your-usage',
+            selects: [periodSelectOf(days)],
+            hint: 'Choosing a period updates the usage. With a keyboard, press Enter after choosing.'
+          }),
           notificationBanner: notificationBannerParams(
             takeAccountNotification(request)
           )

@@ -16,19 +16,7 @@
     <div class="govuk-grid-column-full">
       {{ appSubNavigation({ items: environmentTabs, label: "Environment" }) }}
 
-      <nav aria-label="Period" data-testid="usage-periods">
-        <ul class="govuk-list govuk-list--inline">
-          {% for link in periodLinks %}
-            <li>
-              {% if link.current %}
-                <strong aria-current="page">Last {{ link.days }} days</strong>
-              {% else %}
-                <a class="govuk-link" href="{{ link.href }}">Last {{ link.days }} days</a>
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      </nav>
+      {% include "partials/filter-bar.njk" %}
 
       {% if notAvailable %}
         <p class="govuk-body" data-testid="usage-not-available">We cannot show usage for {{ environmentLabel }} yet.</p>
@@ -92,6 +80,9 @@
               </tbody>
             </table>
           </div>
+          {% set tablePage = teamsPage %}
+          {% set tableNoun = "teams" %}
+          {% include "partials/table-pagination.njk" %}
         {% else %}
           <p class="govuk-body" data-testid="usage-no-teams">There are no teams yet.</p>
         {% endif %}

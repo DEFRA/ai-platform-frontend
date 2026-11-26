@@ -4,9 +4,10 @@ import {
   environmentPageUrl
 } from '#/server/common/helpers/environment-names.js'
 import {
-  USAGE_DAYS,
-  usageDaysOf
-} from '#/server/common/helpers/usage-format.js'
+  filterBarOf,
+  periodSelectOf
+} from '#/server/common/helpers/filter-bar.js'
+import { usageDaysOf } from '#/server/common/helpers/usage-format.js'
 import { isNotFound, loadTeamForView } from '#/server/routes/teams/team-view.js'
 import { environmentNotFound, errorPage, teamNotFound } from './error-views.js'
 import { isUnavailable, readTeamUsage } from './environments-api.js'
@@ -95,11 +96,11 @@ async function showUsage(request, h) {
     teamName: loaded.team.name,
     backLink: environmentPageUrl(slug, environment.environment),
     environmentName: environment.registryName,
-    periodLinks: USAGE_DAYS.map((option) => ({
-      days: option,
-      href: usageUrl(slug, environment.environment, option),
-      current: option === days
-    })),
+    filterBar: filterBarOf({
+      action: `${environmentPageUrl(slug, environment.environment)}/usage`,
+      selects: [periodSelectOf(days)],
+      hint: 'Choosing a period updates the page. With a keyboard, press Enter after choosing.'
+    }),
     ...usageViewOf(usage)
   })
 }

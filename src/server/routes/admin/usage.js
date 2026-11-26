@@ -6,7 +6,11 @@ import {
   teamEnvironmentList
 } from '#/server/common/helpers/environment-names.js'
 import {
-  USAGE_DAYS,
+  filterBarOf,
+  periodSelectOf
+} from '#/server/common/helpers/filter-bar.js'
+import { pageOfRows } from '#/server/common/helpers/pagination.js'
+import {
   formatCost,
   formatCount,
   formatPercent,
@@ -26,8 +30,10 @@ import {
 const USAGE_NOT_AVAILABLE = 'usage-not-available'
 const ENVIRONMENT_NOT_AVAILABLE = 'environment-not-available'
 
-function usageUrl(environment, days) {
-  return `${ADMIN_USAGE_URL}?environment=${encodeURIComponent(environment)}&days=${days}`
+function usageUrl(environment, days, page) {
+  const paged = page > 1 ? `&page=${page}` : ''
+
+  return `${ADMIN_USAGE_URL}?environment=${encodeURIComponent(environment)}&days=${days}${paged}`
 }
 
 function rowOf(item, currency) {
@@ -100,14 +106,30 @@ function teamShareOf(teams) {
 /**
  * What the Admin Usage page shows of the backend's answer: the figures across
  * every team, a row for each team (busiest first, with its share of the
- * tokens), Personal access on its own, and the gateway APIs no team owns.
+ * tokens, 10 to a page), Personal access on its own, and the gateway APIs no
+ * team owns.
  * @param {{source: string, period: {from: string, to: string}, costBasis: {currency: string}, teams: object[], otherApis: object[]}} usage
+ * @param {{page?: string, href?: (page: number) => string}} [paging] - The page of the teams table asked for, and the address of a page.
  */
-export function adminUsageViewOf(usage) {
+export function adminUsageViewOf(
+  usage,
+  { page, href = (number) => `?page=${number}` } = {}
+) {
   const { currency } = usage.costBasis
   const { shares, ring } = teamShareOf(usage.teams)
   const personal = usage.otherApis.find(
     (api) => api.apiId === PERSONAL_ACCESS_API
+  )
+  const teamsPage = pageOfRows(
+    usage.teams.map((team) => ({
+      name: team.name,
+      href: adminTeamUrl({ id: team.teamId }),
+      serviceCode: team.serviceCode ?? 'Not set',
+      share: shares.get(team.teamId) ?? 0,
+      shareText: formatPercent(shares.get(team.teamId) ?? 0),
+      ...rowOf(team, currency)
+    })),
+    { page, href }
   )
 
   return {
@@ -141,14 +163,8 @@ export function adminUsageViewOf(usage) {
         : [])
     ],
     ring,
-    teams: usage.teams.map((team) => ({
-      name: team.name,
-      href: adminTeamUrl({ id: team.teamId }),
-      serviceCode: team.serviceCode ?? 'Not set',
-      share: shares.get(team.teamId) ?? 0,
-      shareText: formatPercent(shares.get(team.teamId) ?? 0),
-      ...rowOf(team, currency)
-    })),
+    teams: teamsPage.rows,
+    teamsPage,
     otherApis: usage.otherApis.map((api) => ({
       apiId: api.apiId,
       ...rowOf(api, currency)
@@ -168,7 +184,7 @@ function notFoundView(h) {
     .code(statusCodes.notFound)
 }
 
-function usageView(h, { environment, days, usage }) {
+function usageView(h, { environment, days, usage, page }) {
   return h.view('admin/usage', {
     pageTitle: 'Usage - Admin',
     heading: 'Usage',
@@ -186,13 +202,18 @@ function usageView(h, { environment, days, usage }) {
         href: usageUrl(item.environment, days),
         current: item.environment === environment.environment
       })),
-    periodLinks: USAGE_DAYS.map((option) => ({
-      days: option,
-      href: usageUrl(environment.environment, option),
-      current: option === days
-    })),
+    filterBar: filterBarOf({
+      action: ADMIN_USAGE_URL,
+      hidden: [{ name: 'environment', value: environment.environment }],
+      selects: [periodSelectOf(days)],
+      hint: 'Choosing a period updates the page. With a keyboard, press Enter after choosing.'
+    }),
     notAvailable: usage === undefined,
-    ...(usage && adminUsageViewOf(usage))
+    ...(usage &&
+      adminUsageViewOf(usage, {
+        page,
+        href: (number) => usageUrl(environment.environment, days, number)
+      }))
   })
 }
 
@@ -212,7 +233,7 @@ async function showUsage(request, h) {
       `/v1/admin/environments/${encodeURIComponent(environment.environment)}/usage?days=${days}`
     )
 
-    return usageView(h, { environment, days, usage })
+    return usageView(h, { environment, days, usage, page: request.query.page })
   } catch (error) {
     if (error instanceof ApiError && error.code === USAGE_NOT_AVAILABLE) {
       return usageView(h, { environment, days })

@@ -46,8 +46,9 @@ export function keyUsageRowOf(row, usage, allowance) {
  * @param {object[]} keyRows - from `buildKeyRows`.
  * @param {Array<object | null>} usages - one reading per key row, or null.
  * @param {Record<string, number | undefined>} allowances - default tokens a day by model slug.
+ * @param {number} [days] - The period read, 7, 30 or 90.
  */
-export function keyUsageOf(keyRows, usages, allowances) {
+export function keyUsageOf(keyRows, usages, allowances, days = KEY_USAGE_DAYS) {
   const rows = keyRows
     .map((row, index) => ({ row, usage: usages[index] }))
     .filter(({ row }) => !row.expired)
@@ -60,7 +61,7 @@ export function keyUsageOf(keyRows, usages, allowances) {
   }
 
   return {
-    days: KEY_USAGE_DAYS,
+    days,
     isMock: rows.some((row) => row.isMock),
     rows
   }

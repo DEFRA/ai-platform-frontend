@@ -814,7 +814,7 @@ describe('#manageController', () => {
       }
     }
 
-    async function getManage(routes) {
+    async function getManage(routes, url = '/manage') {
       const cookies = await signIn(server)
 
       mockApi(fetchMock, {
@@ -825,7 +825,7 @@ describe('#manageController', () => {
 
       const response = await server.inject({
         method: 'GET',
-        url: '/manage',
+        url,
         headers: { cookie: cookieHeader(cookies) }
       })
 
@@ -883,6 +883,35 @@ describe('#manageController', () => {
       expect($('[data-testid="key-usage-example"]').text()).toBe(
         'These figures are examples, not real use.'
       )
+    })
+
+    test('offers the period as a titled drop-down, 7 days to start with', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
+      })
+      const form = $('[data-testid="filter-bar"]')
+
+      expect(form.attr('action')).toBe('/manage#your-usage')
+      expect(form.find('label[for="days"]').text().trim()).toBe('Period')
+      expect(form.find('option[selected]').text()).toBe('Last 7 days')
+      expect($('[data-testid="key-usage-lead"]').text()).toContain(
+        'last 7 days'
+      )
+    })
+
+    test('reads the period chosen, and says so', async () => {
+      const $ = await getManage(
+        { 'GET /v1/credentials/cred-1/usage?days=90': keyUsage() },
+        '/manage?days=90'
+      )
+
+      expect($('[data-testid="filter-bar"] option[selected]').text()).toBe(
+        'Last 90 days'
+      )
+      expect($('[data-testid="key-usage-lead"]').text()).toContain(
+        'last 90 days'
+      )
+      expect(cells($)[1]).toBe('250k')
     })
 
     test('shows no bar, and says so, when the model has no default allowance', async () => {

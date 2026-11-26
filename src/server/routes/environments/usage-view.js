@@ -26,13 +26,22 @@ export function usageViewOf(usage) {
     periodText: periodText(usage.period),
     isMock: usage.source === 'mock',
     hasUsage: usage.totals.requests > 0,
-    totals: {
-      requests: formatCount(usage.totals.requests),
-      tokens: formatCount(usage.totals.totalTokens),
-      promptTokens: formatCount(usage.totals.promptTokens),
-      completionTokens: formatCount(usage.totals.completionTokens),
-      cost: formatCost(usage.totals.estimatedCost, currency)
-    },
+    cards: [
+      { value: formatCount(usage.totals.requests), label: 'Requests' },
+      { value: formatCount(usage.totals.totalTokens), label: 'Tokens used' },
+      {
+        value: formatCount(usage.totals.promptTokens),
+        label: 'Tokens sent to a model'
+      },
+      {
+        value: formatCount(usage.totals.completionTokens),
+        label: 'Tokens in the answers'
+      },
+      {
+        value: formatCost(usage.totals.estimatedCost, currency),
+        label: 'Estimated cost'
+      }
+    ],
     unpricedModels: usage.unpricedModels,
     byDay: usage.byDay.map((day) => ({
       label: formatDay(day.day),

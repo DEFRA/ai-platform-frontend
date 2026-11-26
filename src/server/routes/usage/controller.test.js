@@ -182,23 +182,26 @@ describe('#usage section', () => {
     })
   }
 
-  describe('the chooser', () => {
-    test('goes straight to the one team a person has', async () => {
+  describe('the Usage menu', () => {
+    test('opens the first team when none has been looked at', async () => {
       backend({
-        'GET /v1/users/me/usage': {
-          items: [{ slug: SLUG, name: 'Flood Risk Team' }]
+        'GET /v1/teams': {
+          items: [
+            { slug: 'a-team', name: 'A Team' },
+            { slug: SLUG, name: 'Flood Risk Team' }
+          ]
         }
       })
 
       const response = await get('/usage')
 
       expect(response.statusCode).toBe(statusCodes.found)
-      expect(response.headers.location).toBe(`/usage/${SLUG}`)
+      expect(response.headers.location).toBe('/usage/a-team')
     })
 
-    test('lists the teams when there are several', async () => {
+    test('opens the team chosen in the drop-down, on the tab the person was on', async () => {
       backend({
-        'GET /v1/users/me/usage': {
+        'GET /v1/teams': {
           items: [
             { slug: 'a-team', name: 'A Team' },
             { slug: 'b-team', name: 'B Team' }
@@ -206,17 +209,42 @@ describe('#usage section', () => {
         }
       })
 
-      const $ = load((await get('/usage')).result)
+      const costs = await get('/usage?team=b-team&tab=costs')
+      const carbon = await get('/usage?team=b-team&tab=carbon')
+      const overview = await get('/usage?team=b-team&tab=overview')
 
-      expect(
-        $('[data-testid="usage-teams"] a')
-          .map((_, a) => $(a).attr('href'))
-          .get()
-      ).toEqual(['/usage/a-team', '/usage/b-team'])
+      expect(costs.headers.location).toBe('/usage/b-team/costs')
+      expect(carbon.headers.location).toBe('/usage/b-team/carbon')
+      expect(overview.headers.location).toBe('/usage/b-team')
+    })
+
+    test('ignores a team that is not the person’s, and a tab that does not exist', async () => {
+      backend({
+        'GET /v1/teams': { items: [{ slug: 'a-team', name: 'A Team' }] }
+      })
+
+      const response = await get('/usage?team=someone-elses&tab=constructor')
+
+      expect(response.headers.location).toBe('/usage/a-team')
+    })
+
+    test('goes back to the team last looked at', async () => {
+      backend({
+        'GET /v1/teams': {
+          items: [
+            { slug: 'a-team', name: 'A Team' },
+            { slug: SLUG, name: 'Flood Risk Team' }
+          ]
+        }
+      })
+
+      await get(`/usage/${SLUG}`)
+
+      expect((await get('/usage')).headers.location).toBe(`/usage/${SLUG}`)
     })
 
     test('says so when the person is in no team, and points to Personal access', async () => {
-      backend({ 'GET /v1/users/me/usage': { items: [] } })
+      backend({ 'GET /v1/teams': { items: [] } })
 
       const $ = load((await get('/usage')).result)
 
@@ -224,6 +252,69 @@ describe('#usage section', () => {
         'not a member of a team'
       )
       expect($('[data-testid="usage-no-teams"] a').attr('href')).toBe('/manage')
+    })
+  })
+
+  describe('the team drop-down', () => {
+    const TEAMS = {
+      'GET /v1/teams': {
+        items: [
+          { slug: SLUG, name: 'Flood Risk Team' },
+          { slug: 'b-team', name: 'B Team' }
+        ]
+      }
+    }
+
+    test('is a titled drop-down of the person’s teams, with the current one selected', async () => {
+      backend(TEAMS)
+
+      const $ = load((await get(`/usage/${SLUG}`)).result)
+      const form = $('[data-testid="filter-bar"]')
+
+      expect(form.attr('action')).toBe('/usage')
+      expect(form.attr('data-auto-submit')).toBeDefined()
+      expect(form.find('label[for="team"]').text().trim()).toBe('Team')
+      expect(
+        form
+          .find('option')
+          .map((_, option) => $(option).attr('value'))
+          .get()
+      ).toEqual([SLUG, 'b-team'])
+      expect(form.find('option[selected]').attr('value')).toBe(SLUG)
+    })
+
+    test.each([
+      ['', 'overview'],
+      ['/costs', 'costs']
+    ])('stays on the tab: %s asks for %s', async (path, tab) => {
+      backend(TEAMS)
+
+      const $ = load((await get(`/usage/${SLUG}${path}`)).result)
+
+      expect(
+        $('[data-testid="filter-bar"] input[name="tab"]').attr('value')
+      ).toBe(tab)
+    })
+
+    test('is left out for a person with one team', async () => {
+      backend({
+        'GET /v1/teams': { items: [{ slug: SLUG, name: 'Flood Risk Team' }] }
+      })
+
+      const $ = load((await get(`/usage/${SLUG}`)).result)
+
+      expect($('[data-testid="filter-bar"]')).toHaveLength(0)
+    })
+
+    test('leaves the page as it was when the teams cannot be read', async () => {
+      backend({ 'GET /v1/teams': reply(500, { code: 'internal' }) })
+
+      const response = await get(`/usage/${SLUG}`)
+
+      expect(response.statusCode).toBe(statusCodes.ok)
+      expect(load(response.result)('[data-testid="filter-bar"]')).toHaveLength(
+        0
+      )
     })
   })
 

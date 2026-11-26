@@ -141,9 +141,9 @@ describe('#usageController', () => {
     expect(text($, '[data-testid="usage-period"]')).toBe(
       '28 October 2026 to 26 November 2026.'
     )
-    expect(text($, '[data-testid="usage-totals"]')).toContain('1,234')
-    expect(text($, '[data-testid="usage-totals"]')).toContain('2,300,000')
-    expect(text($, '[data-testid="usage-totals"]')).toContain('US$8.50')
+    expect(text($, '[data-testid="usage-cards"]')).toContain('1,234')
+    expect(text($, '[data-testid="usage-cards"]')).toContain('2,300,000')
+    expect(text($, '[data-testid="usage-cards"]')).toContain('US$8.50')
     expect(text($, '[data-testid="usage-by-model"]')).toContain('gpt-4o')
     expect($('[data-testid="usage-by-day"] tbody tr')).toHaveLength(2)
   })
@@ -183,7 +183,7 @@ describe('#usageController', () => {
 
     const $ = load((await get()).result)
 
-    expect(text($, '[data-testid="usage-totals"]')).toContain('Not available')
+    expect(text($, '[data-testid="usage-cards"]')).toContain('Not available')
     expect(text($, '[data-testid="usage-unpriced"]')).toContain('gpt-4o')
     expect(text($, '[data-testid="usage-unpriced"]')).toContain(
       'the total estimated cost is not available'
@@ -239,15 +239,52 @@ describe('#usageController', () => {
     ).toBe(true)
   })
 
-  test('links the other periods and marks the one shown', async () => {
+  test('shows the five figures as boxes, as the Usage pages do', async () => {
     backend()
 
     const $ = load((await get()).result)
 
-    expect($('[data-testid="usage-periods"] a')).toHaveLength(2)
     expect(
-      $('[data-testid="usage-periods"] [aria-current="page"]').text()
-    ).toBe('Last 30 days')
+      $('[data-testid="usage-cards"] .app-stat-card')
+        .map((_, card) => text($, $(card).find('.app-stat-card__label')))
+        .get()
+    ).toEqual([
+      'Requests',
+      'Tokens used',
+      'Tokens sent to a model',
+      'Tokens in the answers',
+      'Estimated cost'
+    ])
+  })
+
+  test('puts By model and By day in collapsible cards, open to start with', async () => {
+    backend()
+
+    const $ = load((await get()).result)
+
+    for (const testId of ['section-usage-by-model', 'section-usage-by-day']) {
+      const card = $(`[data-testid="${testId}"]`)
+
+      expect(card.hasClass('govuk-summary-card')).toBe(true)
+      expect(card.find('details[open] > summary')).toHaveLength(1)
+    }
+  })
+
+  test('offers the period as a titled drop-down, with the one shown selected', async () => {
+    backend()
+
+    const $ = load((await get()).result)
+    const form = $('[data-testid="filter-bar"]')
+
+    expect(form.attr('action')).toBe(USAGE_URL)
+    expect(form.find('label[for="days"]').text().trim()).toBe('Period')
+    expect(
+      form
+        .find('option')
+        .map((_, option) => $(option).text())
+        .get()
+    ).toEqual(['Last 7 days', 'Last 30 days', 'Last 90 days'])
+    expect(form.find('option[selected]').text()).toBe('Last 30 days')
   })
 
   test('gives a table beside every bar, and hides the bar from a screen reader', async () => {

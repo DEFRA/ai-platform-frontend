@@ -242,6 +242,83 @@ describe('#admin usage', () => {
     ).toHaveLength(0)
   })
 
+  describe('the teams table, 10 to a page', () => {
+    const many = Array.from({ length: 12 }, (_, index) => ({
+      teamId: `team-${index}`,
+      slug: `team-${index}`,
+      name: `Team ${String(index).padStart(2, '0')}`,
+      serviceCode: null,
+      requests: 1,
+      promptTokens: 1,
+      completionTokens: 1,
+      totalTokens: 1000 - index,
+      estimatedCost: 1
+    }))
+
+    function rowNames($) {
+      return $('[data-testid="usage-by-team"] tbody th')
+        .map((_, th) => $(th).text().trim())
+        .get()
+    }
+
+    test('shows the first 10 teams, says which, and links to the next page', async () => {
+      mockApi(fetchMock, { [`GET ${USAGE()}`]: usage({ teams: many }) })
+
+      const $ = load((await get()).result)
+
+      expect(rowNames($)).toHaveLength(10)
+      expect(text($, '[data-testid="table-pagination-summary"]')).toBe(
+        'Showing 1 to 10 of 12 teams'
+      )
+      expect($('.govuk-pagination__next a').attr('href')).toBe(
+        '/admin/usage?environment=infradev&days=30&page=2'
+      )
+    })
+
+    test('shows the rest on page 2, and keeps the environment and period in its links', async () => {
+      mockApi(fetchMock, { [`GET ${USAGE(7)}`]: usage({ teams: many }) })
+
+      const $ = load((await get('/admin/usage?days=7&page=2')).result)
+
+      expect(rowNames($)).toEqual(['Team 10', 'Team 11'])
+      expect($('.govuk-pagination__prev a').attr('href')).toBe(
+        '/admin/usage?environment=infradev&days=7'
+      )
+    })
+
+    test('keeps the cards and the ring to every team, not the page', async () => {
+      mockApi(fetchMock, { [`GET ${USAGE()}`]: usage({ teams: many }) })
+
+      const $ = load((await get('/admin/usage?page=2')).result)
+
+      expect(text($, '[data-testid="usage-cards"]')).toContain(
+        '12 of 12 Teams with use'
+      )
+    })
+
+    test('has no page links when one page holds every team', async () => {
+      mockApi(fetchMock, { [`GET ${USAGE()}`]: usage() })
+
+      const $ = load((await get()).result)
+
+      expect($('[data-testid="table-pagination-summary"]')).toHaveLength(0)
+    })
+  })
+
+  test('offers the period as a titled drop-down that keeps the environment', async () => {
+    mockApi(fetchMock, { [`GET ${USAGE(90)}`]: usage() })
+
+    const $ = load((await get('/admin/usage?days=90')).result)
+    const form = $('[data-testid="filter-bar"]')
+
+    expect(form.attr('action')).toBe('/admin/usage')
+    expect(form.find('label[for="days"]').text().trim()).toBe('Period')
+    expect(form.find('option[selected]').text()).toBe('Last 90 days')
+    expect(form.find('input[name="environment"]').attr('value')).toBe(
+      'infradev'
+    )
+  })
+
   test('shows Usage as the current Admin tab and always calls the cost an estimate', async () => {
     mockApi(fetchMock, { [`GET ${USAGE()}`]: usage() })
 
