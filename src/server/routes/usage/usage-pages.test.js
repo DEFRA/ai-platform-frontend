@@ -248,8 +248,10 @@ describe('#homeUsageOf', () => {
       'Estimated cost',
       'Carbon (CO₂e), estimated'
     ])
-    expect(usage.href).toBe('/usage/flood-risk-team')
-    expect(usage.rows).toEqual([])
+    expect(usage.link).toEqual({
+      href: '/usage/flood-risk-team',
+      text: 'View usage for Flood Risk Team'
+    })
   })
 
   test('has no forecast notes when there is no forecast, and no carbon card when it is off', () => {
@@ -274,22 +276,61 @@ describe('#homeUsageOf', () => {
     expect(usage.cards[2].note).toBeNull()
   })
 
-  test('has a row for each team when there are several, and none for one it cannot read', () => {
+  test('has a box for each team that can be read, busiest first, and none for one it cannot', () => {
     const usage = homeUsageOf({
       items: [
         item(),
-        item({ slug: 'b-team', name: 'B Team' }),
+        item({
+          slug: 'b-team',
+          name: 'B Team',
+          totals: { tokens: 20_000_000, cost: 80, carbonKg: 1 }
+        }),
         item({ slug: 'c-team', name: 'C Team', available: false })
       ]
     })
 
-    expect(usage.cards).toEqual([])
-    expect(usage.href).toBeNull()
-    expect(usage.rows.map(({ name }) => name)).toEqual([
-      'Flood Risk Team',
-      'B Team'
+    expect(usage.cards.map(({ label }) => label)).toEqual([
+      'B Team',
+      'Flood Risk Team'
     ])
+    expect(usage.cards[0]).toEqual({
+      value: '20.0m',
+      label: 'B Team',
+      href: '/usage/b-team',
+      note: 'Estimated cost US$80.00, forecast US$120'
+    })
+    expect(usage.link).toEqual({
+      href: '/usage',
+      text: 'View usage for all your teams'
+    })
     expect(usage.unavailable).toEqual(['C Team'])
+  })
+
+  test('keeps four boxes, the busiest, and breaks a tie by name', () => {
+    const items = ['e', 'd', 'c', 'b', 'a'].map((slug) =>
+      item({ slug: `${slug}-team`, name: slug.toUpperCase() })
+    )
+
+    const usage = homeUsageOf({ items })
+
+    expect(usage.cards.map(({ label }) => label)).toEqual(['A', 'B', 'C', 'D'])
+    expect(usage.intro).toContain('The four teams that have used the most')
+  })
+
+  test('says the cost is not available, and gives no forecast, for a team with no price', () => {
+    const usage = homeUsageOf({
+      items: [
+        item(),
+        item({
+          slug: 'b-team',
+          name: 'B Team',
+          totals: { tokens: 1, cost: null, carbonKg: null },
+          forecast: { tokens: 1, cost: null, carbonKg: null }
+        })
+      ]
+    })
+
+    expect(usage.cards[1].note).toBe('Estimated cost Not available')
   })
 
   test('has no month when no team can be read', () => {

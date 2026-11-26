@@ -30,41 +30,15 @@
           </ul>
         {% endif %}
 
-        {% if usage and (usage.cards.length or usage.rows.length or usage.unavailable.length) %}
+        {% if usage and (usage.cards.length or usage.unavailable.length) %}
           <h2 class="govuk-heading-m" id="home-usage" data-testid="home-usage-heading">Usage{% if usage.monthName %} in {{ usage.monthName }}{% endif %}</h2>
           {% if usage.isMock %}
             <p class="govuk-body" data-testid="home-usage-example">These figures are examples, not real use.</p>
           {% endif %}
           {% if usage.cards.length %}
+            <p class="govuk-body" data-testid="home-usage-intro">{{ usage.intro }} <a class="govuk-link" href="{{ usage.link.href }}" data-testid="home-usage-link">{{ usage.link.text }}</a></p>
             {% set cards = usage.cards %}
             {% include "usage/partials/cards.njk" %}
-            <p class="govuk-body"><a class="govuk-link" href="{{ usage.href }}" data-testid="home-usage-link">View usage for {{ usage.teamName }}</a></p>
-          {% endif %}
-          {% if usage.rows.length %}
-            <table class="govuk-table" data-testid="home-usage-table">
-              <caption class="govuk-table__caption govuk-visually-hidden">Usage this month by team</caption>
-              <thead class="govuk-table__head">
-                <tr class="govuk-table__row">
-                  <th class="govuk-table__header" scope="col">Team</th>
-                  <th class="govuk-table__header govuk-table__header--numeric" scope="col">Tokens</th>
-                  <th class="govuk-table__header govuk-table__header--numeric" scope="col">Estimated cost</th>
-                  <th class="govuk-table__header govuk-table__header--numeric" scope="col">Forecast</th>
-                </tr>
-              </thead>
-              <tbody class="govuk-table__body">
-                {% for row in usage.rows %}
-                  <tr class="govuk-table__row">
-                    <td class="govuk-table__cell"><a class="govuk-link" href="{{ row.href }}">{{ row.name }}</a></td>
-                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td>
-                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
-                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.forecast }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            {% set tablePage = usage.rowsPage %}
-            {% set tableNoun = "teams" %}
-            {% include "partials/table-pagination.njk" %}
           {% endif %}
           {% if usage.unavailable.length %}
             <p class="govuk-body" data-testid="home-usage-unavailable">We could not check usage for {{ usage.unavailable | join(', ') }} just now.</p>

@@ -508,9 +508,65 @@ function csvCell(value) {
   return /[",\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe
 }
 
+/** How many teams Home shows as boxes, busiest first. */
+const HOME_TEAMS = 4
+
+// A team's box on Home: the tokens it used this month, its name linked to its
+// usage, and what that cost so far and is forecast to cost.
+function homeTeamCardOf(item) {
+  const currency = item.costBasis.currency
+  const forecast =
+    item.forecast.cost === null
+      ? ''
+      : `, forecast ${shortMoney(item.forecast.cost, currency)}`
+
+  return {
+    value: formatTokens(item.totals.tokens),
+    label: item.name,
+    href: `/usage/${encodeURIComponent(item.slug)}`,
+    note: `Estimated cost ${shortMoney(item.totals.cost, currency)}${forecast}`
+  }
+}
+
+// The figures of the one team a person has: tokens, cost and, once agreed,
+// carbon.
+function homeSingleTeamCardsOf(item, monthName) {
+  const currency = item.costBasis.currency
+  const month = monthName.split(' ')[0]
+
+  return [
+    {
+      value: formatTokens(item.totals.tokens),
+      label: 'Tokens used',
+      note: `1 to ${item.month.daysElapsed} ${month}`
+    },
+    {
+      value: shortMoney(item.totals.cost, currency),
+      label: COST_LABEL,
+      note:
+        item.forecast.cost === null
+          ? null
+          : `Forecast ${shortMoney(item.forecast.cost, currency)} for ${month}`
+    },
+    ...(item.carbonBasis.enabled
+      ? [
+          {
+            value: formatCarbon(item.totals.carbonKg),
+            label: 'Carbon (CO\u2082e), estimated',
+            note:
+              item.forecast.carbonKg === null
+                ? null
+                : `Forecast ${formatCarbon(item.forecast.carbonKg)} ${FORECAST_NOTE}`
+          }
+        ]
+      : [])
+  ]
+}
+
 /**
- * What Home shows of usage: a figure card row for one team, or a table for
- * several, and each team's attention items.
+ * What Home shows of usage: boxes for the four teams that used the most tokens
+ * this month (the figures of the team itself when there is one), a link to the
+ * Usage pages for more, and each team's attention items.
  * @param {{items: object[]}} summary
  */
 export function homeUsageOf(summary) {
@@ -522,55 +578,32 @@ export function homeUsageOf(summary) {
 
   const first = ready[0]
   const monthName = first ? formatMonthLong(first.month.key) : null
-  const rows = ready.map((item) => {
-    const currency = item.costBasis.currency
-
-    return {
-      name: item.name,
-      href: `/usage/${encodeURIComponent(item.slug)}`,
-      tokens: formatTokens(item.totals.tokens),
-      cost: shortMoney(item.totals.cost, currency),
-      forecast: shortMoney(item.forecast.cost, currency)
-    }
-  })
+  const busiest = ready
+    .toSorted(
+      (a, b) =>
+        b.totals.tokens - a.totals.tokens || a.name.localeCompare(b.name)
+    )
+    .slice(0, HOME_TEAMS)
+  const single = ready.length === 1
 
   return {
     monthName,
-    href:
-      ready.length === 1 ? `/usage/${encodeURIComponent(first.slug)}` : null,
-    teamName: ready.length === 1 ? first.name : null,
+    link: single
+      ? {
+          href: `/usage/${encodeURIComponent(first.slug)}`,
+          text: `View usage for ${first.name}`
+        }
+      : {
+          href: '/usage',
+          text: 'View usage for all your teams'
+        },
+    intro: single
+      ? `What ${first.name} has used so far in ${monthName}.`
+      : `${ready.length > HOME_TEAMS ? 'The four teams that have used the most' : 'What your teams have used'} so far in ${monthName ?? 'this month'}.`,
     isMock: ready.some((item) => item.source === 'mock'),
-    cards:
-      ready.length === 1
-        ? [
-            {
-              value: formatTokens(first.totals.tokens),
-              label: 'Tokens used',
-              note: `1 to ${first.month.daysElapsed} ${monthName.split(' ')[0]}`
-            },
-            {
-              value: shortMoney(first.totals.cost, first.costBasis.currency),
-              label: COST_LABEL,
-              note:
-                first.forecast.cost === null
-                  ? null
-                  : `Forecast ${shortMoney(first.forecast.cost, first.costBasis.currency)} for ${monthName.split(' ')[0]}`
-            },
-            ...(first.carbonBasis.enabled
-              ? [
-                  {
-                    value: formatCarbon(first.totals.carbonKg),
-                    label: 'Carbon (CO₂e), estimated',
-                    note:
-                      first.forecast.carbonKg === null
-                        ? null
-                        : `Forecast ${formatCarbon(first.forecast.carbonKg)} ${FORECAST_NOTE}`
-                  }
-                ]
-              : [])
-          ]
-        : [],
-    rows: ready.length > 1 ? rows : [],
+    cards: single
+      ? homeSingleTeamCardsOf(first, monthName)
+      : busiest.map(homeTeamCardOf),
     unavailable: summary.items
       .filter((item) => !item.available)
       .map((item) => item.name),

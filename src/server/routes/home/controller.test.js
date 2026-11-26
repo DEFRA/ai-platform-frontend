@@ -568,69 +568,103 @@ describe('#homeController', () => {
       })
 
       expect(text($, 'home-usage-heading')).toBe('Usage in November 2026')
+      expect(text($, 'home-usage-intro')).toBe(
+        'What Flood Risk Team has used so far in November 2026. View usage for Flood Risk Team'
+      )
       expect(text($, 'usage-cards')).toContain('439m')
       expect(text($, 'usage-cards')).toContain('Forecast')
       expect($('[data-testid="home-usage-link"]').attr('href')).toBe(
         '/usage/flood-risk-team'
       )
-      expect($('[data-testid="home-usage-table"]')).toHaveLength(0)
     })
 
-    test('shows a table with a link to each team when there are several', async () => {
-      const { $ } = await signedInHome({
-        'GET /v1/users/me/usage': {
-          items: [
-            teamUsage(),
-            teamUsage({ slug: 'plant-health-data', name: 'Plant Health Data' })
-          ]
-        }
-      })
-
-      expect(
-        $('[data-testid="home-usage-table"] a')
-          .map((_, a) => $(a).attr('href'))
-          .get()
-      ).toEqual(['/usage/flood-risk-team', '/usage/plant-health-data'])
-      expect($('[data-testid="usage-cards"]')).toHaveLength(0)
-    })
-
-    describe('the table of teams, 10 to a page', () => {
-      const items = Array.from({ length: 12 }, (_, index) =>
+    describe('boxes for the busiest teams', () => {
+      const team = (index, tokens) =>
         teamUsage({
           slug: `team-${index}`,
-          name: `Team ${String(index).padStart(2, '0')}`
+          name: `Team ${index}`,
+          totals: { tokens, cost: index * 10, carbonKg: null }
         })
-      )
 
-      const names = ($) =>
-        $('[data-testid="home-usage-table"] tbody a')
-          .map((_, a) => $(a).text().trim())
+      const boxes = ($) =>
+        $('[data-testid="usage-cards"] .app-stat-card')
+          .map((_, box) => $(box).text().replace(/\s+/g, ' ').trim())
           .get()
 
-      test('shows the first 10 teams, says which, and links to the next page', async () => {
+      test('shows a box for each team when there are up to four, with a link to Usage', async () => {
         const { $ } = await signedInHome({
-          'GET /v1/users/me/usage': { items }
+          'GET /v1/users/me/usage': {
+            items: [team(1, 1_000_000), team(2, 3_000_000)]
+          }
         })
 
-        expect(names($)).toHaveLength(10)
-        expect(text($, 'table-pagination-summary')).toBe(
-          'Showing 1 to 10 of 12 teams'
+        expect(boxes($)).toEqual([
+          '3.0m Team 2 Estimated cost US$20.00, forecast US$328',
+          '1.0m Team 1 Estimated cost US$10.00, forecast US$328'
+        ])
+        expect(text($, 'home-usage-intro')).toBe(
+          'What your teams have used so far in November 2026. View usage for all your teams'
         )
-        expect($('.govuk-pagination__next a').attr('href')).toBe(
-          '/?usagePage=2#home-usage'
+        expect($('[data-testid="home-usage-link"]').attr('href')).toBe('/usage')
+        expect($('[data-testid="home-usage-table"]')).toHaveLength(0)
+      })
+
+      test('shows only the four that used the most tokens, busiest first, each linked to its usage', async () => {
+        const { $ } = await signedInHome({
+          'GET /v1/users/me/usage': {
+            items: [1, 2, 3, 4, 5, 6].map((index) => team(index, index * 1e6))
+          }
+        })
+
+        expect(
+          $('[data-testid="usage-cards"] .app-stat-card a')
+            .map((_, a) => $(a).attr('href'))
+            .get()
+        ).toEqual([
+          '/usage/team-6',
+          '/usage/team-5',
+          '/usage/team-4',
+          '/usage/team-3'
+        ])
+        expect(text($, 'home-usage-intro')).toContain(
+          'The four teams that have used the most so far in November 2026'
         )
       })
 
-      test('shows the rest on page 2, and keeps the page of Your teams in its links', async () => {
-        const { $ } = await signedInHome(
-          { 'GET /v1/users/me/usage': { items } },
-          '/?usagePage=2&page=3'
-        )
+      test('leaves out a team whose usage could not be read, and says so', async () => {
+        const { $ } = await signedInHome({
+          'GET /v1/users/me/usage': {
+            items: [
+              team(1, 1_000_000),
+              team(2, 2_000_000),
+              teamUsage({ slug: 'down', name: 'Down Team', available: false })
+            ]
+          }
+        })
 
-        expect(names($)).toEqual(['Team 10', 'Team 11'])
-        expect($('.govuk-pagination__prev a').attr('href')).toBe(
-          '/?usagePage=1&page=3#home-usage'
+        expect(boxes($)).toHaveLength(2)
+        expect(text($, 'home-usage-unavailable')).toBe(
+          'We could not check usage for Down Team just now.'
         )
+      })
+
+      test('says there is no price rather than a cost of nothing', async () => {
+        const { $ } = await signedInHome({
+          'GET /v1/users/me/usage': {
+            items: [
+              team(1, 1_000_000),
+              teamUsage({
+                slug: 'b',
+                name: 'B Team',
+                totals: { tokens: 5, cost: null, carbonKg: null },
+                forecast: { tokens: 5, cost: null, carbonKg: null }
+              })
+            ]
+          }
+        })
+
+        expect(boxes($)[1]).toContain('Estimated cost Not available')
+        expect(boxes($)[1]).not.toContain('forecast')
       })
     })
 

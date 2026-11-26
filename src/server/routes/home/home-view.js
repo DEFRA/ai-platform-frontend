@@ -23,17 +23,9 @@ const ACTIVE_STATUS = 'active'
 // A personal key this close to running out is called out on the page.
 const RENEWAL_WARNING_DAYS = 3
 
-// A page of "Your teams" or of the usage table, each of which keeps its place
-// on the home page and the page the other table is on.
-function homeTablePageUrl(request, { own, anchor }) {
-  const other = own === 'page' ? 'usagePage' : 'page'
-  const kept = request.query?.[other]
-
-  return (number) => {
-    const keep = kept ? `&${other}=${encodeURIComponent(kept)}` : ''
-
-    return `/?${own}=${number}${keep}#${anchor}`
-  }
+// A page of "Your teams", which keeps its place on the home page.
+function homeTeamsPageUrl(page) {
+  return `/?page=${page}#your-teams`
 }
 
 function isFailed({ status }) {
@@ -237,26 +229,10 @@ function teamsPageOf(request, teams, teamReads, modelNames) {
         teamReads.map((teamRead) => buildTeamRow(teamRead, modelNames)),
         {
           page: request.query?.page,
-          href: homeTablePageUrl(request, { own: 'page', anchor: 'your-teams' })
+          href: homeTeamsPageUrl
         }
       )
     : null
-}
-
-// What Home shows of usage, with the table of teams 10 to a page.
-function usageOf(request, summary) {
-  const usage = summary ? homeUsageOf(summary) : null
-
-  if (!usage) {
-    return null
-  }
-
-  const rowsPage = pageOfRows(usage.rows, {
-    page: request.query?.usagePage,
-    href: homeTablePageUrl(request, { own: 'usagePage', anchor: 'home-usage' })
-  })
-
-  return { ...usage, rows: rowsPage.rows, rowsPage }
 }
 
 /**
@@ -272,7 +248,7 @@ export async function loadHomeView(request) {
   const { teamsRead, credentialsRead, catalogueRead, usageRead } =
     await readHomeBasics(request, client)
   const modelNames = modelNamesFrom(catalogueRead.value)
-  const usage = usageOf(request, usageRead.value)
+  const usage = usageRead.value ? homeUsageOf(usageRead.value) : null
   const teams = teamsRead.value?.items ?? null
   const deploymentReads = await Promise.allSettled(
     (teams ?? []).map((team) =>
