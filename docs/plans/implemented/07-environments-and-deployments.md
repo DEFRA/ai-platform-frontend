@@ -108,11 +108,11 @@ limits-unchanged`, `409 environment-not-set-up`, `403 admin-required`, `409 idem
 
 ## Usage (B19 in part)
 
-Built on 26 Nov 2026 in an open pull request (frontend #124, with backend #103), not yet merged or deployed. `/environments/{slug}/{environment}/usage` shows a member the team's requests, tokens and an estimated cost in that environment over the last 7, 30 or 90 days, in total, by model and by day (a bar beside each day, with the table giving every figure), and each environment page links to it. The figures come from the gateway log through the backend; the backend's mock source shows an example-data notice. A cost is always labelled an estimate, and a model with no price says "Not available", never 0. Not built: carbon, personal-key usage, the Home summary and budgets (see [remaining](../remaining.md)).
+Built on 26 and 27 Nov 2026 in open pull requests (frontend #124, with backend #103), not yet merged or deployed. The Usage section (`/usage`) shows a member the team's usage across every environment: Overview (tokens, estimated cost, requests, what needs attention, tokens each day, by model and environment), Costs (six months, forecast, by environment and model, CSV) and Carbon (hidden until the backend switches it on). `/environments/{slug}/{environment}/usage` is the per-environment view. Home shows this month's usage for a person's teams and refused calls under "Needs your attention"; Personal access shows each key's last week against the model's default daily allowance; Admin Usage shows figure cards, a tokens-by-team ring and each team's share. The figures come from the gateway log through the backend; the backend's mock source shows an example-data notice. A cost is always labelled an estimate, and a model with no price says "Not available", never 0. Not built: budgets and limits beyond the environment's own (HVE #103), and the figures stay examples or empty until the gateway log has successful model calls (see [remaining](../remaining.md)).
 
 ## Not here
 
-Client secret rules in QA, PREPROD and PROD, the journey tests (P3, P10), usage and costs, approvals, and the earlier
+Client secret rules in QA, PREPROD and PROD, the journey tests (P3, P10), budgets and chargeback, approvals, and the earlier
 mock-up's pipeline, health and promotion; see [../remaining.md](../remaining.md). Known gap: the backend refuses a
 federation in an environment with no team file yet (`environment-not-set-up`), so the services chosen while setting up a
 new environment are added only once it is set up; until the backend queues them behind the first request, the person is
