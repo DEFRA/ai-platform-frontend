@@ -717,7 +717,7 @@ describe('#environmentsController', () => {
       }
     })
 
-    test('links to what the team has used in this environment, above the environment name, in small text', async () => {
+    test('links to what the team has used in this environment, in small text, after the environment name and status on the same row', async () => {
       backend()
 
       const $ = pageOf((await get(INFRADEV_URL)).result)
@@ -727,11 +727,11 @@ describe('#environmentsController', () => {
       expect(text($, '[data-testid="usage-link"]')).toBe(
         'See what your team has used in Infradev'
       )
-      expect(link.parent().hasClass('govuk-body-s')).toBe(true)
+      expect(link.hasClass('govuk-body-s')).toBe(true)
+      expect(link.parent().hasClass('app-environment-title')).toBe(true)
       expect(
         link
-          .parent()
-          .nextAll('.govuk-body-l')
+          .prevAll('.govuk-body-l')
           .first()
           .find('[data-testid="environment-tag"]')
       ).toHaveLength(1)
