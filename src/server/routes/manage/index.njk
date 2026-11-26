@@ -61,47 +61,7 @@
       {% endif %}
 
       {% if keyUsage %}
-        <h2 class="govuk-heading-m" id="your-usage" data-testid="key-usage-heading">Your allowance and usage</h2>
-        {% include "partials/filter-bar.njk" %}
-        <p class="govuk-body" data-testid="key-usage-lead">What each key was used for in the last {{ keyUsage.days }} days, against the model’s default daily allowance of tokens. Costs of Personal access are met by the AICE Research cost centre, so no cost is shown.</p>
-        {% if keyUsage.isMock %}
-          <p class="govuk-body" data-testid="key-usage-example">These figures are examples, not real use.</p>
-        {% endif %}
-        <div class="app-table-scroll" role="region" tabindex="0" aria-label="Personal access usage by key">
-          <table class="govuk-table" data-testid="key-usage-table">
-            <caption class="govuk-table__caption govuk-visually-hidden">Use of your keys in the last {{ keyUsage.days }} days</caption>
-            <thead class="govuk-table__head">
-              <tr class="govuk-table__row">
-                <th class="govuk-table__header" scope="col">Model</th>
-                <th class="govuk-table__header govuk-table__header--numeric" scope="col">Tokens used</th>
-                <th class="govuk-table__header govuk-table__header--numeric" scope="col">Requests</th>
-                <th class="govuk-table__header govuk-table__header--numeric" scope="col">Default daily allowance</th>
-                <th class="govuk-table__header" scope="col">Busiest day against allowance</th>
-              </tr>
-            </thead>
-            <tbody class="govuk-table__body">
-              {% for row in keyUsage.rows %}
-                <tr class="govuk-table__row" data-testid="key-usage-row">
-                  <th class="govuk-table__header" scope="row"><a class="govuk-link" href="/manage/credentials/{{ row.id }}">{{ row.modelDisplayName }}</a></th>
-                  {% if row.available %}
-                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td>
-                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.requests }}</td>
-                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.allowanceText or "Not set" }}</td>
-                    <td class="govuk-table__cell">
-                      {% if row.peakShare !== null %}
-                        <meter class="app-usage-meter" min="0" max="1" value="{{ row.peakShare }}" aria-hidden="true"></meter> {{ row.peakText }} tokens
-                      {% else %}
-                        {{ row.peakText }} tokens
-                      {% endif %}
-                    </td>
-                  {% else %}
-                    <td class="govuk-table__cell" colspan="4" data-testid="key-usage-unavailable">We could not check usage for this key just now.</td>
-                  {% endif %}
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+        {% include "manage/partials/key-usage.njk" %}
       {% endif %}
 
       <p class="govuk-body">
@@ -109,7 +69,7 @@
       </p>
 
       {{ govukInsetText({
-        html: 'Your teams’ models and client secrets are on each team’s page. <a class="govuk-link" href="/teams" data-testid="access-go-to-teams">Go to Teams</a>',
+        html: 'Your teams’ models and client secrets are on each team’s page. <a class="govuk-link" href="/teams" data-testid="access-go-to-teams">Go to Teams</a>. Their usage, limits and budgets are under <a class="govuk-link" href="/usage" data-testid="access-go-to-usage">Usage</a>.',
         attributes: { "data-testid": "access-teams-inset" }
       }) }}
     </div>

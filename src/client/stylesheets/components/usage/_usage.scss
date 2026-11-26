@@ -72,6 +72,63 @@ $app-series: (
   }
 }
 
+// A figure against its limit: a track with a fill, drawn as SVG so it needs no
+// inline style.
+.app-bar {
+  display: block;
+  width: 100%;
+  height: govuk-spacing(3);
+
+  rect {
+    fill: currentcolor;
+  }
+}
+
+.app-bar__track {
+  color: govuk-colour('light-grey');
+}
+
+.app-bar__time {
+  color: $govuk-secondary-text-colour;
+}
+
+// A limit with what has been used: the figure on the left, the bar and what
+// it says on the right, and a tag at the end.
+.app-allowance-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(0, 3fr) auto;
+  gap: govuk-spacing(2) govuk-spacing(4);
+  align-items: center;
+  padding: govuk-spacing(3) 0;
+  border-bottom: 1px solid $govuk-border-colour;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  @include govuk-media-query($until: tablet) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.app-allowance-row__title {
+  @include govuk-font($size: 19, $weight: bold);
+
+  margin: 0;
+}
+
+.app-allowance-row__figure {
+  @include govuk-font($size: 36, $weight: bold);
+
+  margin: 0;
+}
+
+.app-allowance-row__note {
+  @include govuk-font($size: 19);
+
+  margin: govuk-spacing(1) 0 0;
+}
+
 .app-donut__track {
   color: govuk-colour('light-grey');
 }

@@ -80,7 +80,13 @@ async function readModels(request) {
       items.map((model) => [model.slug, model.displayName])
     ),
     allowances: Object.fromEntries(
-      items.map((model) => [model.slug, model.limitsDefault?.tokensPerDay])
+      items.map((model) => [
+        model.slug,
+        {
+          tokensPerDay: model.limitsDefault?.tokensPerDay,
+          requestsPerMinute: model.limitsDefault?.requestsPerMinute
+        }
+      ])
     )
   }
 }

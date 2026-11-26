@@ -79,6 +79,19 @@ export function formatDay(day) {
   }).format(Date.parse(`${day}T00:00:00Z`))
 }
 
+/**
+ * A UTC date as a day in a sentence, "17 November".
+ * @param {string} day - `YYYY-MM-DD`
+ * @returns {string}
+ */
+export function formatDayLong(day) {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC'
+  }).format(Date.parse(`${day}T00:00:00Z`))
+}
+
 const MILLION = 1_000_000
 const BILLION = 1_000_000_000
 const THOUSAND = 1000

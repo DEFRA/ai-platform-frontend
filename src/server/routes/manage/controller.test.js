@@ -794,7 +794,10 @@ describe('#manageController', () => {
 
   describe('Your allowance and usage', () => {
     const soon = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
-    const model = { ...sampleModel, limitsDefault: { tokensPerDay: 100000 } }
+    const model = {
+      ...sampleModel,
+      limitsDefault: { tokensPerDay: 100000, requestsPerMinute: 60 }
+    }
     const key = {
       ...sampleCredential,
       tier: 'research',
@@ -832,15 +835,9 @@ describe('#manageController', () => {
       return load(response.result)
     }
 
-    function cells($) {
-      return $(
-        '[data-testid="key-usage-row"] th, [data-testid="key-usage-row"] td'
-      )
-        .map((_, cell) => $(cell).text().replace(/\s+/g, ' ').trim())
-        .get()
-    }
+    const text = ($, selector) => $(selector).text().replace(/\s+/g, ' ').trim()
 
-    test('shows the last week of use against the model’s default daily allowance', async () => {
+    test('shows what the model allows and what the key has used today against it', async () => {
       const $ = await getManage({
         'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
       })
@@ -848,31 +845,80 @@ describe('#manageController', () => {
       expect($('[data-testid="key-usage-heading"]').text()).toBe(
         'Your allowance and usage'
       )
-      expect(cells($)).toEqual([
-        'GPT-4o',
-        '250k',
-        '42',
-        '100,000',
-        '80,000 tokens'
-      ])
-      expect($('[data-testid="key-usage-row"] meter').attr('value')).toBe('0.8')
-      expect($('[data-testid="key-usage-row"] a').attr('href')).toBe(
-        '/manage/credentials/cred-1'
+      expect($('[data-testid="key-allowance"] h2').text()).toBe(
+        'Your allowance'
       )
-      expect($('[data-testid="key-usage-example"]')).toHaveLength(0)
+      expect(text($, '[data-testid="key-allowance-lead"]')).toContain(
+        'What your GPT-4o key can use'
+      )
+      expect($('[data-testid="key-allowance-lead"] a').attr('href')).toBe(
+        '/connect/team/start'
+      )
+
+      const tokens = '[data-testid="key-allowance-tokens"]'
+
+      expect(text($, `${tokens} .app-allowance-row__figure`)).toBe('100,000')
+      expect(text($, tokens)).toContain(
+        'Used today: 80,000, 80% of your allowance'
+      )
+      expect(text($, `${tokens} .govuk-tag`)).toBe('Near the limit')
+      expect($(`${tokens} svg.app-bar`)).toHaveLength(1)
     })
 
-    test('keeps the usage table in a labelled keyboard-scrollable region', async () => {
+    test('shows the calls a minute and how long the key has left', async () => {
       const $ = await getManage({
         'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
       })
-      const region = $('[data-testid="key-usage-table"]').closest(
-        '.app-table-scroll'
-      )
 
-      expect(region.attr('role')).toBe('region')
-      expect(region.attr('tabindex')).toBe('0')
-      expect(region.attr('aria-label')).toBe('Personal access usage by key')
+      expect(
+        text(
+          $,
+          '[data-testid="key-allowance-requests"] .app-allowance-row__figure'
+        )
+      ).toBe('60')
+      expect(text($, '[data-testid="key-allowance-key"]')).toMatch(
+        /Your key \d days left/
+      )
+      expect(text($, '[data-testid="key-allowance-key"]')).toContain(
+        'A key works for 7 days. Renewed 0 of 3 times.'
+      )
+    })
+
+    test('draws the tokens each day against the allowance, with a legend and a table', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
+      })
+
+      expect($('[data-testid="key-usage-chart-card"] h2').text()).toBe(
+        'Tokens each day'
+      )
+      expect($('[data-testid="key-usage-chart"] svg[role="img"]')).toHaveLength(
+        1
+      )
+      expect($('[data-testid="key-usage-chart"] [style]')).toHaveLength(0)
+      expect(text($, '[data-testid="key-usage-legend"]')).toBe(
+        'Under 80% of your allowance 80% or more All of it'
+      )
+      expect(text($, '[data-testid="key-usage-total"]')).toBe(
+        'Used in the last 7 days: 250k tokens in 42 requests.'
+      )
+      expect($('[data-testid="key-usage-table"] tbody tr')).toHaveLength(2)
+      expect(text($, '[data-testid="key-usage-reached"]')).toBe('')
+    })
+
+    test('says the day the allowance was used up', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage({
+          byDay: [
+            { day: '2026-10-17', totalTokens: 100000 },
+            { day: '2026-10-18', totalTokens: 10 }
+          ]
+        })
+      })
+
+      expect(text($, '[data-testid="key-usage-reached"]')).toBe(
+        'Your key used all of its allowance on 17 October.'
+      )
     })
 
     test('says when the figures are examples', async () => {
@@ -885,6 +931,35 @@ describe('#manageController', () => {
       )
     })
 
+    test('says where a team’s models, limits and budgets are', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
+      })
+
+      expect($('[data-testid="access-go-to-usage"]').attr('href')).toBe(
+        '/usage'
+      )
+    })
+
+    test('names the model in each card when there is more than one key', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials': {
+          items: [key, { ...key, _id: 'cred-2', modelSlug: 'gpt-4o' }]
+        },
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage(),
+        'GET /v1/credentials/cred-2/usage?days=7': keyUsage()
+      })
+
+      expect(
+        $('[data-testid="key-allowance"] h2')
+          .map((_, h) => $(h).text())
+          .get()
+      ).toEqual(['GPT-4o: your allowance', 'GPT-4o: your allowance'])
+      expect($('[data-testid="key-usage-chart-card"] h2').first().text()).toBe(
+        'GPT-4o: tokens each day'
+      )
+    })
+
     test('offers the period as a titled drop-down, 7 days to start with', async () => {
       const $ = await getManage({
         'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
@@ -894,7 +969,7 @@ describe('#manageController', () => {
       expect(form.attr('action')).toBe('/manage#your-usage')
       expect(form.find('label[for="days"]').text().trim()).toBe('Period')
       expect(form.find('option[selected]').text()).toBe('Last 7 days')
-      expect($('[data-testid="key-usage-lead"]').text()).toContain(
+      expect(text($, '[data-testid="key-usage-total"]')).toContain(
         'last 7 days'
       )
     })
@@ -908,20 +983,22 @@ describe('#manageController', () => {
       expect($('[data-testid="filter-bar"] option[selected]').text()).toBe(
         'Last 90 days'
       )
-      expect($('[data-testid="key-usage-lead"]').text()).toContain(
+      expect(text($, '[data-testid="key-usage-total"]')).toContain(
         'last 90 days'
       )
-      expect(cells($)[1]).toBe('250k')
     })
 
-    test('shows no bar, and says so, when the model has no default allowance', async () => {
+    test('shows no tokens row, marker or legend when the model has no default allowance', async () => {
       const $ = await getManage({
         'GET /v1/models': { items: [sampleModel] },
         'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
       })
 
-      expect(cells($)[3]).toBe('Not set')
-      expect($('[data-testid="key-usage-row"] meter')).toHaveLength(0)
+      expect($('[data-testid="key-allowance-tokens"]')).toHaveLength(0)
+      expect($('[data-testid="key-usage-legend"]')).toHaveLength(0)
+      expect(
+        $('[data-testid="key-usage-chart"] .app-chart__marker')
+      ).toHaveLength(0)
     })
 
     test('says usage could not be checked for a key, and still shows the page', async () => {
@@ -930,8 +1007,17 @@ describe('#manageController', () => {
       expect($('h1').text().trim()).toBe('Personal access')
       expect($('[data-testid="keys-table-row"]')).toHaveLength(1)
       expect($('[data-testid="key-usage-unavailable"]').text()).toBe(
+        'We could not check what this key has used just now.'
+      )
+      expect($('[data-testid="key-usage-chart-unavailable"]').text()).toBe(
         'We could not check usage for this key just now.'
       )
+      expect(
+        $(
+          '[data-testid="key-allowance-tokens"] .app-allowance-row__figure'
+        ).text()
+      ).toBe('100,000')
+      expect($('[data-testid="key-allowance-key"]')).toHaveLength(1)
     })
 
     test('leaves the section out when the person has no working key', async () => {

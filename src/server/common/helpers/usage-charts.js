@@ -136,6 +136,20 @@ const CENTRE = 50
 const RING_WIDTH = 14
 const FIGURE_Y = 54
 const CAPTION_Y = 63
+const BAR_HEIGHT = 4
+
+/**
+ * A horizontal bar filled to a share of its length, for a figure against its
+ * limit. The fill takes the colour of a chart series, or of a class a page
+ * styles itself.
+ * @param {{label: string, share: number, series?: number, className?: string}} options - `share` is 0 to 1; `label` says it in words.
+ * @returns {string} Markup, safe to put in a page.
+ */
+export function progressBar({ label, share, series = 0, className }) {
+  const filled = round(Math.min(Math.max(share, 0), 1) * HUNDRED)
+
+  return `<svg class="app-bar" viewBox="0 0 ${HUNDRED} ${BAR_HEIGHT}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(label)}"><rect class="app-bar__track" width="${HUNDRED}" height="${BAR_HEIGHT}"/><rect class="${className ?? seriesClass(series)}" width="${filled}" height="${BAR_HEIGHT}"/></svg>`
+}
 
 /**
  * A ring split into parts, with a figure in the middle.

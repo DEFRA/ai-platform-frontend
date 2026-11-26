@@ -1,4 +1,4 @@
-import { donut, niceMax, stackedBars } from './usage-charts.js'
+import { donut, niceMax, progressBar, stackedBars } from './usage-charts.js'
 
 const format = (value) => String(value)
 
@@ -98,6 +98,37 @@ describe('#stackedBars', () => {
   test('uses no inline style, which the content security policy refuses', () => {
     expect(stackedBars({ label: 'x', categories, format })).not.toContain(
       'style='
+    )
+  })
+})
+
+describe('#progressBar', () => {
+  test('fills a share of the track and says it in words', () => {
+    const svg = progressBar({ label: '61 of 100 used', share: 0.61, series: 3 })
+
+    expect(svg).toContain('aria-label="61 of 100 used"')
+    expect(svg).toContain('class="app-chart__s3" width="61"')
+    expect(svg).not.toContain('style=')
+  })
+
+  test('never fills past the track or below nothing', () => {
+    expect(progressBar({ label: 'x', share: 2 })).toContain(
+      'width="100" height="4"/></svg>'
+    )
+    expect(progressBar({ label: 'x', share: -1 })).toContain(
+      'app-chart__s0" width="0"'
+    )
+  })
+
+  test('takes a class a page styles itself', () => {
+    expect(
+      progressBar({ label: 'x', share: 0.5, className: 'app-bar__time' })
+    ).toContain('class="app-bar__time" width="50"')
+  })
+
+  test('escapes the label', () => {
+    expect(progressBar({ label: '"<b>', share: 0 })).toContain(
+      'aria-label="&quot;&lt;b&gt;"'
     )
   })
 })
