@@ -1,0 +1,10 @@
+{% extends 'layouts/page.njk' %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <h1 class="govuk-heading-xl">{{ heading }}</h1>
+      <p class="govuk-body" data-testid="usage-no-teams">You are not a member of a team yet, so there is no team usage to show. Your own keys are under <a class="govuk-link" href="/manage">Personal access</a>.</p>
+    </div>
+  </div>
+{% endblock %}

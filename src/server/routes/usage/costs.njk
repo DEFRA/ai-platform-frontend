@@ -1,0 +1,104 @@
+{% extends 'layouts/page.njk' %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {% include "usage/partials/frame.njk" %}
+      {% include "usage/partials/cards.njk" %}
+
+      {% if not hasUsage %}
+        <p class="govuk-body" data-testid="usage-empty">Your team has made no requests this month.</p>
+      {% endif %}
+
+      <div class="govuk-summary-card">
+        <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Cost each month</h2></div>
+        <div class="govuk-summary-card__content">
+          <div data-testid="costs-month-chart">
+            {% if monthChart %}
+              {{ monthChart | safe }}
+            {% else %}
+              <p class="govuk-body" data-testid="costs-month-chart-unavailable">This chart is not available because estimated cost is not available for one or more months.</p>
+            {% endif %}
+          </div>
+          {% if monthChart %}
+            <ul class="app-chart-legend govuk-list">
+              {% for item in monthLegend %}<li><span class="app-chart-legend__swatch {{ item.className }}"></span> {{ item.text }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+          <details class="govuk-details">
+            <summary class="govuk-details__summary"><span class="govuk-details__summary-text">Cost each month as a table</span></summary>
+            <div class="govuk-details__text">
+              <table class="govuk-table" data-testid="costs-month-table">
+                <caption class="govuk-table__caption govuk-visually-hidden">Estimated cost each month</caption>
+                <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Month</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th></tr></thead>
+                <tbody class="govuk-table__body">
+                  {% for row in monthTable %}<tr class="govuk-table__row"><th scope="row" class="govuk-table__header">{{ row.label }}</th><td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      {% if hasUsage %}
+        <div class="govuk-summary-card">
+          <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">By environment</h2></div>
+          <div class="govuk-summary-card__content app-chart-with-table">
+            <div class="app-chart-with-table__chart" data-testid="costs-environment-donut">{% if environmentDonut %}{{ environmentDonut | safe }}{% else %}<p class="govuk-body" data-testid="costs-donut-unavailable">The split by environment is not available while a model has no price.</p>{% endif %}</div>
+            <table class="govuk-table" data-testid="costs-by-environment">
+              <caption class="govuk-table__caption govuk-visually-hidden">Estimated cost by environment</caption>
+              <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Environment</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Share</th></tr></thead>
+              <tbody class="govuk-table__body">
+                {% for row in byEnvironment %}
+                  <tr class="govuk-table__row">
+                    <th scope="row" class="govuk-table__header"><span class="app-chart-legend__swatch app-chart__s{{ row.series % 6 }}"></span> <a class="govuk-link" href="{{ row.href }}">{{ row.name }}</a></th>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.share }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="govuk-summary-card">
+          <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">By model</h2></div>
+          <div class="govuk-summary-card__content">
+            <div class="app-table-scroll" role="region" tabindex="0" aria-label="Cost by model">
+              <table class="govuk-table" data-testid="costs-by-model">
+                <caption class="govuk-table__caption govuk-visually-hidden">Estimated cost by model</caption>
+                <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Model</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Input tokens</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Output tokens</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Example price for a million, input and output</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Share</th></tr></thead>
+                <tbody class="govuk-table__body">
+                  {% for row in byModel %}
+                    <tr class="govuk-table__row">
+                      <th scope="row" class="govuk-table__header"><span class="app-chart-legend__swatch app-chart__s{{ row.series % 6 }}"></span> {{ row.name }}</th>
+                      <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.input }}</td>
+                      <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.output }}</td>
+                      <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.price }}</td>
+                      <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
+                      <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.share }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot><tr class="govuk-table__row"><th scope="row" class="govuk-table__header">All models</th><td class="govuk-table__cell" colspan="3"></td><td class="govuk-table__cell govuk-table__cell--numeric"><strong>{{ totalCost }}</strong></td><td class="govuk-table__cell govuk-table__cell--numeric"><strong>{{ totalShare }}</strong></td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <p class="govuk-body"><a class="govuk-link" href="/usage/{{ slug }}/costs.csv" data-testid="costs-export">Export this month as a CSV file</a> (team admins only)</p>
+      {% endif %}
+
+      {% if unpricedModels.length %}
+        <p class="govuk-body" data-testid="usage-unpriced">Estimated costs are unavailable only for periods that include usage from {{ unpricedModels | join(", ") }} without a price.</p>
+      {% endif %}
+
+      <details class="govuk-details">
+        <summary class="govuk-details__summary"><span class="govuk-details__summary-text">How the cost is estimated</span></summary>
+        <div class="govuk-details__text" data-testid="costs-method">
+          The cost is each model's tokens multiplied by an indicative price for a million input tokens and a million output tokens, in {{ currency }} (price list {{ priceVersion }}). It is not what your team will be charged: the tariff and the period are still being agreed.
+        </div>
+      </details>
+    </div>
+  </div>
+{% endblock %}

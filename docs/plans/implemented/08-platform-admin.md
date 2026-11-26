@@ -1,15 +1,17 @@
-# 08 Platform admin (Teams, Deployments and Audit log tabs)
+# 08 Platform admin (Teams, Deployments, Usage and Audit log tabs)
 
 The Platform Admin area (B31, design F figures F5 to F7). The Teams tab was built 12 Nov 2026 in the frontend; it runs
 against the backend's `/v1/admin/teams` routes (backend P1). The Audit log tab was built 13 Nov 2026 against the
 backend's `GET /v1/admin/audit` (backend A1, same PR group). The Deployments tab was built 13 Nov 2026 against the
 backend's `/v1/admin/team-deployments` routes (backend B1, same PR group; see [Deployments tab](#deployments-tab)).
-Platform Admin stays the database role `platform-admin`.
+The Usage tab was built in frontend PR #124 on 26 Nov 2026, not yet merged or deployed. Platform Admin stays the
+database role `platform-admin`.
 
 | Feature                                                                       | Built       |
 | ----------------------------------------------------------------------------- | ----------- |
 | Admin link, `/admin`, the Teams list and a team's page                        | 12 Nov 2026 |
 | Add and remove a team's members as a Platform Admin                           | 12 Nov 2026 |
+| Usage tab: every team's usage and the APIs no team owns                       | 26 Nov 2026 |
 | Audit log tab: filters, table, paging, link from a team                       | 13 Nov 2026 |
 | Deployments tab: list, detail, Reconcile, Retry, credentials (non-federated)  | 13 Nov 2026 |
 | Deployments tab: client secrets and federations listed, Revoke one secret     | 17 Nov 2026 |
@@ -46,6 +48,12 @@ and Reconcile by operation, the Enable moment, and what a team sees when its cre
 - Tables sit in a labelled, focusable `app-table-scroll` region so the page reflows at 320 px.
 - Not built: Delete and Restore of a team (deferred). Journey specs for these pages are in
   `ai-platform-journey-tests` (`test/specs/post-signin/admin`). See [remaining.md](../remaining.md).
+
+## Usage tab
+
+Built in frontend PR #124 on 26 Nov 2026. The Usage tab reports requests, tokens and estimated costs for every team and
+gateway APIs that no team owns. These reporting pages are not chargeback; the tariff and period remain to be agreed
+(see [B19 in remaining work](../remaining.md#b19-team-usage-and-chargeback)).
 
 ## Audit log tab
 

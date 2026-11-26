@@ -20,3 +20,28 @@
     padding-bottom: govuk-spacing(2);
   }
 }
+
+// Selectors with their title beside them, "Team: [ Flood Risk Team ]".
+.app-filter-row--inline {
+  align-items: center;
+  column-gap: govuk-spacing(6);
+}
+
+.app-filter-row__field {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: govuk-spacing(2);
+
+  .govuk-label {
+    margin-bottom: 0;
+
+    &::after {
+      content: ':';
+    }
+  }
+
+  .govuk-select {
+    min-width: 0;
+  }
+}

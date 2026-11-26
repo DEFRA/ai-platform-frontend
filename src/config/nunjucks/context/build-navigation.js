@@ -13,7 +13,7 @@ function navigationItem(request, text, href) {
 
 /**
  * The service navigation: Home, then the model catalogue. Signed in people
- * also see "Personal access", "Teams" and "Environments", and a Platform
+ * also see "Personal access", "Teams", "Environments" and "Usage", and a Platform
  * Admin (as the backend said at sign-in) "Admin" after them; "Signed in as",
  * "Sign out" and "Sign in" are added by the page layout. Home is current on
  * `/` alone, as every address starts with it. The Admin link only shows the
@@ -31,7 +31,8 @@ export function buildNavigation(request) {
     navigation.push(
       navigationItem(request, 'Personal access', '/manage'),
       navigationItem(request, 'Teams', '/teams'),
-      navigationItem(request, 'Environments', '/environments')
+      navigationItem(request, 'Environments', '/environments'),
+      navigationItem(request, 'Usage', '/usage')
     )
 
     if (isSessionPlatformAdmin(request)) {

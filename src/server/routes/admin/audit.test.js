@@ -157,6 +157,7 @@ describe('#admin audit log', () => {
       ).toEqual([
         'Teams /admin/teams',
         'Deployments /admin/deployments',
+        'Usage /admin/usage',
         'Audit log /admin/audit'
       ])
       expect(

@@ -1,0 +1,119 @@
+{#
+  Personal access: "Your allowance and usage". For each working key, a card
+  with what the model allows and what the key has used today and has left
+  (tokens a day, calls a minute, days), and a card with the tokens used each
+  day against the allowance. Context: keyUsage, filterBar.
+#}
+{% from "section-card/macro.njk" import appSectionCard %}
+
+<h2 class="govuk-heading-m" id="your-usage" data-testid="key-usage-heading">Your allowance and usage</h2>
+{% if keyUsage.empty %}
+  <p class="govuk-body" data-testid="key-usage-empty">{{ keyUsage.empty.text }} <a class="govuk-link" href="{{ keyUsage.empty.href }}">{{ keyUsage.empty.linkText }}</a></p>
+{% else %}
+  {% include "partials/filter-bar.njk" %}
+{% endif %}
+
+{% if keyUsage.isMock %}
+  <p class="govuk-body" data-testid="key-usage-example">These figures are examples, not real use.</p>
+{% endif %}
+
+{% for row in keyUsage.rows %}
+  {% set allowanceTitle = (row.modelDisplayName + ": your allowance") if keyUsage.many else "Your allowance" %}
+  {% set chartTitle = (row.modelDisplayName + ": tokens each day") if keyUsage.many else "Tokens each day" %}
+
+  {% call appSectionCard({ title: allowanceTitle, collapsible: false, attributes: { "data-testid": "key-allowance" } }) %}
+    <p class="govuk-body" data-testid="key-allowance-lead">What your {{ row.modelDisplayName }} key can use. Everyone with a personal key gets the same default, and it cannot be changed. For more, <a class="govuk-link" href="/connect/team/start">add the model to a team</a>.</p>
+
+    {% if row.tokensRow %}
+      <div class="app-allowance-row" data-testid="key-allowance-tokens">
+        <div>
+          <h3 class="app-allowance-row__title">Tokens a day</h3>
+          <p class="app-allowance-row__figure">{{ row.tokensRow.figure }}</p>
+        </div>
+        <div>
+          {% if row.tokensRow.bar %}
+            {{ row.tokensRow.bar | safe }}
+            <p class="app-allowance-row__note">Used today: <strong>{{ row.tokensRow.usedToday }}</strong>, {{ row.tokensRow.usedShare }} of your allowance. Days are counted in UTC.</p>
+          {% else %}
+            <p class="app-allowance-row__note" data-testid="key-usage-unavailable">We could not check what this key has used just now.</p>
+          {% endif %}
+        </div>
+        <div>
+          {% if row.tokensRow.status %}
+            <strong class="govuk-tag govuk-tag--{{ row.tokensRow.status.colour }}">{{ row.tokensRow.status.text }}</strong>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if row.requestsRow %}
+      <div class="app-allowance-row" data-testid="key-allowance-requests">
+        <div>
+          <h3 class="app-allowance-row__title">Requests a minute</h3>
+          <p class="app-allowance-row__figure">{{ row.requestsRow.figure }}</p>
+        </div>
+        <div>
+          <p class="app-allowance-row__note">The most calls a minute your key can make. We do not measure calls a minute here yet.</p>
+        </div>
+        <div></div>
+      </div>
+    {% endif %}
+
+    {% if row.keyRow %}
+      <div class="app-allowance-row" data-testid="key-allowance-key">
+        <div>
+          <h3 class="app-allowance-row__title">Your key</h3>
+          <p class="app-allowance-row__figure">{{ row.keyRow.figure }}</p>
+        </div>
+        <div>
+          {{ row.keyRow.bar | safe }}
+          <p class="app-allowance-row__note">{{ row.keyRow.note }}</p>
+        </div>
+        <div></div>
+      </div>
+    {% endif %}
+  {% endcall %}
+
+  {% call appSectionCard({ title: chartTitle, collapsible: false, attributes: { "data-testid": "key-usage-chart-card" } }) %}
+    {% if row.available %}
+      <div data-testid="key-usage-chart">{{ row.chart | safe }}</div>
+      {% if row.legend.length %}
+        <ul class="app-chart-legend govuk-list" data-testid="key-usage-legend">
+          {% for item in row.legend %}
+            <li><span class="app-chart-legend__swatch app-chart__s{{ item.series }}"></span> {{ item.text }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if row.reachedText %}
+        <p class="govuk-body" data-testid="key-usage-reached">{{ row.reachedText }}</p>
+      {% endif %}
+      <p class="govuk-body" data-testid="key-usage-total">{{ row.totalText }}</p>
+      <details class="govuk-details">
+        <summary class="govuk-details__summary"><span class="govuk-details__summary-text">Tokens each day as a table</span></summary>
+        <div class="govuk-details__text">
+          <table class="govuk-table" data-testid="key-usage-table">
+            <caption class="govuk-table__caption govuk-visually-hidden">Tokens used each day by your {{ row.modelDisplayName }} key</caption>
+            <thead class="govuk-table__head">
+              <tr class="govuk-table__row">
+                <th scope="col" class="govuk-table__header">Day</th>
+                <th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens</th>
+                {% if row.table[0].share !== null %}<th scope="col" class="govuk-table__header govuk-table__header--numeric">Share of allowance</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for day in row.table %}
+                <tr class="govuk-table__row">
+                  <th scope="row" class="govuk-table__header">{{ day.label }}</th>
+                  <td class="govuk-table__cell govuk-table__cell--numeric">{{ day.tokens }}</td>
+                  {% if day.share !== null %}<td class="govuk-table__cell govuk-table__cell--numeric">{{ day.share }}</td>{% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    {% else %}
+      <p class="govuk-body" data-testid="key-usage-chart-unavailable">We could not check usage for this key just now.</p>
+    {% endif %}
+  {% endcall %}
+{% endfor %}

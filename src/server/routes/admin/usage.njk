@@ -1,0 +1,120 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "sub-navigation/macro.njk" import appSubNavigation %}
+
+{% block content %}
+  {{ appSubNavigation({ items: tabs, label: "Admin" }) }}
+
+  {{ appHeading({
+    text: heading,
+    caption: "Admin",
+    captionAbove: true
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {{ appSubNavigation({ items: environmentTabs, label: "Environment" }) }}
+
+      {% include "partials/filter-bar.njk" %}
+
+      {% if notAvailable %}
+        <p class="govuk-body" data-testid="usage-not-available">We cannot show usage for {{ environmentLabel }} yet.</p>
+      {% else %}
+        <p class="govuk-body" data-testid="usage-period">{{ environmentLabel }}, {{ periodText }}.</p>
+
+        {% if isMock %}
+          {{ govukInsetText({
+            html: "<strong>These figures are examples.</strong> They are made up for testing.",
+            attributes: { "data-testid": "usage-mock-notice" }
+          }) }}
+        {% endif %}
+
+        {{ govukInsetText({
+          text: "Costs are estimates from indicative prices, not what a team will be charged.",
+          attributes: { "data-testid": "usage-cost-notice" }
+        }) }}
+
+        {% include "usage/partials/cards.njk" %}
+
+        {% if ring %}
+          <div class="govuk-summary-card" data-testid="usage-team-ring">
+            <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Tokens by team</h2></div>
+            <div class="govuk-summary-card__content">
+              {{ ring.chart | safe }}
+              <ul class="app-chart-legend govuk-list">
+                {% for item in ring.legend %}
+                  <li><span class="app-chart-legend__swatch app-chart__s{{ item.series % 6 }}"></span> {{ item.name }} <strong>{{ item.value }}</strong></li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+
+        <h2 class="govuk-heading-l">Teams</h2>
+        {% if teams.length %}
+          <div class="app-table-scroll" role="region" tabindex="0" aria-label="Usage by team">
+            <table class="govuk-table" data-testid="usage-by-team">
+              <caption class="govuk-table__caption govuk-visually-hidden">Usage by team</caption>
+              <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                  <th scope="col" class="govuk-table__header">Team</th>
+                  <th scope="col" class="govuk-table__header">Service code</th>
+                  <th scope="col" class="govuk-table__header govuk-table__header--numeric">Requests</th>
+                  <th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens used</th>
+                  <th scope="col" class="govuk-table__header">Share of team tokens</th>
+                  <th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th>
+                </tr>
+              </thead>
+              <tbody class="govuk-table__body">
+                {% for team in teams %}
+                  <tr class="govuk-table__row">
+                    <th scope="row" class="govuk-table__header"><a class="govuk-link" href="{{ team.href }}">{{ team.name }}</a></th>
+                    <td class="govuk-table__cell">{{ team.serviceCode }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ team.requests }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ team.tokens }}</td>
+                    <td class="govuk-table__cell"><meter class="app-usage-meter" min="0" max="1" value="{{ team.share }}" aria-hidden="true"></meter> {{ team.shareText }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ team.cost }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% set tablePage = teamsPage %}
+          {% set tableNoun = "teams" %}
+          {% include "partials/table-pagination.njk" %}
+        {% else %}
+          <p class="govuk-body" data-testid="usage-no-teams">There are no teams yet.</p>
+        {% endif %}
+
+        {% if otherApis.length %}
+          <h2 class="govuk-heading-l">Other APIs</h2>
+          <p class="govuk-body">Calls through the gateway that no team owns, such as the Research tier.</p>
+          <div class="app-table-scroll" role="region" tabindex="0" aria-label="Usage by API no team owns">
+            <table class="govuk-table" data-testid="usage-other-apis">
+              <caption class="govuk-table__caption govuk-visually-hidden">Usage by API no team owns</caption>
+              <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                  <th scope="col" class="govuk-table__header">API</th>
+                  <th scope="col" class="govuk-table__header govuk-table__header--numeric">Requests</th>
+                  <th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens used</th>
+                  <th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th>
+                </tr>
+              </thead>
+              <tbody class="govuk-table__body">
+                {% for api in otherApis %}
+                  <tr class="govuk-table__row">
+                    <th scope="row" class="govuk-table__header">{{ api.apiId }}</th>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ api.requests }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ api.tokens }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ api.cost }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

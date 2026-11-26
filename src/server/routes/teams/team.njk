@@ -35,13 +35,13 @@
 
       {% set environmentsActionHtml %}
         {{ govukButton({
-          text: "View Deployments and Environments",
+          text: "View environments and credentials",
           href: environmentsUrl,
           classes: "govuk-!-margin-bottom-0",
           attributes: { "data-testid": "view-environments" }
         }) }}
       {% endset %}
-      {% call appSectionCard({ title: "Environments and deployments", collapsible: false, actionsHtml: environmentsActionHtml, attributes: { "data-testid": "section-team-environments" } }) %}
+      {% call appSectionCard({ title: "Environments, deployments and credentials", collapsible: false, actionsHtml: environmentsActionHtml, attributes: { "data-testid": "section-team-environments" } }) %}
       {% if not unavailable %}
         <dl class="govuk-summary-list app-summary-list--table">
           {% for environment in environments %}

@@ -256,12 +256,12 @@ describe('#environmentsController', () => {
       const { result } = await get(OVERVIEW_URL)
       const $ = pageOf(result)
 
-      expect(text($, 'h1')).toBe('Environments and deployments')
+      expect(text($, 'h1')).toBe('Environments, deployments and credentials')
       expect(text($, '[data-testid="app-heading-caption"]')).toBe(
         'Flood Risk Team'
       )
       expect($('title').text()).toContain(
-        'Environments and deployments - Flood Risk Team'
+        'Environments, deployments and credentials - Flood Risk Team'
       )
 
       const infradev = $('[data-testid="environment-card-infradev"]')
@@ -715,6 +715,26 @@ describe('#environmentsController', () => {
       for (const url of operationCalls) {
         expect(url.searchParams.get('environment')).toBe('infradev')
       }
+    })
+
+    test('links to what the team has used in this environment, in small text, after the environment name and status on the same row', async () => {
+      backend()
+
+      const $ = pageOf((await get(INFRADEV_URL)).result)
+      const link = $('[data-testid="usage-link"]')
+
+      expect(link.attr('href')).toBe(`${INFRADEV_URL}/usage`)
+      expect(text($, '[data-testid="usage-link"]')).toBe(
+        'See what your team has used in Infradev'
+      )
+      expect(link.hasClass('govuk-body-s')).toBe(true)
+      expect(link.parent().hasClass('app-environment-title')).toBe(true)
+      expect(
+        link
+          .prevAll('.govuk-body-l')
+          .first()
+          .find('[data-testid="environment-tag"]')
+      ).toHaveLength(1)
     })
 
     test('puts each section in a summary card of its own across the full width, with Deploy a model right aligned in the Models card', async () => {

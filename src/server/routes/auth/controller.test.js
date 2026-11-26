@@ -222,12 +222,13 @@ describe('#authController', () => {
     test('is shown, after Teams, when the backend says the person is a Platform Admin', async () => {
       const links = await navigationAfterSignIn(true)
 
-      expect(links.slice(0, 7)).toEqual([
+      expect(links.slice(0, 8)).toEqual([
         'Home',
         'Model catalogue',
         'Personal access',
         'Teams',
         'Environments',
+        'Usage',
         'Admin',
         'Help'
       ])

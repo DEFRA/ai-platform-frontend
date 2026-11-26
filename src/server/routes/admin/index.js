@@ -12,6 +12,7 @@ import {
   adminRemoveMemberController
 } from './members.js'
 import { adminTeamLifecycleController } from './team-lifecycle.js'
+import { adminUsageController } from './usage.js'
 
 const team = '/admin/teams/{id}'
 const deployment = '/admin/deployments/{teamId}/{environment}'
@@ -119,6 +120,11 @@ const routes = [
     method: 'POST',
     path: `${deployment}/operations/{operationId}/retry`,
     handler: adminOperationController.retry.handler
+  },
+  {
+    method: 'GET',
+    path: '/admin/usage',
+    handler: adminUsageController.handler
   },
   {
     method: 'GET',

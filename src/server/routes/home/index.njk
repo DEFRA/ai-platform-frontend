@@ -30,6 +30,21 @@
           </ul>
         {% endif %}
 
+        {% if usage and (usage.cards.length or usage.unavailable.length) %}
+          <h2 class="govuk-heading-m" id="home-usage" data-testid="home-usage-heading">Usage{% if usage.monthName %} in {{ usage.monthName }}{% endif %}</h2>
+          {% if usage.isMock %}
+            <p class="govuk-body" data-testid="home-usage-example">These figures are examples, not real use.</p>
+          {% endif %}
+          {% if usage.cards.length %}
+            <p class="govuk-body" data-testid="home-usage-intro">{{ usage.intro }} <a class="govuk-link" href="{{ usage.link.href }}" data-testid="home-usage-link">{{ usage.link.text }}</a></p>
+            {% set cards = usage.cards %}
+            {% include "usage/partials/cards.njk" %}
+          {% endif %}
+          {% if usage.unavailable.length %}
+            <p class="govuk-body" data-testid="home-usage-unavailable">We could not check usage for {{ usage.unavailable | join(', ') }} just now.</p>
+          {% endif %}
+        {% endif %}
+
         <h2 class="govuk-heading-m" id="your-teams">Your teams</h2>
         {% if teams === null %}
           <p class="govuk-body" data-testid="home-teams-unavailable">We could not check your teams just now.</p>

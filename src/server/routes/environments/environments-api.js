@@ -74,6 +74,22 @@ export function putTeamLimits(
 }
 
 /**
+ * A team's usage in one environment over the last `days` days: counts and an
+ * estimated cost, in total, for each day and for each model. Any member reads
+ * it; the backend answers for the person's own team only.
+ * @param {import('@hapi/hapi').Request} request
+ * @param {string} teamRef
+ * @param {string} environment - The environment's registry code.
+ * @param {number} days - 7, 30 or 90.
+ * @returns {Promise<{teamId: string, environment: string, source: 'log-analytics'|'mock', period: {from: string, to: string, days: number}, costBasis: {estimate: boolean, currency: string, priceVersion: string}, totals: object, byDay: object[], byModel: object[], unpricedModels: string[]}>}
+ */
+export function readTeamUsage(request, teamRef, environment, days) {
+  return apiClient(request).get(
+    `${teamPath(teamRef)}/environments/${encodeURIComponent(environment)}/usage?days=${days}`
+  )
+}
+
+/**
  * When the platform team disabled or enabled a team, newest first: what
  * changed and when, never why or by whom.
  * @param {import('@hapi/hapi').Request} request

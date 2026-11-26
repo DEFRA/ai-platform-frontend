@@ -583,14 +583,14 @@ describe('#teamsController', () => {
         'PROD Production Not available yet'
       ])
       expect($('a[data-testid="view-environments"]').text().trim()).toBe(
-        'View Deployments and Environments'
+        'View environments and credentials'
       )
       expect($('a[data-testid="view-environments"]').attr('href')).toBe(
         `/environments/${sampleTeam.slug}`
       )
     })
 
-    test('has the View Deployments and Environments button as a green button in the Environments and deployments card, ahead of its rows, and nowhere else', async () => {
+    test('has the View environments and credentials button as a green button in the Environments, deployments and credentials card, ahead of its rows, and nowhere else', async () => {
       backend()
 
       const $ = load((await get(TEAM_URL)).result)
@@ -622,7 +622,10 @@ describe('#teamsController', () => {
 
       for (const [title, inside] of [
         ['Models your team uses', '[data-testid="team-models"]'],
-        ['Environments and deployments', '[data-testid="overview-environment"]']
+        [
+          'Environments, deployments and credentials',
+          '[data-testid="overview-environment"]'
+        ]
       ]) {
         const card = $('.govuk-summary-card.app-section-card').filter(
           (_, element) =>

@@ -155,6 +155,7 @@ describe('#admin deployments list', () => {
       ).toEqual([
         'Teams /admin/teams',
         'Deployments /admin/deployments',
+        'Usage /admin/usage',
         'Audit log /admin/audit'
       ])
       expect($('[aria-label="Admin"] [aria-current="page"]').text()).toBe(

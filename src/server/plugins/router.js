@@ -14,6 +14,7 @@ import { manage } from '../routes/manage/index.js'
 import { teams } from '../routes/teams/index.js'
 import { environments } from '../routes/environments/index.js'
 import { admin } from '../routes/admin/index.js'
+import { usage } from '../routes/usage/index.js'
 import { serveStaticFiles } from './serve-static-files.js'
 import { registerViteAssets } from './vite-assets.js'
 import { config } from '#/config/config.js'
@@ -41,6 +42,7 @@ export const router = {
         manage,
         teams,
         environments,
+        usage,
         admin
       ])
 

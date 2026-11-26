@@ -31,7 +31,7 @@ describe('#buildNavigation', () => {
     ])
   })
 
-  test('Should show Home, Model catalogue, Personal access, Teams, Environments and Help in order when signed in', () => {
+  test('Should show Home, Model catalogue, Personal access, Teams, Environments, Usage and Help in order when signed in', () => {
     expect(
       buildNavigation(
         mockRequest({ path: '/non-existent-path' }, { signedIn: true })
@@ -42,6 +42,7 @@ describe('#buildNavigation', () => {
       { text: 'Personal access', href: '/manage', current: false },
       { text: 'Teams', href: '/teams', current: false },
       { text: 'Environments', href: '/environments', current: false },
+      { text: 'Usage', href: '/usage', current: false },
       { text: 'Help', href: '/about', current: false }
     ])
   })
@@ -60,6 +61,7 @@ describe('#buildNavigation', () => {
       { text: 'Personal access', href: '/manage', current: false },
       { text: 'Teams', href: '/teams', current: false },
       { text: 'Environments', href: '/environments', current: false },
+      { text: 'Usage', href: '/usage', current: false },
       { text: 'Admin', href: '/admin', current: false },
       { text: 'Help', href: '/about', current: false }
     ])
@@ -99,6 +101,8 @@ describe('#buildNavigation', () => {
     ['/environments', 'Environments'],
     ['/environments/flood-risk-mapping', 'Environments'],
     ['/environments/flood-risk-mapping/infradev/limits', 'Environments'],
+    ['/usage', 'Usage'],
+    ['/usage/flood-risk-mapping/costs', 'Usage'],
     ['/about', 'Help']
   ])('Should highlight only the item for %s when signed in', (path, text) => {
     expect(

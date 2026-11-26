@@ -1,0 +1,115 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {% include "usage/partials/frame.njk" %}
+      {% include "usage/partials/cards.njk" %}
+
+      {% if attention.length %}
+        <div class="govuk-summary-card" data-testid="usage-attention">
+          <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Needs attention</h2></div>
+          <div class="govuk-summary-card__content">
+            <ul class="govuk-list">
+              {% for item in attention %}
+                <li><strong class="govuk-tag govuk-tag--yellow">Near limit</strong> {{ item.text }} <a class="govuk-link" href="{{ item.href }}">{{ item.linkText }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endif %}
+
+      {{ govukInsetText({
+        text: "Budgets and allowances are not set up yet, so there is no budget to measure against. Your team's limits are on each environment's page.",
+        attributes: { "data-testid": "usage-no-budget" }
+      }) }}
+
+      {% if not hasUsage %}
+        <p class="govuk-body" data-testid="usage-empty">Your team has made no requests this month.</p>
+      {% else %}
+        <div class="govuk-summary-card">
+          <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Tokens each day</h2></div>
+          <div class="govuk-summary-card__content">
+            <div data-testid="usage-day-chart">{{ dayChart | safe }}</div>
+            <ul class="app-chart-legend govuk-list">
+              {% for item in legend %}
+                <li><span class="app-chart-legend__swatch app-chart__s{{ item.series % 6 }}"></span> {{ item.name }} <strong>{{ item.value }}</strong></li>
+              {% endfor %}
+            </ul>
+            <details class="govuk-details">
+              <summary class="govuk-details__summary"><span class="govuk-details__summary-text">Tokens each day as a table</span></summary>
+              <div class="govuk-details__text">
+                <div class="app-table-scroll" role="region" tabindex="0" aria-label="Tokens each day">
+                  <table class="govuk-table" data-testid="usage-day-table">
+                    <caption class="govuk-table__caption govuk-visually-hidden">Tokens each day</caption>
+                    <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Day</th>{% for name in dayEnvironments %}<th scope="col" class="govuk-table__header govuk-table__header--numeric">{{ name }}</th>{% endfor %}<th scope="col" class="govuk-table__header govuk-table__header--numeric">All environments</th></tr></thead>
+                    <tbody class="govuk-table__body">
+                      {% for row in dayTable %}
+                        <tr class="govuk-table__row"><th scope="row" class="govuk-table__header">{{ row.label }}</th>{% for cell in row.environments %}<td class="govuk-table__cell govuk-table__cell--numeric">{{ cell }}</td>{% endfor %}<td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            <div class="govuk-summary-card">
+              <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">By model</h2></div>
+              <div class="govuk-summary-card__content">
+                <div class="app-table-scroll" role="region" tabindex="0" aria-label="Usage by model">
+                  <table class="govuk-table" data-testid="usage-by-model">
+                    <caption class="govuk-table__caption govuk-visually-hidden">Usage by model</caption>
+                    <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Model</th><th scope="col" class="govuk-table__header">Tokens</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Share</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th></tr></thead>
+                    <tbody class="govuk-table__body">
+                      {% for row in byModel %}
+                        <tr class="govuk-table__row">
+                          <th scope="row" class="govuk-table__header"><span class="app-chart-legend__swatch app-chart__s{{ row.series % 6 }}"></span> {{ row.name }}</th>
+                          <td class="govuk-table__cell"><meter class="app-usage-meter" min="0" max="1" value="{{ row.value }}" aria-hidden="true">{{ row.tokens }}</meter> {{ row.tokens }}</td>
+                          <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.share }}</td>
+                          <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-half">
+            <div class="govuk-summary-card">
+              <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">By environment</h2></div>
+              <div class="govuk-summary-card__content">
+                <div class="app-table-scroll" role="region" tabindex="0" aria-label="Usage by environment">
+                  <table class="govuk-table" data-testid="usage-by-environment">
+                    <caption class="govuk-table__caption govuk-visually-hidden">Usage by environment</caption>
+                    <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Environment</th><th scope="col" class="govuk-table__header">Tokens</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Share</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th></tr></thead>
+                    <tbody class="govuk-table__body">
+                      {% for row in byEnvironment %}
+                        <tr class="govuk-table__row">
+                          <th scope="row" class="govuk-table__header"><span class="app-chart-legend__swatch app-chart__s{{ row.series % 6 }}"></span> <a class="govuk-link" href="{{ row.href }}">{{ row.name }}</a></th>
+                          <td class="govuk-table__cell"><meter class="app-usage-meter" min="0" max="1" value="{{ row.value }}" aria-hidden="true">{{ row.tokens }}</meter> {{ row.tokens }}</td>
+                          <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.share }}</td>
+                          <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if unpricedModels.length %}
+        <p class="govuk-body" data-testid="usage-unpriced">Estimated costs are unavailable only for periods that include usage from {{ unpricedModels | join(", ") }} without a price.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

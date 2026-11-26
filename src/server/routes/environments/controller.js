@@ -46,7 +46,7 @@ import {
 import { environmentHasRoom } from './federation-view.js'
 import { federateUrl } from './federation-urls.js'
 
-const OVERVIEW_TITLE = 'Environments and deployments'
+const OVERVIEW_TITLE = 'Environments, deployments and credentials'
 const OVERVIEW_STATUS = 'environments/partials/overview-status'
 const ENVIRONMENT_STATUS = 'environments/partials/environment-status'
 // The most open changes one read returns (the backend's own limit).

@@ -192,6 +192,22 @@ $app-stage-colours: (
   }
 }
 
+// The environment's name and status, then the usage link, on one row.
+.app-environment-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: govuk-spacing(4);
+
+  p {
+    margin-bottom: govuk-spacing(4);
+  }
+
+  .govuk-link {
+    margin-bottom: govuk-spacing(4);
+  }
+}
+
 // Page-level actions, kept to the right of the page.
 .app-actions--end {
   display: flex;

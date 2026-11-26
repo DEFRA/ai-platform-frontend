@@ -60,12 +60,16 @@
         </table>
       {% endif %}
 
+      {% if keyUsage %}
+        {% include "manage/partials/key-usage.njk" %}
+      {% endif %}
+
       <p class="govuk-body">
         <a class="govuk-link" href="/connect/shared/start" data-testid="access-try-another">Try another model on your own</a>
       </p>
 
       {{ govukInsetText({
-        html: 'Your teams’ models and client secrets are on each team’s page. <a class="govuk-link" href="/teams" data-testid="access-go-to-teams">Go to Teams</a>',
+        html: 'Your teams’ models and client secrets are on each team’s page. <a class="govuk-link" href="/teams" data-testid="access-go-to-teams">Go to Teams</a>. Their usage, limits and budgets are under <a class="govuk-link" href="/usage" data-testid="access-go-to-usage">Usage</a>.',
         attributes: { "data-testid": "access-teams-inset" }
       }) }}
     </div>

@@ -15,6 +15,8 @@ deployed to Infradev: G3 is not approved.
 | -------------------------------------------------------------------------------------------------------------------- | ----------- |
 | Service navigation: Home, Model catalogue, Personal access, Teams, Environments, Help                                | 16 Nov 2026 |
 | `/environments` opens the team's overview; a team selector that switches on choosing (`?team=`)                      | 16 Nov 2026 |
+| Team usage pages: Overview, Costs (with CSV) and Carbon across environments                                          | 26 Nov 2026 |
+| Environment usage: requests, tokens and estimated cost by day and model                                              | 26 Nov 2026 |
 | Progress runs across the page from tablet width; each operation in its own panel                                     | 16 Nov 2026 |
 | Section and environment cards collapse (native details); state kept across refreshes                                 | 16 Nov 2026 |
 | Federate journey asks environments first (originating one ticked), then the application                              | 16 Nov 2026 |
@@ -106,9 +108,17 @@ limits-unchanged`, `409 environment-not-set-up`, `403 admin-required`, `409 idem
   `Idempotency-Key`), sees it once on `/added`, and views, rotates or revokes through the existing client secret pages; a
   Member sees hint and expiry. "Using a client secret" shows the token request and model call where secrets are allowed.
 
+## Usage pages (B19, partly built)
+
+Built in frontend PR #124 on 26 Nov 2026, not yet merged or deployed. `/usage/{team}` shows Overview, Costs (with CSV)
+and Carbon across environments; `/environments/{team}/{environment}/usage` shows requests, tokens and estimated cost by
+day and model. The backend reads the gateway log, enforces team isolation and limits CSV export to Admins. These are
+reporting pages, not chargeback: the tariff and period are still being agreed. Platform Admin usage is described in
+[08 Platform admin](08-platform-admin.md#usage-tab).
+
 ## Not here
 
-Client secret rules in QA, PREPROD and PROD, the journey tests (P3, P10), usage and costs, approvals, and the earlier
+Client secret rules in QA, PREPROD and PROD, the journey tests (P3, P10), the agreed tariff and chargeback, approvals, and the earlier
 mock-up's pipeline, health and promotion; see [../remaining.md](../remaining.md). Known gap: the backend refuses a
 federation in an environment with no team file yet (`environment-not-set-up`), so the services chosen while setting up a
 new environment are added only once it is set up; until the backend queues them behind the first request, the person is

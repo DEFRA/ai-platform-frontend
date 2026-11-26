@@ -23,7 +23,14 @@ import {
   RESEARCH_CREDENTIAL_DAYS,
   RESEARCH_RENEWAL_CAP
 } from '#/server/common/constants/research-access.js'
+import { readKeyUsage } from '#/server/routes/usage/usage-api.js'
+import {
+  filterBarOf,
+  periodSelectOf
+} from '#/server/common/helpers/filter-bar.js'
+import { usageDaysOf } from '#/server/common/helpers/usage-format.js'
 import { buildKeyRows, notificationBannerParams } from './access-view.js'
+import { KEY_USAGE_DAYS, keyUsageOf } from './key-usage-view.js'
 
 const SECRET_NAME = 'key'
 const TEAM_TIER = 'team'
@@ -65,12 +72,41 @@ async function revokeContent(request, credential) {
   }
 }
 
-async function buildModelNameMap(request) {
+async function readModels(request) {
   const { items } = await apiClient(request).get('/v1/models')
 
-  return Object.fromEntries(
-    items.map((model) => [model.slug, model.displayName])
+  return {
+    names: Object.fromEntries(
+      items.map((model) => [model.slug, model.displayName])
+    ),
+    allowances: Object.fromEntries(
+      items.map((model) => [
+        model.slug,
+        {
+          tokensPerDay: model.limitsDefault?.tokensPerDay,
+          requestsPerMinute: model.limitsDefault?.requestsPerMinute
+        }
+      ])
+    )
+  }
+}
+
+// Each working key's use over the last `days` days. One that cannot be read is
+// null, so the page says so for that key and still shows the rest.
+async function readKeyUsages(request, keyRows, days) {
+  const reads = await Promise.allSettled(
+    keyRows.map((row) =>
+      row.expired ? null : readKeyUsage(request, row._id, days)
+    )
   )
+
+  reads.forEach((read) => {
+    if (read.status === 'rejected') {
+      request.logger.warn({ err: read.reason }, 'Could not read a key’s usage')
+    }
+  })
+
+  return reads.map((read) => read.value ?? null)
 }
 
 function isNotFound(error) {
@@ -81,17 +117,26 @@ export const manageController = {
   list: {
     get: {
       async handler(request, h) {
-        const [{ items }, modelNames] = await Promise.all([
+        const [{ items }, models] = await Promise.all([
           apiClient(request).get('/v1/credentials'),
-          buildModelNameMap(request)
+          readModels(request)
         ])
+        const keyRows = buildKeyRows(items, models.names)
+        const days = usageDaysOf(request.query.days, KEY_USAGE_DAYS)
+        const usages = await readKeyUsages(request, keyRows, days)
 
         return h.view('manage/index', {
           pageTitle: 'Personal access',
           heading: 'Personal access',
           researchDays: RESEARCH_CREDENTIAL_DAYS,
           renewalCap: RESEARCH_RENEWAL_CAP,
-          keyRows: buildKeyRows(items, modelNames),
+          keyRows,
+          keyUsage: keyUsageOf(keyRows, usages, models.allowances, days),
+          filterBar: filterBarOf({
+            action: '/manage#your-usage',
+            selects: [periodSelectOf(days)],
+            hint: 'Choosing a period updates the usage. With a keyboard, press Enter after choosing.'
+          }),
           notificationBanner: notificationBannerParams(
             takeAccountNotification(request)
           )

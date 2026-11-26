@@ -134,4 +134,25 @@ describe('#initTeamSwitcher', () => {
 
     expect(() => initTeamSwitcher(document)).not.toThrow()
   })
+
+  test('applies each select of a data-auto-submit form, with the form’s own hint', () => {
+    document.body.innerHTML = `
+      <form data-auto-submit data-switch-hint="Choosing applies it.">
+        <select id="team"><option value="a" selected>A</option><option value="b">B</option></select>
+        <select id="days"><option value="7" selected>7</option><option value="30">30</option></select>
+      </form>`
+
+    const form = document.querySelector('form')
+    const submitted = vi.fn((event) => event.preventDefault())
+
+    form.addEventListener('submit', submitted)
+    initTeamSwitcher(document)
+    choose(document.getElementById('days'), '30')
+
+    expect(submitted).toHaveBeenCalledTimes(1)
+    expect(document.getElementById('team-switch-hint').textContent).toBe(
+      'Choosing applies it.'
+    )
+    expect(document.getElementById('days-switch-hint')).not.toBeNull()
+  })
 })

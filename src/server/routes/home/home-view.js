@@ -16,6 +16,8 @@ import { buildKeyRows } from '#/server/routes/manage/access-view.js'
 import { joinNames } from '#/server/routes/connect/team-model-choices.js'
 import { requestUrl } from '#/server/routes/environments/environment-view.js'
 import { teamUrl } from '#/server/routes/teams/team-view.js'
+import { readUsageSummary } from '#/server/routes/usage/usage-api.js'
+import { homeUsageOf } from '#/server/routes/usage/usage-pages.js'
 
 const ACTIVE_STATUS = 'active'
 // A personal key this close to running out is called out on the page.
@@ -192,21 +194,16 @@ function logFailed(request, read, message) {
   }
 }
 
-/**
- * Everything the signed-in home page shows, from the person's teams (one read
- * of each team's deployments, D9), their credentials and the catalogue for
- * names. Each part is best-effort: one that cannot be read says so, and the
- * rest still shows, so a backend hiccup never takes the front door down.
- * @param {import('@hapi/hapi').Request} request
- * @returns {Promise<{attention: object[], teams: object[] | null, keys: {text: string, hasKeys: boolean} | null}>}
- */
-export async function loadHomeView(request) {
-  const client = apiClient(request)
-  const [teamsRead, credentialsRead, catalogueRead] = await Promise.allSettled([
-    client.get('/v1/teams'),
-    client.get('/v1/credentials'),
-    client.get('/v1/models?includeIneligible=true')
-  ])
+// The four first reads, together; each one that fails is logged and left
+// as a rejected read for the caller to leave out.
+async function readHomeBasics(request, client) {
+  const [teamsRead, credentialsRead, catalogueRead, usageRead] =
+    await Promise.allSettled([
+      client.get('/v1/teams'),
+      client.get('/v1/credentials'),
+      client.get('/v1/models?includeIneligible=true'),
+      readUsageSummary(request)
+    ])
 
   logFailed(request, teamsRead, 'Could not read the teams for the home page')
   logFailed(
@@ -219,8 +216,39 @@ export async function loadHomeView(request) {
     catalogueRead,
     'Could not read the model names for the home page'
   )
+  logFailed(request, usageRead, 'Could not read the usage for the home page')
 
+  return { teamsRead, credentialsRead, catalogueRead, usageRead }
+}
+
+// Every team is read (what needs attention looks across all of them); the
+// table shows 10 to a page.
+function teamsPageOf(request, teams, teamReads, modelNames) {
+  return teams
+    ? pageOfRows(
+        teamReads.map((teamRead) => buildTeamRow(teamRead, modelNames)),
+        {
+          page: request.query?.page,
+          href: homeTeamsPageUrl
+        }
+      )
+    : null
+}
+
+/**
+ * Everything the signed-in home page shows, from the person's teams (one read
+ * of each team's deployments, D9), their credentials and the catalogue for
+ * names. Each part is best-effort: one that cannot be read says so, and the
+ * rest still shows, so a backend hiccup never takes the front door down.
+ * @param {import('@hapi/hapi').Request} request
+ * @returns {Promise<{attention: object[], teams: object[] | null, keys: {text: string, hasKeys: boolean} | null}>}
+ */
+export async function loadHomeView(request) {
+  const client = apiClient(request)
+  const { teamsRead, credentialsRead, catalogueRead, usageRead } =
+    await readHomeBasics(request, client)
   const modelNames = modelNamesFrom(catalogueRead.value)
+  const usage = usageRead.value ? homeUsageOf(usageRead.value) : null
   const teams = teamsRead.value?.items ?? null
   const deploymentReads = await Promise.allSettled(
     (teams ?? []).map((team) =>
@@ -239,21 +267,18 @@ export async function loadHomeView(request) {
   const keyRows = credentialsRead.value
     ? buildKeyRows(credentialsRead.value.items, modelNames)
     : null
-  // Every team is read (what needs attention looks across all of them); the
-  // table shows 10 to a page.
-  const teamsPage = teams
-    ? pageOfRows(
-        teamReads.map((teamRead) => buildTeamRow(teamRead, modelNames)),
-        { page: request.query?.page, href: homeTeamsPageUrl }
-      )
-    : null
+  const teamsPage = teamsPageOf(request, teams, teamReads, modelNames)
 
   return {
-    attention: buildAttention(
-      teamReads.filter(({ deployments }) => deployments),
-      keyRows ?? [],
-      modelNames
-    ),
+    attention: [
+      ...buildAttention(
+        teamReads.filter(({ deployments }) => deployments),
+        keyRows ?? [],
+        modelNames
+      ),
+      ...(usage?.attention ?? [])
+    ],
+    usage,
     teams: teamsPage?.rows ?? null,
     teamsPage,
     keys: keyRows ? buildKeysSummary(keyRows) : null

@@ -1,5 +1,5 @@
-@use "govuk-frontend" as *;
-@use "variables/colours" as *;
+@use 'govuk-frontend' as *;
+@use 'variables/colours' as *;
 
 $app-sub-navigation-bar: 4px;
 
@@ -17,7 +17,7 @@ $app-sub-navigation-bar: 4px;
   gap: 0 govuk-spacing(6);
   margin: 0;
   padding: 0;
-  border-bottom: 1px solid govuk-colour("mid-grey");
+  border-bottom: 1px solid govuk-colour('mid-grey');
   list-style: none;
 }
 

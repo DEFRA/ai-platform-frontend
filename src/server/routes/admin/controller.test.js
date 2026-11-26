@@ -646,7 +646,7 @@ describe('#admin teams', () => {
         $('[data-testid="sub-navigation"] a')
           .map((_, link) => $(link).text().trim())
           .get()
-      ).toEqual(['Teams', 'Deployments', 'Audit log'])
+      ).toEqual(['Teams', 'Deployments', 'Usage', 'Audit log'])
     })
 
     test('puts the Admin tabs above the team’s title, so they read as the area and not the team', async () => {
