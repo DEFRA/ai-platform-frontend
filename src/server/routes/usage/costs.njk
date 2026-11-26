@@ -13,10 +13,18 @@
       <div class="govuk-summary-card">
         <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Cost each month</h2></div>
         <div class="govuk-summary-card__content">
-          <div data-testid="costs-month-chart">{{ monthChart | safe }}</div>
-          <ul class="app-chart-legend govuk-list">
-            {% for item in monthLegend %}<li><span class="app-chart-legend__swatch {{ item.className }}"></span> {{ item.text }}</li>{% endfor %}
-          </ul>
+          <div data-testid="costs-month-chart">
+            {% if monthChart %}
+              {{ monthChart | safe }}
+            {% else %}
+              <p class="govuk-body" data-testid="costs-month-chart-unavailable">This chart is not available because estimated cost is not available for one or more months.</p>
+            {% endif %}
+          </div>
+          {% if monthChart %}
+            <ul class="app-chart-legend govuk-list">
+              {% for item in monthLegend %}<li><span class="app-chart-legend__swatch {{ item.className }}"></span> {{ item.text }}</li>{% endfor %}
+            </ul>
+          {% endif %}
           <details class="govuk-details">
             <summary class="govuk-details__summary"><span class="govuk-details__summary-text">Cost each month as a table</span></summary>
             <div class="govuk-details__text">
@@ -82,7 +90,7 @@
       {% endif %}
 
       {% if unpricedModels.length %}
-        <p class="govuk-body" data-testid="usage-unpriced">There is no price for {{ unpricedModels | join(", ") }}, so the estimated cost is not shown.</p>
+        <p class="govuk-body" data-testid="usage-unpriced">Estimated costs are unavailable only for periods that include usage from {{ unpricedModels | join(", ") }} without a price.</p>
       {% endif %}
 
       <details class="govuk-details">

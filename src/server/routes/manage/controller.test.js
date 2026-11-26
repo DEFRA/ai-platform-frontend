@@ -862,6 +862,19 @@ describe('#manageController', () => {
       expect($('[data-testid="key-usage-example"]')).toHaveLength(0)
     })
 
+    test('keeps the usage table in a labelled keyboard-scrollable region', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
+      })
+      const region = $('[data-testid="key-usage-table"]').closest(
+        '.app-table-scroll'
+      )
+
+      expect(region.attr('role')).toBe('region')
+      expect(region.attr('tabindex')).toBe('0')
+      expect(region.attr('aria-label')).toBe('Personal access usage by key')
+    })
+
     test('says when the figures are examples', async () => {
       const $ = await getManage({
         'GET /v1/credentials/cred-1/usage?days=7': keyUsage({ source: 'mock' })

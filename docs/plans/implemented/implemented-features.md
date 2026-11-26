@@ -4,7 +4,7 @@ A one-page index of what is built in the AI Platform Portal (`ai-platform-fronte
 for new joiners. It holds no detail: each row links to the category file in this folder
 that does. What is not built is in [remaining.md](../remaining.md).
 
-Last updated: 18 Nov 2026.
+Last updated: 26 Nov 2026.
 
 ## What you can do
 
@@ -48,8 +48,8 @@ Last updated: 18 Nov 2026.
 
 ## Not built yet
 
-Team client secrets (B18, with the real Entra apply), the Graph switch-on for directory search, limits (B17), usage and
-chargeback (B19), observability (B20 to B22), the rest of the Platform Admin area (B31: the real Microsoft Graph service
+Team client secrets (B18, with the real Entra apply), the Graph switch-on for directory search, limits (B17), B19 tariff
+and chargeback (the usage pages are in open frontend PR #124), observability (B20 to B22), the rest of the Platform Admin area (B31: the real Microsoft Graph service
 principal adapter and the 60-second measurement, waiting on Entra admin consent; API Management permissions and rollout;
 restoring access on Enable once B18 supplies an ordinary window; Delete and Restore team), research-tier
 journey tests and the liveness reconcile, the

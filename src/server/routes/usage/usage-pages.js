@@ -313,18 +313,22 @@ export function costsViewOf(overview) {
   const { currency } = overview.costBasis
   const { totals, forecast } = overview.current
   const last = overview.months.length - 1
-  const monthChart = stackedBars({
-    label: 'Estimated cost each month',
-    categories: overview.months.map((month, index) => ({
-      label: formatMonth(month.key),
-      parts: [{ series: 0, value: month.cost ?? 0 }],
-      forecast:
-        index === last && forecast.cost !== null && totals.cost !== null
-          ? Math.max(0, forecast.cost - totals.cost)
-          : 0
-    })),
-    format: (value) => shortMoney(value, currency)
-  })
+  const monthChart = overview.months.some(
+    (month) => typeof month.cost !== 'number'
+  )
+    ? null
+    : stackedBars({
+        label: 'Estimated cost each month',
+        categories: overview.months.map((month, index) => ({
+          label: formatMonth(month.key),
+          parts: [{ series: 0, value: month.cost }],
+          forecast:
+            index === last && forecast.cost !== null && totals.cost !== null
+              ? Math.max(0, forecast.cost - totals.cost)
+              : 0
+        })),
+        format: (value) => shortMoney(value, currency)
+      })
 
   return {
     ...frameOf(overview, 'costs'),
@@ -425,18 +429,22 @@ export function carbonViewOf(overview) {
   const { totals, forecast } = overview.current
   const last = overview.months.length - 1
   const totalCarbon = totals.carbonKg
-  const monthChart = stackedBars({
-    label: 'Estimated carbon each month',
-    categories: overview.months.map((month, index) => ({
-      label: formatMonth(month.key),
-      parts: [{ series: 0, value: month.carbonKg ?? 0 }],
-      forecast:
-        index === last && forecast.carbonKg !== null && totalCarbon !== null
-          ? Math.max(0, forecast.carbonKg - totalCarbon)
-          : 0
-    })),
-    format: (value) => `${Math.round(value * 10) / 10} kg`
-  })
+  const monthChart = overview.months.some(
+    (month) => typeof month.carbonKg !== 'number'
+  )
+    ? null
+    : stackedBars({
+        label: 'Estimated carbon each month',
+        categories: overview.months.map((month, index) => ({
+          label: formatMonth(month.key),
+          parts: [{ series: 0, value: month.carbonKg }],
+          forecast:
+            index === last && forecast.carbonKg !== null && totalCarbon !== null
+              ? Math.max(0, forecast.carbonKg - totalCarbon)
+              : 0
+        })),
+        format: (value) => `${Math.round(value * 10) / 10} kg`
+      })
 
   return {
     ...frameOf(overview, 'carbon'),

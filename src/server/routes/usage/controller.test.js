@@ -329,6 +329,26 @@ describe('#usage section', () => {
       ])
     })
 
+    test('keeps each usage table in a labelled keyboard-scrollable region', async () => {
+      backend()
+
+      const $ = load((await get(`/usage/${SLUG}`)).result)
+
+      for (const [testId, label] of [
+        ['usage-day-table', 'Tokens each day'],
+        ['usage-by-model', 'Usage by model'],
+        ['usage-by-environment', 'Usage by environment']
+      ]) {
+        const region = $(`[data-testid="${testId}"]`).closest(
+          '.app-table-scroll'
+        )
+
+        expect(region.attr('role')).toBe('region')
+        expect(region.attr('tabindex')).toBe('0')
+        expect(region.attr('aria-label')).toBe(label)
+      }
+    })
+
     test('shares tokens by model and by environment, with a link to each environment', async () => {
       backend()
 
@@ -405,6 +425,36 @@ describe('#usage section', () => {
 
       expect(text($, '[data-testid="usage-unpriced"]')).toContain('mystery')
     })
+
+    test.each([
+      ['Overview', `/usage/${SLUG}`],
+      ['Costs', `/usage/${SLUG}/costs`]
+    ])(
+      'limits the %s unpriced notice to periods with unpriced usage',
+      async (_, url) => {
+        const base = overview()
+
+        backend({
+          [`GET ${OVERVIEW_PATH}`]: overview({
+            unpricedModels: ['mystery'],
+            months: base.months.map((month, index) =>
+              index === 0 ? { ...month, cost: null } : month
+            ),
+            current: {
+              ...base.current,
+              byModel: [base.current.byModel[0]]
+            }
+          })
+        })
+
+        const $ = load((await get(url)).result)
+
+        expect(text($, '[data-testid="usage-unpriced"]')).toBe(
+          'Estimated costs are unavailable only for periods that include usage from mystery without a price.'
+        )
+        expect(text($, '[data-testid="usage-cards"]')).toContain('US$250')
+      }
+    )
   })
 
   describe('Costs', () => {
@@ -421,6 +471,33 @@ describe('#usage section', () => {
       expect(text($, '[data-testid="usage-period"]')).toContain(
         'Every cost is an estimate.'
       )
+    })
+
+    test('shows unavailable months separately from a zero estimate', async () => {
+      const base = overview()
+
+      backend({
+        [`GET ${OVERVIEW_PATH}`]: overview({
+          months: base.months.map((month, index) =>
+            index === 0
+              ? { ...month, cost: null }
+              : index === 1
+                ? { ...month, cost: 0 }
+                : month
+          )
+        })
+      })
+
+      const $ = load((await get(`/usage/${SLUG}/costs`)).result)
+      const monthlyCosts = $('[data-testid="costs-month-table"] tbody td')
+        .map((_, cell) => $(cell).text().trim())
+        .get()
+
+      expect($('[data-testid="costs-month-chart"] svg')).toHaveLength(0)
+      expect(
+        text($, '[data-testid="costs-month-chart-unavailable"]')
+      ).toContain('not available for one or more months')
+      expect(monthlyCosts.slice(0, 2)).toEqual(['Not available', 'US$0.00'])
     })
 
     test('splits the cost by environment and by model, with the example prices', async () => {
@@ -589,6 +666,54 @@ describe('#usage section', () => {
       expect($('[data-testid="carbon-by-model"] tbody tr')).toHaveLength(2)
       expect($('.app-donut-pair svg')).toHaveLength(2)
       expect(text($, '[data-testid="carbon-method"]')).toContain('examples')
+    })
+
+    test('keeps the carbon table in a labelled keyboard-scrollable region', async () => {
+      const base = overview()
+
+      backend({
+        [`GET ${OVERVIEW_PATH}`]: overview({
+          carbonBasis: { enabled: true },
+          current: base.current
+        })
+      })
+
+      const $ = load((await get(`/usage/${SLUG}/carbon`)).result)
+      const region = $('[data-testid="carbon-by-model"]').closest(
+        '.app-table-scroll'
+      )
+
+      expect(region.attr('role')).toBe('region')
+      expect(region.attr('tabindex')).toBe('0')
+      expect(region.attr('aria-label')).toBe('Carbon by model')
+    })
+
+    test('shows unavailable months separately from a zero estimate', async () => {
+      const base = overview()
+
+      backend({
+        [`GET ${OVERVIEW_PATH}`]: overview({
+          carbonBasis: { enabled: true },
+          months: base.months.map((month, index) =>
+            index === 0
+              ? { ...month, carbonKg: null }
+              : index === 1
+                ? { ...month, carbonKg: 0 }
+                : month
+          )
+        })
+      })
+
+      const $ = load((await get(`/usage/${SLUG}/carbon`)).result)
+      const monthlyCarbon = $('[data-testid="carbon-month-table"] tbody td')
+        .map((_, cell) => $(cell).text().trim())
+        .get()
+
+      expect($('[data-testid="carbon-month-chart"] svg')).toHaveLength(0)
+      expect(
+        text($, '[data-testid="carbon-month-chart-unavailable"]')
+      ).toContain('not available for one or more months')
+      expect(monthlyCarbon.slice(0, 2)).toEqual(['Not available', '0.0 g'])
     })
 
     test('shows no share of carbon, and keeps the token shares, when a model has no factor', async () => {
