@@ -35,7 +35,7 @@
             <p class="govuk-body">A larger model uses more electricity for each token, so its share of the carbon is bigger than its share of the tokens.</p>
             <div class="app-donut-pair">
               <figure class="app-donut-pair__item"><figcaption class="govuk-heading-s">Share of tokens</figcaption>{{ tokensDonut | safe }}</figure>
-              <figure class="app-donut-pair__item"><figcaption class="govuk-heading-s">Share of carbon</figcaption>{{ carbonDonut | safe }}</figure>
+              <figure class="app-donut-pair__item"><figcaption class="govuk-heading-s">Share of carbon</figcaption>{% if carbonDonut %}{{ carbonDonut | safe }}{% else %}<p class="govuk-body" data-testid="carbon-donut-unavailable">Not available while a model has no carbon factor.</p>{% endif %}</figure>
             </div>
             <table class="govuk-table" data-testid="carbon-by-model">
               <caption class="govuk-table__caption govuk-visually-hidden">Tokens and carbon by model</caption>

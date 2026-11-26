@@ -57,7 +57,7 @@
 
       {% if unpricedModels.length %}
         <p class="govuk-body" data-testid="usage-unpriced">
-          There is no price for {{ unpricedModels | join(", ") }}, so the estimated cost leaves {{ "it" if unpricedModels.length == 1 else "them" }} out.
+          There is no price for {{ unpricedModels | join(", ") }}, so the total estimated cost is not available.
         </p>
       {% endif %}
 

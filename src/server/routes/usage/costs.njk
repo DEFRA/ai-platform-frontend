@@ -36,7 +36,7 @@
         <div class="govuk-summary-card">
           <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">By environment</h2></div>
           <div class="govuk-summary-card__content app-chart-with-table">
-            <div class="app-chart-with-table__chart" data-testid="costs-environment-donut">{{ environmentDonut | safe }}</div>
+            <div class="app-chart-with-table__chart" data-testid="costs-environment-donut">{% if environmentDonut %}{{ environmentDonut | safe }}{% else %}<p class="govuk-body" data-testid="costs-donut-unavailable">The split by environment is not available while a model has no price.</p>{% endif %}</div>
             <table class="govuk-table" data-testid="costs-by-environment">
               <caption class="govuk-table__caption govuk-visually-hidden">Estimated cost by environment</caption>
               <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Environment</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Share</th></tr></thead>
@@ -72,7 +72,7 @@
                     </tr>
                   {% endfor %}
                 </tbody>
-                <tfoot><tr class="govuk-table__row"><th scope="row" class="govuk-table__header">All models</th><td class="govuk-table__cell" colspan="3"></td><td class="govuk-table__cell govuk-table__cell--numeric"><strong>{{ totalCost }}</strong></td><td class="govuk-table__cell govuk-table__cell--numeric"><strong>100%</strong></td></tr></tfoot>
+                <tfoot><tr class="govuk-table__row"><th scope="row" class="govuk-table__header">All models</th><td class="govuk-table__cell" colspan="3"></td><td class="govuk-table__cell govuk-table__cell--numeric"><strong>{{ totalCost }}</strong></td><td class="govuk-table__cell govuk-table__cell--numeric"><strong>{{ totalShare }}</strong></td></tr></tfoot>
               </table>
             </div>
           </div>

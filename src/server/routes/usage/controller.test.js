@@ -307,6 +307,28 @@ describe('#usage section', () => {
       expect($('[data-testid="usage-day-chart"] [style]')).toHaveLength(0)
     })
 
+    test('has a column for each environment in the table of tokens each day', async () => {
+      backend()
+
+      const $ = load((await get(`/usage/${SLUG}`)).result)
+      const headings = $('[data-testid="usage-day-table"] thead th')
+        .map((_, th) => $(th).text().trim())
+        .get()
+      const firstDay = $('[data-testid="usage-day-table"] tbody tr')
+        .first()
+        .find('th, td')
+        .map((_, cell) => $(cell).text().trim())
+        .get()
+
+      expect(headings).toEqual(['Day', 'Infradev', 'QA', 'All environments'])
+      expect(firstDay).toEqual([
+        '1 Nov',
+        '8,000,000',
+        '2,000,000',
+        '10,000,000'
+      ])
+    })
+
     test('shares tokens by model and by environment, with a link to each environment', async () => {
       backend()
 
@@ -323,7 +345,7 @@ describe('#usage section', () => {
       ])
     })
 
-    test('lists what needs attention, with a link to that environment’s limits', async () => {
+    test('lists what needs attention, with a link to that environment’s page', async () => {
       backend({
         [`GET ${OVERVIEW_PATH}`]: overview({
           attention: [
@@ -338,7 +360,7 @@ describe('#usage section', () => {
         'QA had 37 calls refused in the last 7 days'
       )
       expect($('[data-testid="usage-attention"] a').attr('href')).toBe(
-        `/environments/${SLUG}/qa/limits`
+        `/environments/${SLUG}/qa`
       )
     })
 
@@ -425,6 +447,34 @@ describe('#usage section', () => {
         'indicative price'
       )
       expect(text($, '[data-testid="costs-method"]')).toContain('USD')
+    })
+
+    test('shows no split of a total that leaves a model out, and does not invent shares', async () => {
+      const base = overview()
+
+      backend({
+        [`GET ${OVERVIEW_PATH}`]: overview({
+          unpricedModels: ['mystery'],
+          current: {
+            ...base.current,
+            totals: { ...base.current.totals, cost: null }
+          }
+        })
+      })
+
+      const $ = load((await get(`/usage/${SLUG}/costs`)).result)
+
+      expect($('[data-testid="costs-environment-donut"] svg')).toHaveLength(0)
+      expect(text($, '[data-testid="costs-donut-unavailable"]')).toContain(
+        'not available'
+      )
+      expect(text($, '[data-testid="costs-by-environment"]')).not.toContain('%')
+      expect(text($, '[data-testid="costs-by-model"] tfoot')).toContain(
+        'Not available'
+      )
+      expect(text($, '[data-testid="costs-by-model"] tfoot')).not.toContain(
+        '100%'
+      )
     })
   })
 
@@ -539,6 +589,37 @@ describe('#usage section', () => {
       expect($('[data-testid="carbon-by-model"] tbody tr')).toHaveLength(2)
       expect($('.app-donut-pair svg')).toHaveLength(2)
       expect(text($, '[data-testid="carbon-method"]')).toContain('examples')
+    })
+
+    test('shows no share of carbon, and keeps the token shares, when a model has no factor', async () => {
+      const base = overview()
+
+      backend({
+        [`GET ${OVERVIEW_PATH}`]: overview({
+          carbonBasis: { enabled: true },
+          current: {
+            ...base.current,
+            totals: { ...base.current.totals, carbonKg: null },
+            byModel: base.current.byModel.map((model) => ({
+              ...model,
+              carbonKg: null
+            }))
+          }
+        })
+      })
+
+      const $ = load((await get(`/usage/${SLUG}/carbon`)).result)
+
+      expect($('.app-donut-pair svg')).toHaveLength(1)
+      expect(text($, '[data-testid="carbon-donut-unavailable"]')).toContain(
+        'Not available'
+      )
+      expect(text($, '[data-testid="carbon-by-model"] tbody tr')).toContain(
+        '75%'
+      )
+      expect(text($, '[data-testid="carbon-by-model"] tbody tr')).toContain(
+        'Not available'
+      )
     })
   })
 

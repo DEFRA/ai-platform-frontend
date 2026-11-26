@@ -9,7 +9,10 @@ import {
   formatTokens
 } from '#/server/common/helpers/usage-format.js'
 import { donut, stackedBars } from '#/server/common/helpers/usage-charts.js'
-import { environmentRegistryName } from '#/server/common/helpers/environment-names.js'
+import {
+  environmentPageUrl,
+  environmentRegistryName
+} from '#/server/common/helpers/environment-names.js'
 
 const FORECAST_NOTE = 'at the rate so far this month'
 const NOT_AVAILABLE = 'Not available'
@@ -48,8 +51,8 @@ export function attentionOf(item, slug) {
 
   return {
     text: `${name} had ${formatCount(item.count)} ${item.count === 1 ? 'call' : 'calls'} refused in the last ${item.days} days, because ${item.count === 1 ? 'it' : 'they'} went over the limit.`,
-    href: `/environments/${encodeURIComponent(slug)}/${encodeURIComponent(item.environment)}/limits`,
-    linkText: `View ${name} limits`
+    href: environmentPageUrl(slug, item.environment),
+    linkText: `View ${name}`
   }
 }
 
@@ -154,9 +157,15 @@ function overviewBreakdownOf(overview) {
       name: environmentRegistryName(environment.environment),
       value: formatTokens(environment.tokens)
     })),
+    dayEnvironments: environments.map((environment) =>
+      environmentRegistryName(environment.environment)
+    ),
     dayTable: overview.current.byDay.map((day) => ({
       label: formatDay(day.day),
-      tokens: formatCount(day.tokens)
+      tokens: formatCount(day.tokens),
+      environments: environments.map((environment) =>
+        formatCount(day.byEnvironment[environment.environment] ?? 0)
+      )
     })),
     byModel: overview.current.byModel.map((model, index) => ({
       series: index,
@@ -223,6 +232,14 @@ function shareOfTotal(part, total) {
   return total > 0 && part !== null ? part / total : 0
 }
 
+// The words for a share: "Not available" when the total is unknown, because
+// a share of a total that leaves a model out would be wrong.
+function shareText(part, total) {
+  return typeof total === 'number'
+    ? formatPercent(shareOfTotal(part, total))
+    : NOT_AVAILABLE
+}
+
 function costsCardsOf(overview) {
   const { currency } = overview.costBasis
   const { totals, forecast } = overview.current
@@ -252,21 +269,24 @@ function costsBreakdownOf(overview) {
   const environments = overview.current.byEnvironment
 
   return {
-    environmentDonut: donut({
-      label: 'Estimated cost by environment',
-      parts: environments.map((environment, index) => ({
-        series: index,
-        value: environment.cost ?? 0
-      })),
-      centre: shortMoney(totals.cost, currency),
-      caption: 'so far'
-    }),
+    environmentDonut:
+      typeof totals.cost === 'number'
+        ? donut({
+            label: 'Estimated cost by environment',
+            parts: environments.map((environment, index) => ({
+              series: index,
+              value: environment.cost ?? 0
+            })),
+            centre: shortMoney(totals.cost, currency),
+            caption: 'so far'
+          })
+        : null,
     byEnvironment: environments.map((environment, index) => ({
       series: index,
       name: environmentRegistryName(environment.environment),
       href: environmentLink(overview.teamSlug, environment.environment),
       cost: shortMoney(environment.cost, currency),
-      share: formatPercent(shareOfTotal(environment.cost, totals.cost))
+      share: shareText(environment.cost, totals.cost)
     })),
     byModel: overview.current.byModel.map((model, index) => ({
       series: index,
@@ -277,9 +297,10 @@ function costsBreakdownOf(overview) {
         ? `${shortMoney(model.price.inputPerMillion, currency)} and ${shortMoney(model.price.outputPerMillion, currency)}`
         : 'No price yet',
       cost: shortMoney(model.cost, currency),
-      share: formatPercent(shareOfTotal(model.cost, totals.cost)),
+      share: shareText(model.cost, totals.cost),
       value: shareOfTotal(model.cost, totals.cost)
-    }))
+    })),
+    totalShare: shareText(totals.cost, totals.cost)
   }
 }
 
@@ -373,21 +394,24 @@ function carbonBreakdownOf(overview) {
       })),
       centre: formatTokens(totals.tokens)
     }),
-    carbonDonut: donut({
-      label: 'Share of carbon by model',
-      parts: models.map((model, index) => ({
-        series: index,
-        value: model.carbonKg ?? 0
-      })),
-      centre: formatCarbon(totals.carbonKg)
-    }),
+    carbonDonut:
+      typeof totals.carbonKg === 'number'
+        ? donut({
+            label: 'Share of carbon by model',
+            parts: models.map((model, index) => ({
+              series: index,
+              value: model.carbonKg ?? 0
+            })),
+            centre: formatCarbon(totals.carbonKg)
+          })
+        : null,
     byModel: models.map((model, index) => ({
       series: index,
       name: model.modelSlug,
       tokens: formatTokens(model.tokens),
       tokenShare: formatPercent(model.share),
       carbon: formatCarbon(model.carbonKg),
-      carbonShare: formatPercent(shareOfTotal(model.carbonKg, totals.carbonKg)),
+      carbonShare: shareText(model.carbonKg, totals.carbonKg),
       value: shareOfTotal(model.carbonKg, totals.carbonKg)
     }))
   }

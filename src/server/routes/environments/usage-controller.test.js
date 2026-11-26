@@ -185,6 +185,9 @@ describe('#usageController', () => {
 
     expect(text($, '[data-testid="usage-totals"]')).toContain('Not available')
     expect(text($, '[data-testid="usage-unpriced"]')).toContain('gpt-4o')
+    expect(text($, '[data-testid="usage-unpriced"]')).toContain(
+      'the total estimated cost is not available'
+    )
   })
 
   test('says there were no requests, and shows no tables, for a quiet team', async () => {

@@ -61,13 +61,13 @@ function overview(current = {}, overrides = {}) {
 }
 
 describe('#attentionOf', () => {
-  test('says one call, not calls, and links to that environment’s limits', () => {
+  test('says one call, not calls, and links to that environment’s page', () => {
     expect(
       attentionOf({ environment: 'qa', count: 1, days: 7 }, 'a-team')
     ).toEqual({
       text: 'QA had 1 call refused in the last 7 days, because it went over the limit.',
-      href: '/environments/a-team/qa/limits',
-      linkText: 'View QA limits'
+      href: '/environments/a-team/qa',
+      linkText: 'View QA'
     })
   })
 })
@@ -102,7 +102,7 @@ describe('#costsViewOf', () => {
     expect(view.byModel[0]).toMatchObject({
       price: 'No price yet',
       cost: 'Not available',
-      share: '0%',
+      share: 'Not available',
       value: 0
     })
   })
@@ -146,7 +146,11 @@ describe('#carbonViewOf', () => {
     )
 
     expect(view.cards[3].value).toBe('Not available')
-    expect(view.byModel[0]).toMatchObject({ carbonShare: '0%', value: 0 })
+    expect(view.byModel[0]).toMatchObject({
+      carbonShare: 'Not available',
+      value: 0
+    })
+    expect(view.carbonDonut).toBeNull()
   })
 })
 

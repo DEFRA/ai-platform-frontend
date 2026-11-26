@@ -594,7 +594,7 @@ describe('#homeController', () => {
       expect($('[data-testid="usage-cards"]')).toHaveLength(0)
     })
 
-    test('adds what a team needs attention for to the list, with a link to that environment’s limits', async () => {
+    test('adds what a team needs attention for to the list, with a link to that environment’s page', async () => {
       const { $ } = await signedInHome({
         'GET /v1/users/me/usage': {
           items: [
@@ -617,7 +617,7 @@ describe('#homeController', () => {
         'Flood Risk Team: QA had 37 calls refused in the last 7 days'
       )
       expect($('[data-testid="home-attention"] a').attr('href')).toBe(
-        '/environments/flood-risk-team/qa/limits'
+        '/environments/flood-risk-team/qa'
       )
     })
 

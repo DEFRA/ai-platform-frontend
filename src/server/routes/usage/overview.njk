@@ -43,10 +43,10 @@
               <div class="govuk-details__text">
                 <table class="govuk-table" data-testid="usage-day-table">
                   <caption class="govuk-table__caption govuk-visually-hidden">Tokens each day</caption>
-                  <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Day</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens</th></tr></thead>
+                  <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Day</th>{% for name in dayEnvironments %}<th scope="col" class="govuk-table__header govuk-table__header--numeric">{{ name }}</th>{% endfor %}<th scope="col" class="govuk-table__header govuk-table__header--numeric">All environments</th></tr></thead>
                   <tbody class="govuk-table__body">
                     {% for row in dayTable %}
-                      <tr class="govuk-table__row"><th scope="row" class="govuk-table__header">{{ row.label }}</th><td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td></tr>
+                      <tr class="govuk-table__row"><th scope="row" class="govuk-table__header">{{ row.label }}</th>{% for cell in row.environments %}<td class="govuk-table__cell govuk-table__cell--numeric">{{ cell }}</td>{% endfor %}<td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td></tr>
                     {% endfor %}
                   </tbody>
                 </table>
