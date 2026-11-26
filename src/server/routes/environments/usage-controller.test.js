@@ -258,6 +258,21 @@ describe('#usageController', () => {
     expect($('[data-testid="usage-by-day"] td').first().text().trim()).toBe('4')
   })
 
+  test('keeps each table in a labelled, focusable region that scrolls on its own', async () => {
+    backend()
+
+    const $ = load((await get()).result)
+
+    for (const testId of ['usage-by-model', 'usage-by-day']) {
+      const region = $(`[data-testid="${testId}"]`).closest('.app-table-scroll')
+
+      expect(region).toHaveLength(1)
+      expect(region.attr('role')).toBe('region')
+      expect(region.attr('tabindex')).toBe('0')
+      expect(region.attr('aria-label')).toBeTruthy()
+    }
+  })
+
   test('is the same 404 for a team that is not the persons as for one that does not exist', async () => {
     backend({
       [`GET ${TEAM_PATH}`]: reply(404, { code: 'not-a-member' }),

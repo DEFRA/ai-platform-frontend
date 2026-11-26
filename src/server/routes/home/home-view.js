@@ -16,6 +16,8 @@ import { buildKeyRows } from '#/server/routes/manage/access-view.js'
 import { joinNames } from '#/server/routes/connect/team-model-choices.js'
 import { requestUrl } from '#/server/routes/environments/environment-view.js'
 import { teamUrl } from '#/server/routes/teams/team-view.js'
+import { readUsageSummary } from '#/server/routes/usage/usage-api.js'
+import { homeUsageOf } from '#/server/routes/usage/usage-pages.js'
 
 const ACTIVE_STATUS = 'active'
 // A personal key this close to running out is called out on the page.
@@ -202,11 +204,13 @@ function logFailed(request, read, message) {
  */
 export async function loadHomeView(request) {
   const client = apiClient(request)
-  const [teamsRead, credentialsRead, catalogueRead] = await Promise.allSettled([
-    client.get('/v1/teams'),
-    client.get('/v1/credentials'),
-    client.get('/v1/models?includeIneligible=true')
-  ])
+  const [teamsRead, credentialsRead, catalogueRead, usageRead] =
+    await Promise.allSettled([
+      client.get('/v1/teams'),
+      client.get('/v1/credentials'),
+      client.get('/v1/models?includeIneligible=true'),
+      readUsageSummary(request)
+    ])
 
   logFailed(request, teamsRead, 'Could not read the teams for the home page')
   logFailed(
@@ -220,7 +224,10 @@ export async function loadHomeView(request) {
     'Could not read the model names for the home page'
   )
 
+  logFailed(request, usageRead, 'Could not read the usage for the home page')
+
   const modelNames = modelNamesFrom(catalogueRead.value)
+  const usage = usageRead.value ? homeUsageOf(usageRead.value) : null
   const teams = teamsRead.value?.items ?? null
   const deploymentReads = await Promise.allSettled(
     (teams ?? []).map((team) =>
@@ -249,11 +256,15 @@ export async function loadHomeView(request) {
     : null
 
   return {
-    attention: buildAttention(
-      teamReads.filter(({ deployments }) => deployments),
-      keyRows ?? [],
-      modelNames
-    ),
+    attention: [
+      ...buildAttention(
+        teamReads.filter(({ deployments }) => deployments),
+        keyRows ?? [],
+        modelNames
+      ),
+      ...(usage?.attention ?? [])
+    ],
+    usage,
     teams: teamsPage?.rows ?? null,
     teamsPage,
     keys: keyRows ? buildKeysSummary(keyRows) : null

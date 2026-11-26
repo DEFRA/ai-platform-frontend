@@ -65,27 +65,29 @@
         <p class="govuk-body" data-testid="usage-empty">Your team has made no requests in this period.</p>
       {% else %}
         <h2 class="govuk-heading-l">By model</h2>
-        <table class="govuk-table" data-testid="usage-by-model">
-          <caption class="govuk-table__caption govuk-visually-hidden">Usage by model</caption>
-          <thead class="govuk-table__head">
-            <tr class="govuk-table__row">
-              <th scope="col" class="govuk-table__header">Model</th>
-              <th scope="col" class="govuk-table__header govuk-table__header--numeric">Requests</th>
-              <th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens used</th>
-              <th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th>
-            </tr>
-          </thead>
-          <tbody class="govuk-table__body">
-            {% for row in byModel %}
+        <div class="app-table-scroll" role="region" tabindex="0" aria-label="Usage by model">
+          <table class="govuk-table" data-testid="usage-by-model">
+            <caption class="govuk-table__caption govuk-visually-hidden">Usage by model</caption>
+            <thead class="govuk-table__head">
               <tr class="govuk-table__row">
-                <th scope="row" class="govuk-table__header">{{ row.model }}</th>
-                <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.requests }}</td>
-                <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td>
-                <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
+                <th scope="col" class="govuk-table__header">Model</th>
+                <th scope="col" class="govuk-table__header govuk-table__header--numeric">Requests</th>
+                <th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens used</th>
+                <th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated cost</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody class="govuk-table__body">
+              {% for row in byModel %}
+                <tr class="govuk-table__row">
+                  <th scope="row" class="govuk-table__header">{{ row.model }}</th>
+                  <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.requests }}</td>
+                  <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td>
+                  <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.cost }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
         <h2 class="govuk-heading-l">By day</h2>
         <div class="app-table-scroll" role="region" tabindex="0" aria-label="Usage by day">

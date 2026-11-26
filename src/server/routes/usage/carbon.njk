@@ -1,0 +1,80 @@
+{% extends 'layouts/page.njk' %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      {% include "usage/partials/frame.njk" %}
+      {% include "usage/partials/cards.njk" %}
+
+      <div class="govuk-summary-card">
+        <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Carbon each month</h2></div>
+        <div class="govuk-summary-card__content">
+          <div data-testid="carbon-month-chart">{{ monthChart | safe }}</div>
+          <ul class="app-chart-legend govuk-list">
+            {% for item in monthLegend %}<li><span class="app-chart-legend__swatch {{ item.className }}"></span> {{ item.text }}</li>{% endfor %}
+          </ul>
+          <details class="govuk-details">
+            <summary class="govuk-details__summary"><span class="govuk-details__summary-text">Carbon each month as a table</span></summary>
+            <div class="govuk-details__text">
+              <table class="govuk-table" data-testid="carbon-month-table">
+                <caption class="govuk-table__caption govuk-visually-hidden">Estimated carbon each month</caption>
+                <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Month</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Estimated carbon (CO₂e)</th></tr></thead>
+                <tbody class="govuk-table__body">
+                  {% for row in monthTable %}<tr class="govuk-table__row"><th scope="row" class="govuk-table__header">{{ row.label }}</th><td class="govuk-table__cell govuk-table__cell--numeric">{{ row.carbon }}</td></tr>{% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      {% if hasUsage %}
+        <div class="govuk-summary-card">
+          <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Tokens and carbon by model</h2></div>
+          <div class="govuk-summary-card__content">
+            <p class="govuk-body">A larger model uses more electricity for each token, so its share of the carbon is bigger than its share of the tokens.</p>
+            <div class="app-donut-pair">
+              <figure class="app-donut-pair__item"><figcaption class="govuk-heading-s">Share of tokens</figcaption>{{ tokensDonut | safe }}</figure>
+              <figure class="app-donut-pair__item"><figcaption class="govuk-heading-s">Share of carbon</figcaption>{{ carbonDonut | safe }}</figure>
+            </div>
+            <table class="govuk-table" data-testid="carbon-by-model">
+              <caption class="govuk-table__caption govuk-visually-hidden">Tokens and carbon by model</caption>
+              <thead class="govuk-table__head"><tr class="govuk-table__row"><th scope="col" class="govuk-table__header">Model</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Tokens</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Share of tokens</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Carbon (CO₂e)</th><th scope="col" class="govuk-table__header govuk-table__header--numeric">Share of carbon</th></tr></thead>
+              <tbody class="govuk-table__body">
+                {% for row in byModel %}
+                  <tr class="govuk-table__row">
+                    <th scope="row" class="govuk-table__header"><span class="app-chart-legend__swatch app-chart__s{{ row.series % 6 }}"></span> {{ row.name }}</th>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokens }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.tokenShare }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.carbon }}</td>
+                    <td class="govuk-table__cell govuk-table__cell--numeric">{{ row.carbonShare }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <p class="govuk-body" data-testid="usage-empty">Your team has made no requests this month.</p>
+      {% endif %}
+
+      <div class="govuk-summary-card">
+        <div class="govuk-summary-card__title-wrapper"><h2 class="govuk-summary-card__title">Ways to lower it</h2></div>
+        <div class="govuk-summary-card__content">
+          <ul class="govuk-list govuk-list--bullet">
+            <li>use the smallest model that does the job</li>
+            <li>send less text: shorter prompts, and keep answers you ask for often</li>
+            <li>run work that can wait in one batch, not call by call</li>
+          </ul>
+        </div>
+      </div>
+
+      <details class="govuk-details">
+        <summary class="govuk-details__summary"><span class="govuk-details__summary-text">How the carbon is estimated</span></summary>
+        <div class="govuk-details__text" data-testid="carbon-method">
+          The carbon is each model's tokens multiplied by an example amount of electricity for each token, then by the carbon in the electricity grid. The factors are examples while we agree the method, so treat every figure as a rough guide.
+        </div>
+      </details>
+    </div>
+  </div>
+{% endblock %}

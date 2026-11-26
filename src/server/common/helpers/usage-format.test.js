@@ -1,7 +1,13 @@
 import {
   formatCost,
   formatCount,
+  formatCarbon,
   formatDay,
+  formatElectricity,
+  formatMonth,
+  formatMonthLong,
+  formatPercent,
+  formatTokens,
   periodText,
   usageDaysOf
 } from './usage-format.js'
@@ -63,5 +69,54 @@ describe('#periodText', () => {
 describe('#formatDay', () => {
   test('is a short UTC day', () => {
     expect(formatDay('2026-11-02')).toBe('2 Nov')
+  })
+})
+
+describe('#formatTokens', () => {
+  test.each([
+    [0, '0'],
+    [999, '999'],
+    [12_345, '12.3k'],
+    [439_100_000, '439m'],
+    [43_910_000, '43.9m'],
+    [1_200_000, '1.2m'],
+    [2_270_000_000, '2.27bn']
+  ])('writes %d as %s', (value, expected) => {
+    expect(formatTokens(value)).toBe(expected)
+  })
+})
+
+describe('#formatCarbon', () => {
+  test('is kilograms from a kilogram, and grams below it', () => {
+    expect(formatCarbon(11.7)).toBe('11.7 kg')
+    expect(formatCarbon(0.027)).toBe('27 g')
+    expect(formatCarbon(0.0042)).toBe('4.2 g')
+  })
+
+  test('says "Not available" for no figure, and keeps a real zero', () => {
+    expect(formatCarbon(null)).toBe('Not available')
+    expect(formatCarbon(0)).toBe('0.0 g')
+  })
+})
+
+describe('#formatElectricity', () => {
+  test('is kilowatt hours, or "Not available"', () => {
+    expect(formatElectricity(58.4)).toBe('58 kWh')
+    expect(formatElectricity(2.34)).toBe('2.3 kWh')
+    expect(formatElectricity(null)).toBe('Not available')
+  })
+})
+
+describe('#formatPercent', () => {
+  test('is a whole percentage', () => {
+    expect(formatPercent(0.4149)).toBe('41%')
+    expect(formatPercent(1)).toBe('100%')
+  })
+})
+
+describe('#formatMonth and #formatMonthLong', () => {
+  test('name the month of a key', () => {
+    expect(formatMonth('2026-11')).toBe('Nov')
+    expect(formatMonthLong('2026-11')).toBe('November 2026')
   })
 })

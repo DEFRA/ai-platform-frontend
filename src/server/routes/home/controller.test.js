@@ -200,6 +200,7 @@ describe('#homeController', () => {
         'Personal access',
         'Teams',
         'Environments',
+        'Usage',
         'Help'
       ])
       expect($('a[href="/environments"]').text()).toContain('Environments')
@@ -541,6 +542,119 @@ describe('#homeController', () => {
       expect(text($, 'home-team')).toBe(
         'Plant Health Data Member. GPT-4o in Development. GPT-4.1 nano setting up.'
       )
+    })
+  })
+
+  describe('usage this month', () => {
+    function teamUsage(overrides = {}) {
+      return {
+        slug: 'flood-risk-team',
+        name: 'Flood Risk Team',
+        available: true,
+        source: 'log-analytics',
+        month: { key: '2026-11', daysElapsed: 23, daysInMonth: 30 },
+        costBasis: { estimate: true, currency: 'USD' },
+        carbonBasis: { enabled: false },
+        totals: { tokens: 439_100_000, cost: 250, carbonKg: null },
+        forecast: { tokens: 572_000_000, cost: 328, carbonKg: null },
+        attention: [],
+        ...overrides
+      }
+    }
+
+    test('shows the figures for the one team a person has, linked to its usage', async () => {
+      const { $ } = await signedInHome({
+        'GET /v1/users/me/usage': { items: [teamUsage()] }
+      })
+
+      expect(text($, 'home-usage-heading')).toBe('Usage in November 2026')
+      expect(text($, 'usage-cards')).toContain('439m')
+      expect(text($, 'usage-cards')).toContain('Forecast')
+      expect($('[data-testid="home-usage-link"]').attr('href')).toBe(
+        '/usage/flood-risk-team'
+      )
+      expect($('[data-testid="home-usage-table"]')).toHaveLength(0)
+    })
+
+    test('shows a table with a link to each team when there are several', async () => {
+      const { $ } = await signedInHome({
+        'GET /v1/users/me/usage': {
+          items: [
+            teamUsage(),
+            teamUsage({ slug: 'plant-health-data', name: 'Plant Health Data' })
+          ]
+        }
+      })
+
+      expect(
+        $('[data-testid="home-usage-table"] a')
+          .map((_, a) => $(a).attr('href'))
+          .get()
+      ).toEqual(['/usage/flood-risk-team', '/usage/plant-health-data'])
+      expect($('[data-testid="usage-cards"]')).toHaveLength(0)
+    })
+
+    test('adds what a team needs attention for to the list, with a link to that environment’s limits', async () => {
+      const { $ } = await signedInHome({
+        'GET /v1/users/me/usage': {
+          items: [
+            teamUsage({
+              attention: [
+                {
+                  kind: 'rate-limited',
+                  environment: 'qa',
+                  count: 37,
+                  days: 7
+                }
+              ]
+            })
+          ]
+        }
+      })
+
+      expect($('h2').text()).toContain('Needs your attention')
+      expect(text($, 'home-attention')).toContain(
+        'Flood Risk Team: QA had 37 calls refused in the last 7 days'
+      )
+      expect($('[data-testid="home-attention"] a').attr('href')).toBe(
+        '/environments/flood-risk-team/qa/limits'
+      )
+    })
+
+    test('says when the figures are examples', async () => {
+      const { $ } = await signedInHome({
+        'GET /v1/users/me/usage': { items: [teamUsage({ source: 'mock' })] }
+      })
+
+      expect(text($, 'home-usage-example')).toBe(
+        'These figures are examples, not real use.'
+      )
+    })
+
+    test('says which team usage could not be read, and still shows the rest of the page', async () => {
+      const { $, statusCode } = await signedInHome({
+        'GET /v1/users/me/usage': {
+          items: [teamUsage({ available: false })]
+        }
+      })
+
+      expect(statusCode).toBe(statusCodes.ok)
+      expect(text($, 'home-usage-unavailable')).toBe(
+        'We could not check usage for Flood Risk Team just now.'
+      )
+    })
+
+    test('leaves usage out when the person is in no team or it cannot be read', async () => {
+      const none = await signedInHome({
+        'GET /v1/users/me/usage': { items: [] }
+      })
+      const failed = await signedInHome({
+        'GET /v1/users/me/usage': FAILED_ACCESS_ERROR
+      })
+
+      expect(none.$('[data-testid="home-usage-heading"]')).toHaveLength(0)
+      expect(failed.statusCode).toBe(statusCodes.ok)
+      expect(failed.$('[data-testid="home-usage-heading"]')).toHaveLength(0)
     })
   })
 

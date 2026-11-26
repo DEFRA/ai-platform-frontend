@@ -72,3 +72,93 @@ export function formatDay(day) {
     timeZone: 'UTC'
   }).format(Date.parse(`${day}T00:00:00Z`))
 }
+
+const MILLION = 1_000_000
+const BILLION = 1_000_000_000
+const THOUSAND = 1000
+
+function compact(value, divisor, suffix) {
+  const scaled = value / divisor
+
+  return `${scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1)}${suffix}`
+}
+
+/**
+ * Tokens in the short form a card has room for: 12.3k, 439.1m, 2.27bn.
+ * @param {number} value
+ * @returns {string}
+ */
+export function formatTokens(value) {
+  if (value >= BILLION) {
+    return `${(value / BILLION).toFixed(2)}bn`
+  }
+
+  if (value >= MILLION) {
+    return compact(value, MILLION, 'm')
+  }
+
+  return value >= THOUSAND
+    ? compact(value, THOUSAND, 'k')
+    : countFormat.format(value)
+}
+
+/**
+ * Carbon in kilograms, or grams for a small amount, or "Not available" when
+ * there is no figure: never 0 for a number nobody worked out.
+ * @param {number|null} kilograms
+ * @returns {string}
+ */
+export function formatCarbon(kilograms) {
+  if (typeof kilograms !== 'number') {
+    return 'Not available'
+  }
+
+  return kilograms < 1
+    ? `${(kilograms * THOUSAND).toFixed(kilograms * THOUSAND < 10 ? 1 : 0)} g`
+    : `${kilograms.toFixed(1)} kg`
+}
+
+/**
+ * Electricity in kilowatt hours.
+ * @param {number|null} kilowattHours
+ * @returns {string}
+ */
+export function formatElectricity(kilowattHours) {
+  return typeof kilowattHours === 'number'
+    ? `${kilowattHours.toFixed(kilowattHours < 10 ? 1 : 0)} kWh`
+    : 'Not available'
+}
+
+/**
+ * A share as a whole percentage.
+ * @param {number} share - 0 to 1.
+ * @returns {string}
+ */
+export function formatPercent(share) {
+  return `${Math.round(share * 100)}%`
+}
+
+/**
+ * The month a key such as 2026-11 stands for, short for a chart axis.
+ * @param {string} key - `YYYY-MM`
+ * @returns {string}
+ */
+export function formatMonth(key) {
+  return new Intl.DateTimeFormat('en-GB', {
+    month: 'short',
+    timeZone: 'UTC'
+  }).format(Date.parse(`${key}-01T00:00:00Z`))
+}
+
+/**
+ * The month a key such as 2026-11 stands for, in full.
+ * @param {string} key - `YYYY-MM`
+ * @returns {string}
+ */
+export function formatMonthLong(key) {
+  return new Intl.DateTimeFormat('en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(Date.parse(`${key}-01T00:00:00Z`))
+}

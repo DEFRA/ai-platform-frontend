@@ -1,0 +1,11 @@
+<div class="app-stat-cards" data-testid="usage-cards">
+  {% for card in cards %}
+    <div class="app-stat-card">
+      <p class="app-stat-card__value">{{ card.value }}</p>
+      <p class="app-stat-card__label">
+        {% if card.href %}<a class="govuk-link" href="{{ card.href }}">{{ card.label }}</a>{% else %}{{ card.label }}{% endif %}
+      </p>
+      {% if card.note %}<p class="app-stat-card__note">{{ card.note }}</p>{% endif %}
+    </div>
+  {% endfor %}
+</div>

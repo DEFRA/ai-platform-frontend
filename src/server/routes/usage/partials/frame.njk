@@ -1,0 +1,21 @@
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "sub-navigation/macro.njk" import appSubNavigation %}
+
+<span class="govuk-caption-xl" data-testid="app-heading-caption">{{ teamName }}</span>
+<h1 class="govuk-heading-xl">{{ heading }}</h1>
+<p class="govuk-body-l">{{ intro }}</p>
+
+{{ appSubNavigation({ items: tabs, label: "Usage" }) }}
+
+{% if isMock %}
+  {{ govukInsetText({
+    html: "<strong>These figures are examples.</strong> They are made up for testing and are not what your team used.",
+    attributes: { "data-testid": "usage-mock-notice" }
+  }) }}
+{% endif %}
+
+{% if unavailable.length %}
+  <p class="govuk-body" data-testid="usage-unavailable">There is no usage to show for {{ unavailable | join(", ") }} yet.</p>
+{% endif %}
+
+<p class="govuk-body" data-testid="usage-period">{{ period }}. {{ estimateNote }}</p>

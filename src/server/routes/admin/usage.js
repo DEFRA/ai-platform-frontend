@@ -9,9 +9,12 @@ import {
   USAGE_DAYS,
   formatCost,
   formatCount,
+  formatPercent,
+  formatTokens,
   periodText,
   usageDaysOf
 } from '#/server/common/helpers/usage-format.js'
+import { donut } from '#/server/common/helpers/usage-charts.js'
 import {
   ADMIN_TEAMS_URL,
   ADMIN_USAGE_URL,
@@ -21,6 +24,7 @@ import {
 } from './admin-page.js'
 
 const USAGE_NOT_AVAILABLE = 'usage-not-available'
+const ENVIRONMENT_NOT_AVAILABLE = 'environment-not-available'
 
 function usageUrl(environment, days) {
   return `${ADMIN_USAGE_URL}?environment=${encodeURIComponent(environment)}&days=${days}`
@@ -34,21 +38,115 @@ function rowOf(item, currency) {
   }
 }
 
+const RING_SERIES = 6
+const PERSONAL_ACCESS_API = 'research'
+
+function sumOf(items, field) {
+  return items.reduce((sum, item) => sum + item[field], 0)
+}
+
+// The teams' cost, or null when any one has no price: a total that leaves a
+// team out would say less than was spent.
+function teamCostOf(teams) {
+  return teams.every((team) => typeof team.estimatedCost === 'number')
+    ? sumOf(teams, 'estimatedCost')
+    : null
+}
+
+// The ring and its legend: the busiest teams each get a colour and the rest
+// share the last one, so a long list never runs out of colours.
+function teamShareOf(teams) {
+  const used = teams.filter((team) => team.totalTokens > 0)
+  const total = sumOf(used, 'totalTokens')
+  const shown =
+    used.length > RING_SERIES ? used.slice(0, RING_SERIES - 1) : used
+  const rest = used.slice(shown.length)
+  const entries = [
+    ...shown.map((team) => ({ name: team.name, tokens: team.totalTokens })),
+    ...(rest.length
+      ? [{ name: 'Other teams', tokens: sumOf(rest, 'totalTokens') }]
+      : [])
+  ].map((entry, index) => ({
+    ...entry,
+    series: index,
+    share: entry.tokens / total
+  }))
+
+  return {
+    shares: new Map(
+      used.map((team) => [team.teamId, team.totalTokens / total])
+    ),
+    ring: total
+      ? {
+          chart: donut({
+            label: 'Tokens used by each team',
+            parts: entries.map(({ series, tokens }) => ({
+              series,
+              value: tokens
+            })),
+            centre: formatTokens(total),
+            caption: 'tokens'
+          }),
+          legend: entries.map((entry) => ({
+            series: entry.series,
+            name: entry.name,
+            value: `${formatTokens(entry.tokens)}, ${formatPercent(entry.share)}`
+          }))
+        }
+      : null
+  }
+}
+
 /**
- * What the Admin Usage page shows of the backend's answer: a row for each
- * team, busiest first, and the gateway APIs no team owns.
+ * What the Admin Usage page shows of the backend's answer: the figures across
+ * every team, a row for each team (busiest first, with its share of the
+ * tokens), Personal access on its own, and the gateway APIs no team owns.
  * @param {{source: string, period: {from: string, to: string}, costBasis: {currency: string}, teams: object[], otherApis: object[]}} usage
  */
 export function adminUsageViewOf(usage) {
   const { currency } = usage.costBasis
+  const { shares, ring } = teamShareOf(usage.teams)
+  const personal = usage.otherApis.find(
+    (api) => api.apiId === PERSONAL_ACCESS_API
+  )
 
   return {
     periodText: periodText(usage.period),
     isMock: usage.source === 'mock',
+    cards: [
+      {
+        value: formatTokens(sumOf(usage.teams, 'totalTokens')),
+        label: 'Tokens used by teams'
+      },
+      {
+        value: formatCost(teamCostOf(usage.teams), currency),
+        label: 'Estimated cost of teams'
+      },
+      {
+        value: formatCount(sumOf(usage.teams, 'requests')),
+        label: 'Requests by teams'
+      },
+      {
+        value: `${usage.teams.filter((team) => team.requests > 0).length} of ${usage.teams.length}`,
+        label: 'Teams with use'
+      },
+      ...(personal
+        ? [
+            {
+              value: formatTokens(personal.totalTokens),
+              label: 'Personal access tokens',
+              note: `${formatCount(personal.requests)} requests, met by the Research cost centre`
+            }
+          ]
+        : [])
+    ],
+    ring,
     teams: usage.teams.map((team) => ({
       name: team.name,
       href: adminTeamUrl({ id: team.teamId }),
       serviceCode: team.serviceCode ?? 'Not set',
+      share: shares.get(team.teamId) ?? 0,
+      shareText: formatPercent(shares.get(team.teamId) ?? 0),
       ...rowOf(team, currency)
     })),
     otherApis: usage.otherApis.map((api) => ({
@@ -118,6 +216,12 @@ async function showUsage(request, h) {
   } catch (error) {
     if (error instanceof ApiError && error.code === USAGE_NOT_AVAILABLE) {
       return usageView(h, { environment, days })
+    }
+
+    // Enabled here but not offered by the backend: the environment is missing,
+    // not a team, which is all adminRefusalView would say of a 404.
+    if (error instanceof ApiError && error.code === ENVIRONMENT_NOT_AVAILABLE) {
+      return notFoundView(h)
     }
 
     return adminRefusalView(request, h, error)

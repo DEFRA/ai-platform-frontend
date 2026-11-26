@@ -159,6 +159,89 @@ describe('#admin usage', () => {
     )
   })
 
+  test('shows the figures across every team, with Personal access on its own', async () => {
+    mockApi(fetchMock, { [`GET ${USAGE()}`]: usage() })
+
+    const $ = load((await get()).result)
+    const cards = $('[data-testid="usage-cards"] .app-stat-card')
+      .map((_, card) => text($, $(card)))
+      .get()
+
+    expect(cards).toEqual([
+      '1.5m Tokens used by teams',
+      'US$12.25 Estimated cost of teams',
+      '1,500 Requests by teams',
+      '1 of 2 Teams with use',
+      '900 Personal access tokens 9 requests, met by the Research cost centre'
+    ])
+  })
+
+  test('says the cost of teams is not available when any team has no price', async () => {
+    const teams = usage().teams.map((team, index) =>
+      index === 0 ? { ...team, estimatedCost: null } : team
+    )
+
+    mockApi(fetchMock, { [`GET ${USAGE()}`]: usage({ teams }) })
+
+    const $ = load((await get()).result)
+
+    expect(text($, '[data-testid="usage-cards"]')).toContain(
+      'Not available Estimated cost of teams'
+    )
+  })
+
+  test('has a ring of tokens by team and each team’s share in the table', async () => {
+    mockApi(fetchMock, { [`GET ${USAGE()}`]: usage() })
+
+    const $ = load((await get()).result)
+
+    expect($('[data-testid="usage-team-ring"] svg.app-donut')).toHaveLength(1)
+    expect(text($, '[data-testid="usage-team-ring"] li')).toContain(
+      'Flood Risk Team'
+    )
+    expect(
+      text($, '[data-testid="usage-by-team"] tbody tr:first-child')
+    ).toContain('100%')
+    expect(
+      $('[data-testid="usage-by-team"] tbody tr')
+        .eq(1)
+        .find('meter')
+        .attr('value')
+    ).toBe('0')
+  })
+
+  test('groups the teams past the sixth colour into Other teams', async () => {
+    const teams = Array.from({ length: 8 }, (_, index) => ({
+      teamId: `team-${index}`,
+      slug: `team-${index}`,
+      name: `Team ${index}`,
+      serviceCode: null,
+      requests: 1,
+      promptTokens: 1,
+      completionTokens: 1,
+      totalTokens: 1000 - index,
+      estimatedCost: 1
+    }))
+
+    mockApi(fetchMock, { [`GET ${USAGE()}`]: usage({ teams }) })
+
+    const $ = load((await get()).result)
+    const legend = $('[data-testid="usage-team-ring"] li')
+
+    expect(legend).toHaveLength(6)
+    expect(text($, legend.last())).toContain('Other teams')
+  })
+
+  test('has no ring when no team has used any tokens', async () => {
+    mockApi(fetchMock, {
+      [`GET ${USAGE()}`]: usage({ teams: usage().teams.slice(1) })
+    })
+
+    expect(
+      load((await get()).result)('[data-testid="usage-team-ring"]')
+    ).toHaveLength(0)
+  })
+
   test('shows Usage as the current Admin tab and always calls the cost an estimate', async () => {
     mockApi(fetchMock, { [`GET ${USAGE()}`]: usage() })
 
@@ -214,6 +297,33 @@ describe('#admin usage', () => {
     expect(
       text(load(response.result), '[data-testid="usage-not-available"]')
     ).toContain('We cannot show usage for Infradev yet')
+  })
+
+  test('says the environment is not found when the backend does not offer it, not that a team is missing', async () => {
+    mockApi(fetchMock, {
+      [`GET ${USAGE()}`]: reply(404, { code: 'environment-not-available' })
+    })
+
+    const response = await get()
+    const $ = load(response.result)
+
+    expect(response.statusCode).toBe(statusCodes.notFound)
+    expect($('h1').text()).toBe('Environment not found')
+  })
+
+  test('keeps every table in a labelled, focusable region that scrolls on its own', async () => {
+    mockApi(fetchMock, { [`GET ${USAGE()}`]: usage() })
+
+    const $ = load((await get()).result)
+
+    for (const testId of ['usage-by-team', 'usage-other-apis']) {
+      const region = $(`[data-testid="${testId}"]`).closest('.app-table-scroll')
+
+      expect(region).toHaveLength(1)
+      expect(region.attr('role')).toBe('region')
+      expect(region.attr('tabindex')).toBe('0')
+      expect(region.attr('aria-label')).toBeTruthy()
+    }
   })
 
   test('is not found for an environment this instance does not know, and asks nothing', async () => {

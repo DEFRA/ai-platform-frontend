@@ -346,7 +346,8 @@ describe('#manageController', () => {
         expect(result).not.toContain('http-equiv="refresh"')
         expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
           expect.stringContaining('/v1/credentials'),
-          expect.stringContaining('/v1/models')
+          expect.stringContaining('/v1/models'),
+          expect.stringContaining('/v1/credentials/cred-1/usage?days=7')
         ])
       }
     )
@@ -789,6 +790,125 @@ describe('#manageController', () => {
     expect(getManage.result).toEqual(
       expect.stringContaining('This credential has been revoked.')
     )
+  })
+
+  describe('Your allowance and usage', () => {
+    const soon = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+    const model = { ...sampleModel, limitsDefault: { tokensPerDay: 100000 } }
+    const key = {
+      ...sampleCredential,
+      tier: 'research',
+      expiresAt: soon
+    }
+
+    function keyUsage(overrides = {}) {
+      return {
+        credentialId: 'cred-1',
+        source: 'log-analytics',
+        totals: { requests: 42, totalTokens: 250000 },
+        byDay: [
+          { day: '2026-10-20', totalTokens: 50000 },
+          { day: '2026-10-21', totalTokens: 80000 }
+        ],
+        ...overrides
+      }
+    }
+
+    async function getManage(routes) {
+      const cookies = await signIn(server)
+
+      mockApi(fetchMock, {
+        'GET /v1/credentials': { items: [key] },
+        'GET /v1/models': { items: [model] },
+        ...routes
+      })
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/manage',
+        headers: { cookie: cookieHeader(cookies) }
+      })
+
+      return load(response.result)
+    }
+
+    function cells($) {
+      return $(
+        '[data-testid="key-usage-row"] th, [data-testid="key-usage-row"] td'
+      )
+        .map((_, cell) => $(cell).text().replace(/\s+/g, ' ').trim())
+        .get()
+    }
+
+    test('shows the last week of use against the model’s default daily allowance', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
+      })
+
+      expect($('[data-testid="key-usage-heading"]').text()).toBe(
+        'Your allowance and usage'
+      )
+      expect(cells($)).toEqual([
+        'GPT-4o',
+        '250k',
+        '42',
+        '100,000',
+        '80,000 tokens'
+      ])
+      expect($('[data-testid="key-usage-row"] meter').attr('value')).toBe('0.8')
+      expect($('[data-testid="key-usage-row"] a').attr('href')).toBe(
+        '/manage/credentials/cred-1'
+      )
+      expect($('[data-testid="key-usage-example"]')).toHaveLength(0)
+    })
+
+    test('says when the figures are examples', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage({ source: 'mock' })
+      })
+
+      expect($('[data-testid="key-usage-example"]').text()).toBe(
+        'These figures are examples, not real use.'
+      )
+    })
+
+    test('shows no bar, and says so, when the model has no default allowance', async () => {
+      const $ = await getManage({
+        'GET /v1/models': { items: [sampleModel] },
+        'GET /v1/credentials/cred-1/usage?days=7': keyUsage()
+      })
+
+      expect(cells($)[3]).toBe('Not set')
+      expect($('[data-testid="key-usage-row"] meter')).toHaveLength(0)
+    })
+
+    test('says usage could not be checked for a key, and still shows the page', async () => {
+      const $ = await getManage({})
+
+      expect($('h1').text().trim()).toBe('Personal access')
+      expect($('[data-testid="keys-table-row"]')).toHaveLength(1)
+      expect($('[data-testid="key-usage-unavailable"]').text()).toBe(
+        'We could not check usage for this key just now.'
+      )
+    })
+
+    test('leaves the section out when the person has no working key', async () => {
+      const $ = await getManage({ 'GET /v1/credentials': { items: [] } })
+
+      expect($('[data-testid="key-usage-heading"]')).toHaveLength(0)
+    })
+
+    test('leaves an expired key out of the section', async () => {
+      const $ = await getManage({
+        'GET /v1/credentials': {
+          items: [
+            { ...key, status: 'expired', expiresAt: '2026-01-01T00:00:00.000Z' }
+          ]
+        }
+      })
+
+      expect($('[data-testid="key-usage-heading"]')).toHaveLength(0)
+    })
   })
 
   describe('a team client secret is managed on the team’s page, not here', () => {
